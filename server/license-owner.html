@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tyter — лицензии владельца</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Лицензии Tyter Pro</h1>
+      <p>
+        Локальный генератор владельца. Ключи подписываются на этом компьютере и
+        привязываются к email.
+      </p>
+      <form id="license-form">
+        <label
+          >Email покупателя<input
+            name="email"
+            type="email"
+            required
+            autocomplete="off" /></label
+        ><label>Имя<input name="name" maxlength="100" /></label
+        ><label
+          >Срок, дней<input
+            name="days"
+            type="number"
+            value="365"
+            min="1"
+            max="365"
+            required /></label
+        ><label class="check"
+          ><input name="send" type="checkbox" /> Отправить ключ и ссылку на
+          установщик по email</label
+        ><button>Создать ключ</button>
+      </form>
+      <p id="message" role="status"></p>
+      <textarea
+        id="key"
+        readonly
+        rows="7"
+        aria-label="Ключ лицензии"
+        hidden
+      ></textarea
+      ><button id="copy" hidden>Скопировать ключ</button>
+    </main>
+    <script src="owner.js"></script>
+  </body>
+</html>

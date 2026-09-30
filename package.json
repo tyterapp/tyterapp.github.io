@@ -1,0 +1,50 @@
+{
+  "name": "tyter-screenplay",
+  "version": "1.0.0",
+  "description": "Локальный редактор киносценариев",
+  "author": "Tyter",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main-pro.cjs",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "site:build": "node scripts/build-site.mjs",
+    "site:github": "node scripts/build-github-site.mjs",
+    "site:github:preview": "node scripts/serve-github-preview.mjs",
+    "site:github:source": "node scripts/package-github-source.mjs",
+    "site:serve": "node --env-file-if-exists=.env server/site-server.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "playwright test",
+    "test:pages": "playwright test -c playwright.pages.config.js",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:pro": "node scripts/build-desktop.mjs win",
+    "desktop:mac": "node scripts/build-desktop.mjs mac",
+    "desktop:icons": "node scripts/make-icons.mjs",
+    "desktop:smoke": "node scripts/desktop-smoke.mjs",
+    "license:init": "node scripts/license.mjs init",
+    "license:owner": "node --env-file-if-exists=.env scripts/license-owner.mjs",
+    "license:issue": "node scripts/license.mjs issue"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.0.0",
+    "@tiptap/react": "^3.0.0",
+    "@tiptap/starter-kit": "^3.0.0",
+    "docx": "^9.7.1",
+    "fflate": "^0.8.3",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.468.0",
+    "nodemailer": "^10.0.10",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "prettier": "^3.9.8",
+    "vite": "^7.1.0"
+  }
+}

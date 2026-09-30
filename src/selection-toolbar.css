@@ -1,0 +1,122 @@
+.selection-toolbar {
+  position: fixed;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  box-sizing: border-box;
+  padding: 4px;
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: 8px;
+  background: #303036;
+  color: #f8f8fa;
+  box-shadow:
+    0 3px 8px rgb(20 20 26 / 12%),
+    0 8px 24px rgb(20 20 26 / 10%);
+  user-select: none;
+  animation: selection-toolbar-enter 100ms ease-out;
+}
+
+.selection-toolbar button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 40px;
+  width: 40px;
+  height: 40px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.selection-toolbar button svg {
+  flex-shrink: 0;
+}
+
+.selection-toolbar button:hover,
+.selection-toolbar button[aria-pressed="true"] {
+  background: #4a4a52;
+}
+
+.selection-toolbar button:focus-visible {
+  outline: none;
+}
+
+:root[data-keyboard-focus] .selection-toolbar button:focus {
+  outline: 2px solid #cab5ed;
+  outline-offset: -2px;
+  background: #4a4a52;
+}
+
+.selection-shortcut {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  transform: translateX(-50%);
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: #222226;
+  color: #fff;
+  box-shadow: 0 3px 10px #00000015;
+  font:
+    400 11px/16px Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.selection-shortcut::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 5px);
+  border: 5px solid transparent;
+  border-top-color: #222226;
+}
+.selection-toolbar button:hover .selection-shortcut,
+:root[data-keyboard-focus] .selection-toolbar button:focus .selection-shortcut {
+  opacity: 1;
+  transition-delay: 220ms;
+}
+
+.selection-toolbar-divider {
+  width: 1px;
+  height: 23px;
+  flex: 0 0 1px;
+  margin: 0 6px;
+  background: rgb(255 255 255 / 20%);
+}
+
+@keyframes selection-toolbar-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-toolbar {
+    animation: none;
+  }
+  .selection-toolbar button {
+    transition: none;
+  }
+}
+
+@media print {
+  .selection-toolbar {
+    display: none;
+  }
+}

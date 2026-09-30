@@ -1,0 +1,1157 @@
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import EditorContextMenu from "./EditorContextMenu.jsx";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import SelectionToolbar from "./SelectionToolbar.jsx";
+import Suggestions from "./Suggestions.jsx";
+import { quoteDiff } from "./comment-review.js";
+import { useScreenplayPagination } from "./pagination.js";
+import { propRanges } from "./prop-matches.js";
+import "./screenplay-editor.css";
+
+const FORMATS = [
+  "scene",
+  "action",
+  "character",
+  "speech",
+  "parenthetical",
+  "transition",
+  "plain",
+];
+const NEXT_FORMAT = {
+  scene: "action",
+  action: "action",
+  character: "speech",
+  speech: "character",
+  parenthetical: "speech",
+  transition: "scene",
+  plain: "plain",
+};
+const makeId = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  `block-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+function paragraphAt(selection) {
+  const resolved = selection.$head || selection.$from;
+  for (let depth = resolved.depth; depth > 0; depth -= 1) {
+    if (resolved.node(depth).type.name === "paragraph") {
+      return { node: resolved.node(depth), pos: resolved.before(depth) };
+    }
+  }
+  return null;
+}
+
+function selectionInfo(editor, wholeParagraph = false) {
+  if (!editor) return null;
+  const { selection, doc } = editor.state;
+  const block = paragraphAt(selection);
+  let { from, to } = selection;
+  if (wholeParagraph && selection.empty && block) {
+    from = block.pos + 1;
+    to = from + block.node.content.size;
+  }
+  return {
+    format: block?.node.attrs.format || "action",
+    blockId: block?.node.attrs.blockId || null,
+    text:
+      from === to
+        ? block?.node.textContent || ""
+        : doc.textBetween(from, to, "\n"),
+    from,
+    to,
+  };
+}
+
+function annotationTarget(editor, source) {
+  if (!source) return selectionInfo(editor, true);
+  const { doc } = editor.state;
+  const quote = typeof source.text === "string" ? source.text : source.quote;
+  if (typeof quote !== "string" || !quote.length) return null;
+
+  let block = null;
+  if (source.blockId) {
+    doc.descendants((node, pos) => {
+      if (
+        node.type.name === "paragraph" &&
+        node.attrs.blockId === source.blockId
+      )
+        block = { node, pos };
+    });
+    // An annotation belongs to its original paragraph, even if another paragraph
+    // happens to contain the same words after the source has been removed.
+    if (!block) return null;
+  }
+
+  const { from, to } = source;
+  const validRange =
+    Number.isInteger(from) &&
+    Number.isInteger(to) &&
+    from >= 1 &&
+    to > from &&
+    to <= doc.content.size;
+  const touchesOriginalBlock =
+    !block ||
+    (from < block.pos + block.node.nodeSize - 1 && to > block.pos + 1);
+  if (
+    validRange &&
+    touchesOriginalBlock &&
+    doc.textBetween(from, to, "\n") === quote
+  ) {
+    return {
+      format: block?.node.attrs.format || source.format || "action",
+      blockId: block?.node.attrs.blockId || null,
+      text: quote,
+      from,
+      to,
+    };
+  }
+  if (!block) return null;
+
+  // Map the original quote back through rich-text marks and explicit line breaks.
+  // Numeric positions may be stale when text was inserted while a panel was open.
+  let text = "";
+  const positions = [];
+  block.node.descendants((node, offset) => {
+    if (!node.isText && node.type.name !== "hardBreak") return;
+    const value = node.isText ? node.text : "\n";
+    for (let index = 0; index < value.length; index += 1) {
+      text += value[index];
+      positions.push(block.pos + 1 + offset + index);
+    }
+  });
+  const start = text.indexOf(quote);
+  if (start < 0 || text.indexOf(quote, start + 1) !== -1) return null;
+  return {
+    format: block.node.attrs.format || "action",
+    blockId: block.node.attrs.blockId,
+    text: quote,
+    from: positions[start],
+    to: positions[start + quote.length - 1] + 1,
+  };
+}
+
+function removeAnnotation(editor, type, id, preserveHistory = false) {
+  if (!editor) return false;
+  const transaction = editor.state.tr;
+  editor.state.doc.descendants((node, pos) => {
+    if (!node.isText) return;
+    node.marks
+      .filter((mark) => mark.type.name === type && mark.attrs.id === id)
+      .forEach((mark) => {
+        transaction.removeMark(pos, pos + node.nodeSize, mark);
+      });
+  });
+  transaction.removeStoredMark(editor.schema.marks[type]);
+  if (preserveHistory) transaction.setMeta("addToHistory", false);
+  if (transaction.docChanged || transaction.storedMarksSet)
+    editor.view.dispatch(transaction);
+  return transaction.docChanged;
+}
+
+function normalizeContent(content) {
+  const source = Array.isArray(content) ? { type: "doc", content } : content;
+  if (!source || typeof source !== "object") {
+    return {
+      type: "doc",
+      content: [
+        { type: "paragraph", attrs: { format: "scene", blockId: makeId() } },
+      ],
+    };
+  }
+  const used = new Set();
+  const paragraphs = (source.content || []).map((block) => {
+    let blockId = block.attrs?.blockId;
+    if (!blockId || used.has(blockId)) blockId = makeId();
+    used.add(blockId);
+    return {
+      ...block,
+      type: "paragraph",
+      attrs: {
+        ...block.attrs,
+        format: FORMATS.includes(block.attrs?.format)
+          ? block.attrs.format
+          : "action",
+        blockId,
+      },
+    };
+  });
+  return {
+    type: "doc",
+    content: paragraphs.length
+      ? paragraphs
+      : [{ type: "paragraph", attrs: { format: "scene", blockId: makeId() } }],
+  };
+}
+
+const ScreenplayParagraph = Node.create({
+  name: "paragraph",
+  group: "block",
+  content: "inline*",
+  addAttributes() {
+    return {
+      format: {
+        default: "action",
+        parseHTML: (element) =>
+          FORMATS.includes(element.getAttribute("data-format"))
+            ? element.getAttribute("data-format")
+            : "action",
+        renderHTML: (attributes) => ({ "data-format": attributes.format }),
+      },
+      blockId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-block-id"),
+        renderHTML: (attributes) => ({ "data-block-id": attributes.blockId }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "p" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "p",
+      mergeAttributes(HTMLAttributes, { class: "screenplay-block" }),
+      0,
+    ];
+  },
+});
+
+const CommentMark = Mark.create({
+  name: "comment",
+  inclusive: false,
+  excludes: "",
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-comment-id"),
+        renderHTML: (attributes) => ({ "data-comment-id": attributes.id }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-comment-id]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, { class: "script-comment" }),
+      0,
+    ];
+  },
+});
+
+const EntityMark = Mark.create({
+  name: "entity",
+  inclusive: false,
+  excludes: "",
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-entity-id"),
+        renderHTML: (attributes) => ({ "data-entity-id": attributes.id }),
+      },
+      color: {
+        default: "#9b6ee7",
+        parseHTML: (element) =>
+          element.getAttribute("data-entity-color") || "#9b6ee7",
+        renderHTML: (attributes) => {
+          const color = /^#[0-9a-f]{3,8}$/i.test(attributes.color || "")
+            ? attributes.color
+            : "#9b6ee7";
+          return {
+            "data-entity-color": color,
+            style: `--entity-color: ${color}`,
+          };
+        },
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-entity-id]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, { class: "script-entity" }),
+      0,
+    ];
+  },
+});
+
+const ScreenplayBehavior = Extension.create({
+  name: "screenplayBehavior",
+  priority: 1000,
+  addOptions() {
+    return { onComments: () => {}, minimal: false };
+  },
+  addCommands() {
+    return {
+      setScreenplayFormat:
+        (format) =>
+        ({ tr, dispatch }) => {
+          if (!FORMATS.includes(format)) return false;
+          const block = paragraphAt(tr.selection);
+          if (!block) return false;
+          if (dispatch)
+            tr.setNodeMarkup(block.pos, undefined, {
+              ...block.node.attrs,
+              format,
+            });
+          return true;
+        },
+    };
+  },
+  addKeyboardShortcuts() {
+    const shortcuts = {};
+    FORMATS.forEach((format, index) => {
+      shortcuts[`Mod-${index + 1}`] = () =>
+        this.editor.commands.setScreenplayFormat(format);
+    });
+    shortcuts["Mod-8"] = () => {
+      this.options.onComments(selectionInfo(this.editor));
+      return true;
+    };
+    shortcuts.Enter = () => {
+      const format =
+        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
+      return this.editor
+        .chain()
+        .splitBlock({ keepMarks: false })
+        .setScreenplayFormat(NEXT_FORMAT[format] || "action")
+        .command(({ tr }) => {
+          tr.setStoredMarks([]);
+          return true;
+        })
+        .run();
+    };
+    shortcuts.Tab = () => {
+      if (this.options.minimal) return false;
+      const format =
+        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
+      return this.editor.commands.setScreenplayFormat(
+        FORMATS[(FORMATS.indexOf(format) + 1) % FORMATS.length],
+      );
+    };
+    shortcuts["Shift-Tab"] = () => {
+      if (this.options.minimal) return false;
+      const format =
+        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
+      return this.editor.commands.setScreenplayFormat(
+        FORMATS[
+          (FORMATS.indexOf(format) + FORMATS.length - 1) % FORMATS.length
+        ],
+      );
+    };
+    return shortcuts;
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("screenplayBlockIds"),
+        appendTransaction(transactions, oldState, newState) {
+          if (!transactions.some((transaction) => transaction.docChanged))
+            return null;
+          const seen = new Set();
+          const transaction = newState.tr;
+          newState.doc.descendants((node, pos) => {
+            if (node.type.name !== "paragraph") return;
+            const { blockId } = node.attrs;
+            if (!blockId || seen.has(blockId)) {
+              const id = makeId();
+              transaction.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                blockId: id,
+              });
+              seen.add(id);
+            } else seen.add(blockId);
+          });
+          return transaction.docChanged ? transaction : null;
+        },
+      }),
+    ];
+  },
+});
+
+const ScreenplayEditor = forwardRef(function ScreenplayEditor(
+  {
+    content,
+    onChange,
+    onSelection,
+    onComments,
+    onCommentFromSelection,
+    onCreateComponent,
+    onEditComponent,
+    onCreateProp,
+    onEditProp,
+    onEditAnnotations,
+    outlineCards = [],
+    onEditOutlineCard,
+    props = [],
+    activeProp = null,
+    selectionToolbarDisabled = false,
+    onReady,
+    showLineHighlight = true,
+    showComponents = false,
+    activeEntity = null,
+    searchQuery = "",
+    searchIndex = 0,
+    searchCardIndex = null,
+    minimal = false,
+    components = [],
+    comments = [],
+    activeComment = null,
+    onPageCount,
+    fontSize = 12,
+    fontFamily = "courier",
+  },
+  ref,
+) {
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const propsRef = useRef({
+    onChange,
+    onSelection,
+    onComments,
+    onReady,
+    onEditComponent,
+    showLineHighlight,
+    showComponents,
+    activeEntity,
+    searchQuery,
+    searchIndex,
+    searchCardIndex,
+  });
+  propsRef.current = {
+    outlineCards,
+    onEditOutlineCard,
+    props,
+    activeProp,
+    onEditProp,
+    onEditAnnotations,
+    onChange,
+    onSelection,
+    onComments,
+    onReady,
+    onEditComponent,
+    showLineHighlight,
+    showComponents,
+    activeEntity,
+    searchQuery,
+    searchIndex,
+    searchCardIndex,
+    comments,
+    activeComment,
+  };
+  const lastEmitted = useRef(null);
+  const lastReceived = useRef(JSON.stringify(content));
+  const searchScrollFrame = useRef(null);
+  const initialContent = useRef(null);
+  if (!initialContent.current)
+    initialContent.current = normalizeContent(content);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        paragraph: false,
+        heading: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        listKeymap: false,
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+        code: false,
+        link: false,
+        trailingNode: false,
+      }),
+      ScreenplayParagraph,
+      CommentMark,
+      EntityMark,
+      ScreenplayBehavior.configure({
+        onComments: (selection) => propsRef.current.onComments?.(selection),
+        minimal,
+      }),
+    ],
+    content: initialContent.current,
+    editorProps: {
+      attributes: {
+        class: "screenplay-editor",
+        role: "textbox",
+        "aria-label": "Screenplay editor",
+        "aria-multiline": "true",
+        spellcheck: "true",
+        lang: "ru",
+      },
+      handleClick(view, pos, event) {
+        if ((event.ctrlKey || event.metaKey) && event.button === 0) {
+          const prop = event.target.closest?.("[data-prop-id]");
+          const component =
+            event.target.closest?.("[data-entity-id]") ||
+            prop?.querySelector("[data-entity-id]");
+          if (prop && component) {
+            event.preventDefault();
+            propsRef.current.onEditAnnotations?.({
+              componentId: component.getAttribute("data-entity-id"),
+              propId: prop.getAttribute("data-prop-id"),
+            });
+            return true;
+          }
+          if (prop && view.dom.contains(prop)) {
+            event.preventDefault();
+            propsRef.current.onEditProp?.(prop.getAttribute("data-prop-id"));
+            return true;
+          }
+          const entity = event.target.closest?.("[data-entity-id]");
+          if (entity && view.dom.contains(entity)) {
+            event.preventDefault();
+            propsRef.current.onEditComponent?.(
+              entity.getAttribute("data-entity-id"),
+            );
+            return true;
+          }
+        }
+        let comment = event.target.closest?.("[data-comment-id]");
+        while (comment && view.dom.contains(comment)) {
+          const commentId = comment.getAttribute("data-comment-id");
+          const record = propsRef.current.comments?.find(
+            (item) => item.id === commentId,
+          );
+          if (record && !record.resolved) {
+            const block = paragraphAt(view.state.selection);
+            propsRef.current.onComments?.({
+              commentId,
+              blockId: block?.node.attrs.blockId || null,
+              text: comment.textContent || "",
+              from: view.state.selection.from,
+              to: view.state.selection.to,
+              format: block?.node.attrs.format || "action",
+            });
+            break;
+          }
+          comment = comment.parentElement?.closest("[data-comment-id]");
+        }
+        return false;
+      },
+      decorations(state) {
+        const decorations = [];
+        if (minimal)
+          for (const range of propRanges(
+            state.doc,
+            propsRef.current.props || [],
+          ))
+            decorations.push(
+              Decoration.inline(range.from, range.to, {
+                class: `script-prop${range.prop.id === propsRef.current.activeProp ? " script-prop-active" : ""}`,
+                "data-prop-id": range.prop.id,
+              }),
+            );
+        const current = paragraphAt(state.selection);
+        const query = propsRef.current.searchQuery.trim().toLocaleLowerCase();
+        const entityId =
+          typeof propsRef.current.activeEntity === "object"
+            ? propsRef.current.activeEntity?.id
+            : propsRef.current.activeEntity;
+        let sceneNumber = 0;
+        let matchIndex = 0;
+        const documentEmpty = !state.doc.textContent.trim();
+        const commentById = new Map(
+          (propsRef.current.comments || []).map((c) => [c.id, c]),
+        );
+        const review = commentById.get(propsRef.current.activeComment);
+        const reviewRanges = [];
+        state.doc.descendants((node, pos) => {
+          if (minimal && node.isText) {
+            const marks = node.marks.filter(
+              (mark) => mark.type.name === "comment",
+            );
+            const selected =
+              review && marks.some((mark) => mark.attrs.id === review.id);
+            if (
+              marks.some((mark) => {
+                const comment = commentById.get(mark.attrs.id);
+                return comment && !comment.resolved;
+              })
+            )
+              decorations.push(
+                Decoration.inline(pos, pos + node.nodeSize, {
+                  class: `comment-open${selected && !review.resolved ? " comment-open-selected" : ""}`,
+                }),
+              );
+            if (review?.resolved && selected) {
+              decorations.push(
+                Decoration.inline(pos, pos + node.nodeSize, {
+                  class: "comment-resolved-selected",
+                }),
+              );
+              reviewRanges.push({
+                from: pos,
+                to: pos + node.nodeSize,
+                text: node.text,
+              });
+            }
+          }
+          if (node.type.name === "paragraph") {
+            const attrs = {};
+            if (node.attrs.format === "scene") {
+              attrs["data-scene-number"] = String(++sceneNumber);
+              const card = propsRef.current.outlineCards.find(
+                (item) => item.blockId === node.attrs.blockId,
+              );
+              if (card)
+                decorations.push(
+                  Decoration.widget(
+                    pos + 1,
+                    () => {
+                      const button = document.createElement("button");
+                      button.type = "button";
+                      button.className = "outline-scene-link";
+                      button.setAttribute(
+                        "aria-label",
+                        "Открыть карточку " + card.title,
+                      );
+                      button.setAttribute(
+                        "data-tooltip",
+                        "Открыть карточку аутлайна",
+                      );
+                      button.contentEditable = "false";
+                      button.innerHTML =
+                        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h12v12M4 8h12v12H4z"/></svg>';
+                      button.addEventListener("mousedown", (event) =>
+                        event.preventDefault(),
+                      );
+                      button.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        propsRef.current.onEditOutlineCard?.(card.id);
+                      });
+                      return button;
+                    },
+                    {
+                      key: "outline-" + card.id,
+                      side: -1,
+                      stopEvent: () => true,
+                    },
+                  ),
+                );
+            }
+            if (propsRef.current.showLineHighlight && current?.pos === pos)
+              attrs.class = "is-current-block";
+            if (minimal && documentEmpty && pos === 0)
+              attrs["data-placeholder"] = "Начните историю…";
+            else if (!minimal && !node.textContent)
+              attrs["data-placeholder"] =
+                node.attrs.format === "scene"
+                  ? minimal
+                    ? "ИНТ. МЕСТО — ДЕНЬ"
+                    : "INT. LOCATION — DAY"
+                  : node.attrs.format === "character"
+                    ? minimal
+                      ? "ПЕРСОНАЖ"
+                      : "CHARACTER"
+                    : node.attrs.format === "parenthetical"
+                      ? minimal
+                        ? "(тихо)"
+                        : "(quietly)"
+                      : minimal
+                        ? "Начните историю…"
+                        : "Write your story…";
+            if (Object.keys(attrs).length)
+              decorations.push(
+                Decoration.node(pos, pos + node.nodeSize, attrs),
+              );
+          }
+          if (node.type.name === "paragraph" && query) {
+            const text = node
+              .textBetween(0, node.content.size, "", "\n")
+              .toLocaleLowerCase();
+            let start = text.indexOf(query);
+            while (start !== -1) {
+              decorations.push(
+                Decoration.inline(
+                  pos + 1 + start,
+                  pos + 1 + start + query.length,
+                  {
+                    class: `script-search-result${matchIndex === propsRef.current.searchIndex ? " search-is-current" : ""}${matchIndex === propsRef.current.searchCardIndex ? " search-from-card" : ""}`,
+                    "data-search-index": String(matchIndex),
+                  },
+                ),
+              );
+              matchIndex++;
+              start = text.indexOf(query, start + query.length);
+            }
+          }
+          if (
+            node.isText &&
+            entityId &&
+            node.marks.some(
+              (mark) =>
+                mark.type.name === "entity" && mark.attrs.id === entityId,
+            )
+          ) {
+            decorations.push(
+              Decoration.inline(pos, pos + node.nodeSize, {
+                class: "entity-is-active",
+              }),
+            );
+          }
+        });
+        if (minimal && review?.resolved && review.quote) {
+          const currentText = reviewRanges.map((range) => range.text).join("");
+          let fallback = Number.isInteger(review.anchor)
+            ? Math.max(1, Math.min(review.anchor, state.doc.content.size - 1))
+            : 1;
+          if (!Number.isInteger(review.anchor))
+            state.doc.descendants((node, pos) => {
+              if (node.attrs.blockId === review.blockId) fallback = pos + 1;
+            });
+          for (const [index, part] of quoteDiff(
+            review.quote,
+            currentText,
+          ).entries()) {
+            if (!part.deleted) continue;
+            let offset = part.offset,
+              position = reviewRanges.at(-1)?.to ?? fallback;
+            for (const range of reviewRanges) {
+              if (offset <= range.text.length) {
+                position = range.from + offset;
+                break;
+              }
+              offset -= range.text.length;
+            }
+            decorations.push(
+              Decoration.widget(
+                position,
+                () => {
+                  const deleted = document.createElement("span");
+                  deleted.className = "comment-deleted-text";
+                  deleted.textContent = part.text;
+                  deleted.contentEditable = "false";
+                  deleted.dataset.tooltip = "Удалённый текст цитаты";
+                  return deleted;
+                },
+                { key: `deleted-${review.id}-${index}-${part.text}`, side: -1 },
+              ),
+            );
+          }
+        }
+        return DecorationSet.create(state.doc, decorations);
+      },
+    },
+    onCreate({ editor: createdEditor }) {
+      propsRef.current.onReady?.(createdEditor);
+      propsRef.current.onSelection?.(selectionInfo(createdEditor));
+    },
+    onUpdate({ editor: updatedEditor, transaction }) {
+      const json = updatedEditor.getJSON();
+      lastEmitted.current = JSON.stringify(json);
+      const anchors = {};
+      for (const comment of propsRef.current.comments || []) {
+        let anchor = comment.anchor;
+        if (!Number.isInteger(anchor))
+          transaction.before.descendants((node, pos) => {
+            if (
+              anchor == null &&
+              node.marks.some(
+                (mark) =>
+                  mark.type.name === "comment" && mark.attrs.id === comment.id,
+              )
+            )
+              anchor = pos;
+          });
+        if (Number.isInteger(anchor))
+          anchors[comment.id] = transaction.mapping.map(
+            Math.min(anchor, transaction.before.content.size),
+            -1,
+          );
+      }
+      propsRef.current.onChange?.(json, anchors);
+      propsRef.current.onSelection?.(selectionInfo(updatedEditor));
+    },
+    onSelectionUpdate({ editor: updatedEditor }) {
+      propsRef.current.onSelection?.(selectionInfo(updatedEditor));
+    },
+    onFocus({ editor: focusedEditor }) {
+      propsRef.current.onSelection?.(selectionInfo(focusedEditor));
+    },
+  });
+
+  useScreenplayPagination(editor, minimal, onPageCount, fontSize, fontFamily);
+
+  useEffect(() => {
+    if (!editor || !content) return;
+    const serialized = JSON.stringify(content);
+    if (serialized === lastReceived.current) return;
+    lastReceived.current = serialized;
+    if (
+      serialized === lastEmitted.current ||
+      serialized === JSON.stringify(editor.getJSON())
+    )
+      return;
+    editor.commands.setContent(normalizeContent(content), {
+      emitUpdate: false,
+    });
+    propsRef.current.onSelection?.(selectionInfo(editor));
+  }, [content, editor]);
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed)
+      editor.view.dispatch(editor.state.tr.setMeta("screenplay-display", true));
+  }, [
+    editor,
+    showLineHighlight,
+    showComponents,
+    activeEntity,
+    searchQuery,
+    searchIndex,
+    searchCardIndex,
+    comments,
+    activeComment,
+    props,
+    activeProp,
+    outlineCards,
+  ]);
+
+  useEffect(() => {
+    if (!searchQuery && searchScrollFrame.current !== null) {
+      cancelAnimationFrame(searchScrollFrame.current);
+      searchScrollFrame.current = null;
+    }
+  }, [searchQuery]);
+  useEffect(
+    () => () => {
+      if (searchScrollFrame.current !== null)
+        cancelAnimationFrame(searchScrollFrame.current);
+    },
+    [],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus() {
+        editor?.commands.focus();
+      },
+      findText(query, index = 0, { fromCard = false, scroll = true } = {}) {
+        if (!editor || !query.trim()) return 0;
+        const matches = [],
+          needle = query.trim().toLocaleLowerCase();
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name !== "paragraph") return;
+          const text = node
+            .textBetween(0, node.content.size, "", "\n")
+            .toLocaleLowerCase();
+          let offset = text.indexOf(needle);
+          while (offset !== -1) {
+            matches.push({
+              from: pos + 1 + offset,
+              to: pos + 1 + offset + needle.length,
+            });
+            offset = text.indexOf(needle, offset + needle.length);
+          }
+        });
+        if (!matches.length) return 0;
+        const currentIndex =
+          ((index % matches.length) + matches.length) % matches.length;
+        const match = matches[currentIndex];
+        if (!fromCard) editor.commands.setTextSelection(match);
+        if (scroll) {
+          if (searchScrollFrame.current !== null)
+            cancelAnimationFrame(searchScrollFrame.current);
+          searchScrollFrame.current = null;
+          const scroller = editor.view.dom.closest(".minimal-scroll");
+          if (scroller) {
+            const matchRect = editor.view.coordsAtPos(match.from);
+            const scrollerRect = scroller.getBoundingClientRect();
+            const target = Math.max(
+              0,
+              Math.min(
+                scroller.scrollHeight - scroller.clientHeight,
+                scroller.scrollTop +
+                  matchRect.top -
+                  scrollerRect.top -
+                  (scroller.clientHeight - (matchRect.bottom - matchRect.top)) /
+                    2,
+              ),
+            );
+            if (
+              fromCard &&
+              !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ) {
+              const start = scroller.scrollTop;
+              const distance = target - start;
+              const began = performance.now();
+              const animate = (now) => {
+                const progress = Math.min(1, (now - began) / 260);
+                scroller.scrollTop =
+                  start + distance * (1 - Math.pow(1 - progress, 3));
+                searchScrollFrame.current =
+                  progress < 1 ? requestAnimationFrame(animate) : null;
+              };
+              searchScrollFrame.current = requestAnimationFrame(animate);
+            } else scroller.scrollTop = target;
+          } else if (!fromCard)
+            editor.view.dispatch(editor.state.tr.scrollIntoView());
+        }
+        return matches.length;
+      },
+      focusComment(id, blockId) {
+        if (!editor) return false;
+        let range = null;
+        editor.state.doc.descendants((node, pos) => {
+          if (
+            node.isText &&
+            node.marks.some(
+              (mark) => mark.type.name === "comment" && mark.attrs.id === id,
+            )
+          )
+            range = range
+              ? { from: range.from, to: pos + node.nodeSize }
+              : { from: pos, to: pos + node.nodeSize };
+        });
+        if (range) {
+          editor.chain().setTextSelection(range.from).scrollIntoView().run();
+          return true;
+        }
+        const comment = propsRef.current.comments?.find((c) => c.id === id);
+        if (Number.isInteger(comment?.anchor)) {
+          editor
+            .chain()
+            .setTextSelection(
+              Math.max(
+                1,
+                Math.min(comment.anchor, editor.state.doc.content.size - 1),
+              ),
+            )
+            .scrollIntoView()
+            .run();
+        } else if (blockId) {
+          let pos = null;
+          editor.state.doc.descendants((node, at) => {
+            if (node.attrs.blockId === blockId) pos = at + 1;
+          });
+          if (pos !== null)
+            editor.chain().setTextSelection(pos).scrollIntoView().run();
+        }
+        return false;
+      },
+      setFormat(format) {
+        if (!editor) return false;
+        const result = editor.chain().focus().setScreenplayFormat(format).run();
+        propsRef.current.onSelection?.(selectionInfo(editor));
+        return result;
+      },
+      addScene() {
+        if (!editor) return null;
+        const blockId = makeId();
+        const end = editor.state.doc.content.size;
+        const title = "INT. NEW LOCATION — DAY";
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(end, [
+            {
+              type: "paragraph",
+              attrs: { format: "scene", blockId },
+              content: [{ type: "text", text: title }],
+            },
+            {
+              type: "paragraph",
+              attrs: { format: "action", blockId: makeId() },
+            },
+          ])
+          .setTextSelection({ from: end + 1, to: end + 1 + title.length })
+          .run();
+        return blockId;
+      },
+      focusBlock(blockId) {
+        if (!editor) return false;
+        let found = null;
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === "paragraph" && node.attrs.blockId === blockId)
+            found = pos;
+        });
+        if (found === null) return false;
+        editor
+          .chain()
+          .focus()
+          .setTextSelection(found + 1)
+          .run();
+        const block = editor.view.nodeDOM(found);
+        block?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        return true;
+      },
+      addComment(id, source) {
+        if (!editor) return null;
+        const info = annotationTarget(editor, source);
+        if (!info || info.from === info.to) return info;
+        const transaction = editor.state.tr.addMark(
+          info.from,
+          info.to,
+          editor.schema.marks.comment.create({ id }),
+        );
+        transaction.removeStoredMark(editor.schema.marks.comment);
+        editor.view.dispatch(transaction);
+        return info;
+      },
+      removeComment(id) {
+        return removeAnnotation(editor, "comment", id);
+      },
+      addEntity({ id, color }, source) {
+        if (!editor) return null;
+        const info = annotationTarget(editor, source);
+        if (!info || info.from === info.to) return info;
+        const transaction = editor.state.tr.addMark(
+          info.from,
+          info.to,
+          editor.schema.marks.entity.create({ id, color }),
+        );
+        transaction.removeStoredMark(editor.schema.marks.entity);
+        editor.view.dispatch(transaction);
+        return info;
+      },
+      removeEntity(id) {
+        return removeAnnotation(editor, "entity", id, true);
+      },
+      removeEntities(ids) {
+        if (!editor || !ids.length) return false;
+        const selected = new Set(ids);
+        const transaction = editor.state.tr;
+        editor.state.doc.descendants((node, pos) => {
+          if (!node.isText) return;
+          node.marks
+            .filter(
+              (mark) =>
+                mark.type.name === "entity" && selected.has(mark.attrs.id),
+            )
+            .forEach((mark) =>
+              transaction.removeMark(pos, pos + node.nodeSize, mark),
+            );
+        });
+        transaction.removeStoredMark(editor.schema.marks.entity);
+        transaction.setMeta("addToHistory", false);
+        if (transaction.docChanged || transaction.storedMarksSet)
+          editor.view.dispatch(transaction);
+        return transaction.docChanged;
+      },
+      getJSON() {
+        return editor?.getJSON();
+      },
+      restoreContent(content) {
+        if (!editor) return;
+        editor
+          .chain()
+          .command(({ tr }) => {
+            tr.setMeta("addToHistory", false);
+            return true;
+          })
+          .setContent(normalizeContent(content), { emitUpdate: false })
+          .run();
+        lastReceived.current = JSON.stringify(editor.getJSON());
+        lastEmitted.current = lastReceived.current;
+        propsRef.current.onSelection?.(selectionInfo(editor));
+      },
+      renameEntity(id, name) {
+        if (!editor || !name) return 0;
+        const ranges = [];
+        editor.state.doc.descendants((node, pos) => {
+          if (
+            !node.isText ||
+            !node.marks.some(
+              (mark) => mark.type.name === "entity" && mark.attrs.id === id,
+            )
+          )
+            return;
+          const previous = ranges.at(-1);
+          if (previous && previous.to === pos)
+            previous.to = pos + node.nodeSize;
+          else
+            ranges.push({
+              from: pos,
+              to: pos + node.nodeSize,
+              marks: node.marks,
+            });
+        });
+        if (!ranges.length) return 0;
+        const transaction = editor.state.tr;
+        for (const range of ranges.reverse())
+          transaction.replaceWith(
+            range.from,
+            range.to,
+            editor.schema.text(name, range.marks),
+          );
+        editor.view.dispatch(transaction);
+        return ranges.length;
+      },
+      renameProp(prop, name) {
+        if (!editor || !name) return 0;
+        const ranges = propRanges(editor.state.doc, [prop]);
+        const tr = editor.state.tr;
+        for (const range of ranges.reverse()) {
+          const marks =
+            editor.state.doc.resolve(range.from).nodeAfter?.marks || [];
+          tr.replaceWith(range.from, range.to, editor.schema.text(name, marks));
+        }
+        if (tr.docChanged) editor.view.dispatch(tr);
+        return ranges.length;
+      },
+      getSelection() {
+        return selectionInfo(editor);
+      },
+      getHTML() {
+        return editor?.getHTML() || "";
+      },
+      getText() {
+        return editor?.getText({ blockSeparator: "\n\n" }) || "";
+      },
+      undo() {
+        return editor?.chain().focus().undo().run();
+      },
+      redo() {
+        return editor?.chain().focus().redo().run();
+      },
+    }),
+    [editor],
+  );
+
+  return (
+    <>
+      <EditorContent
+        editor={editor}
+        className={`screenplay-editor-shell${showComponents ? " show-components" : ""}`}
+      />
+      <SelectionToolbar
+        editor={editor}
+        minimal={minimal}
+        disabled={selectionToolbarDisabled || contextMenuOpen}
+        onCreateComponent={onCreateComponent}
+        onCreateProp={onCreateProp}
+        onComment={onCommentFromSelection || onComments}
+      />
+      <EditorContextMenu
+        editor={editor}
+        onCreateComponent={onCreateComponent}
+        onCreateProp={onCreateProp}
+        onOpenChange={setContextMenuOpen}
+      />
+      {minimal && (
+        <Suggestions
+          editor={editor}
+          components={components}
+          disabled={selectionToolbarDisabled || contextMenuOpen}
+        />
+      )}
+    </>
+  );
+});
+
+export default ScreenplayEditor;

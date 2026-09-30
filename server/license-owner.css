@@ -1,0 +1,70 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f7f7fa;
+  font:
+    15px/1.55 Arial,
+    sans-serif;
+  color: #35303d;
+}
+main {
+  width: min(540px, calc(100% - 40px));
+  margin: 60px auto;
+  padding: 30px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px #30223810;
+}
+h1 {
+  font-size: 23px;
+  font-weight: 600;
+}
+p {
+  color: #777080;
+}
+form {
+  display: grid;
+  gap: 18px;
+}
+label {
+  display: grid;
+  gap: 5px;
+}
+input,
+textarea {
+  width: 100%;
+  padding: 12px;
+  font: inherit;
+  border: 1px solid #ded9e4;
+  border-radius: 7px;
+}
+textarea {
+  resize: vertical;
+  word-break: break-all;
+  font-size: 12px;
+}
+button {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 7px;
+  background: #4b4454;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+.check {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+.check input {
+  width: auto;
+}
+#copy {
+  margin-top: 12px;
+}

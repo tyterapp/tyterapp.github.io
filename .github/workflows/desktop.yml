@@ -1,0 +1,39 @@
+name: Build Tyter Pro installers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            arch: x64
+          - os: macos-latest
+            target: mac
+            arch: arm64
+          - os: macos-latest
+            target: mac
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-desktop.mjs ${{ matrix.target }} ${{ matrix.arch }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tyter-Pro-${{ matrix.target }}-${{ matrix.arch }}
+          path: |
+            release/pro/*.exe
+            release/mac/*.dmg
+            release/mac/*.zip
+          if-no-files-found: error
