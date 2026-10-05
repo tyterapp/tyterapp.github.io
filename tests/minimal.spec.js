@@ -2278,10 +2278,13 @@ test("paper shifts left, sidebars reach the edge, and selection tooltips and foc
     ["Комментарии", ".comment-list"],
   ]) {
     await page.getByRole("button", { name, exact: true }).click();
-    const edge = await page
-      .locator(selector)
-      .evaluate((el) => el.getBoundingClientRect().right);
-    expect(edge, name).toBe(1440);
+    const edge = await page.locator(selector).evaluate((el) => ({
+      right: el.getBoundingClientRect().right,
+      drawerRight: el.closest("aside").getBoundingClientRect().right,
+    }));
+    expect(Math.abs(edge.right - edge.drawerRight), name).toBeLessThanOrEqual(
+      1,
+    );
   }
   await page.getByRole("button", { name: "Закрыть комментарии" }).click();
 

@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
 import { History, RotateCcw, X } from "lucide-react";
-import { listRevisions } from "./history.js";
+import { listRevisions, revisionArea } from "./history.js";
 import { useEdition } from "./edition.js";
 
 const preview = (revision) =>
-  (revision.snapshot.content?.content || [])
-    .flatMap((block) => (block.content || []).map((part) => part.text || ""))
-    .join(" ")
-    .trim()
-    .slice(0, 180) || "Пустой сценарий";
+  revisionArea(revision) === "outline"
+    ? (revision.snapshot.outline?.cards || [])
+        .map((card) => `${card.title || "Без названия"}: ${card.text || ""}`)
+        .join(" · ")
+        .slice(0, 180) || "Пустой аутлайн"
+    : (revision.snapshot.content?.content || [])
+        .flatMap((block) =>
+          (block.content || []).map((part) => part.text || ""),
+        )
+        .join(" ")
+        .trim()
+        .slice(0, 180) || "Пустой сценарий";
 
 export default function HistoryPanel({
   documentId,
   version,
+  area = "screenplay",
+  onArea,
   selectedId,
   onSelect,
   onRestore,
@@ -21,6 +30,9 @@ export default function HistoryPanel({
   const { isPro: IS_PRO, historyDays: HISTORY_DAYS } = useEdition();
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
+  const visibleEntries = entries.filter(
+    (entry) => revisionArea(entry) === area,
+  );
   useEffect(() => {
     let cancelled = false;
     listRevisions(documentId, HISTORY_DAYS)
@@ -50,10 +62,38 @@ export default function HistoryPanel({
           <X size={18} />
         </button>
       </div>
+      <div className="history-tabs" role="tablist" aria-label="Раздел истории">
+        <button
+          role="tab"
+          aria-selected={area === "screenplay"}
+          aria-controls="history-revisions"
+          onClick={() => onArea("screenplay")}
+        >
+          Сценарий
+        </button>
+        <button
+          role="tab"
+          aria-selected={area === "outline"}
+          aria-controls="history-revisions"
+          disabled={!IS_PRO}
+          onClick={() => onArea("outline")}
+        >
+          Аутлайн
+        </button>
+      </div>
       <p className="history-intro">
-        {IS_PRO ? "Все версии сохраняются на этом устройстве без ограничения срока." : `Версии за последние ${HISTORY_DAYS} дней сохраняются на этом устройстве.`}
+        {IS_PRO
+          ? "Все версии сохраняются на этом устройстве без ограничения срока."
+          : `Версии за последние ${HISTORY_DAYS} дней сохраняются на этом устройстве.`}
       </p>
-      <div className="history-scroll">
+      <div
+        className="history-scroll"
+        id="history-revisions"
+        role="tabpanel"
+        aria-label={
+          area === "outline" ? "История аутлайна" : "История сценария"
+        }
+      >
         <div className="history-current">
           <History size={16} /> Текущая версия
         </div>
@@ -62,12 +102,13 @@ export default function HistoryPanel({
             {error}
           </p>
         )}
-        {!error && !entries.length && (
+        {!error && !visibleEntries.length && (
           <p className="sidebar-empty">
-            После первого изменения здесь появится предыдущая версия сценария.
+            После первого изменения здесь появится предыдущая версия{" "}
+            {area === "outline" ? "аутлайна" : "сценария"}.
           </p>
         )}
-        {entries.map((entry) => (
+        {visibleEntries.map((entry) => (
           <div className="history-entry" key={entry.id}>
             <button
               className={`history-card${selectedId === entry.id ? " selected" : ""}`}

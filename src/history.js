@@ -3,6 +3,17 @@ import { HISTORY_DAYS } from "./edition.js";
 const DATABASE = "tyter.history.v1";
 const STORE = "revisions";
 export const FREE_HISTORY_DAYS = 14;
+export const revisionArea = (revision) =>
+  revision.area === "outline" ||
+  (!revision.area && revision.label?.includes("аутлайна"))
+    ? "outline"
+    : "screenplay";
+export const snapshotForArea = (snapshot, area) => {
+  if (area === "outline")
+    return { outline: snapshot.outline || { columns: [], cards: [] } };
+  const { outline, ...screenplay } = snapshot;
+  return screenplay;
+};
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -93,6 +104,7 @@ export async function recordRevision(
   snapshot,
   label,
   historyDays = HISTORY_DAYS,
+  area = "screenplay",
 ) {
   const database = await openDatabase();
   try {
@@ -102,6 +114,7 @@ export async function recordRevision(
         documentId,
         createdAt: Date.now(),
         label,
+        area,
         snapshot: structuredClone(snapshot),
       });
       transaction.oncomplete = resolve;
@@ -142,7 +155,14 @@ export async function importRevisions(
   if (!rows.length) return;
   const existing = await listRevisions(documentId, historyDays);
   const signatures = new Set(
-    existing.map((row) => row.createdAt + ":" + JSON.stringify(row.snapshot)),
+    existing.map(
+      (row) =>
+        row.createdAt +
+        ":" +
+        revisionArea(row) +
+        ":" +
+        JSON.stringify(row.snapshot),
+    ),
   );
   const database = await openDatabase();
   try {
@@ -150,13 +170,18 @@ export async function importRevisions(
       const transaction = database.transaction(STORE, "readwrite");
       for (const row of rows) {
         const signature =
-          row.createdAt + ":" + JSON.stringify(snapshotOf(row.snapshot));
+          row.createdAt +
+          ":" +
+          revisionArea(row) +
+          ":" +
+          JSON.stringify(snapshotOf(row.snapshot));
         if (signatures.has(signature)) continue;
         signatures.add(signature);
         transaction.objectStore(STORE).add({
           documentId,
           createdAt: row.createdAt,
           label: row.label,
+          area: revisionArea(row),
           snapshot: structuredClone(snapshotOf(row.snapshot)),
         });
       }

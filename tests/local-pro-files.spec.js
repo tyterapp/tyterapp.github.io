@@ -58,22 +58,33 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
   const selected = await page.evaluate(() =>
     localStorage.getItem("tyter.active"),
   );
+  const selectedName = await page.evaluate(async (id) => {
+    const directory = await (
+      await navigator.storage.getDirectory()
+    ).getDirectoryHandle("tyter-test");
+    for await (const entry of directory.values()) {
+      if (entry.kind !== "file") continue;
+      const payload = JSON.parse(await (await entry.getFile()).text());
+      if (payload.document.id === id) return entry.name;
+    }
+  }, selected);
+  expect(selectedName).toBe("Без названия (2).tyt");
   await page.evaluate(async (id) => {
     const { deleteLocalFile } = await import("/src/local-files.js");
     await deleteLocalFile(id);
   }, selected);
   expect(
-    await page.evaluate(async (id) => {
+    await page.evaluate(async (name) => {
       const directory = await (
         await navigator.storage.getDirectory()
       ).getDirectoryHandle("tyter-test");
       try {
-        await directory.getFileHandle(id + ".tyt");
+        await directory.getFileHandle(name);
         return true;
       } catch (error) {
         if (error.name !== "NotFoundError") throw error;
         return false;
       }
-    }, selected),
+    }, selectedName),
   ).toBe(false);
 });

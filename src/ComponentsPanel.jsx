@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { useEdition } from "./edition.js";
+import { ThumbnailImage } from "./ThumbnailField.jsx";
 
 export default function ComponentsPanel({
   document,
@@ -181,6 +182,7 @@ export default function ComponentsPanel({
                       >
                         <button
                           className="component-item"
+                          data-component-preview={component.id}
                           aria-expanded={activeId === component.id}
                           onClick={() =>
                             activeId === component.id
@@ -188,10 +190,17 @@ export default function ComponentsPanel({
                               : onEdit(component)
                           }
                         >
-                          <Shapes
-                            size={16}
-                            style={{ color: component.color }}
-                          />
+                          {component.thumbnail ? (
+                            <ThumbnailImage
+                              src={component.thumbnail}
+                              name={component.name}
+                            />
+                          ) : (
+                            <Shapes
+                              size={16}
+                              style={{ color: component.color }}
+                            />
+                          )}
                           <span>
                             <strong>{component.name}</strong>
                             {component.description && (

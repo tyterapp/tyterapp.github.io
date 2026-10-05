@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, ChevronDown, Plus, Search, X, Download } from "lucide-react";
 import { propOccurrences } from "./prop-matches.js";
+import { ThumbnailImage } from "./ThumbnailField.jsx";
 
 export default function PropsPanel({
   document,
@@ -33,7 +34,14 @@ export default function PropsPanel({
       <div className="drawer-heading">
         <h2>Реквизит</h2>
         <div className="drawer-tools">
-          <button className="icon-button" aria-label="Скачать отчёт реквизита" data-tooltip="Отчёт реквизита · PDF" onClick={onExport}><Download size={17}/></button>
+          <button
+            className="icon-button"
+            aria-label="Скачать отчёт реквизита"
+            data-tooltip="Отчёт реквизита · PDF"
+            onClick={onExport}
+          >
+            <Download size={17} />
+          </button>
           <button
             className="icon-button"
             aria-label="Добавить реквизит"
@@ -72,12 +80,17 @@ export default function PropsPanel({
             >
               <button
                 className="component-item"
+                data-prop-preview={item.id}
                 aria-expanded={item.id === activeId}
                 onClick={() =>
                   item.id === activeId ? onCloseEdit() : onEdit(item)
                 }
               >
-                <Box size={16} />
+                {item.thumbnail ? (
+                  <ThumbnailImage src={item.thumbnail} name={item.name} />
+                ) : (
+                  <Box size={16} />
+                )}
                 <span>
                   <strong>{item.name}</strong>
                   <small>

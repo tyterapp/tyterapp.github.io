@@ -86,6 +86,10 @@ test("drama graph stays above editable cards, updates live and closes back to it
     .poll(async () => (await stored(page))?.outline?.cards?.[0]?.drama)
     .toBe(7);
   await page.getByLabel("Поиск карточек", { exact: true }).fill("Знакомство");
+  const cardSidebar = page.getByRole("complementary", {
+    name: "Редактирование карточки",
+  });
+  const originalSidebar = await cardSidebar.boundingBox();
   await page
     .getByRole("button", { name: "График драматичности", exact: true })
     .click();
@@ -106,8 +110,43 @@ test("drama graph stays above editable cards, updates live and closes back to it
     .getByRole("complementary", { name: "Редактирование карточки" })
     .boundingBox();
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(boardBounds.y + 1);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(cardBounds.y + 1);
+  expect(cardBounds.y).toBeCloseTo(originalSidebar.y, 0);
+  expect(cardBounds.height).toBeCloseTo(originalSidebar.height, 0);
+  expect(bounds.x + bounds.width).toBeCloseTo(cardBounds.x, 0);
+  expect(bounds.y).toBeCloseTo(cardBounds.y, 0);
+  const addAct = await page
+    .getByRole("button", { name: "Добавить акт", exact: true })
+    .boundingBox();
+  const searchBox = await page.locator(".outline-search").boundingBox();
+  expect(searchBox.y + searchBox.height / 2).toBeCloseTo(
+    addAct.y + addAct.height / 2,
+    0,
+  );
   expect(boardBounds.height).toBeGreaterThan(300);
+  // The chart expands and contracts with the main area, while the sidebar stays full height.
+  const svgWidth = () =>
+    graph
+      .getByRole("group", { name: "Драматичность по актам" })
+      .evaluate((node) => node.viewBox.baseVal.width);
+  const originalPlotWidth = await svgWidth();
+  await page
+    .getByRole("button", { name: "Закрыть карточку", exact: true })
+    .click();
+  await expect(cardSidebar).toHaveCount(0);
+  await expect
+    .poll(svgWidth)
+    .toBeCloseTo(originalPlotWidth + originalSidebar.width, 0);
+  await graph
+    .getByRole("button", {
+      name: "Знакомство: драматичность 7 из 10",
+      exact: true,
+    })
+    .click();
+  await expect(cardSidebar).toBeVisible();
+  await expect.poll(svgWidth).toBeCloseTo(originalPlotWidth, 0);
+  await expect
+    .poll(async () => (await cardSidebar.boundingBox()).y)
+    .toBeCloseTo(originalSidebar.y, 0);
   await expect(graph.locator('[aria-pressed="true"]')).toHaveAttribute(
     "aria-label",
     "Знакомство: драматичность 7 из 10",
@@ -167,13 +206,25 @@ test("drama graph stays above editable cards, updates live and closes back to it
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBe(390);
+  const mobileGraph = await graph.boundingBox();
+  const mobileSidebar = await cardSidebar.boundingBox();
+  expect(mobileGraph.x + mobileGraph.width).toBeCloseTo(mobileSidebar.x, 0);
+  expect(mobileGraph.y).toBeCloseTo(mobileSidebar.y, 0);
   await expect
     .poll(() =>
       graph
         .locator(".outline-drama-scroll")
-        .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+        .evaluate((node) => node.scrollWidth - node.clientWidth),
     )
-    .toBe(true);
+    .toBeLessThanOrEqual(1);
+  const mobileAdd = await page
+    .getByRole("button", { name: "Добавить акт", exact: true })
+    .boundingBox();
+  const mobileSearch = await page.locator(".outline-search").boundingBox();
+  expect(mobileSearch.y + mobileSearch.height / 2).toBeCloseTo(
+    mobileAdd.y + mobileAdd.height / 2,
+    0,
+  );
   await page.screenshot({ path: info.outputPath("drama-chart-mobile.png") });
   await page.keyboard.press("Enter");
   await expect(graph).toBeVisible();

@@ -1,5 +1,5 @@
 import { validateImport } from "./data.js";
-import { listRevisions } from "./history.js";
+import { listRevisions, revisionArea } from "./history.js";
 
 export const tytPayload = (document, history = []) => ({
   format: "tyter",
@@ -29,6 +29,7 @@ export function readTYT(text) {
     .filter((item) => item?.snapshot && Number.isFinite(item.createdAt))
     .map((item) => ({
       createdAt: item.createdAt,
+      area: revisionArea(item),
       label:
         typeof item.label === "string" ? item.label.slice(0, 300) : "Импорт",
       snapshot: validateImport({ ...document, ...item.snapshot }),

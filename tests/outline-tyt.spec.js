@@ -93,13 +93,13 @@ test("outline cards create independent scenes and navigate in both directions", 
   await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Компоненты", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Реквизит", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Статистика документа" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Три акта" }).click();
   await page
     .getByRole("button", { name: "Добавить карточку в Акт 1", exact: true })

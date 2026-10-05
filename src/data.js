@@ -326,6 +326,12 @@ const cleanDate = (value) =>
   typeof value === "string" && Number.isFinite(Date.parse(value))
     ? new Date(value).toISOString()
     : new Date().toISOString();
+const cleanThumbnail = (value) =>
+  typeof value === "string" &&
+  value.length < 1024 * 1024 &&
+  /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    ? value
+    : null;
 
 export function validateImport(input) {
   let source = input;
@@ -507,6 +513,7 @@ export function validateImport(input) {
           type: item.type === "place" ? "place" : "character",
           description: cleanText(item.description, 5000),
           color: cleanColor(item.color),
+          thumbnail: cleanThumbnail(item.thumbnail),
           folderId:
             typeof item.folderId === "string" &&
             list(source.componentFolders).some(
@@ -531,6 +538,7 @@ export function validateImport(input) {
           description: cleanText(item.description, 5000),
           blockId: usedIds.has(item.blockId) ? item.blockId : null,
           color: cleanColor(item.color, "#f16d55"),
+          thumbnail: cleanThumbnail(item.thumbnail),
         })),
     ),
     comments: uniqueItems(

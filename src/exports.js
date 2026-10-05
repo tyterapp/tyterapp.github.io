@@ -1,6 +1,7 @@
 import { createProject, uid } from "./data.js";
 import { textMatches, propOccurrences } from "./prop-matches.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
+import { documentFileStem } from "./local-file-names.js";
 
 export const hasTitlePage = (document) =>
   ["author", "email", "year", "poster"].some((key) =>
@@ -637,9 +638,7 @@ export async function exportPropsPDF(document) {
   return pdf.output("blob");
 }
 export function saveBlob(blob, title, extension) {
-  const name = (title || "Сценарий")
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
-    .slice(0, 120);
+  const name = documentFileStem(title || "Сценарий");
   const url = URL.createObjectURL(blob),
     link = window.document.createElement("a");
   link.href = url;

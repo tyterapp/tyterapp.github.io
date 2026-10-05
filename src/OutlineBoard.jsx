@@ -273,56 +273,65 @@ export default function OutlineBoard({
   );
   return (
     <div className="outline-layout" ref={root}>
-      {showDrama && (
-        <OutlineDramaChart
-          columns={columns}
-          cards={cards}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onClose={closeDrama}
-        />
-      )}
-      <div className="outline-tools">
-        {!showDrama && (
-          <button
-            ref={dramaButton}
-            className="quiet-button"
-            onClick={() => setShowDrama(true)}
-          >
-            <ChartLine size={17} />
-            График драматичности
-          </button>
-        )}
-        <button className="quiet-button" onClick={addColumn}>
-          <Plus size={17} />
-          Добавить акт
-        </button>
-        {!columns.length && (
-          <button className="quiet-button" onClick={addTemplate}>
-            <Columns3 size={17} />
-            Три акта
-          </button>
-        )}
-        <label className="outline-search">
-          <Search size={16} />
-          <input
-            aria-label="Поиск карточек"
-            placeholder="Найти карточку…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+      <div className="outline-main">
+        {showDrama && (
+          <OutlineDramaChart
+            columns={columns}
+            cards={cards}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onClose={closeDrama}
           />
-          {query && (
+        )}
+        <div className="outline-tools">
+          {!showDrama && (
             <button
-              className="icon-button"
-              aria-label="Очистить поиск карточек"
-              onClick={() => setQuery("")}
+              ref={dramaButton}
+              className="quiet-button"
+              aria-label="График драматичности"
+              onClick={() => setShowDrama(true)}
             >
-              <X size={15} />
+              <ChartLine size={17} />
+              <span className="outline-tool-label">График драматичности</span>
             </button>
           )}
-        </label>
-      </div>
-      <div className="outline-content">
+          <button
+            className="quiet-button"
+            aria-label="Добавить акт"
+            onClick={addColumn}
+          >
+            <Plus size={17} />
+            <span className="outline-tool-label">Добавить акт</span>
+          </button>
+          {!columns.length && (
+            <button
+              className="quiet-button"
+              aria-label="Три акта"
+              onClick={addTemplate}
+            >
+              <Columns3 size={17} />
+              <span className="outline-tool-label">Три акта</span>
+            </button>
+          )}
+          <label className="outline-search">
+            <Search size={16} />
+            <input
+              aria-label="Поиск карточек"
+              placeholder="Найти карточку…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query && (
+              <button
+                className="icon-button"
+                aria-label="Очистить поиск карточек"
+                onClick={() => setQuery("")}
+              >
+                <X size={15} />
+              </button>
+            )}
+          </label>
+        </div>
         <section
           className="outline-workspace"
           aria-label="Аутлайн"
@@ -527,186 +536,186 @@ export default function OutlineBoard({
                 .includes(query.toLocaleLowerCase()),
             ) && <p className="outline-no-results">Карточки не найдены</p>}
         </section>
-        {selected && (
-          <aside
-            className="component-drawer outline-card-drawer"
-            aria-label="Редактирование карточки"
-          >
-            <div className="drawer-header">
-              <h2>
-                <Copy size={17} />
-                Карточка истории
-              </h2>
-              <button
-                className="icon-button"
-                aria-label="Перейти к сцене карточки"
-                data-tooltip="Перейти к сцене"
-                onClick={() =>
-                  selected.blockId ? onLocate(selected) : onRelink(selected)
+      </div>
+      {selected && (
+        <aside
+          className="component-drawer outline-card-drawer"
+          aria-label="Редактирование карточки"
+        >
+          <div className="drawer-header">
+            <h2>
+              <Copy size={17} />
+              Карточка истории
+            </h2>
+            <button
+              className="icon-button"
+              aria-label="Перейти к сцене карточки"
+              data-tooltip="Перейти к сцене"
+              onClick={() =>
+                selected.blockId ? onLocate(selected) : onRelink(selected)
+              }
+            >
+              <Crosshair size={18} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Закрыть карточку"
+              data-tooltip="Закрыть"
+              onClick={() => onSelect(null)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="outline-detail-body" ref={detailBody}>
+            <label>
+              Название
+              <input
+                aria-label="Название карточки"
+                value={selected.title}
+                maxLength={200}
+                onChange={(event) =>
+                  changeCard(selected.id, { title: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Текст карточки
+              <textarea
+                aria-label="Текст карточки"
+                value={selected.text}
+                maxLength={20000}
+                placeholder="Что происходит в истории?"
+                onChange={(event) =>
+                  changeCard(selected.id, { text: event.target.value })
+                }
+              />
+            </label>
+            <p className="outline-detail-note">
+              Изменения здесь не заменяют текст сцены в сценарии.
+            </p>
+            <label>
+              Акт
+              <select
+                aria-label="Акт карточки"
+                value={selected.columnId}
+                onChange={(event) =>
+                  changeCard(selected.id, { columnId: event.target.value })
                 }
               >
-                <Crosshair size={18} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Закрыть карточку"
-                data-tooltip="Закрыть"
-                onClick={() => onSelect(null)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="outline-detail-body" ref={detailBody}>
-              <label>
-                Название
-                <input
-                  aria-label="Название карточки"
-                  value={selected.title}
-                  maxLength={200}
-                  onChange={(event) =>
-                    changeCard(selected.id, { title: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Текст карточки
-                <textarea
-                  aria-label="Текст карточки"
-                  value={selected.text}
-                  maxLength={20000}
-                  placeholder="Что происходит в истории?"
-                  onChange={(event) =>
-                    changeCard(selected.id, { text: event.target.value })
-                  }
-                />
-              </label>
-              <p className="outline-detail-note">
-                Изменения здесь не заменяют текст сцены в сценарии.
-              </p>
-              <label>
-                Акт
-                <select
-                  aria-label="Акт карточки"
-                  value={selected.columnId}
-                  onChange={(event) =>
-                    changeCard(selected.id, { columnId: event.target.value })
-                  }
-                >
-                  {columns.map((column) => (
-                    <option key={column.id} value={column.id}>
-                      {column.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="outline-drama-control">
-                <span>
-                  Драматичность <output>{dramaValue(selected.drama)}/10</output>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  aria-label="Драматичность карточки"
-                  value={dramaValue(selected.drama)}
-                  onChange={(event) =>
-                    changeCard(selected.id, {
-                      drama: dramaValue(event.target.value),
-                    })
-                  }
-                />
-                <span className="outline-drama-scale">
-                  <span>0</span>
-                  <span>10</span>
-                </span>
-              </label>
-              <fieldset className="outline-colors">
-                <legend>Цвет карточки</legend>
-                <div>
-                  {COLORS.map((color, index) => (
-                    <button
-                      key={color}
-                      aria-label={
-                        [
-                          "Графитовый",
-                          "Жёлтый",
-                          "Фиолетовый",
-                          "Оранжевый",
-                          "Зелёный",
-                          "Синий",
-                        ][index]
-                      }
-                      aria-pressed={selected.color === color}
-                      style={{ "--card-color": color }}
-                      onClick={() => changeCard(selected.id, { color })}
-                    >
-                      <span />
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-              <section className="outline-comments">
-                <h3>
-                  <MessageSquare size={17} />
-                  Комментарии
-                </h3>
-                {(selected.comments || []).map((item) => (
-                  <div className="outline-comment" key={item.id}>
-                    <p>{item.text}</p>
-                    <button
-                      className="icon-button"
-                      aria-label="Удалить комментарий карточки"
-                      data-tooltip="Удалить комментарий"
-                      onClick={() =>
-                        changeCard(selected.id, {
-                          comments: selected.comments.filter(
-                            (row) => row.id !== item.id,
-                          ),
-                        })
-                      }
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                {columns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.title}
+                  </option>
                 ))}
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!comment.trim()) return;
-                    changeCard(selected.id, {
-                      comments: [
-                        ...(selected.comments || []),
-                        {
-                          id: uid(),
-                          text: comment.trim(),
-                          createdAt: new Date().toISOString(),
-                        },
-                      ],
-                    });
-                    setComment("");
-                  }}
-                >
-                  <textarea
-                    aria-label="Комментарий карточки"
-                    placeholder="Добавить комментарий…"
-                    value={comment}
-                    maxLength={10000}
-                    onChange={(event) => setComment(event.target.value)}
-                  />
+              </select>
+            </label>
+            <label className="outline-drama-control">
+              <span>
+                Драматичность <output>{dramaValue(selected.drama)}/10</output>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                aria-label="Драматичность карточки"
+                value={dramaValue(selected.drama)}
+                onChange={(event) =>
+                  changeCard(selected.id, {
+                    drama: dramaValue(event.target.value),
+                  })
+                }
+              />
+              <span className="outline-drama-scale">
+                <span>0</span>
+                <span>10</span>
+              </span>
+            </label>
+            <fieldset className="outline-colors">
+              <legend>Цвет карточки</legend>
+              <div>
+                {COLORS.map((color, index) => (
+                  <button
+                    key={color}
+                    aria-label={
+                      [
+                        "Графитовый",
+                        "Жёлтый",
+                        "Фиолетовый",
+                        "Оранжевый",
+                        "Зелёный",
+                        "Синий",
+                      ][index]
+                    }
+                    aria-pressed={selected.color === color}
+                    style={{ "--card-color": color }}
+                    onClick={() => changeCard(selected.id, { color })}
+                  >
+                    <span />
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <section className="outline-comments">
+              <h3>
+                <MessageSquare size={17} />
+                Комментарии
+              </h3>
+              {(selected.comments || []).map((item) => (
+                <div className="outline-comment" key={item.id}>
+                  <p>{item.text}</p>
                   <button
                     className="icon-button"
-                    aria-label="Добавить комментарий карточки"
-                    disabled={!comment.trim()}
+                    aria-label="Удалить комментарий карточки"
+                    data-tooltip="Удалить комментарий"
+                    onClick={() =>
+                      changeCard(selected.id, {
+                        comments: selected.comments.filter(
+                          (row) => row.id !== item.id,
+                        ),
+                      })
+                    }
                   >
-                    <Plus size={20} />
+                    <Trash2 size={15} />
                   </button>
-                </form>
-              </section>
-            </div>
-          </aside>
-        )}
-      </div>
+                </div>
+              ))}
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!comment.trim()) return;
+                  changeCard(selected.id, {
+                    comments: [
+                      ...(selected.comments || []),
+                      {
+                        id: uid(),
+                        text: comment.trim(),
+                        createdAt: new Date().toISOString(),
+                      },
+                    ],
+                  });
+                  setComment("");
+                }}
+              >
+                <textarea
+                  aria-label="Комментарий карточки"
+                  placeholder="Добавить комментарий…"
+                  value={comment}
+                  maxLength={10000}
+                  onChange={(event) => setComment(event.target.value)}
+                />
+                <button
+                  className="icon-button"
+                  aria-label="Добавить комментарий карточки"
+                  disabled={!comment.trim()}
+                >
+                  <Plus size={20} />
+                </button>
+              </form>
+            </section>
+          </div>
+        </aside>
+      )}
       {removing && (
         <RemoveDialog
           removing={removing}

@@ -1,8 +1,21 @@
 import { tytPayload, readTYT } from "./tyt-format.js";
 import { importRevisions, listRevisions } from "./history.js";
+import { friendlyTytName } from "./local-file-names.js";
 
 const DATABASE = "tyter.local-files.v1";
 let directory = null;
+let fileWork = Promise.resolve();
+function withFileWork(work) {
+  const next = fileWork
+    .catch(() => {})
+    .then(() =>
+      navigator.locks
+        ? navigator.locks.request("tyter-local-files", work)
+        : work(),
+    );
+  fileWork = next;
+  return next;
+}
 function database() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1);
@@ -46,6 +59,137 @@ async function connectedDirectory() {
     return null;
   return directory;
 }
+async function fileDocumentId(handle) {
+  let file;
+  try {
+    file = await handle.getFile();
+  } catch (error) {
+    if (error.name === "NotFoundError") return null;
+    throw error;
+  }
+  if (file.size > 50 * 1024 * 1024) return null;
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+  return payload?.format === "tyter" &&
+    payload.version === 1 &&
+    /^[\w-]{1,100}$/.test(payload.document?.id || "") &&
+    payload.document?.content?.type === "doc" &&
+    Array.isArray(payload.document.content.content)
+    ? payload.document.id
+    : null;
+}
+async function inventoryOf(folder) {
+  const entries = [];
+  for await (const handle of folder.values())
+    entries.push({
+      name: handle.name,
+      handle,
+      id:
+        handle.kind === "file" && /\.tyt$/i.test(handle.name)
+          ? await fileDocumentId(handle)
+          : null,
+    });
+  return entries;
+}
+async function mappingOf(folder) {
+  const stored = await read("namedFiles");
+  const same =
+    stored?.directory && (await stored.directory.isSameEntry(folder));
+  return {
+    names: new Map(same ? Object.entries(stored.names || {}) : []),
+    obsolete: same ? stored.obsolete || [] : [],
+  };
+}
+const saveMapping = (folder, mapping) =>
+  write({
+    namedFiles: {
+      directory: folder,
+      names: Object.fromEntries(mapping.names),
+      obsolete: mapping.obsolete,
+    },
+  });
+function primaryFile(document, mapping, entries) {
+  const owned = entries.filter((entry) => entry.id === document.id);
+  return (
+    owned.find((entry) => entry.name === mapping.names.get(document.id)) ||
+    owned.find((entry) => entry.name === document.id + ".tyt") ||
+    (owned.length === 1
+      ? owned[0]
+      : owned.find(
+          (entry) =>
+            entry.name === friendlyTytName(document.title, entry, entries),
+        ))
+  );
+}
+async function cleanObsolete(folder, mapping, entries, id) {
+  for (const old of [...mapping.obsolete].filter((entry) => entry.id === id)) {
+    let handle;
+    try {
+      handle = await folder.getFileHandle(old.name);
+    } catch (error) {
+      if (error.name !== "NotFoundError") throw error;
+    }
+    const owner = handle ? await fileDocumentId(handle) : null;
+    if (owner === id) await folder.removeEntry(old.name);
+    const entry = entries.find((entry) => entry.name === old.name);
+    if (entry && (!handle || owner === id))
+      entries.splice(entries.indexOf(entry), 1);
+    else if (entry) entry.id = owner;
+    mapping.obsolete = mapping.obsolete.filter((entry) => entry !== old);
+  }
+  await saveMapping(folder, mapping);
+}
+async function saveNamedDocument(folder, mapping, entries, document) {
+  // Two passes also handle a case-only rename on Windows: save a temporary
+  // numbered copy before removing the original, then use the requested spelling.
+  for (let pass = 0; pass < 2; pass++) {
+    const primary = primaryFile(document, mapping, entries);
+    const name = friendlyTytName(document.title, primary, entries);
+    const existed = entries.some((entry) => entry.name === name);
+    const handle = await folder.getFileHandle(name, { create: true });
+    const actual = await handle.getFile();
+    if (actual.size && (await fileDocumentId(handle)) !== document.id)
+      throw new Error("Имя файла уже занято другим документом.");
+    let writable;
+    try {
+      writable = await handle.createWritable();
+      await writable.write(
+        JSON.stringify(
+          tytPayload(document, await listRevisions(document.id, Infinity)),
+        ),
+      );
+      await writable.close();
+    } catch (error) {
+      await writable?.abort().catch(() => {});
+      if (!existed && (await handle.getFile()).size === 0)
+        await folder.removeEntry(name);
+      throw error;
+    }
+    const saved = { name: handle.name, handle, id: document.id };
+    const index = entries.findIndex((entry) => entry.name === saved.name);
+    if (index < 0) entries.push(saved);
+    else entries[index] = saved;
+    mapping.names.set(document.id, saved.name);
+    if (
+      primary &&
+      primary.name !== saved.name &&
+      !mapping.obsolete.some(
+        (entry) => entry.id === document.id && entry.name === primary.name,
+      )
+    )
+      mapping.obsolete.push({ id: document.id, name: primary.name });
+    // Record the new file before deleting the old one, so an interrupted rename
+    // can finish on the next save without losing either the data or its identity.
+    await saveMapping(folder, mapping);
+    await cleanObsolete(folder, mapping, entries, document.id);
+    if (friendlyTytName(document.title, saved, entries) === saved.name) return;
+  }
+}
 export async function chooseLocalDirectory() {
   if (!window.showDirectoryPicker)
     throw new Error(
@@ -56,25 +200,33 @@ export async function chooseLocalDirectory() {
     mode: "readwrite",
     id: "tyter-projects",
   });
-  const documents = [];
-  for await (const entry of chosen.values()) {
-    if (entry.kind !== "file" || !entry.name.endsWith(".tyt")) continue;
-    const file = await entry.getFile();
-    if (file.size > 50 * 1024 * 1024) continue;
-    // Never overwrite a damaged or unrelated TYT file silently.
-    const document = readTYT(await file.text());
-    await importRevisions(
-      document.id,
-      document.importedHistory || [],
-      Infinity,
-    );
-    delete document.importedHistory;
-    documents.push(document);
-  }
-  directory = chosen;
-  await write({ directory });
-  await navigator.storage?.persist?.().catch(() => {});
-  return { documents, name: directory.name };
+  return withFileWork(async () => {
+    const documents = new Map();
+    const mapping = await mappingOf(chosen);
+    for await (const entry of chosen.values()) {
+      if (entry.kind !== "file" || !/\.tyt$/i.test(entry.name)) continue;
+      const file = await entry.getFile();
+      if (file.size > 50 * 1024 * 1024) continue;
+      // Never overwrite a damaged or unrelated TYT file silently.
+      const document = readTYT(await file.text());
+      await importRevisions(
+        document.id,
+        document.importedHistory || [],
+        Infinity,
+      );
+      delete document.importedHistory;
+      const previous = documents.get(document.id);
+      if (!previous || document.updatedAt > previous.updatedAt)
+        documents.set(document.id, document);
+      if (!mapping.names.has(document.id))
+        mapping.names.set(document.id, entry.name);
+    }
+    directory = chosen;
+    await write({ directory });
+    await saveMapping(chosen, mapping);
+    await navigator.storage?.persist?.().catch(() => {});
+    return { documents: [...documents.values()], name: directory.name };
+  });
 }
 export async function browserRequest(endpoint, body) {
   if (endpoint === "documents" && body === undefined) {
@@ -84,40 +236,61 @@ export async function browserRequest(endpoint, body) {
     };
   }
   if (endpoint === "documents") {
-    await write({ documents: body.documents });
-    const folder = await connectedDirectory();
-    if (folder) {
-      for (const document of body.documents) {
-        const file = await folder.getFileHandle(document.id + ".tyt", {
-          create: true,
-        });
-        const writable = await file.createWritable();
-        await writable.write(
-          JSON.stringify(
-            tytPayload(document, await listRevisions(document.id, Infinity)),
-          ),
-        );
-        await writable.close();
+    return withFileWork(async () => {
+      await write({ documents: body.documents });
+      const folder = await connectedDirectory();
+      if (folder) {
+        const mapping = await mappingOf(folder);
+        const entries = await inventoryOf(folder);
+        for (const document of body.documents) {
+          await saveNamedDocument(folder, mapping, entries, document);
+        }
+        // An earlier document may now be able to drop its collision suffix after
+        // another document was renamed in the same batch.
+        for (const document of body.documents) {
+          const primary = primaryFile(document, mapping, entries);
+          if (
+            primary &&
+            friendlyTytName(document.title, primary, entries) !== primary.name
+          )
+            await saveNamedDocument(folder, mapping, entries, document);
+        }
       }
-    }
-    return { saved: true, needsPermission: !!directory && !folder };
+      return { saved: true, needsPermission: !!directory && !folder };
+    });
   }
   if (endpoint === "delete-document") {
-    const deletedIds = [
-      ...new Set([...((await read("deletedIds")) || []), body.id]),
-    ];
-    const documents = ((await read("documents")) || []).filter(
-      (item) => item.id !== body.id,
-    );
-    await write({ deletedIds, documents });
-    const folder = await connectedDirectory();
-    if (folder) {
-      // Only delete the exact app-owned file for the confirmed document.
-      await folder.removeEntry(body.id + ".tyt").catch((error) => {
-        if (error.name !== "NotFoundError") throw error;
-      });
-    }
-    return { deleted: true };
+    return withFileWork(async () => {
+      const deletedIds = [
+        ...new Set([...((await read("deletedIds")) || []), body.id]),
+      ];
+      const before = (await read("documents")) || [];
+      const removed = before.find((item) => item.id === body.id);
+      const documents = before.filter((item) => item.id !== body.id);
+      await write({ deletedIds, documents });
+      const folder = await connectedDirectory();
+      if (folder) {
+        const mapping = await mappingOf(folder);
+        const entries = await inventoryOf(folder);
+        const primary =
+          removed || mapping.names.has(body.id)
+            ? primaryFile(
+                removed || { id: body.id, title: "" },
+                mapping,
+                entries,
+              )
+            : entries.find(
+                (entry) =>
+                  entry.id === body.id && entry.name === body.id + ".tyt",
+              );
+        if (primary) mapping.obsolete.push({ id: body.id, name: primary.name });
+        await saveMapping(folder, mapping);
+        await cleanObsolete(folder, mapping, entries, body.id);
+        mapping.names.delete(body.id);
+        await saveMapping(folder, mapping);
+      }
+      return { deleted: true };
+    });
   }
   throw new Error("Неизвестное действие с локальными файлами.");
 }

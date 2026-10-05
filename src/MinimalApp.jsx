@@ -37,13 +37,17 @@ import ComponentsPanel from "./ComponentsPanel.jsx";
 import FormatBar from "./FormatBar.jsx";
 import HistoryPanel from "./HistoryPanel.jsx";
 import HistoryPreview from "./HistoryPreview.jsx";
+import OutlineHistoryPreview from "./OutlineHistoryPreview.jsx";
 import TooltipLayer from "./TooltipLayer.jsx";
+import ThumbnailField from "./ThumbnailField.jsx";
+import ThumbnailPreviewLayer from "./ThumbnailPreviewLayer.jsx";
 import {
   changeLabel,
   deleteRevisions,
   recordRevision,
   importRevisions,
   snapshotOf,
+  snapshotForArea,
 } from "./history.js";
 import { pageHeightFor } from "./pagination.js";
 import {
@@ -222,6 +226,7 @@ function ComponentForm({
   const [name, setName] = useState(value.name || "");
   const [description, setDescription] = useState(value.description || "");
   const [quantity, setQuantity] = useState(value.quantity || 1);
+  const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
   const [folderId, setFolderId] = useState(
     value.folderId || value.type || "character",
   );
@@ -279,6 +284,7 @@ function ComponentForm({
                     ? "character"
                     : value.type || "character",
               description: description.trim(),
+              thumbnail,
               folderId:
                 folderId === "place" || folderId === "character"
                   ? null
@@ -349,6 +355,12 @@ function ComponentForm({
               : "Компонент с таким названием уже есть."}
           </p>
         )}
+        <ThumbnailField
+          value={thumbnail}
+          onChange={setThumbnail}
+          name={name || (prop ? "Реквизит" : "Компонент")}
+          showPreview={inline}
+        />
         <div className="dialog-actions">
           {value.id && (
             <button
@@ -436,9 +448,11 @@ export default function MinimalApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRevision, setHistoryRevision] = useState(null);
+  const [historyArea, setHistoryArea] = useState("screenplay");
   const [historyVersion, setHistoryVersion] = useState(0);
   const historyTracked = useRef(new Map());
   const historyWritten = useRef(new Map());
+  const pendingOutlineHistory = useRef(new Map());
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -542,7 +556,9 @@ export default function MinimalApp() {
             );
             for (const doc of disk) {
               const existing = merged.get(doc.id);
-              if (!existing || doc.updatedAt > existing.updatedAt)
+              // IndexedDB is authoritative in web Pro; editor initialization may
+              // touch stale migration data before the local library finishes loading.
+              if (isWebPro() || !existing || doc.updatedAt > existing.updatedAt)
                 merged.set(doc.id, doc);
             }
             return merged.size
@@ -562,6 +578,40 @@ export default function MinimalApp() {
       cancelled = true;
     };
   }, [initial]);
+  const flushOutlineHistory = useCallback(
+    async (documentId) => {
+      const writes = [];
+      for (const [id, pending] of pendingOutlineHistory.current) {
+        if (documentId && id !== documentId) continue;
+        clearTimeout(pending.timer);
+        pendingOutlineHistory.current.delete(id);
+        writes.push(
+          recordRevision(
+            id,
+            pending.snapshot,
+            pending.label,
+            historyDays,
+            "outline",
+          ),
+        );
+      }
+      if (writes.length) {
+        await Promise.all(writes);
+        setHistoryVersion((version) => version + 1);
+      }
+    },
+    [historyDays],
+  );
+  const historyFlushRef = useRef(flushOutlineHistory);
+  historyFlushRef.current = flushOutlineHistory;
+  useEffect(() => {
+    const flush = () => historyFlushRef.current().catch(() => {});
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
   useEffect(() => {
     if (!filesReady) return;
     setSaveState("saving");
@@ -575,7 +625,7 @@ export default function MinimalApp() {
       window.removeEventListener("beforeunload", writeStorage);
       window.removeEventListener("tyter:save-now", writeStorage);
     };
-  }, [documents, writeStorage, filesReady]);
+  }, [documents, writeStorage, filesReady, historyVersion]);
   useEffect(() => {
     if (!window.tyterDesktop?.onBeforeClose) return;
     return window.tyterDesktop.onBeforeClose(async () => {
@@ -593,37 +643,75 @@ export default function MinimalApp() {
     const previous = historyTracked.current.get(current.id);
     if (previous && previous.signature !== signature) {
       const now = Date.now();
-      if (now - (historyWritten.current.get(current.id) || 0) > 30000) {
-        historyWritten.current.set(current.id, now);
+      const screenplayKey = `${current.id}:screenplay`;
+      if (
+        JSON.stringify(snapshotForArea(previous.snapshot, "screenplay")) !==
+          JSON.stringify(snapshotForArea(snapshot, "screenplay")) &&
+        now - (historyWritten.current.get(screenplayKey) || 0) > 30000
+      ) {
+        historyWritten.current.set(screenplayKey, now);
         recordRevision(
           current.id,
           previous.snapshot,
-          changeLabel(previous.snapshot, snapshot),
+          changeLabel(
+            snapshotForArea(previous.snapshot, "screenplay"),
+            snapshotForArea(snapshot, "screenplay"),
+          ),
           historyDays,
+          "screenplay",
         )
           .then(() => setHistoryVersion((version) => version + 1))
           .catch(() => {});
       }
+      if (
+        JSON.stringify(previous.snapshot.outline) !==
+        JSON.stringify(snapshot.outline)
+      ) {
+        const pending = pendingOutlineHistory.current.get(current.id) || {
+          snapshot: previous.snapshot,
+        };
+        clearTimeout(pending.timer);
+        pending.label =
+          JSON.stringify(pending.snapshot.outline?.columns) !==
+          JSON.stringify(snapshot.outline?.columns)
+            ? "актов аутлайна"
+            : "карточек аутлайна";
+        pending.timer = setTimeout(
+          () => flushOutlineHistory(current.id).catch(() => {}),
+          650,
+        );
+        pendingOutlineHistory.current.set(current.id, pending);
+      }
     }
     historyTracked.current.set(current.id, { snapshot, signature });
-  }, [current, filesReady]);
+  }, [current, filesReady, historyDays, flushOutlineHistory]);
   const restoreHistory = async (entry) => {
     try {
-      historyWritten.current.set(current.id, Date.now());
+      await flushOutlineHistory(current.id);
+      historyWritten.current.set(`${current.id}:${historyArea}`, Date.now());
       await recordRevision(
         current.id,
         snapshotOf(current),
         "восстановления",
         historyDays,
+        historyArea,
       );
-      update((document) => ({
-        ...document,
-        ...structuredClone(entry.snapshot),
-      }));
+      update((document) => {
+        const restored = {
+          ...document,
+          ...structuredClone(snapshotForArea(entry.snapshot, historyArea)),
+        };
+        const snapshot = snapshotOf(restored);
+        historyTracked.current.set(document.id, {
+          snapshot,
+          signature: JSON.stringify(snapshot),
+        });
+        return restored;
+      });
       setHistoryRevision(null);
       setHistoryVersion((version) => version + 1);
     } catch {
-      setMessage("Не удалось восстановить локальную версию сценария.");
+      setMessage("Не удалось восстановить локальную версию.");
     }
   };
   useEffect(() => {
@@ -1312,6 +1400,7 @@ export default function MinimalApp() {
     setMessage("");
     writeStorage();
     try {
+      await flushOutlineHistory(current.id);
       const blob = await {
         pdf: exportPDF,
         docx: exportDOCX,
@@ -1407,6 +1496,10 @@ export default function MinimalApp() {
       className={`minimal-app${propsOpen || annotations ? " show-props" : ""}`}
     >
       <TooltipLayer />
+      <ThumbnailPreviewLayer
+        components={current.components}
+        props={current.props || EMPTY_PROPS}
+      />
       <header className="minimal-header">
         <div className="document-switcher" ref={menuRef}>
           <button
@@ -1643,55 +1736,6 @@ export default function MinimalApp() {
         </div>
         <div className="header-actions">
           <button
-            className="icon-button"
-            aria-label="Поиск по сценарию"
-            data-tooltip="Поиск · Ctrl+F"
-            disabled={view === "outline"}
-            onClick={() => showSidebar(searchOpen ? null : "search")}
-          >
-            <Search size={17} />
-          </button>
-          <button
-            className={`icon-button${statisticsOpen ? " active" : ""}`}
-            aria-label="Статистика документа"
-            disabled={view === "outline"}
-            data-tooltip="Статистика документа"
-            aria-expanded={statisticsOpen}
-            onClick={() => {
-              showSidebar(statisticsOpen ? null : "statistics");
-            }}
-          >
-            <ChartNoAxesColumn size={17} />
-          </button>
-          <button
-            className={`quiet-button components-toggle${componentsOpen ? " active" : ""}`}
-            aria-label="Компоненты"
-            disabled={view === "outline"}
-            aria-expanded={componentsOpen}
-            onClick={() => {
-              showSidebar(componentsOpen ? null : "components");
-            }}
-          >
-            <Shapes size={17} />
-            {current.components.length > 0 && (
-              <small>{current.components.length}</small>
-            )}
-          </button>
-          <button
-            className={`icon-button${propsOpen ? " active" : ""}`}
-            aria-label="Реквизит"
-            disabled={view === "outline"}
-            data-tooltip="Реквизит · Pro · Ctrl+E для выделения"
-            aria-expanded={propsOpen}
-            onClick={() =>
-              IS_PRO
-                ? showSidebar(propsOpen ? null : "props")
-                : setSubscriptionOpen(true)
-            }
-          >
-            <Box size={17} />
-          </button>
-          <button
             className={`icon-button${settingsOpen ? " active" : ""}`}
             aria-label="Настройки документа"
             data-tooltip="Настройки документа"
@@ -1705,7 +1749,11 @@ export default function MinimalApp() {
             aria-label="История изменений"
             data-tooltip="История изменений"
             aria-expanded={historyOpen}
-            onClick={() => showSidebar(historyOpen ? null : "history")}
+            onClick={() => {
+              setHistoryArea(view);
+              showSidebar(historyOpen ? null : "history");
+              flushOutlineHistory(current.id).catch(() => {});
+            }}
           >
             <History size={17} />
           </button>
@@ -1777,19 +1825,79 @@ export default function MinimalApp() {
         </div>
       )}
       <div className="minimal-workspace">
-        {view === "outline" && (
-          <OutlineBoard
-            outline={outlineWithLinks}
-            selectedId={outlineCard}
-            onSelect={setOutlineCard}
-            onChange={(value) =>
-              update((document) => ({ ...document, outline: value }))
-            }
-            onAddCard={addOutlineCard}
-            onLocate={locateOutlineCard}
-            onRelink={relinkOutlineCard}
-          />
+        {view === "screenplay" && (
+          <nav className="workspace-tools" aria-label="Инструменты сценария">
+            <button
+              className={`icon-button${searchOpen ? " active" : ""}`}
+              aria-expanded={searchOpen}
+              aria-label="Поиск по сценарию"
+              data-tooltip="Поиск · Ctrl+F"
+              onClick={() => showSidebar(searchOpen ? null : "search")}
+            >
+              <Search size={17} />
+            </button>
+            <button
+              className={`icon-button${statisticsOpen ? " active" : ""}`}
+              aria-label="Статистика документа"
+              data-tooltip="Статистика документа"
+              aria-expanded={statisticsOpen}
+              onClick={() => {
+                showSidebar(statisticsOpen ? null : "statistics");
+              }}
+            >
+              <ChartNoAxesColumn size={17} />
+            </button>
+            <button
+              className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+              aria-label="Компоненты"
+              data-tooltip="Компоненты"
+              aria-expanded={componentsOpen}
+              onClick={() => {
+                showSidebar(componentsOpen ? null : "components");
+              }}
+            >
+              <Shapes size={17} />
+              {current.components.length > 0 && (
+                <small>{current.components.length}</small>
+              )}
+            </button>
+            <button
+              className={`icon-button${propsOpen ? " active" : ""}`}
+              aria-label="Реквизит"
+              data-tooltip="Реквизит · Pro · Ctrl+E для выделения"
+              aria-expanded={propsOpen}
+              onClick={() =>
+                IS_PRO
+                  ? showSidebar(propsOpen ? null : "props")
+                  : setSubscriptionOpen(true)
+              }
+            >
+              <Box size={17} />
+            </button>
+          </nav>
         )}
+        {view === "outline" &&
+          (historyRevision ? (
+            <OutlineHistoryPreview
+              revision={historyRevision}
+              onExit={() => setHistoryRevision(null)}
+            />
+          ) : (
+            <OutlineBoard
+              outline={outlineWithLinks}
+              selectedId={outlineCard}
+              onSelect={(id) => {
+                if (historyOpen) showSidebar(null);
+                setOutlineCard(id);
+              }}
+              onChange={(value) =>
+                update((document) => ({ ...document, outline: value }))
+              }
+              onAddCard={addOutlineCard}
+              onLocate={locateOutlineCard}
+              onRelink={relinkOutlineCard}
+            />
+          ))}
         <div
           className="editor-column"
           ref={columnRef}
@@ -1833,7 +1941,7 @@ export default function MinimalApp() {
                   revision={historyRevision}
                   onExit={() => setHistoryRevision(null)}
                 />
-              ) : (
+              ) : filesReady ? (
                 <ScreenplayEditor
                   key={current.id}
                   ref={editorRef}
@@ -1920,6 +2028,10 @@ export default function MinimalApp() {
                     if (component) editComponent(component);
                   }}
                 />
+              ) : (
+                <p className="sidebar-empty" role="status">
+                  Открываем локальный документ…
+                </p>
               )}
             </article>
           </main>
@@ -1986,8 +2098,18 @@ export default function MinimalApp() {
             key={current.id}
             documentId={current.id}
             version={historyVersion}
+            area={historyArea}
+            onArea={(area) => {
+              setHistoryArea(area);
+              setHistoryRevision(null);
+              setView(area);
+              setOutlineCard(null);
+            }}
             selectedId={historyRevision?.id}
-            onSelect={setHistoryRevision}
+            onSelect={(revision) => {
+              setHistoryRevision(revision);
+              setView(historyArea);
+            }}
             onRestore={restoreHistory}
             onClose={() => {
               setHistoryOpen(false);

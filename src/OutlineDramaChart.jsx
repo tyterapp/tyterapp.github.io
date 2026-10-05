@@ -24,21 +24,20 @@ export default function OutlineDramaChart({
   const ordered = columns.flatMap((column) =>
     cards.filter((card) => card.columnId === column.id),
   );
-  const width = Math.max(
-    availableWidth,
-    ordered.length * 56 + columns.length * 16 + 64,
-  );
-  const top = 28,
-    bottom = height - 42,
-    left = 48,
-    right = width - 24;
   const units = columns.reduce(
     (count, column) =>
       count +
       Math.max(1, cards.filter((card) => card.columnId === column.id).length),
     0,
   );
+  const compact = availableWidth < 360;
+  const width = Math.max(availableWidth, units * 32 + (compact ? 48 : 72), 1);
+  const top = 28,
+    bottom = height - 42,
+    left = compact ? 32 : 48,
+    right = width - (compact ? 16 : 24);
   const step = (right - left) / Math.max(units, 1);
+  const hitWidth = Math.max(32, Math.min(88, step));
   let offset = 0;
   const acts = columns.map((column) => {
     const actCards = ordered.filter((card) => card.columnId === column.id);
@@ -93,7 +92,7 @@ export default function OutlineDramaChart({
               <foreignObject
                 x={start + 6}
                 y={bottom + 15}
-                width={end - start - 12}
+                width={Math.max(1, end - start - 12)}
                 height={26}
               >
                 <div className="outline-drama-act" aria-label={column.title}>
@@ -143,7 +142,14 @@ export default function OutlineDramaChart({
                 }
               }}
             >
-              <circle cx={x} cy={y} r={22} fill="transparent" />
+              <rect
+                className="drama-hit-area"
+                x={x - hitWidth / 2}
+                y={0}
+                width={hitWidth}
+                height={height}
+                fill="transparent"
+              />
               <circle
                 className="drama-dot"
                 cx={x}
