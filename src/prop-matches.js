@@ -1,15 +1,20 @@
 // Match whole names across adjacent rich-text runs without matching parts of words.
-export function textMatches(text, name) {
-  if (!name?.trim()) return [];
+export function textMatchPattern(name) {
+  if (!name?.trim()) return null;
   const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
+  return new RegExp(
     `(?<![\\p{L}\\p{M}\\p{N}_])${escaped}(?![\\p{L}\\p{M}\\p{N}_])`,
     "giu",
   );
-  return [...text.matchAll(pattern)].map((match) => ({
-    from: match.index,
-    to: match.index + match[0].length,
-  }));
+}
+export function textMatches(text, name) {
+  const pattern = textMatchPattern(name);
+  return pattern
+    ? [...text.matchAll(pattern)].map((match) => ({
+        from: match.index,
+        to: match.index + match[0].length,
+      }))
+    : [];
 }
 export function propOccurrences(content, name) {
   return (content?.content || []).reduce(

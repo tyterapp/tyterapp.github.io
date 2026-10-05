@@ -164,7 +164,7 @@ test("reordering search results preserves hidden cards", async ({ page }) => {
     .poll(() => order(page, "one"))
     .toEqual(["a", "hidden", "c", "b"]);
   await expect
-    .poll(async () => (await stored(page)).outline.cards.length)
+    .poll(async () => (await stored(page))?.outline?.cards?.length)
     .toBe(5);
 });
 
@@ -221,13 +221,18 @@ test("scene numbers and enlarged links center on the heading, including paginate
         const rect = range.getBoundingClientRect();
         const titleCenter = (rect.top + rect.bottom) / 2;
         const box = element.getBoundingClientRect();
-        const before = getComputedStyle(element, "::before");
+        const number = element
+          .querySelector(".scene-number")
+          .getBoundingClientRect();
+        const paper = element.closest(".script-paper").getBoundingClientRect();
         const link = element.querySelector(".outline-scene-link");
         const icon = link.getBoundingClientRect();
         return {
-          numberError: Math.abs(box.top + parseFloat(before.top) - titleCenter),
+          numberError: Math.abs((number.top + number.bottom) / 2 - titleCenter),
+          left: number.left - paper.left,
+          gap: icon.left - number.right,
           linkError: Math.abs((icon.top + icon.bottom) / 2 - titleCenter),
-          position: getComputedStyle(link).position,
+          position: getComputedStyle(link.parentElement).position,
           width: icon.width,
           height: icon.height,
           overlapsText: icon.right > box.left + 1,
@@ -242,6 +247,8 @@ test("scene numbers and enlarged links center on the heading, including paginate
           (item) =>
             item.position === "absolute" &&
             item.numberError < 2 &&
+            Math.abs(item.left - 16) < 1 &&
+            Math.abs(item.gap - 16) < 1 &&
             item.linkError < 2 &&
             item.width === 34 &&
             item.height === 34 &&

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Columns3,
+  ChartLine,
   Copy,
   Crosshair,
   MessageSquare,
@@ -12,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { uid } from "./data.js";
+import { dramaValue } from "./document-layout.js";
+import OutlineDramaChart from "./OutlineDramaChart.jsx";
 import "./outline.css";
 
 const COLORS = [
@@ -73,6 +76,7 @@ export default function OutlineBoard({
   onRelink,
 }) {
   const [query, setQuery] = useState("");
+  const [showDrama, setShowDrama] = useState(false);
   const [menu, setMenu] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [removing, setRemoving] = useState(null);
@@ -269,6 +273,10 @@ export default function OutlineBoard({
         }}
       >
         <div className="outline-tools">
+          <button className="quiet-button" onClick={() => setShowDrama(true)}>
+            <ChartLine size={17} />
+            График драматичности
+          </button>
           <button className="quiet-button" onClick={addColumn}>
             <Plus size={17} />
             Добавить акт
@@ -469,6 +477,14 @@ export default function OutlineBoard({
                           {card.comments.length} комм.
                         </button>
                       )}
+                      <button
+                        className="outline-card-drama"
+                        onClick={() => onSelect(card.id)}
+                        aria-label={`Драматичность карточки ${card.title}: ${dramaValue(card.drama)} из 10`}
+                      >
+                        <ChartLine size={14} />
+                        {dramaValue(card.drama)}/10
+                      </button>
                     </article>
                   ))}
                 </div>
@@ -554,6 +570,28 @@ export default function OutlineBoard({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="outline-drama-control">
+              <span>
+                Драматичность <output>{dramaValue(selected.drama)}/10</output>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                aria-label="Драматичность карточки"
+                value={dramaValue(selected.drama)}
+                onChange={(event) =>
+                  changeCard(selected.id, {
+                    drama: dramaValue(event.target.value),
+                  })
+                }
+              />
+              <span className="outline-drama-scale">
+                <span>0</span>
+                <span>10</span>
+              </span>
             </label>
             <fieldset className="outline-colors">
               <legend>Цвет карточки</legend>
@@ -645,6 +683,14 @@ export default function OutlineBoard({
           removing={removing}
           onClose={() => setRemoving(null)}
           onConfirm={deleteTarget}
+        />
+      )}
+      {showDrama && (
+        <OutlineDramaChart
+          columns={columns}
+          cards={cards}
+          onSelect={onSelect}
+          onClose={() => setShowDrama(false)}
         />
       )}
     </div>

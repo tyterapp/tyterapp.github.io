@@ -1,5 +1,6 @@
 import { createProject, uid } from "./data.js";
 import { textMatches, propOccurrences } from "./prop-matches.js";
+import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 
 export const hasTitlePage = (document) =>
   ["author", "email", "year", "poster"].some((key) =>
@@ -337,50 +338,91 @@ export async function exportDOCX(document) {
     }),
   );
 }
-let fontPromise;
-async function getFonts() {
-  if (!fontPromise)
-    fontPromise = Promise.all(
-      ["Regular", "Bold", "Italic", "BoldItalic"].map(async (style) => {
-        const response = await fetch(`/fonts/Cousine-${style}.ttf`);
-        if (!response.ok)
-          throw new Error("Не удалось загрузить шрифт для PDF.");
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        let binary = "";
-        for (let i = 0; i < bytes.length; i += 8192)
-          binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-        return { style, base64: btoa(binary) };
+const fontPromises = new Map();
+async function getFonts(screenplay = false) {
+  if (!fontPromises.has(screenplay)) {
+    const files = screenplay
+      ? {
+          Regular: "couriercyrillic.ttf",
+          Bold: "cour_bold.ttf",
+          Italic: "cour_italic.ttf",
+          BoldItalic: "cour_bold_italic.ttf",
+          Fallback: "cour.ttf",
+        }
+      : Object.fromEntries(
+          ["Regular", "Bold", "Italic", "BoldItalic"].map((style) => [
+            style,
+            `Cousine-${style}.ttf`,
+          ]),
+        );
+    fontPromises.set(
+      screenplay,
+      Promise.all(
+        Object.entries(files).map(async ([style, file]) => {
+          const response = await fetch(`/fonts/${file}`);
+          if (!response.ok)
+            throw new Error("Не удалось загрузить шрифт для PDF.");
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 8192)
+            binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+          return { style, base64: btoa(binary) };
+        }),
+      ).catch((error) => {
+        fontPromises.delete(screenplay);
+        throw error;
       }),
-    ).catch((error) => {
-      fontPromise = null;
-      throw error;
-    });
-  return fontPromise;
+    );
+  }
+  return fontPromises.get(screenplay);
 }
 export async function exportPDF(document) {
-  const [{ jsPDF }, fonts] = await Promise.all([import("jspdf"), getFonts()]);
-  const pdf = new jsPDF({ unit: "pt", format: "letter", compress: true });
+  const [{ jsPDF }, fonts] = await Promise.all([
+    import("jspdf"),
+    getFonts(true),
+  ]);
+  const layout = screenplayLayout(document.metadata?.fontSize);
+  // A CSS pixel is 3/4 of a PDF point. Export uses the full sheet, regardless of viewport.
+  const pt = (pixels) => pixels * 0.75;
+  const width = pt(layout.width),
+    height = pt(layout.height);
+  const leftMargin = pt(layout.left),
+    rightEdge = width - pt(layout.right);
+  const topMargin = pt(layout.top),
+    bottomEdge = height - pt(layout.bottom);
+  const contentWidth = rightEdge - leftMargin;
+  const fontSize = layout.fontSize,
+    lineHeight = fontSize * layout.lineHeight;
+  const pdf = new jsPDF({
+    unit: "pt",
+    format: [width, height],
+    compress: true,
+  });
   for (const { style, base64 } of fonts) {
-    pdf.addFileToVFS(`Cousine-${style}.ttf`, base64);
+    pdf.addFileToVFS(`Courier-${style}.ttf`, base64);
     pdf.addFont(
-      `Cousine-${style}.ttf`,
-      "Cousine",
+      `Courier-${style}.ttf`,
+      style === "Fallback" ? "ScreenplayFallback" : "ScreenplayCourier",
       {
         Regular: "normal",
         Bold: "bold",
         Italic: "italic",
         BoldItalic: "bolditalic",
+        Fallback: "normal",
       }[style],
     );
   }
   pdf.setProperties({ title: document.title, creator: "Tyter" });
-  pdf.setFont("Cousine", "normal");
+  pdf.setFont("ScreenplayCourier", "normal");
   pdf.setFontSize(12);
   const titlePage = hasTitlePage(document);
   if (titlePage) {
-    pdf.setFont("Cousine", "bold");
-    const titleLines = pdf.splitTextToSize(document.title || "Сценарий", 432);
-    pdf.text(titleLines, 306, 160, { align: "center" });
+    pdf.setFont("ScreenplayCourier", "bold");
+    const titleLines = pdf.splitTextToSize(
+      document.title || "Сценарий",
+      contentWidth,
+    );
+    pdf.text(titleLines, width / 2, 160, { align: "center" });
     let coverY = 180 + titleLines.length * 14;
     const poster = posterData(document);
     if (poster) {
@@ -389,14 +431,14 @@ export async function exportPDF(document) {
       pdf.addImage(
         poster,
         image.fileType,
-        (612 - image.width * scale) / 2,
+        (width - image.width * scale) / 2,
         coverY,
         image.width * scale,
         image.height * scale,
       );
       coverY += image.height * scale + 32;
     }
-    pdf.setFont("Cousine", "normal");
+    pdf.setFont("ScreenplayCourier", "normal");
     for (const text of [
       "Сценарий",
       document.metadata.author,
@@ -404,19 +446,38 @@ export async function exportPDF(document) {
       document.metadata.email,
     ]) {
       if (!String(text || "").trim()) continue;
-      const lines = pdf.splitTextToSize(String(text), 432);
-      pdf.text(lines, 306, coverY, { align: "center" });
+      const lines = pdf.splitTextToSize(String(text), contentWidth);
+      pdf.text(lines, width / 2, coverY, { align: "center" });
       coverY += lines.length * 14 + 14;
     }
     pdf.addPage();
   }
-  let y = 72;
-  const blocks = document.content.content.map((block) => {
-    const spec = FORMAT[block.attrs?.format] || FORMAT.action;
-    pdf.setFont("Cousine", spec.bold ? "bold" : "normal");
+  pdf.setFontSize(fontSize);
+  let y = topMargin,
+    previousAfter = 0;
+  const newPage = () => {
+    pdf.addPage();
+    y = topMargin;
+  };
+  document.content.content.forEach((block, index) => {
+    const format = block.attrs?.format || "action";
+    const spec = FORMAT[format] || FORMAT.action;
+    const geometry = screenplayBlockLayout(format);
+    const font = spec.bold ? "bold" : "normal";
+    const text = styledText(block);
+    pdf.setFont("ScreenplayCourier", "normal");
+    const glyphs = pdf.getFont().metadata.cmap.unicode.codeMap;
+    const family =
+      !spec.bold &&
+      [...text].some(
+        (char) => char.codePointAt(0) > 32 && !glyphs[char.codePointAt(0)],
+      )
+        ? "ScreenplayFallback"
+        : "ScreenplayCourier";
+    pdf.setFont(family, font);
     const lines = pdf.splitTextToSize(
-      styledText(block) || " ",
-      432 - spec.left - spec.right,
+      text || " ",
+      contentWidth * geometry.width,
     );
     let offset = 0;
     const runs = styledRuns(block).map((run) => {
@@ -424,41 +485,40 @@ export async function exportPDF(document) {
       offset += run.text.length;
       return { ...run, from, to: offset };
     });
-    return { spec, lines, runs, text: styledText(block) };
-  });
-  const newPage = () => {
-    pdf.addPage();
-    y = 72;
-  };
-  blocks.forEach(({ spec, lines, runs, text }, index) => {
-    let reserve = Math.min(lines.length, 2) * 12;
-    if (spec.keep) {
-      reserve = lines.length * 12 + spec.after;
-      for (let j = index + 1; j < blocks.length && j < index + 4; j++) {
-        reserve += Math.min(blocks[j].lines.length, 2) * 12;
-        if (!blocks[j].spec.keep) break;
-      }
-    }
-    if (y > 72 && y + Math.min(reserve, 624) > 720) newPage();
-    pdf.setFont("Cousine", spec.bold ? "bold" : "normal");
-    pdf.setFontSize(12);
+    // Adjacent paragraph margins collapse in the editor.
+    const gap = index ? pt(Math.max(previousAfter, geometry.before)) : 0;
+    const blockHeight = lines.length * lineHeight;
+    if (
+      y + gap + blockHeight > bottomEdge &&
+      blockHeight <= bottomEdge - topMargin
+    )
+      newPage();
+    else y += gap;
+    const metrics = pdf.getFont().metadata;
+    const ascent = metrics.hhea.ascender / metrics.head.unitsPerEm;
+    const descent = metrics.hhea.decender / metrics.head.unitsPerEm;
+    const baseline =
+      (lineHeight - (ascent - descent) * fontSize) / 2 + ascent * fontSize;
     let cursor = 0;
-    lines.forEach((line) => {
-      if (y + 12 > 720) newPage();
-      const start = Math.max(cursor, text.indexOf(line, cursor)),
-        end = start + line.length;
+    for (const line of lines) {
+      if (y + lineHeight > bottomEdge) newPage();
+      const start = Math.max(cursor, text.indexOf(line, cursor));
+      const end = start + line.length;
       cursor = end + (text[end] === "\n" ? 1 : 0);
-      pdf.setFont("Cousine", spec.bold ? "bold" : "normal");
+      pdf.setFont(family, font);
       const left =
-        spec.align === "right" ? 540 - pdf.getTextWidth(line) : 108 + spec.left;
+        spec.align === "right"
+          ? rightEdge - pdf.getTextWidth(line)
+          : leftMargin + contentWidth * geometry.left;
       for (const run of runs) {
         const from = Math.max(start, run.from),
           to = Math.min(end, run.to);
         if (to <= from) continue;
         const part = text.slice(from, to);
+        pdf.setFont(family, font);
         const x = left + pdf.getTextWidth(line.slice(0, from - start));
         pdf.setFont(
-          "Cousine",
+          run.bold || run.italic ? "ScreenplayCourier" : family,
           run.bold
             ? run.italic
               ? "bolditalic"
@@ -467,21 +527,26 @@ export async function exportPDF(document) {
               ? "italic"
               : "normal",
         );
-        pdf.text(part, x, y + 10);
+        pdf.text(part, x, y + baseline);
         if (run.underline) {
           pdf.setLineWidth(0.5);
-          pdf.line(x, y + 11.5, x + pdf.getTextWidth(part), y + 11.5);
+          pdf.line(
+            x,
+            y + baseline + 1.5,
+            x + pdf.getTextWidth(part),
+            y + baseline + 1.5,
+          );
         }
       }
-      y += 12;
-    });
-    y += spec.after;
+      y += lineHeight;
+    }
+    previousAfter = geometry.after;
   });
   for (let i = titlePage ? 2 : 1; i <= pdf.getNumberOfPages(); i++) {
     pdf.setPage(i);
-    pdf.setFont("Cousine", "normal");
-    pdf.setFontSize(10);
-    pdf.text(`${i - (titlePage ? 1 : 0)}.`, 540, 46, { align: "right" });
+    pdf.setFont("ScreenplayCourier", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`${i - (titlePage ? 1 : 0)}`, width - 36, 32, { align: "right" });
   }
   return pdf.output("blob");
 }

@@ -47,6 +47,11 @@ import {
 } from "./history.js";
 import { pageHeightFor } from "./pagination.js";
 import {
+  screenplayLayout,
+  screenplayBlockLayout,
+  dramaValue,
+} from "./document-layout.js";
+import {
   localRequest,
   saveLocalFiles,
   deleteLocalFile,
@@ -64,6 +69,15 @@ import {
 
 const STORAGE = "tyter.projects.v1";
 const EMPTY_PROPS = [];
+const BLOCK_LAYOUT_STYLE = Object.fromEntries(
+  ["character", "speech", "parenthetical"].flatMap((format) => {
+    const layout = screenplayBlockLayout(format);
+    return [
+      [`--${format}-left`, `${layout.left * 100}%`],
+      [`--${format}-width`, `${layout.width * 100}%`],
+    ];
+  }),
+);
 const grandfatherDocuments = (documents, isPro = BUILD_IS_PRO) =>
   !isPro &&
   !window.tyterDesktop?.request &&
@@ -730,6 +744,7 @@ export default function MinimalApp() {
       title: source.title || "Без названия",
       text: source.text || "",
       color: source.color || "#33313b",
+      drama: dramaValue(source.drama),
       comments: [],
     };
     const { blockId, blocks } = insertCardScene(card);
@@ -1349,6 +1364,7 @@ export default function MinimalApp() {
     }
   };
   const fontSize = current.metadata?.fontSize || 12;
+  const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
   const changeMetadata = (fields) =>
     update((d) => ({ ...d, metadata: { ...d.metadata, ...fields } }));
@@ -1785,7 +1801,13 @@ export default function MinimalApp() {
                 "--script-font-family": documentFont(
                   current.metadata?.fontFamily,
                 ).family,
-                "--page-margin": `${88 * (fontSize / 12)}px`,
+                "--page-margin": `${sheet.top}px`,
+                "--paper-width": `${sheet.width}px`,
+                "--paper-left": `${sheet.left}px`,
+                "--paper-right": `${sheet.right}px`,
+                "--block-gap": `${sheet.gap}px`,
+                "--sheet-line-height": sheet.lineHeight,
+                ...BLOCK_LAYOUT_STYLE,
               }}
             >
               {!historyRevision && (

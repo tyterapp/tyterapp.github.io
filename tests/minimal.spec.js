@@ -210,9 +210,15 @@ test("Ctrl+1…7 changes the paragraph at the caret without moving it; Enter fol
   for (let i = 0; i < formats.length; i++) {
     await page.keyboard.press(`Control+${i + 1}`);
     await expect(block(page)).toHaveAttribute("data-format", formats[i]);
-    expect(await page.evaluate(() => window.getSelection().anchorOffset)).toBe(
-      5,
-    );
+    expect(
+      await block(page).evaluate((element) => {
+        const selection = window.getSelection();
+        const beforeCaret = document.createRange();
+        beforeCaret.selectNodeContents(element);
+        beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset);
+        return beforeCaret.cloneContents().textContent.length;
+      }),
+    ).toBe(5);
     await expect(block(page, "scene")).toHaveAttribute("data-format", "scene");
   }
   await page.keyboard.press("Control+3");
@@ -226,6 +232,64 @@ test("Ctrl+1…7 changes the paragraph at the caret without moving it; Enter fol
   await saved(page);
   await page.reload();
   await expect(editor(page)).toContainText("Проверка реплики.");
+});
+
+test("Ctrl+Alt+arrows cycles paragraph formats in both directions without moving selected text", async ({
+  page,
+}) => {
+  await seed(page);
+  const text = await block(page).textContent();
+  await caret(page, block(page), 4, 12);
+  const selected = text.slice(4, 12);
+  for (const [key, formats] of [
+    [
+      "ArrowRight",
+      [
+        "character",
+        "speech",
+        "parenthetical",
+        "transition",
+        "plain",
+        "scene",
+        "action",
+      ],
+    ],
+    [
+      "ArrowLeft",
+      [
+        "scene",
+        "plain",
+        "transition",
+        "parenthetical",
+        "speech",
+        "character",
+        "action",
+      ],
+    ],
+  ]) {
+    for (const format of formats) {
+      await page.keyboard.press(`Control+Alt+${key}`);
+      await expect(block(page)).toHaveAttribute("data-format", format);
+      await expect(block(page)).toHaveText(text);
+      expect(
+        await page.evaluate(
+          () => window.getSelection().getRangeAt(0).cloneContents().textContent,
+        ),
+      ).toBe(selected);
+      await expect(block(page, "scene")).toHaveAttribute(
+        "data-format",
+        "scene",
+      );
+    }
+  }
+  await page.keyboard.press("Control+3");
+  await expect(block(page)).toHaveAttribute("data-format", "character");
+  await page.keyboard.press("Control+Alt+ArrowRight");
+  await expect(block(page)).toHaveAttribute("data-format", "speech");
+  await saved(page);
+  await page.reload();
+  await expect(block(page)).toHaveAttribute("data-format", "speech");
+  await expect(block(page)).toHaveText(text);
 });
 
 test("ordinary words have no suggestions and components support arrows and Escape", async ({
@@ -576,7 +640,7 @@ test("PDF is a real embedded-font document and long scripts paginate", async ({
   expect(raw.startsWith("%PDF-")).toBe(true);
   expect(raw).toContain("/FontFile2");
   expect((raw.match(/\/Type \/Page\b/g) || []).length).toBeGreaterThan(2);
-  expect(raw).toContain("/MediaBox [0 0 612. 792.]");
+  expect(raw).toContain("/MediaBox [0 0 642. 792.]");
 });
 
 test("mobile screen has no horizontal overflow and core menus remain usable", async ({
@@ -951,8 +1015,11 @@ test("Ctrl+D works with a Russian layout and opens an existing component", async
     const editor = element.closest("[contenteditable]");
     editor.focus();
     const range = document.createRange();
-    range.setStart(element.firstChild, 0);
-    range.setEnd(element.firstChild, 4);
+    const text = document
+      .createTreeWalker(element, NodeFilter.SHOW_TEXT)
+      .nextNode();
+    range.setStart(text, 0);
+    range.setEnd(text, 4);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
     editor.dispatchEvent(
@@ -1773,9 +1840,9 @@ test("component rename changes every linked mention and custom folders can be de
     .selectOption({ label: "Герои" });
   await panel.getByLabel("Название", { exact: true }).fill("Мария");
   await panel.getByRole("button", { name: "Сохранить", exact: true }).click();
-  await expect(block(page).locator('[data-entity-id="anna"]')).toHaveCount(2);
+  await expect(block(page).locator('[data-entity-id="anna"]')).toHaveCount(3);
   await expect(block(page)).toHaveText(
-    "Мария видит, как Мария уходит. Анна остаётся.",
+    "Мария видит, как Мария уходит. Мария остаётся.",
   );
   await panel.getByRole("button", { name: "Удалить папку: Герои" }).click();
   const folderDialog = page.getByRole("dialog", { name: "Удалить папку?" });
@@ -1789,11 +1856,11 @@ test("component rename changes every linked mention and custom folders can be de
   await expect(
     panel.getByRole("button", { name: /Мария Главная/ }),
   ).toBeVisible();
-  await expect(block(page).locator('[data-entity-id="anna"]')).toHaveCount(2);
+  await expect(block(page).locator('[data-entity-id="anna"]')).toHaveCount(3);
   await saved(page);
   await page.reload();
   await expect(block(page)).toHaveText(
-    "Мария видит, как Мария уходит. Анна остаётся.",
+    "Мария видит, как Мария уходит. Мария остаётся.",
   );
 });
 

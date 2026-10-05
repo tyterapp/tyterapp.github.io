@@ -432,10 +432,8 @@
   line-height: 1.6;
 }
 .minimal-app .screenplay-editor .outline-scene-link {
-  position: absolute;
-  left: -54px;
-  top: var(--scene-heading-center);
-  transform: translateY(-50%);
+  position: relative;
+  flex: 0 0 34px;
   border: 0;
   padding: 0;
   width: 34px;
@@ -450,10 +448,111 @@
 .minimal-app .screenplay-editor .outline-scene-link:hover {
   background: #e8eaff;
 }
+.outline-card-drama {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 4px;
+  color: #827a91;
+  background: #f4f2f8;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.outline-card-drama:hover {
+  color: #1b2eff;
+  background: #e8eaff;
+}
+.outline-drama-control > span:first-child,
+.outline-drama-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.outline-drama-control output {
+  color: #1b2eff;
+  font-variant-numeric: tabular-nums;
+}
+.outline-detail-body .outline-drama-control input {
+  padding: 0;
+  accent-color: #1b2eff;
+  width: 100%;
+  cursor: pointer;
+}
+.outline-drama-scale {
+  color: #a39dab;
+  font-size: 11px;
+}
+.minimal-dialog.outline-drama-dialog {
+  width: min(900px, calc(100vw - 32px));
+  max-width: 900px;
+  padding: 22px;
+}
+.outline-drama-caption {
+  font-size: 13px;
+  color: #827a91;
+  line-height: 1.5;
+  margin: 12px 0 20px;
+}
+.outline-drama-empty {
+  font-size: 13px;
+  color: #827a91;
+}
+.outline-drama-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e7e3ed;
+  border-radius: 8px;
+}
+.outline-drama-scroll svg {
+  display: block;
+  width: 100%;
+  height: 314px;
+  font:
+    11px Inter,
+    Arial,
+    sans-serif;
+  fill: #827a91;
+}
+.outline-drama-act {
+  text-align: center;
+  font:
+    12px Inter,
+    Arial,
+    sans-serif;
+  color: #635a71;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outline-drama-point {
+  cursor: pointer;
+  outline: none;
+}
+.outline-drama-point:hover .drama-dot,
+.outline-drama-point:focus-visible .drama-dot {
+  fill: #1b2eff;
+  stroke-width: 4;
+}
+.outline-drama-point text {
+  pointer-events: none;
+}
+.outline-drama-preview {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  min-height: 42px;
+  padding-top: 14px;
+  font-size: 13px;
+}
+.outline-drama-preview span {
+  color: #827a91;
+}
 @media (max-width: 900px) {
-  .minimal-app .screenplay-editor .outline-scene-link {
-    left: -36px;
-  }
   .document-view-toggle {
     margin-left: 0;
   }

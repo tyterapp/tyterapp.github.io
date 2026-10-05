@@ -2,31 +2,25 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
-import { parseProEntries, PRO_CODES_URL } from "../src/pro-access.js";
+import { createProAccessList, PRO_CODES_URL } from "../src/pro-access.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "github-pages");
 let codes = process.env.TYTER_PRO_CODES;
 if (!codes?.trim()) {
+  if (process.env.GITHUB_ACTIONS === "true")
+    throw new Error(
+      "Секрет TYTER_PRO_CODES отсутствует или пуст. Добавьте список в Settings → Secrets and variables → Actions.",
+    );
   try {
     codes = await readFile(path.join(root, "codes-for-pro.txt"), "utf8");
   } catch {
     throw new Error(
-      "Добавьте содержимое codes-for-pro.txt в GitHub Actions Secret TYTER_PRO_CODES. Для локальной сборки положите файл в корень проекта.",
+      "Для локальной сборки положите codes-for-pro.txt в корень проекта. На GitHub используется секрет TYTER_PRO_CODES.",
     );
   }
 }
-const lines = codes.replace(/^\uFEFF/, "").split(/\r?\n/);
-for (let index = 0; index < lines.length; index++) {
-  const line = lines[index].trim();
-  if (!line || line.startsWith("#")) continue;
-  if (!/^\[([A-Za-z0-9]{6})\]\[([^\]]*)\]$/.test(line))
-    throw new Error(
-      `Строка ${index + 1} файла ключей: используйте формат [ABC123][email].`,
-    );
-}
-const entries = parseProEntries(codes);
-if (entries.length > 10000 || codes.length > 1024 * 1024)
-  throw new Error("Файл ключей превышает допустимый размер.");
+// Never publish the raw secret: the browser needs only one-way pair proofs.
+const accessList = await createProAccessList(codes);
 await build({ root, mode: "production", base: "/", build: { outDir: output } });
 for (const page of ["app", "free", "pay", "pro", "404"]) {
   await mkdir(path.join(output, page), { recursive: true });
@@ -37,11 +31,10 @@ for (const page of ["app", "free", "pay", "pro", "404"]) {
 }
 await copyFile(path.join(output, "index.html"), path.join(output, "404.html"));
 await writeFile(path.join(output, ".nojekyll"), "");
-// The owner chose a publicly downloadable text file for this static MVP.
-await writeFile(path.join(output, "codes-for-pro.txt"), codes, "utf8");
+await writeFile(path.join(output, "codes-for-pro.txt"), accessList, "utf8");
 console.log("GitHub Pages готов: " + output);
 console.log("Проверка PRO: " + PRO_CODES_URL);
-if (!entries.some((entry) => entry.email))
+if (!JSON.parse(accessList).pairs.length)
   console.warn(
-    "В файле нет ключей с назначенным email: PRO останется закрытым до обновления списка.",
+    "Нет ключей с назначенным email: обновите TYTER_PRO_CODES и повторите публикацию.",
   );

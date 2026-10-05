@@ -163,6 +163,7 @@ test("TYT round trip preserves comments, props, components, folders, metadata, o
   await page.getByRole("button", { name: "Добавить акт" }).click();
   await page.getByRole("button", { name: "Добавить карточку в Акт 1" }).click();
   await page.getByLabel("Название карточки").fill("Свет в окне");
+  await page.getByLabel("Драматичность карточки", { exact: true }).fill("7");
   await page
     .getByLabel("Текст карточки", { exact: true })
     .fill("Независимый текст карточки.");
@@ -185,6 +186,7 @@ test("TYT round trip preserves comments, props, components, folders, metadata, o
   expect(payload.document.components[0]).toMatchObject(fixture.components[0]);
   expect(payload.document.metadata).toMatchObject(fixture.metadata);
   expect(payload.document.outline.cards[0].title).toBe("Свет в окне");
+  expect(payload.document.outline.cards[0].drama).toBe(7);
   expect(payload.history.length).toBeGreaterThan(0);
   await page.locator('input[type="file"][accept*=".tyt"]').setInputFiles({
     name: "backup.tyt",
@@ -253,9 +255,12 @@ test("a partial title page is exported and scene numbers center on the heading l
     .first()
     .evaluate((element) => {
       const paragraph = getComputedStyle(element);
-      const number = getComputedStyle(element, "::before");
+      const number = element
+        .querySelector(".scene-number")
+        .getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       return {
-        center: parseFloat(number.top),
+        center: (number.top + number.bottom) / 2 - rect.top,
         line: parseFloat(paragraph.lineHeight),
         padding: parseFloat(paragraph.paddingTop),
       };

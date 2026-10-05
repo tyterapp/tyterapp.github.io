@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { parseProAccessList } from "../../src/pro-access.js";
 
 test("Pages serves the landing and direct editor routes without an API", async ({
   page,
@@ -29,7 +30,10 @@ test("Pages serves the landing and direct editor routes without an API", async (
   const codes = await request.get("/codes-for-pro.txt");
   expect(codes.status()).toBe(200);
   expect(codes.headers()["content-type"]).toContain("text/plain");
-  expect((await codes.text()).trim().startsWith("[")).toBe(true);
+  const published = await codes.text();
+  expect(parseProAccessList(published).version).toBe(1);
+  expect(published).not.toContain("@");
+  expect(published).not.toMatch(/\[[A-Za-z0-9]{6}\]\[/);
   expect((await request.get("/api/pro/session")).status()).toBe(404);
   expect((await request.post("/api/pro/session", { data: {} })).status()).toBe(
     405,

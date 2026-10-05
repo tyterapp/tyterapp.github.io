@@ -13,11 +13,14 @@ test("email and key must match the public file; a successful login persists", as
   page,
   context,
 }) => {
+  expect(PRO_CODES_URL).toBe("https://tyterapp.github.io/codes-for-pro.txt");
   const requests = [];
   page.on("request", (request) =>
     requests.push({ url: request.url(), method: request.method() }),
   );
-  await page.route(codesRoute, (route) => route.fulfill(listResponse()));
+  await page.route(codesRoute, async (route) =>
+    route.fulfill(await listResponse()),
+  );
   await page.addInitScript(() =>
     localStorage.setItem("tyter.onboarding.v1", "done"),
   );
@@ -52,7 +55,9 @@ test("email and key must match the public file; a successful login persists", as
   );
   await page.close();
   const reopened = await context.newPage();
-  await reopened.route(codesRoute, (route) => route.fulfill(listResponse()));
+  await reopened.route(codesRoute, async (route) =>
+    route.fulfill(await listResponse()),
+  );
   await reopened.goto("/pro");
   await expect(reopened.locator(".screenplay-editor")).toBeVisible();
   await expect(
@@ -73,7 +78,9 @@ for (const [name, code, email, message] of [
   ],
 ])
   test(name + " prevents access", async ({ page }) => {
-    await page.route(codesRoute, (route) => route.fulfill(listResponse()));
+    await page.route(codesRoute, async (route) =>
+      route.fulfill(await listResponse()),
+    );
     await page.goto("/pro");
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Ключ доступа").fill(code);
@@ -107,8 +114,8 @@ test("minute recheck locks a removed pair and keeps local documents", async ({
   await page.clock.install();
   await grantPro(page);
   let allowed = true;
-  await page.route(codesRoute, (route) =>
-    route.fulfill(listResponse(allowed ? undefined : "[ABC123][]")),
+  await page.route(codesRoute, async (route) =>
+    route.fulfill(await listResponse(allowed ? undefined : "[ABC123][]")),
   );
   await page.goto("/pro");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
@@ -131,10 +138,10 @@ test("a network failure keeps the saved session for retry", async ({
 }) => {
   const proof = await grantPro(page);
   let offline = true;
-  await page.route(codesRoute, (route) =>
+  await page.route(codesRoute, async (route) =>
     offline
       ? route.abort("internetdisconnected")
-      : route.fulfill(listResponse()),
+      : route.fulfill(await listResponse()),
   );
   await page.goto("/pro");
   await expect(page.getByRole("alert")).toContainText("Проверьте интернет");
@@ -149,8 +156,8 @@ test("an unavailable file reports an error and retains the session", async ({
   page,
 }) => {
   const proof = await grantPro(page);
-  await page.route(codesRoute, (route) =>
-    route.fulfill(listResponse("Not found", 404)),
+  await page.route(codesRoute, async (route) =>
+    route.fulfill(await listResponse("Not found", 404)),
   );
   await page.goto("/pro");
   await expect(page.getByRole("alert")).toContainText("Файл ключей недоступен");
@@ -161,7 +168,9 @@ test("an unavailable file reports an error and retains the session", async ({
 test("an arbitrary stored session is checked against the file", async ({
   page,
 }) => {
-  await page.route(codesRoute, (route) => route.fulfill(listResponse()));
+  await page.route(codesRoute, async (route) =>
+    route.fulfill(await listResponse()),
+  );
   await page.addInitScript(
     (storage) => localStorage.setItem(storage, "a".repeat(64)),
     PRO_SESSION_STORAGE,

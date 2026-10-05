@@ -1,3 +1,5 @@
+import { dramaValue } from "./document-layout.js";
+
 const FORMATS = new Set([
   "scene",
   "action",
@@ -378,6 +380,7 @@ export function validateImport(input) {
                   attrs: {
                     id: cleanId(mark.attrs.id),
                     color: cleanColor(mark.attrs.color),
+                    automatic: mark.attrs.automatic === true,
                   },
                 },
               ];
@@ -479,6 +482,7 @@ export function validateImport(input) {
           title: cleanText(card.title, 200).trim() || "Без названия",
           text: cleanText(card.text, 20000),
           color: cleanColor(card.color, "#33313b"),
+          drama: dramaValue(card.drama),
           blockId: usedIds.has(card.blockId) ? card.blockId : null,
           comments: uniqueItems(
             list(card.comments)

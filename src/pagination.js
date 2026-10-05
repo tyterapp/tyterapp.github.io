@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { screenplayLayout } from "./document-layout.js";
 
 const pageKey = new PluginKey("screenplay-pages");
-export const pageHeightFor = (fontSize) => 1056 * (fontSize / 12);
+export const pageHeightFor = (fontSize) => screenplayLayout(fontSize).height;
 
 export function useScreenplayPagination(
   editor,
@@ -17,7 +18,7 @@ export function useScreenplayPagination(
   useEffect(() => {
     if (!editor || !enabled) return;
     const PAGE = pageHeightFor(fontSize);
-    const MARGIN = 88 * (fontSize / 12);
+    const MARGIN = screenplayLayout(fontSize).top;
     let frame,
       measuring = false,
       stopped = false;

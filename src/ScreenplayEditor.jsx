@@ -16,6 +16,11 @@ import Suggestions from "./Suggestions.jsx";
 import { quoteDiff } from "./comment-review.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
+import {
+  componentLinksPlugin,
+  componentLinksKey,
+  SKIP_COMPONENT_LINKS,
+} from "./component-links.js";
 import "./screenplay-editor.css";
 
 const FORMATS = [
@@ -151,6 +156,7 @@ function removeAnnotation(editor, type, id, preserveHistory = false) {
       });
   });
   transaction.removeStoredMark(editor.schema.marks[type]);
+  if (type === "entity") transaction.setMeta(SKIP_COMPONENT_LINKS, true);
   if (preserveHistory) transaction.setMeta("addToHistory", false);
   if (transaction.docChanged || transaction.storedMarksSet)
     editor.view.dispatch(transaction);
@@ -256,6 +262,13 @@ const EntityMark = Mark.create({
   excludes: "",
   addAttributes() {
     return {
+      automatic: {
+        default: false,
+        parseHTML: (element) =>
+          element.getAttribute("data-entity-automatic") === "true",
+        renderHTML: (attributes) =>
+          attributes.automatic ? { "data-entity-automatic": "true" } : {},
+      },
       id: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-entity-id"),
@@ -314,10 +327,22 @@ const ScreenplayBehavior = Extension.create({
   },
   addKeyboardShortcuts() {
     const shortcuts = {};
+    const cycleFormat = (direction) => {
+      const format =
+        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
+      return this.editor.commands.setScreenplayFormat(
+        FORMATS[
+          (FORMATS.indexOf(format) + direction + FORMATS.length) %
+            FORMATS.length
+        ],
+      );
+    };
     FORMATS.forEach((format, index) => {
       shortcuts[`Mod-${index + 1}`] = () =>
         this.editor.commands.setScreenplayFormat(format);
     });
+    shortcuts["Ctrl-Alt-ArrowRight"] = () => cycleFormat(1);
+    shortcuts["Ctrl-Alt-ArrowLeft"] = () => cycleFormat(-1);
     shortcuts["Mod-8"] = () => {
       this.options.onComments(selectionInfo(this.editor));
       return true;
@@ -337,21 +362,11 @@ const ScreenplayBehavior = Extension.create({
     };
     shortcuts.Tab = () => {
       if (this.options.minimal) return false;
-      const format =
-        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
-      return this.editor.commands.setScreenplayFormat(
-        FORMATS[(FORMATS.indexOf(format) + 1) % FORMATS.length],
-      );
+      return cycleFormat(1);
     };
     shortcuts["Shift-Tab"] = () => {
       if (this.options.minimal) return false;
-      const format =
-        paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
-      return this.editor.commands.setScreenplayFormat(
-        FORMATS[
-          (FORMATS.indexOf(format) + FORMATS.length - 1) % FORMATS.length
-        ],
-      );
+      return cycleFormat(-1);
     };
     return shortcuts;
   },
@@ -382,6 +397,46 @@ const ScreenplayBehavior = Extension.create({
     ];
   },
 });
+
+function scrollToText(view, position, frame, smooth = true) {
+  if (frame.current !== null) cancelAnimationFrame(frame.current);
+  frame.current = requestAnimationFrame(() => {
+    frame.current = null;
+    if (view.isDestroyed) return;
+    const scroller = view.dom.closest(".minimal-scroll");
+    if (!scroller) {
+      view.dispatch(view.state.tr.scrollIntoView());
+      return;
+    }
+    const rect = view.coordsAtPos(position);
+    const viewport = scroller.getBoundingClientRect();
+    const target = Math.max(
+      0,
+      Math.min(
+        scroller.scrollHeight - scroller.clientHeight,
+        scroller.scrollTop +
+          rect.top -
+          viewport.top -
+          (scroller.clientHeight - (rect.bottom - rect.top)) / 2,
+      ),
+    );
+    if (
+      !smooth ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      scroller.scrollTop = target;
+      return;
+    }
+    const start = scroller.scrollTop;
+    const began = performance.now();
+    const animate = (now) => {
+      const progress = Math.min(1, (now - began) / 260);
+      scroller.scrollTop = start + (target - start) * (1 - (1 - progress) ** 3);
+      frame.current = progress < 1 ? requestAnimationFrame(animate) : null;
+    };
+    frame.current = requestAnimationFrame(animate);
+  });
+}
 
 const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   {
@@ -432,6 +487,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
   });
   propsRef.current = {
+    components,
     outlineCards,
     onEditOutlineCard,
     props,
@@ -604,15 +660,25 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           if (node.type.name === "paragraph") {
             const attrs = {};
             if (node.attrs.format === "scene") {
-              attrs["data-scene-number"] = String(++sceneNumber);
+              const number = ++sceneNumber;
+              attrs["data-scene-number"] = String(number);
               const card = propsRef.current.outlineCards.find(
                 (item) => item.blockId === node.attrs.blockId,
               );
-              if (card)
+              if (minimal)
                 decorations.push(
                   Decoration.widget(
                     pos + 1,
                     () => {
+                      const gutter = document.createElement("span");
+                      gutter.className = "scene-gutter";
+                      gutter.contentEditable = "false";
+                      const label = document.createElement("span");
+                      label.className = "scene-number";
+                      label.setAttribute("data-number", String(number));
+                      label.setAttribute("aria-hidden", "true");
+                      gutter.append(label);
+                      if (!card) return gutter;
                       const button = document.createElement("button");
                       button.type = "button";
                       button.className = "outline-scene-link";
@@ -634,10 +700,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         event.preventDefault();
                         propsRef.current.onEditOutlineCard?.(card.id);
                       });
-                      return button;
+                      gutter.append(button);
+                      return gutter;
                     },
                     {
-                      key: "outline-" + card.id,
+                      key: `scene-${node.attrs.blockId}-${number}-${card?.id || ""}-${card?.title || ""}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -788,6 +855,25 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   useScreenplayPagination(editor, minimal, onPageCount, fontSize, fontFamily);
 
   useEffect(() => {
+    if (!editor) return;
+    editor.registerPlugin(
+      componentLinksPlugin(() => propsRef.current.components || []),
+    );
+    return () => {
+      if (!editor.isDestroyed) editor.unregisterPlugin(componentLinksKey);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed)
+      editor.view.dispatch(
+        editor.state.tr
+          .setMeta(componentLinksKey, true)
+          .setMeta("addToHistory", false),
+      );
+  }, [editor, components]);
+
+  useEffect(() => {
     if (!editor || !content) return;
     const serialized = JSON.stringify(content);
     if (serialized === lastReceived.current) return;
@@ -864,44 +950,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           ((index % matches.length) + matches.length) % matches.length;
         const match = matches[currentIndex];
         if (!fromCard) editor.commands.setTextSelection(match);
-        if (scroll) {
-          if (searchScrollFrame.current !== null)
-            cancelAnimationFrame(searchScrollFrame.current);
-          searchScrollFrame.current = null;
-          const scroller = editor.view.dom.closest(".minimal-scroll");
-          if (scroller) {
-            const matchRect = editor.view.coordsAtPos(match.from);
-            const scrollerRect = scroller.getBoundingClientRect();
-            const target = Math.max(
-              0,
-              Math.min(
-                scroller.scrollHeight - scroller.clientHeight,
-                scroller.scrollTop +
-                  matchRect.top -
-                  scrollerRect.top -
-                  (scroller.clientHeight - (matchRect.bottom - matchRect.top)) /
-                    2,
-              ),
-            );
-            if (
-              fromCard &&
-              !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-            ) {
-              const start = scroller.scrollTop;
-              const distance = target - start;
-              const began = performance.now();
-              const animate = (now) => {
-                const progress = Math.min(1, (now - began) / 260);
-                scroller.scrollTop =
-                  start + distance * (1 - Math.pow(1 - progress, 3));
-                searchScrollFrame.current =
-                  progress < 1 ? requestAnimationFrame(animate) : null;
-              };
-              searchScrollFrame.current = requestAnimationFrame(animate);
-            } else scroller.scrollTop = target;
-          } else if (!fromCard)
-            editor.view.dispatch(editor.state.tr.scrollIntoView());
-        }
+        if (scroll)
+          scrollToText(editor.view, match.from, searchScrollFrame, fromCard);
         return matches.length;
       },
       focusComment(id, blockId) {
@@ -918,31 +968,21 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               ? { from: range.from, to: pos + node.nodeSize }
               : { from: pos, to: pos + node.nodeSize };
         });
-        if (range) {
-          editor.chain().setTextSelection(range.from).scrollIntoView().run();
-          return true;
-        }
         const comment = propsRef.current.comments?.find((c) => c.id === id);
-        if (Number.isInteger(comment?.anchor)) {
-          editor
-            .chain()
-            .setTextSelection(
-              Math.max(
-                1,
-                Math.min(comment.anchor, editor.state.doc.content.size - 1),
-              ),
-            )
-            .scrollIntoView()
-            .run();
-        } else if (blockId) {
-          let pos = null;
+        let position = range?.from ?? null;
+        if (position === null && Number.isInteger(comment?.anchor))
+          position = Math.max(
+            1,
+            Math.min(comment.anchor, editor.state.doc.content.size - 1),
+          );
+        if (position === null && blockId)
           editor.state.doc.descendants((node, at) => {
-            if (node.attrs.blockId === blockId) pos = at + 1;
+            if (node.attrs.blockId === blockId) position = at + 1;
           });
-          if (pos !== null)
-            editor.chain().setTextSelection(pos).scrollIntoView().run();
-        }
-        return false;
+        if (position === null) return false;
+        editor.commands.setTextSelection(position);
+        scrollToText(editor.view, position, searchScrollFrame);
+        return !!range;
       },
       setFormat(format) {
         if (!editor) return false;
@@ -1039,6 +1079,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         });
         transaction.removeStoredMark(editor.schema.marks.entity);
         transaction.setMeta("addToHistory", false);
+        transaction.setMeta(SKIP_COMPONENT_LINKS, true);
         if (transaction.docChanged || transaction.storedMarksSet)
           editor.view.dispatch(transaction);
         return transaction.docChanged;
@@ -1052,6 +1093,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .chain()
           .command(({ tr }) => {
             tr.setMeta("addToHistory", false);
+            tr.setMeta(SKIP_COMPONENT_LINKS, true);
             return true;
           })
           .setContent(normalizeContent(content), { emitUpdate: false })
@@ -1083,6 +1125,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         });
         if (!ranges.length) return 0;
         const transaction = editor.state.tr;
+        transaction.setMeta(SKIP_COMPONENT_LINKS, true);
         for (const range of ranges.reverse())
           transaction.replaceWith(
             range.from,
