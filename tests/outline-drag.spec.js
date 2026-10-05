@@ -240,18 +240,18 @@ test("scene numbers and enlarged links center on the heading, including paginate
       }),
     );
   }
-  async function assertAligned() {
+  async function assertAligned(scale = 1) {
     await expect
       .poll(async () =>
         (await aligned()).every(
           (item) =>
             item.position === "absolute" &&
-            item.numberError < 2 &&
-            Math.abs(item.left - 16) < 1 &&
-            Math.abs(item.gap - 16) < 1 &&
-            item.linkError < 2 &&
-            item.width === 34 &&
-            item.height === 34 &&
+            item.numberError < 2 * scale &&
+            Math.abs(item.left - 16 * scale) < 1 &&
+            Math.abs(item.gap - 16 * scale) < 1 &&
+            item.linkError < 2 * scale &&
+            item.width === 34 * scale &&
+            item.height === 34 * scale &&
             !item.overlapsText,
         ),
       )
@@ -273,13 +273,13 @@ test("scene numbers and enlarged links center on the heading, including paginate
   await page
     .getByRole("button", { name: "Настройки документа", exact: true })
     .click();
-  await page.getByLabel("Размер шрифта", { exact: true }).press("End");
+  await page.getByLabel("Масштаб документа", { exact: true }).press("End");
   await page.getByRole("button", { name: "Закрыть настройки" }).click();
-  await assertAligned();
+  await assertAligned(2);
   await page.setViewportSize({ width: 390, height: 844 });
-  await assertAligned();
+  await assertAligned(2);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await assertAligned();
+  await assertAligned(2);
   const button = page.getByRole("button", {
     name: "Открыть карточку Сцена А",
     exact: true,

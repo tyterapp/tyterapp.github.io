@@ -34,7 +34,7 @@ const stored = (page) =>
     return (await browserRequest("documents")).documents[0];
   });
 
-test("drama graph includes all acts, follows card order and opens cards with persisted values", async ({
+test("drama graph stays above editable cards, updates live and closes back to its button", async ({
   page,
 }, info) => {
   const project = createProject("Драматичность");
@@ -89,10 +89,50 @@ test("drama graph includes all acts, follows card order and opens cards with per
   await page
     .getByRole("button", { name: "График драматичности", exact: true })
     .click();
-  const graph = page.getByRole("dialog", {
+  const graph = page.getByRole("complementary", {
     name: "График драматичности",
     exact: true,
   });
+  await expect(graph).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "График драматичности" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "График драматичности", exact: true }),
+  ).toHaveCount(0);
+  const bounds = await graph.boundingBox();
+  const boardBounds = await page.locator(".outline-workspace").boundingBox();
+  const cardBounds = await page
+    .getByRole("complementary", { name: "Редактирование карточки" })
+    .boundingBox();
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(boardBounds.y + 1);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(cardBounds.y + 1);
+  expect(boardBounds.height).toBeGreaterThan(300);
+  await expect(graph.locator('[aria-pressed="true"]')).toHaveAttribute(
+    "aria-label",
+    "Знакомство: драматичность 7 из 10",
+  );
+  // Editing stays available while the chart is open and changes its points.
+  const title = page.getByLabel("Название карточки", { exact: true });
+  await title.fill("Знакомство с героем");
+  await expect(title).toBeFocused();
+  await expect(
+    graph.getByRole("button", {
+      name: "Знакомство с героем: драматичность 7 из 10",
+    }),
+  ).toBeVisible();
+  await title.fill("Знакомство");
+  await page
+    .getByLabel("Текст карточки", { exact: true })
+    .fill("Мир героя — новая версия");
+  await slider.fill("8");
+  await expect(
+    graph.getByRole("button", { name: "Знакомство: драматичность 8 из 10" }),
+  ).toBeVisible();
+  await expect(graph.locator(".outline-drama-preview")).toContainText(
+    "Начало · 8/10",
+  );
+  await slider.fill("7");
   await expect(graph.locator(".outline-drama-act")).toHaveText([
     "Начало",
     "Кульминация",
@@ -136,9 +176,35 @@ test("drama graph includes all acts, follows card order and opens cards with per
     .toBe(true);
   await page.screenshot({ path: info.outputPath("drama-chart-mobile.png") });
   await page.keyboard.press("Enter");
-  await expect(graph).toHaveCount(0);
+  await expect(graph).toBeVisible();
   await expect(page.getByLabel("Название карточки")).toHaveValue("Риск");
   await expect(slider).toHaveValue("10");
+  await expect(graph.locator('[aria-pressed="true"]')).toHaveAttribute(
+    "aria-label",
+    "Риск: драматичность 10 из 10",
+  );
+  await expect(page.getByLabel("Название карточки")).toBeInViewport();
+  await page.screenshot({
+    path: info.outputPath("drama-chart-editing-mobile.png"),
+  });
+  await graph
+    .getByRole("button", { name: "Закрыть график", exact: true })
+    .click();
+  await expect(graph).toHaveCount(0);
+  const graphButton = page.getByRole("button", {
+    name: "График драматичности",
+    exact: true,
+  });
+  await expect(graphButton).toBeVisible();
+  await expect(graphButton).toBeFocused();
+  await graphButton.click();
+  await expect(graph).toBeVisible();
+  await expect(graphButton).toHaveCount(0);
+  await expect(slider).toHaveValue("10");
+  await graph
+    .getByRole("button", { name: "Закрыть график", exact: true })
+    .click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.reload();
   await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
   await page.getByRole("button", { name: "Знакомство", exact: true }).click();

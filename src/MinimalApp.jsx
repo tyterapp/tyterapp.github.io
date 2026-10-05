@@ -50,6 +50,7 @@ import {
   screenplayLayout,
   screenplayBlockLayout,
   dramaValue,
+  clampDocumentZoom,
 } from "./document-layout.js";
 import {
   localRequest,
@@ -699,6 +700,8 @@ export default function MinimalApp() {
     showSidebar(null);
     setView(next);
     setMenu(null);
+    if (next === "screenplay")
+      requestAnimationFrame(() => editorRef.current?.focus());
   };
   const outline = current.outline || { columns: [], cards: [] };
   const outlineWithLinks = {
@@ -862,6 +865,7 @@ export default function MinimalApp() {
   }, [activeId]);
   const switchDocument = (doc) => {
     setActiveId(doc.id);
+    setView("screenplay");
     setMenu(null);
     setDocumentActions(null);
     setQuery("");
@@ -999,6 +1003,7 @@ export default function MinimalApp() {
       return;
     }
     const doc = newDocument();
+    showSidebar(null);
     setDocuments((list) => [doc, ...list]);
     switchDocument(doc);
   };
@@ -1364,16 +1369,17 @@ export default function MinimalApp() {
     }
   };
   const fontSize = current.metadata?.fontSize || 12;
+  const documentZoom = clampDocumentZoom(current.metadata?.documentZoom);
   const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
   const changeMetadata = (fields) =>
     update((d) => ({ ...d, metadata: { ...d.metadata, ...fields } }));
   const columnRef = useRef(null);
-  const setFontSize = useCallback(
-    (size) =>
+  const setDocumentZoom = useCallback(
+    (zoom) =>
       update((d) => ({
         ...d,
-        metadata: { ...d.metadata, fontSize: Math.max(12, Math.min(26, size)) },
+        metadata: { ...d.metadata, documentZoom: clampDocumentZoom(zoom) },
       })),
     [update],
   );
@@ -1386,12 +1392,9 @@ export default function MinimalApp() {
         ...d,
         metadata: {
           ...d.metadata,
-          fontSize: Math.max(
-            12,
-            Math.min(
-              26,
-              (d.metadata?.fontSize || 12) + (event.deltaY < 0 ? 1 : -1),
-            ),
+          documentZoom: clampDocumentZoom(
+            clampDocumentZoom(d.metadata?.documentZoom) +
+              (event.deltaY < 0 ? 10 : -10),
           ),
         },
       }));
@@ -1797,6 +1800,7 @@ export default function MinimalApp() {
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}`}
               style={{
                 minHeight: pageCount * pageHeight,
+                zoom: documentZoom / 100,
                 "--script-font-size": `${fontSize}pt`,
                 "--script-font-family": documentFont(
                   current.metadata?.fontFamily,
@@ -1833,6 +1837,26 @@ export default function MinimalApp() {
                 <ScreenplayEditor
                   key={current.id}
                   ref={editorRef}
+                  documentId={current.id}
+                  autoFocus={
+                    filesReady &&
+                    view === "screenplay" &&
+                    !tourOpen &&
+                    !subscriptionOpen &&
+                    !deleteTarget &&
+                    !folderToDelete &&
+                    !rename &&
+                    !menu &&
+                    !componentDialog &&
+                    !propDialog &&
+                    !searchOpen &&
+                    !settingsOpen &&
+                    !historyOpen &&
+                    !commentsOpen &&
+                    !componentsOpen &&
+                    !propsOpen &&
+                    !annotations
+                  }
                   minimal
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
@@ -1863,6 +1887,7 @@ export default function MinimalApp() {
                   activeComment={commentsOpen ? activeComment : null}
                   onPageCount={setPageCount}
                   fontSize={fontSize}
+                  documentZoom={documentZoom}
                   fontFamily={current.metadata?.fontFamily}
                   content={current.content}
                   onChange={changeContent}
@@ -1943,8 +1968,8 @@ export default function MinimalApp() {
           <DocumentSettings
             key={current.id}
             metadata={current.metadata}
-            fontSize={fontSize}
-            onSize={setFontSize}
+            documentZoom={documentZoom}
+            onZoom={setDocumentZoom}
             onChange={changeMetadata}
             onClose={() => setSettingsOpen(false)}
           />

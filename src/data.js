@@ -1,4 +1,4 @@
-import { dramaValue } from "./document-layout.js";
+import { dramaValue, clampDocumentZoom } from "./document-layout.js";
 
 const FORMATS = new Set([
   "scene",
@@ -55,6 +55,7 @@ export function createProject(title = "Untitled") {
     settings: { ...DEFAULT_SETTINGS },
     metadata: {
       fontSize: 12,
+      documentZoom: 100,
       fontFamily: "courier",
       formatBarMode: "text",
       author: "",
@@ -441,6 +442,7 @@ export function validateImport(input) {
       fontSize: Number.isFinite(Number(source.metadata?.fontSize))
         ? Math.max(12, Math.min(26, Number(source.metadata.fontSize)))
         : 12,
+      documentZoom: clampDocumentZoom(source.metadata?.documentZoom),
       formatBarMode:
         source.metadata?.formatBarMode === "icons" ? "icons" : "text",
       author: cleanText(source.metadata?.author, 200),

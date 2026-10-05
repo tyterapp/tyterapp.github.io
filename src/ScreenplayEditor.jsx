@@ -17,6 +17,12 @@ import { quoteDiff } from "./comment-review.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
 import {
+  captureCaret,
+  selectionAtCaret,
+  readCaret,
+  writeCaret,
+} from "./editor-caret.js";
+import {
   componentLinksPlugin,
   componentLinksKey,
   SKIP_COMPONENT_LINKS,
@@ -441,6 +447,8 @@ function scrollToText(view, position, frame, smooth = true) {
 const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   {
     content,
+    documentId,
+    autoFocus = false,
     onChange,
     onSelection,
     onComments,
@@ -468,11 +476,24 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     activeComment = null,
     onPageCount,
     fontSize = 12,
+    documentZoom = 100,
     fontFamily = "courier",
   },
   ref,
 ) {
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [caretReady, setCaretReady] = useState(false);
+  const caretReadyRef = useRef(false);
+  const focusPending = useRef(true);
+  const rememberedCaret = useRef(null);
+  const rememberCaret = (activeEditor) => {
+    if (!caretReadyRef.current) return;
+    const caret = captureCaret(activeEditor.state);
+    const serialized = JSON.stringify(caret);
+    if (serialized === rememberedCaret.current) return;
+    rememberedCaret.current = serialized;
+    writeCaret(documentId, caret);
+  };
   const propsRef = useRef({
     onChange,
     onSelection,
@@ -815,10 +836,21 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
     },
     onCreate({ editor: createdEditor }) {
+      const caret = readCaret(documentId);
+      if (caret)
+        createdEditor.view.dispatch(
+          createdEditor.state.tr.setSelection(
+            selectionAtCaret(createdEditor.state.doc, caret),
+          ),
+        );
+      caretReadyRef.current = true;
+      rememberCaret(createdEditor);
+      setCaretReady(true);
       propsRef.current.onReady?.(createdEditor);
       propsRef.current.onSelection?.(selectionInfo(createdEditor));
     },
     onUpdate({ editor: updatedEditor, transaction }) {
+      rememberCaret(updatedEditor);
       const json = updatedEditor.getJSON();
       lastEmitted.current = JSON.stringify(json);
       const anchors = {};
@@ -845,6 +877,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       propsRef.current.onSelection?.(selectionInfo(updatedEditor));
     },
     onSelectionUpdate({ editor: updatedEditor }) {
+      rememberCaret(updatedEditor);
       propsRef.current.onSelection?.(selectionInfo(updatedEditor));
     },
     onFocus({ editor: focusedEditor }) {
@@ -852,7 +885,34 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     },
   });
 
-  useScreenplayPagination(editor, minimal, onPageCount, fontSize, fontFamily);
+  useEffect(() => {
+    if (!editor || !caretReady || !autoFocus || !focusPending.current) return;
+    const frame = requestAnimationFrame(() => {
+      if (editor.isDestroyed || !editor.view.dom.getClientRects().length)
+        return;
+      const active = document.activeElement;
+      if (
+        active !== editor.view.dom &&
+        active?.matches("input, textarea, select, [contenteditable]")
+      )
+        return;
+      focusPending.current = false;
+      // Focus the current selection synchronously so a later frame cannot steal
+      // focus from a dialog opened immediately after the document.
+      editor.view.focus();
+      editor.commands.scrollIntoView();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editor, caretReady, autoFocus]);
+
+  useScreenplayPagination(
+    editor,
+    minimal,
+    onPageCount,
+    fontSize,
+    fontFamily,
+    documentZoom,
+  );
 
   useEffect(() => {
     if (!editor) return;
@@ -883,9 +943,18 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       serialized === JSON.stringify(editor.getJSON())
     )
       return;
-    editor.commands.setContent(normalizeContent(content), {
-      emitUpdate: false,
-    });
+    const caret = captureCaret(editor.state);
+    const storedMarks = editor.state.storedMarks;
+    editor
+      .chain()
+      .setContent(normalizeContent(content), { emitUpdate: false })
+      .command(({ tr }) => {
+        tr.setSelection(selectionAtCaret(tr.doc, caret));
+        tr.setStoredMarks(storedMarks);
+        return true;
+      })
+      .run();
+    rememberCaret(editor);
     propsRef.current.onSelection?.(selectionInfo(editor));
   }, [content, editor]);
 
@@ -1089,6 +1158,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       restoreContent(content) {
         if (!editor) return;
+        const caret = captureCaret(editor.state);
         editor
           .chain()
           .command(({ tr }) => {
@@ -1097,7 +1167,12 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             return true;
           })
           .setContent(normalizeContent(content), { emitUpdate: false })
+          .command(({ tr }) => {
+            tr.setSelection(selectionAtCaret(tr.doc, caret));
+            return true;
+          })
           .run();
+        rememberCaret(editor);
         lastReceived.current = JSON.stringify(editor.getJSON());
         lastEmitted.current = lastReceived.current;
         propsRef.current.onSelection?.(selectionInfo(editor));

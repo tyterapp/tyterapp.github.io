@@ -4,9 +4,9 @@ import { DOCUMENT_FONTS } from "./document-fonts.js";
 
 export default function DocumentSettings({
   metadata = {},
-  fontSize,
+  documentZoom,
   onChange,
-  onSize,
+  onZoom,
   onClose,
 }) {
   const file = useRef(null);
@@ -72,22 +72,22 @@ export default function DocumentSettings({
           </p>
         </section>
         <section>
-          <label className="size-label" htmlFor="script-size">
-            Размер шрифта <output>{fontSize} pt</output>
+          <label className="size-label" htmlFor="document-zoom">
+            Масштаб документа <output>{documentZoom}%</output>
           </label>
           <input
-            id="script-size"
-            aria-label="Размер шрифта"
+            id="document-zoom"
+            aria-label="Масштаб документа"
             type="range"
-            min="12"
-            max="26"
-            step="1"
-            value={fontSize}
-            onChange={(e) => onSize(Number(e.target.value))}
+            min="100"
+            max="200"
+            step="10"
+            value={documentZoom}
+            onChange={(e) => onZoom(Number(e.target.value))}
           />
           <div className="range-labels">
-            <span>12 pt</span>
-            <span>26 pt</span>
+            <span>100%</span>
+            <span>200%</span>
           </div>
           <p className="settings-hint">Ctrl + колесо мыши на листе</p>
         </section>

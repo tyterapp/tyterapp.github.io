@@ -929,6 +929,94 @@ test("scene prefixes are offered at the start and Ctrl+Enter inserts the chosen 
   await expect(editor(page).locator("[data-placeholder]")).toHaveCount(0);
 });
 
+test("scene heading components appear alongside built-in prefixes and Ctrl+Enter keeps their link", async ({
+  page,
+}) => {
+  const doc = fixture();
+  doc.content.content = [p("scene", "ин", "scene")];
+  doc.components.push({
+    id: "interior",
+    name: "Интерьер музея",
+    type: "place",
+    color: "#8a799a",
+  });
+  await seed(page, [doc]);
+  const scene = block(page, "scene");
+  await caret(page, scene, 2);
+  const first = popup(page).getByRole("option").first();
+  await expect(first).toContainText("Интерьер музея");
+  await expect(first.locator('svg[aria-label="Компонент"]')).toBeVisible();
+  await expect(popup(page).getByText("ИНТ.", { exact: true })).toBeVisible();
+  await expect(
+    popup(page).getByText("ИНТ. / ЭКС.", { exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Control+Enter");
+  await expect(scene).toHaveText("ИНТЕРЬЕР МУЗЕЯ ");
+  await expect(scene.locator('[data-entity-id="interior"]')).toHaveText(
+    "ИНТЕРЬЕР МУЗЕЯ",
+  );
+  await saved(page);
+  await page.reload();
+  await expect(scene.locator('[data-entity-id="interior"]')).toHaveText(
+    "ИНТЕРЬЕР МУЗЕЯ",
+  );
+});
+
+for (const prefix of ["д", "дом у м"])
+  test(`scene location components complete a ${prefix.length === 1 ? "single-letter" : "multiword"} prefix after INT`, async ({
+    page,
+  }) => {
+    const doc = fixture();
+    doc.content.content = [p("scene", `ИНТ. ${prefix}`, "scene")];
+    doc.components.push({
+      id: "home",
+      name: "Дом у моря",
+      type: "place",
+      color: "#8a799a",
+    });
+    await seed(page, [doc]);
+    const scene = block(page, "scene");
+    await caret(page, scene, (await scene.textContent()).length);
+    const first = popup(page).getByRole("option").first();
+    await expect(first).toContainText("Дом у моря");
+    await expect(first.locator('svg[aria-label="Компонент"]')).toBeVisible();
+    await page.keyboard.press("Control+Enter");
+    await expect(scene).toHaveText("ИНТ. ДОМ У МОРЯ ");
+    await expect(scene.locator('[data-entity-id="home"]')).toHaveText(
+      "ДОМ У МОРЯ",
+    );
+  });
+
+for (const dash of ["-", "— "])
+  test(`scene ending components are not hidden or duplicated by time-of-day suggestions with ${dash.endsWith(" ") ? "a spaced" : "an unspaced"} dash`, async ({
+    page,
+  }) => {
+    const doc = fixture();
+    doc.content.content = [p("scene", `ИНТ. ДОМ ${dash}Н`, "scene")];
+    doc.components.push(
+      { id: "night", name: "Ночь", type: "place", color: "#8a799a" },
+      {
+        id: "night-shift",
+        name: "Ночная смена",
+        type: "place",
+        color: "#8a799a",
+      },
+    );
+    await seed(page, [doc]);
+    const scene = block(page, "scene");
+    await caret(page, scene, (await scene.textContent()).length);
+    await expect(popup(page).getByRole("option")).toHaveCount(2);
+    const first = popup(page).getByRole("option").first();
+    await expect(first).toContainText("Ночь");
+    await expect(first.locator('svg[aria-label="Компонент"]')).toBeVisible();
+    await expect(
+      popup(page).getByText("Ночная смена", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Control+Enter");
+    await expect(scene).toHaveText(`ИНТ. ДОМ ${dash.trim()} НОЧЬ `);
+    await expect(scene.locator('[data-entity-id="night"]')).toHaveText("НОЧЬ");
+  });
+
 test("scene ending suggestion adds a space only when the dash has none", async ({
   page,
 }) => {
@@ -1563,7 +1651,7 @@ test("resolved comments hide yellow marks and preview surviving and deleted quot
   await expect(block(page).locator(".comment-deleted-text")).toHaveCount(0);
 });
 
-test("settings persist and Ctrl wheel changes only screenplay font within limits", async ({
+test("settings persist and Ctrl wheel zooms the whole document within 100–200%", async ({
   page,
 }) => {
   await seed(page);
@@ -1588,21 +1676,25 @@ test("settings persist and Ctrl wheel changes only screenplay font within limits
     }),
   });
   await expect(panel.getByAltText("Обложка сценария")).toBeVisible();
-  await panel.getByRole("slider", { name: "Размер шрифта" }).fill("26");
-  await expect(editor(page)).toHaveCSS("font-size", "34.6667px");
+  await expect(
+    panel.getByRole("slider", { name: "Размер шрифта" }),
+  ).toHaveCount(0);
+  await panel.getByRole("slider", { name: "Масштаб документа" }).fill("200");
+  await expect(page.locator(".script-paper")).toHaveCSS("zoom", "2");
+  await expect(editor(page)).toHaveCSS("font-size", "16px");
   await page
     .locator(".script-paper")
     .dispatchEvent("wheel", { ctrlKey: true, deltaY: -100, bubbles: true });
-  await expect(panel.getByRole("slider")).toHaveValue("26");
-  await panel.getByRole("slider").fill("12");
+  await expect(panel.getByRole("slider")).toHaveValue("200");
+  await panel.getByRole("slider").fill("100");
   await page
     .locator(".script-paper")
     .dispatchEvent("wheel", { ctrlKey: true, deltaY: 100, bubbles: true });
-  await expect(panel.getByRole("slider")).toHaveValue("12");
+  await expect(panel.getByRole("slider")).toHaveValue("100");
   await page
     .locator(".script-paper")
     .dispatchEvent("wheel", { ctrlKey: true, deltaY: -100, bubbles: true });
-  await expect(panel.getByRole("slider")).toHaveValue("13");
+  await expect(panel.getByRole("slider")).toHaveValue("110");
   await saved(page);
   await page.reload();
   await page
@@ -1611,7 +1703,7 @@ test("settings persist and Ctrl wheel changes only screenplay font within limits
   await expect(
     panel.getByRole("textbox", { name: "Автор", exact: true }),
   ).toHaveValue("Ирина Петрова");
-  await expect(panel.getByRole("slider")).toHaveValue("13");
+  await expect(panel.getByRole("slider")).toHaveValue("110");
   await expect(panel.getByAltText("Обложка сценария")).toBeVisible();
 });
 
@@ -1999,7 +2091,7 @@ test("component tooltip is singular and stays inside the viewport", async ({
   await page.screenshot({ path: testInfo.outputPath("component-tooltip.png") });
 });
 
-test("font growth enlarges the paper, poster appears in document list, and sidebar controls fit", async ({
+test("document zoom enlarges the paper, poster appears in document list, and sidebar controls fit", async ({
   page,
 }) => {
   await seed(page, [
@@ -2021,14 +2113,14 @@ test("font growth enlarges the paper, poster appears in document list, and sideb
   const before = await page
     .locator(".script-paper")
     .evaluate((el) => el.getBoundingClientRect().height);
-  await panel.getByRole("slider", { name: "Размер шрифта" }).fill("26");
+  await panel.getByRole("slider", { name: "Масштаб документа" }).fill("200");
   await expect
     .poll(() =>
       page
         .locator(".script-paper")
         .evaluate((el) => el.getBoundingClientRect().height),
     )
-    .toBeGreaterThan(before * 2);
+    .toBeCloseTo(before * 2, 0);
   await panel.locator('input[type="file"]').setInputFiles({
     name: "poster.png",
     mimeType: "image/png",

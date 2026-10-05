@@ -9,6 +9,9 @@ export const SCREENPLAY_LAYOUT = Object.freeze({
   lineHeight: 1.25,
 });
 
+export const clampDocumentZoom = (value) =>
+  Math.max(100, Math.min(200, Math.round(Number(value) || 100)));
+
 export function screenplayLayout(fontSize = 12) {
   const size = Math.max(12, Math.min(26, Number(fontSize) || 12));
   const scale = size / 12;

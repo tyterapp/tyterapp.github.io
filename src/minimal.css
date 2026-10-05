@@ -2352,6 +2352,10 @@ kbd {
   border-top: 1px dashed #dcd6e3;
 }
 .minimal-app .script-paper {
+  width: var(--paper-width, 856px);
+  max-width: none;
+  padding-left: var(--paper-left, 104px);
+  padding-right: var(--paper-right, 96px);
   padding-top: var(--page-margin, 88px);
   padding-bottom: var(--page-margin, 88px);
 }
@@ -2546,6 +2550,9 @@ kbd {
   }
 }
 @media print {
+  .minimal-app .script-paper {
+    zoom: 1 !important;
+  }
   .page-guides,
   .settings-drawer,
   .search-drawer,

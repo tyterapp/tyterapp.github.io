@@ -12,6 +12,7 @@ export function useScreenplayPagination(
   onPageCount,
   fontSize,
   fontFamily,
+  documentZoom = 100,
 ) {
   const callback = useRef(onPageCount);
   callback.current = onPageCount;
@@ -41,7 +42,9 @@ export function useScreenplayPagination(
         editor.state.tr.setMeta(pageKey, DecorationSet.empty),
       );
       const paper = editor.view.dom.closest(".script-paper");
-      const origin = paper.getBoundingClientRect().top;
+      const paperRect = paper.getBoundingClientRect();
+      const origin = paperRect.top;
+      const scale = paperRect.width / paper.offsetWidth || 1;
       const gaps = [];
       let added = 0,
         page = 0,
@@ -50,8 +53,8 @@ export function useScreenplayPagination(
         const element = editor.view.nodeDOM(pos);
         if (!(element instanceof HTMLElement)) return;
         const rect = element.getBoundingClientRect();
-        let top = rect.top - origin + added;
-        const height = rect.height;
+        let top = (rect.top - origin) / scale + added;
+        const height = rect.height / scale;
         if (
           top + height > (page + 1) * PAGE - MARGIN &&
           height <= PAGE - MARGIN * 2
@@ -83,7 +86,7 @@ export function useScreenplayPagination(
             range.selectNodeContents(textNode);
             const lines = [...range.getClientRects()];
             for (const line of lines) {
-              const bottom = line.bottom - origin + added;
+              const bottom = (line.bottom - origin) / scale + added;
               if (bottom <= (page + 1) * PAGE - MARGIN) continue;
               let lo = 0,
                 hi = textNode.length - 1;
@@ -99,7 +102,7 @@ export function useScreenplayPagination(
               page++;
               const gap = Math.max(
                 0,
-                page * PAGE + MARGIN - (line.top - origin + added),
+                page * PAGE + MARGIN - ((line.top - origin) / scale + added),
               );
               added += gap;
               gaps.push(
@@ -119,7 +122,7 @@ export function useScreenplayPagination(
             }
           }
         }
-        lastBottom = rect.bottom - origin + added;
+        lastBottom = (rect.bottom - origin) / scale + added;
       });
       editor.view.dispatch(
         editor.state.tr.setMeta(
@@ -158,5 +161,5 @@ export function useScreenplayPagination(
       editor.off("update", schedule);
       if (!editor.isDestroyed) editor.unregisterPlugin(pageKey);
     };
-  }, [editor, enabled, fontSize, fontFamily]);
+  }, [editor, enabled, fontSize, fontFamily, documentZoom]);
 }

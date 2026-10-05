@@ -31,6 +31,15 @@
 }
 .outline-layout {
   display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.outline-content {
+  position: relative;
+  display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -41,7 +50,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 20px 18px 0;
+  padding: 0 18px;
 }
 .outline-tools {
   display: flex;
@@ -50,6 +59,7 @@
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  padding: 20px 18px 0;
 }
 .outline-tools > button {
   background: #e9e8ed;
@@ -486,16 +496,34 @@
   color: #a39dab;
   font-size: 11px;
 }
-.minimal-dialog.outline-drama-dialog {
-  width: min(900px, calc(100vw - 32px));
-  max-width: 900px;
-  padding: 22px;
+.outline-drama-panel {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 8px 18px 12px;
+  background: #faf9fb;
+  box-shadow: inset 0 -1px #e7e3ec;
+}
+.outline-drama-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.outline-drama-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.outline-drama-heading .icon-button {
+  width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
 }
 .outline-drama-caption {
-  font-size: 13px;
+  font-size: 12px;
   color: #827a91;
   line-height: 1.5;
-  margin: 12px 0 20px;
+  margin: 0 0 8px;
 }
 .outline-drama-empty {
   font-size: 13px;
@@ -503,14 +531,17 @@
 }
 .outline-drama-scroll {
   width: 100%;
+  height: clamp(150px, 24vh, 220px);
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   border: 1px solid #e7e3ed;
   border-radius: 8px;
 }
 .outline-drama-scroll svg {
   display: block;
   width: 100%;
-  height: 314px;
+  height: 100%;
   font:
     11px Inter,
     Arial,
@@ -533,7 +564,8 @@
   outline: none;
 }
 .outline-drama-point:hover .drama-dot,
-.outline-drama-point:focus-visible .drama-dot {
+.outline-drama-point:focus-visible .drama-dot,
+.outline-drama-point.is-selected .drama-dot {
   fill: #1b2eff;
   stroke-width: 4;
 }
@@ -545,9 +577,9 @@
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-  min-height: 42px;
-  padding-top: 14px;
-  font-size: 13px;
+  min-height: 26px;
+  padding-top: 8px;
+  font-size: 12px;
 }
 .outline-drama-preview span {
   color: #827a91;
@@ -568,6 +600,13 @@
   }
 }
 @media (max-width: 700px) {
+  .outline-drama-panel {
+    padding-inline: 10px;
+  }
+  .outline-drama-heading .icon-button {
+    width: 44px;
+    min-height: 44px;
+  }
   .minimal-header:has(.document-view-toggle) {
     flex-wrap: wrap;
     height: auto;
@@ -583,6 +622,9 @@
     flex: 1;
   }
   .outline-workspace {
+    padding: 0 10px;
+  }
+  .outline-tools {
     padding: 12px 10px 0;
   }
   .outline-search {
@@ -600,7 +642,7 @@
   }
   .outline-card-drawer {
     position: absolute;
-    inset: 96px 0 0 auto;
+    inset: 0 0 0 auto;
     width: min(340px, 100vw);
     z-index: 30;
     box-shadow: -10px 0 35px #00000012;

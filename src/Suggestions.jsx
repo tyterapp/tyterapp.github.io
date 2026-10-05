@@ -2,6 +2,48 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shapes } from "lucide-react";
 
+function componentMatches(before, position, format, components) {
+  const matches = [];
+  const lower = before.toLocaleLowerCase();
+  for (const component of components) {
+    const text = component.name.trim();
+    if (!text) continue;
+    const name = text.toLocaleLowerCase();
+    for (
+      let i = Math.max(0, lower.length - name.length);
+      i < lower.length;
+      i++
+    ) {
+      if (i && /[\p{L}\p{M}\p{N}_]/u.test(lower[i - 1])) continue;
+      const part = lower.slice(i);
+      const enoughInput =
+        part.length >= (format === "scene" ? 1 : 2) || /^\p{N}$/u.test(part);
+      if (enoughInput && name.startsWith(part)) {
+        matches.push({
+          text,
+          component,
+          typedPrefix: before.slice(i),
+          from: position - (before.length - i),
+          insertLeadingSpace:
+            format === "scene" && /[—–-]$/.test(before.slice(0, i)),
+        });
+        break;
+      }
+    }
+  }
+  return matches.slice(0, 3);
+}
+
+function mergeSuggestions(components, words) {
+  const seen = new Set();
+  return [...components, ...words].filter((item) => {
+    const key = `${item.from}:${item.text.toLocaleUpperCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function context(editor, components) {
   if (
     !editor ||
@@ -26,7 +68,9 @@ function context(editor, components) {
     "\n",
   );
   if (/^[\p{L}\p{M}\p{N}]/u.test(after)) return null;
-  if (selection.$from.parent.attrs.format === "scene") {
+  const format = selection.$from.parent.attrs.format;
+  const matches = componentMatches(before, selection.from, format, components);
+  if (format === "scene") {
     const key = before.replace(/\s/g, "").toUpperCase();
     const headings = ["ИНТ.", "ЭКС.", "ИНТ. / ЭКС.", "ЭКС. / ИНТ."].filter(
       (text) => text.replace(/\s/g, "").startsWith(key),
@@ -37,10 +81,13 @@ function context(editor, components) {
         from: selection.from - before.length,
         to: selection.to,
         format: "scene",
-        components: headings.map((text) => ({
-          text,
-          from: selection.from - before.length,
-        })),
+        components: mergeSuggestions(
+          matches,
+          headings.map((text) => ({
+            text,
+            from: selection.from - before.length,
+          })),
+        ),
       };
     // A time of day follows a location and a spaced dash at the end of a heading.
     const ending = before.match(/^.+\s[—–-]\s*([А-ЯЁ]*)$/iu);
@@ -58,44 +105,25 @@ function context(editor, components) {
           insertLeadingSpace: /[—–-]$/.test(
             before.slice(0, before.length - prefix.length),
           ),
-          components: endings.map((text) => ({
-            text,
-            from: selection.from - prefix.length,
-          })),
+          components: mergeSuggestions(
+            matches,
+            endings.map((text) => ({
+              text,
+              from: selection.from - prefix.length,
+            })),
+          ),
         };
     }
   }
-  const prefix = before.match(/[\p{L}\p{M}\p{N}-]+$/u)?.[0];
+  const prefix =
+    before.match(/[\p{L}\p{M}\p{N}-]+$/u)?.[0] || matches[0]?.typedPrefix;
   if (!prefix) return null;
-  const matches = [];
-  for (const component of components) {
-    const name = component.name.toLocaleLowerCase();
-    const lower = before.toLocaleLowerCase();
-    for (
-      let i = Math.max(0, lower.length - name.length);
-      i < lower.length;
-      i++
-    ) {
-      if (i && /[\p{L}\p{M}\p{N}]/u.test(lower[i - 1])) continue;
-      const part = lower.slice(i);
-      const enoughInput = part.length >= 2 || /^\p{N}$/u.test(part);
-      if (enoughInput && name.startsWith(part)) {
-        matches.push({
-          text: component.name,
-          component,
-          typedPrefix: before.slice(i),
-          from: selection.from - (lower.length - i),
-        });
-        break;
-      }
-    }
-  }
   return {
     prefix,
     from: selection.from - prefix.length,
     to: selection.to,
-    format: selection.$from.parent.attrs.format,
-    components: matches.slice(0, 3),
+    format,
+    components: matches,
   };
 }
 function matchCase(word, prefix, format) {
@@ -211,7 +239,8 @@ export default function Suggestions({
               },
             ]
           : [];
-      const leadingSpace = c.insertLeadingSpace ? " " : "";
+      const leadingSpace =
+        (item.insertLeadingSpace ?? c.insertLeadingSpace) ? " " : "";
       acceptedAt = item.from + leadingSpace.length + text.length + 1;
       editor
         .chain()

@@ -5,21 +5,19 @@ import { dramaValue } from "./document-layout.js";
 export default function OutlineDramaChart({
   columns,
   cards,
+  selectedId,
   onSelect,
   onClose,
 }) {
-  const dialog = useRef(null);
   const plot = useRef(null);
   const [availableWidth, setAvailableWidth] = useState(660);
+  const [height, setHeight] = useState(220);
   const [hovered, setHovered] = useState(null);
   useEffect(() => {
-    dialog.current.showModal();
-    return () => dialog.current?.close();
-  }, []);
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) =>
-      setAvailableWidth(Math.floor(entry.contentRect.width)),
-    );
+    const observer = new ResizeObserver(([entry]) => {
+      setAvailableWidth(Math.floor(entry.contentRect.width));
+      setHeight(Math.floor(entry.contentRect.height));
+    });
     observer.observe(plot.current);
     return () => observer.disconnect();
   }, []);
@@ -30,8 +28,8 @@ export default function OutlineDramaChart({
     availableWidth,
     ordered.length * 56 + columns.length * 16 + 64,
   );
-  const top = 36,
-    bottom = 256,
+  const top = 28,
+    bottom = height - 42,
     left = 48,
     right = width - 24;
   const units = columns.reduce(
@@ -54,22 +52,10 @@ export default function OutlineDramaChart({
     return { column, start, end: left + offset * step, points };
   });
   const points = acts.flatMap((act) => act.points);
-  const focused = ordered.find((card) => card.id === hovered);
-  const openCard = (id) => {
-    onSelect(id);
-    onClose();
-  };
+  const focused = ordered.find((card) => card.id === (hovered || selectedId));
   return (
-    <dialog
-      ref={dialog}
-      className="minimal-dialog outline-drama-dialog"
-      aria-label="График драматичности"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <div className="dialog-heading">
+    <aside className="outline-drama-panel" aria-label="График драматичности">
+      <div className="outline-drama-heading">
         <h2>Драматичность истории</h2>
         <button
           className="icon-button"
@@ -90,7 +76,7 @@ export default function OutlineDramaChart({
       )}
       <div className="outline-drama-scroll" ref={plot}>
         <svg
-          viewBox={`0 0 ${width} 314`}
+          viewBox={`0 0 ${width} ${height}`}
           style={{ width }}
           role="group"
           aria-label="Драматичность по актам"
@@ -106,9 +92,9 @@ export default function OutlineDramaChart({
               />
               <foreignObject
                 x={start + 6}
-                y={277}
+                y={bottom + 15}
                 width={end - start - 12}
-                height={32}
+                height={26}
               >
                 <div className="outline-drama-act" aria-label={column.title}>
                   {column.title}
@@ -137,23 +123,27 @@ export default function OutlineDramaChart({
           {points.map(({ card, x, y }) => (
             <g
               key={card.id}
-              className="outline-drama-point"
+              className={
+                "outline-drama-point" +
+                (card.id === selectedId ? " is-selected" : "")
+              }
               role="button"
               tabIndex={0}
+              aria-pressed={card.id === selectedId}
               aria-label={`${card.title || "Без названия"}: драматичность ${dramaValue(card.drama)} из 10`}
               onMouseEnter={() => setHovered(card.id)}
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(card.id)}
               onBlur={() => setHovered(null)}
-              onClick={() => openCard(card.id)}
+              onClick={() => onSelect(card.id)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  openCard(card.id);
+                  onSelect(card.id);
                 }
               }}
             >
-              <circle cx={x} cy={y} r={17} fill="transparent" />
+              <circle cx={x} cy={y} r={22} fill="transparent" />
               <circle
                 className="drama-dot"
                 cx={x}
@@ -183,6 +173,6 @@ export default function OutlineDramaChart({
           <span>Выберите точку на графике</span>
         )}
       </div>
-    </dialog>
+    </aside>
   );
 }
