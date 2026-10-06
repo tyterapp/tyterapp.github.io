@@ -1,4 +1,5 @@
 import { dramaValue, clampDocumentZoom } from "./document-layout.js";
+import { documentFont } from "./document-fonts.js";
 
 const FORMATS = new Set([
   "scene",
@@ -440,11 +441,7 @@ export function validateImport(input) {
       : null,
     content: { type: "doc", content },
     metadata: {
-      fontFamily: ["courier", "consolas", "arial", "georgia", "times"].includes(
-        source.metadata?.fontFamily,
-      )
-        ? source.metadata.fontFamily
-        : "courier",
+      fontFamily: documentFont(source.metadata?.fontFamily).id,
       fontSize: Number.isFinite(Number(source.metadata?.fontSize))
         ? Math.max(12, Math.min(26, Number(source.metadata.fontSize)))
         : 12,

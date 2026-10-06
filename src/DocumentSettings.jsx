@@ -1,7 +1,7 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
-import { DOCUMENT_FONTS } from "./document-fonts.js";
+import { documentFont, documentFonts } from "./document-fonts.js";
 export default function DocumentSettings({
   metadata = {},
   documentZoom,
@@ -60,14 +60,14 @@ export default function DocumentSettings({
             {t("Шрифт в редакторе")}
             <select
               aria-label={t("Шрифт в редакторе")}
-              value={metadata.fontFamily || "courier"}
+              value={documentFont(metadata.fontFamily, language).id}
               onChange={(e) =>
                 onChange({
                   fontFamily: e.target.value,
                 })
               }
             >
-              {DOCUMENT_FONTS.map((font) => (
+              {documentFonts(language).map((font) => (
                 <option key={font.id} value={font.id}>
                   {font.name}
                 </option>

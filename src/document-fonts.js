@@ -6,6 +6,19 @@ export const DOCUMENT_FONTS = [
       '"Screenplay Courier Cyrillic", "Screenplay Courier Fallback", "Courier New", monospace',
   },
   {
+    id: "courier-new",
+    name: "Courier New",
+    family:
+      '"Tyter Courier New", "Screenplay Courier Cyrillic", "Courier New", monospace',
+  },
+  {
+    id: "courier-prime",
+    name: "Courier Prime",
+    languages: ["en"],
+    family:
+      '"Tyter Courier Prime", "Screenplay Courier Cyrillic", "Courier New", monospace',
+  },
+  {
     id: "consolas",
     name: "Consolas",
     family: 'Consolas, "Courier New", monospace',
@@ -14,5 +27,9 @@ export const DOCUMENT_FONTS = [
   { id: "georgia", name: "Georgia", family: "Georgia, serif" },
   { id: "times", name: "Times New Roman", family: '"Times New Roman", serif' },
 ];
-export const documentFont = (id) =>
-  DOCUMENT_FONTS.find((font) => font.id === id) || DOCUMENT_FONTS[0];
+export const documentFonts = (language) =>
+  DOCUMENT_FONTS.filter(
+    (font) => !language || !font.languages || font.languages.includes(language),
+  );
+export const documentFont = (id, language) =>
+  documentFonts(language).find((font) => font.id === id) || DOCUMENT_FONTS[0];

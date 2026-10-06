@@ -475,6 +475,24 @@ export default function MinimalApp() {
   const [documents, setDocuments] = useState(initial.documents);
   useEffect(() => {
     if (
+      language !== "ru" ||
+      !documents.some((doc) => doc.metadata?.fontFamily === "courier-prime")
+    )
+      return;
+    setDocuments((list) =>
+      list.map((doc) =>
+        doc.metadata?.fontFamily === "courier-prime"
+          ? {
+              ...doc,
+              metadata: { ...doc.metadata, fontFamily: "courier" },
+              updatedAt: new Date().toISOString(),
+            }
+          : doc,
+      ),
+    );
+  }, [language, documents]);
+  useEffect(() => {
+    if (
       !IS_PRO &&
       !window.tyterDesktop?.request &&
       documents.length > 2 &&
@@ -1679,6 +1697,7 @@ export default function MinimalApp() {
     }
   };
   const fontSize = current.metadata?.fontSize || 12;
+  const fontFamily = documentFont(current.metadata?.fontFamily, language).id;
   const documentZoom = clampDocumentZoom(current.metadata?.documentZoom);
   const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
@@ -2183,14 +2202,13 @@ export default function MinimalApp() {
                 minHeight: pageCount * pageHeight,
                 zoom: documentZoom / 100,
                 "--script-font-size": `${fontSize}pt`,
-                "--script-font-family": documentFont(
-                  current.metadata?.fontFamily,
-                ).family,
+                "--script-font-family": documentFont(fontFamily).family,
                 "--page-margin": `${sheet.top}px`,
                 "--paper-width": `${sheet.width}px`,
                 "--paper-left": `${sheet.left}px`,
                 "--paper-right": `${sheet.right}px`,
                 "--block-gap": `${sheet.gap}px`,
+                "--scene-action-gap": `${sheet.sceneActionGap}px`,
                 "--sheet-line-height": sheet.lineHeight,
                 ...BLOCK_LAYOUT_STYLE,
               }}
@@ -2277,7 +2295,7 @@ export default function MinimalApp() {
                   onPageCount={setPageCount}
                   fontSize={fontSize}
                   documentZoom={documentZoom}
-                  fontFamily={current.metadata?.fontFamily}
+                  fontFamily={fontFamily}
                   content={current.content}
                   onChange={changeContent}
                   onSelection={setSelection}

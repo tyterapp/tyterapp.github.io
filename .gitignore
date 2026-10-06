@@ -4,6 +4,7 @@ test-results/
 playwright-report/
 *.log
 .npm-cache/
+.cache/
 local-documents/
 backups/
 release/

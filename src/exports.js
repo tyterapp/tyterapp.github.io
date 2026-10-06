@@ -253,8 +253,10 @@ export async function exportDOCX(document) {
         },
       ]
     : [];
-  const paragraphs = document.content.content.map((block) => {
+  const paragraphs = document.content.content.map((block, index, blocks) => {
     const spec = FORMAT[block.attrs?.format] || FORMAT.action;
+    const nextBlock = blocks[index + 1];
+    const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
     return new Paragraph({
       style: block.attrs?.format || "action",
       alignment:
@@ -264,7 +266,10 @@ export async function exportDOCX(document) {
         right: Math.round(spec.right * 20),
       },
       spacing: {
-        after: spec.after * 20,
+        after:
+          block.attrs?.format === "scene"
+            ? screenplayBlockLayout("scene", nextFormat).after * 15
+            : spec.after * 20,
         before: 0,
         line: 240,
         lineRule: LineRuleType.EXACT,
@@ -463,7 +468,9 @@ export async function exportPDF(document) {
   document.content.content.forEach((block, index) => {
     const format = block.attrs?.format || "action";
     const spec = FORMAT[format] || FORMAT.action;
-    const geometry = screenplayBlockLayout(format);
+    const nextBlock = document.content.content[index + 1];
+    const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
+    const geometry = screenplayBlockLayout(format, nextFormat);
     const font = spec.bold ? "bold" : "normal";
     const text = styledText(block);
     pdf.setFont("ScreenplayCourier", "normal");
