@@ -1,5 +1,5 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { ArrowLeft } from "lucide-react";
-
 function renderedPart(part, index) {
   if (part.type === "hardBreak") return <br key={index} />;
   let result = part.text || "";
@@ -10,19 +10,19 @@ function renderedPart(part, index) {
   }
   return <span key={index}>{result}</span>;
 }
-
 export default function HistoryPreview({ revision, onExit }) {
+  const language = useLanguage();
   const blocks = revision.snapshot.content?.content || [];
   let scene = 0;
   return (
     <div
       className="history-document-preview"
-      aria-label="Текст выбранной версии"
+      aria-label={t("Текст выбранной версии")}
     >
       <div className="history-preview-banner">
         <span>
-          Версия от{" "}
-          {new Date(revision.createdAt).toLocaleString("ru-RU", {
+          {t("Версия от")}{" "}
+          {new Date(revision.createdAt).toLocaleString(languageLocale(), {
             day: "numeric",
             month: "long",
             hour: "2-digit",
@@ -30,7 +30,8 @@ export default function HistoryPreview({ revision, onExit }) {
           })}
         </span>
         <button className="quiet-button" onClick={onExit}>
-          <ArrowLeft size={14} /> К текущему тексту
+          <ArrowLeft size={14} />
+          {t(" К текущему тексту")}
         </button>
       </div>
       <div className="screenplay-editor history-preview-content">

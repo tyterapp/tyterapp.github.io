@@ -1,3 +1,4 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 export const FORMATS = [
   ["scene", "ИНТ/ЭКС", "Заголовок сцены"],
   ["action", "Действие", "Действие"],
@@ -7,14 +8,8 @@ export const FORMATS = [
   ["transition", "Переход", "Переход"],
   ["plain", "Заметки", "Обычный текст"],
 ];
-export default function FormatBar({
-  format,
-  displayMode = "text",
-  onFormat,
-  commentsOpen,
-  commentCount,
-  onComments,
-}) {
+export default function FormatBar({ format, displayMode = "text", onFormat }) {
+  const language = useLanguage();
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "CTRL";
   const iconMode = displayMode === "icons";
   return (
@@ -22,19 +17,19 @@ export default function FormatBar({
       <div
         className={`screenplay-format-bar${iconMode ? " is-icon-mode" : ""}`}
         role="group"
-        aria-label="Форматирование сценария"
+        aria-label={t("Форматирование сценария")}
       >
         {FORMATS.map(([key, label, hint], i) => (
           <button
             className="format-bar-button"
             key={key}
-            aria-label={label}
-            aria-description={hint}
+            aria-label={t(label)}
+            aria-description={t(hint)}
             aria-pressed={format === key}
             aria-describedby={`format-shortcut-${key}`}
             aria-keyshortcuts={`Control+${i + 1} Meta+${i + 1}`}
             data-tooltip={
-              iconMode ? `${label} · ${shortcut} + ${i + 1}` : undefined
+              iconMode ? `${t(label)} · ${shortcut} + ${i + 1}` : undefined
             }
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onFormat(key)}
@@ -47,7 +42,7 @@ export default function FormatBar({
                 aria-hidden="true"
               />
             ) : (
-              label
+              t(label)
             )}
             <span
               className="format-shortcut"
@@ -58,36 +53,6 @@ export default function FormatBar({
             </span>
           </button>
         ))}
-        <span className="format-bar-divider" aria-hidden="true" />
-        <button
-          className="format-bar-button format-comments"
-          aria-label="Комментарии"
-          aria-expanded={commentsOpen}
-          aria-describedby="format-shortcut-comments"
-          aria-keyshortcuts="Control+8 Meta+8"
-          data-tooltip={iconMode ? `Комментарии · ${shortcut} + 8` : undefined}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onComments}
-        >
-          {iconMode ? (
-            <img
-              className="format-bar-icon"
-              src="/icons/format/comments.svg"
-              alt=""
-              aria-hidden="true"
-            />
-          ) : (
-            "Комментарии"
-          )}{" "}
-          <span className="comment-count">{commentCount}</span>
-          <span
-            className="format-shortcut"
-            role="tooltip"
-            id="format-shortcut-comments"
-          >
-            {shortcut} + 8
-          </span>
-        </button>
       </div>
     </footer>
   );

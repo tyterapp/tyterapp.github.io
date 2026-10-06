@@ -1,13 +1,14 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { sourceForRange, nativeSelectedSource } from "./SelectionToolbar.jsx";
-
 export default function EditorContextMenu({
   editor,
   onCreateComponent,
   onCreateProp,
   onOpenChange,
 }) {
+  const language = useLanguage();
   const [menu, setMenu] = useState(null),
     [clipboard, setClipboard] = useState(""),
     [spelling, setSpelling] = useState(null),
@@ -15,8 +16,16 @@ export default function EditorContextMenu({
   const menuRef = useRef(null),
     worker = useRef(null),
     request = useRef(0);
-  const handlers = useRef({ onCreateComponent, onCreateProp, onOpenChange });
-  handlers.current = { onCreateComponent, onCreateProp, onOpenChange };
+  const handlers = useRef({
+    onCreateComponent,
+    onCreateProp,
+    onOpenChange,
+  });
+  handlers.current = {
+    onCreateComponent,
+    onCreateProp,
+    onOpenChange,
+  };
   useEffect(() => {
     if (!editor) return;
     const currentSource = () =>
@@ -63,7 +72,10 @@ export default function EditorContextMenu({
       const wordRange =
         source?.text === word
           ? source
-          : { from: pos - before.length, to: pos + after.length };
+          : {
+              from: pos - before.length,
+              to: pos + after.length,
+            };
       const id = ++request.current;
       setMenu({
         source,
@@ -88,14 +100,20 @@ export default function EditorContextMenu({
         if (!worker.current) {
           worker.current = new Worker(
             new URL("./dictionary.worker.js", import.meta.url),
-            { type: "module" },
+            {
+              type: "module",
+            },
           );
           worker.current.onmessage = ({ data }) => {
             if (data.id === request.current && data.type === "spelling")
               setSpelling(data);
           };
         }
-        worker.current.postMessage({ type: "spell", word, id });
+        worker.current.postMessage({
+          type: "spell",
+          word,
+          id,
+        });
       }
     };
     editor.view.dom.addEventListener("contextmenu", open);
@@ -156,11 +174,25 @@ export default function EditorContextMenu({
         const lines = clipboard.replace(/\r/g, "").split("\n");
         const content =
           lines.length === 1
-            ? { type: "text", text: lines[0] }
+            ? {
+                type: "text",
+                text: lines[0],
+              }
             : lines.map((text) => ({
                 type: "paragraph",
-                attrs: { format: "action" },
-                ...(text ? { content: [{ type: "text", text }] } : {}),
+                attrs: {
+                  format: "action",
+                },
+                ...(text
+                  ? {
+                      content: [
+                        {
+                          type: "text",
+                          text,
+                        },
+                      ],
+                    }
+                  : {}),
               }));
         editor
           .chain()
@@ -191,19 +223,22 @@ export default function EditorContextMenu({
       ref={menuRef}
       className="editor-context-menu"
       role="menu"
-      aria-label="Действия с текстом"
-      style={{ left: menu.x, top: menu.y }}
+      aria-label={t("Действия с текстом")}
+      style={{
+        left: menu.x,
+        top: menu.y,
+      }}
       onMouseDown={(event) => event.preventDefault()}
     >
       {[
-        ["paste", "Вставить", !!clipboard],
-        ["copy", "Копировать", selected],
-        ["cut", "Вырезать", selected],
-        ["all", "Выделить всё", true],
-        ["bold", "Жирный", selected],
-        ["italic", "Курсив", selected],
-        ["component", "Компонент", selected],
-        ["prop", "Реквизит", selected],
+        ["paste", t("Вставить"), !!clipboard],
+        ["copy", t("Копировать"), selected],
+        ["cut", t("Вырезать"), selected],
+        ["all", t("Выделить всё"), true],
+        ["bold", t("Жирный"), selected],
+        ["italic", t("Курсив"), selected],
+        ["component", t("Компонент"), selected],
+        ["prop", t("Реквизит"), selected],
       ].map(([action, label, enabled], index) => (
         <button
           role="menuitem"
@@ -212,7 +247,7 @@ export default function EditorContextMenu({
           className={index === 4 ? "context-section-start" : ""}
           onClick={() => perform(action)}
         >
-          {label}
+          {t(label)}
           <small>
             {
               {
@@ -229,11 +264,13 @@ export default function EditorContextMenu({
           </small>
         </button>
       ))}
-      <div className="context-spelling-heading">Орфография · русский</div>
+      <div className="context-spelling-heading">
+        {t("Орфография · русский")}
+      </div>
       {menu.word ? (
         spelling ? (
           spelling.correct ? (
-            <p>Слово есть в словаре</p>
+            <p>{t("Слово есть в словаре")}</p>
           ) : spelling.words.length ? (
             spelling.words.map((word) => (
               <button
@@ -257,15 +294,15 @@ export default function EditorContextMenu({
               </button>
             ))
           ) : (
-            <p>Нет вариантов замены</p>
+            <p>{t("Нет вариантов замены")}</p>
           )
         ) : (
-          <p>Проверяем слово…</p>
+          <p>{t("Проверяем слово…")}</p>
         )
       ) : (
-        <p>Нажмите на слово для проверки</p>
+        <p>{t("Нажмите на слово для проверки")}</p>
       )}
-      {error && <p role="status">{error}</p>}
+      {error && <p role="status">{t(error)}</p>}
     </div>,
     document.body,
   );

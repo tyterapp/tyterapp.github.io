@@ -1,7 +1,7 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { DOCUMENT_FONTS } from "./document-fonts.js";
-
 export default function DocumentSettings({
   metadata = {},
   documentZoom,
@@ -9,6 +9,7 @@ export default function DocumentSettings({
   onZoom,
   onClose,
 }) {
+  const language = useLanguage();
   const file = useRef(null);
   const [error, setError] = useState("");
   const upload = async (e) => {
@@ -34,18 +35,20 @@ export default function DocumentSettings({
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       bitmap.close();
       setError("");
-      onChange({ poster: canvas.toDataURL("image/jpeg", 0.82) });
+      onChange({
+        poster: canvas.toDataURL("image/jpeg", 0.82),
+      });
     } catch {
       setError("Не удалось прочитать изображение.");
     }
   };
   return (
-    <aside className="settings-drawer" aria-label="Настройки документа">
+    <aside className="settings-drawer" aria-label={t("Настройки документа")}>
       <div className="drawer-heading">
-        <h2>Настройки документа</h2>
+        <h2>{t("Настройки документа")}</h2>
         <button
           className="icon-button"
-          aria-label="Закрыть настройки"
+          aria-label={t("Закрыть настройки")}
           onClick={onClose}
         >
           <X size={18} />
@@ -54,11 +57,15 @@ export default function DocumentSettings({
       <div className="settings-scroll">
         <section className="metadata-fields">
           <label>
-            Шрифт в редакторе
+            {t("Шрифт в редакторе")}
             <select
-              aria-label="Шрифт в редакторе"
+              aria-label={t("Шрифт в редакторе")}
               value={metadata.fontFamily || "courier"}
-              onChange={(e) => onChange({ fontFamily: e.target.value })}
+              onChange={(e) =>
+                onChange({
+                  fontFamily: e.target.value,
+                })
+              }
             >
               {DOCUMENT_FONTS.map((font) => (
                 <option key={font.id} value={font.id}>
@@ -68,16 +75,17 @@ export default function DocumentSettings({
             </select>
           </label>
           <p className="settings-hint">
-            Экспорт PDF, DOCX и FDX всегда использует Courier.
+            {t("Экспорт PDF, DOCX и FDX всегда использует Courier.")}
           </p>
         </section>
         <section>
           <label className="size-label" htmlFor="document-zoom">
-            Масштаб документа <output>{documentZoom}%</output>
+            {t("Масштаб документа ")}
+            <output>{documentZoom}%</output>
           </label>
           <input
             id="document-zoom"
-            aria-label="Масштаб документа"
+            aria-label={t("Масштаб документа")}
             type="range"
             min="100"
             max="200"
@@ -89,53 +97,61 @@ export default function DocumentSettings({
             <span>100%</span>
             <span>200%</span>
           </div>
-          <p className="settings-hint">Ctrl + колесо мыши на листе</p>
+          <p className="settings-hint">{t("Ctrl + колесо мыши на листе")}</p>
         </section>
         <section>
-          <h3>Нижняя панель</h3>
+          <h3>{t("Нижняя панель")}</h3>
           <div
             className="format-bar-mode-toggle"
             role="group"
-            aria-label="Вид нижней панели"
+            aria-label={t("Вид нижней панели")}
           >
             {[
-              ["text", "Текст"],
-              ["icons", "Иконки"],
+              ["text", t("Текст")],
+              ["icons", t("Иконки")],
             ].map(([mode, label]) => (
               <button
                 key={mode}
                 type="button"
                 aria-pressed={(metadata.formatBarMode || "text") === mode}
-                onClick={() => onChange({ formatBarMode: mode })}
+                onClick={() =>
+                  onChange({
+                    formatBarMode: mode,
+                  })
+                }
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
         </section>
         <section>
-          <h3>Обложка</h3>
+          <h3>{t("Обложка")}</h3>
           <button
             className={`poster-upload${metadata.poster ? " has-poster" : ""}`}
             onClick={() => file.current.click()}
-            aria-label="Загрузить обложку"
+            aria-label={t("Загрузить обложку")}
           >
             {metadata.poster ? (
-              <img src={metadata.poster} alt="Обложка сценария" />
+              <img src={metadata.poster} alt={t("Обложка сценария")} />
             ) : (
               <>
                 <ImagePlus size={26} />
-                <span>Добавить постер</span>
-                <small>JPG, PNG, WebP · до 5 МБ</small>
+                <span>{t("Добавить постер")}</span>
+                <small>{t("JPG, PNG, WebP · до 5 МБ")}</small>
               </>
             )}
           </button>
           {metadata.poster && (
             <button
               className="quiet-button"
-              onClick={() => onChange({ poster: null })}
+              onClick={() =>
+                onChange({
+                  poster: null,
+                })
+              }
             >
-              Убрать обложку
+              {t("Убрать обложку")}
             </button>
           )}
           <input
@@ -147,26 +163,30 @@ export default function DocumentSettings({
           />
           {error && (
             <p role="alert" className="form-error">
-              {error}
+              {t(error)}
             </p>
           )}
         </section>
         <section className="metadata-fields">
-          <h3>Авторство</h3>
+          <h3>{t("Авторство")}</h3>
           <label>
-            Автор
+            {t("Автор")}
             <input
-              aria-label="Автор"
+              aria-label={t("Автор")}
               value={metadata.author || ""}
               maxLength={200}
-              onChange={(e) => onChange({ author: e.target.value })}
-              placeholder="Имя автора"
+              onChange={(e) =>
+                onChange({
+                  author: e.target.value,
+                })
+              }
+              placeholder={t("Имя автора")}
             />
           </label>
           <label>
-            Год
+            {t("Год")}
             <input
-              aria-label="Год"
+              aria-label={t("Год")}
               inputMode="numeric"
               maxLength={4}
               value={metadata.year || ""}
@@ -175,17 +195,21 @@ export default function DocumentSettings({
                   year: e.target.value.replace(/\D/g, "").slice(0, 4),
                 })
               }
-              placeholder={String(new Date().getFullYear())}
+              placeholder={t(String(new Date().getFullYear()))}
             />
           </label>
           <label>
-            Email автора
+            {t("Email автора")}
             <input
               type="email"
-              aria-label="Email автора"
+              aria-label={t("Email автора")}
               value={metadata.email || ""}
               maxLength={254}
-              onChange={(e) => onChange({ email: e.target.value })}
+              onChange={(e) =>
+                onChange({
+                  email: e.target.value,
+                })
+              }
               placeholder="author@example.com"
             />
           </label>

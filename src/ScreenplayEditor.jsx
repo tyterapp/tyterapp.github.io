@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { t, useLanguage } from "./i18n.js";
 import EditorContextMenu from "./EditorContextMenu.jsx";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
@@ -28,7 +29,6 @@ import {
   SKIP_COMPONENT_LINKS,
 } from "./component-links.js";
 import "./screenplay-editor.css";
-
 const FORMATS = [
   "scene",
   "action",
@@ -50,17 +50,18 @@ const NEXT_FORMAT = {
 const makeId = () =>
   globalThis.crypto?.randomUUID?.() ||
   `block-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
 function paragraphAt(selection) {
   const resolved = selection.$head || selection.$from;
   for (let depth = resolved.depth; depth > 0; depth -= 1) {
     if (resolved.node(depth).type.name === "paragraph") {
-      return { node: resolved.node(depth), pos: resolved.before(depth) };
+      return {
+        node: resolved.node(depth),
+        pos: resolved.before(depth),
+      };
     }
   }
   return null;
 }
-
 function selectionInfo(editor, wholeParagraph = false) {
   if (!editor) return null;
   const { selection, doc } = editor.state;
@@ -81,13 +82,11 @@ function selectionInfo(editor, wholeParagraph = false) {
     to,
   };
 }
-
 function annotationTarget(editor, source) {
   if (!source) return selectionInfo(editor, true);
   const { doc } = editor.state;
   const quote = typeof source.text === "string" ? source.text : source.quote;
   if (typeof quote !== "string" || !quote.length) return null;
-
   let block = null;
   if (source.blockId) {
     doc.descendants((node, pos) => {
@@ -95,13 +94,15 @@ function annotationTarget(editor, source) {
         node.type.name === "paragraph" &&
         node.attrs.blockId === source.blockId
       )
-        block = { node, pos };
+        block = {
+          node,
+          pos,
+        };
     });
     // An annotation belongs to its original paragraph, even if another paragraph
     // happens to contain the same words after the source has been removed.
     if (!block) return null;
   }
-
   const { from, to } = source;
   const validRange =
     Number.isInteger(from) &&
@@ -149,7 +150,6 @@ function annotationTarget(editor, source) {
     to: positions[start + quote.length - 1] + 1,
   };
 }
-
 function removeAnnotation(editor, type, id, preserveHistory = false) {
   if (!editor) return false;
   const transaction = editor.state.tr;
@@ -168,14 +168,24 @@ function removeAnnotation(editor, type, id, preserveHistory = false) {
     editor.view.dispatch(transaction);
   return transaction.docChanged;
 }
-
 function normalizeContent(content) {
-  const source = Array.isArray(content) ? { type: "doc", content } : content;
+  const source = Array.isArray(content)
+    ? {
+        type: "doc",
+        content,
+      }
+    : content;
   if (!source || typeof source !== "object") {
     return {
       type: "doc",
       content: [
-        { type: "paragraph", attrs: { format: "scene", blockId: makeId() } },
+        {
+          type: "paragraph",
+          attrs: {
+            format: "scene",
+            blockId: makeId(),
+          },
+        },
       ],
     };
   }
@@ -200,10 +210,17 @@ function normalizeContent(content) {
     type: "doc",
     content: paragraphs.length
       ? paragraphs
-      : [{ type: "paragraph", attrs: { format: "scene", blockId: makeId() } }],
+      : [
+          {
+            type: "paragraph",
+            attrs: {
+              format: "scene",
+              blockId: makeId(),
+            },
+          },
+        ],
   };
 }
-
 const ScreenplayParagraph = Node.create({
   name: "paragraph",
   group: "block",
@@ -216,27 +233,36 @@ const ScreenplayParagraph = Node.create({
           FORMATS.includes(element.getAttribute("data-format"))
             ? element.getAttribute("data-format")
             : "action",
-        renderHTML: (attributes) => ({ "data-format": attributes.format }),
+        renderHTML: (attributes) => ({
+          "data-format": attributes.format,
+        }),
       },
       blockId: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-block-id"),
-        renderHTML: (attributes) => ({ "data-block-id": attributes.blockId }),
+        renderHTML: (attributes) => ({
+          "data-block-id": attributes.blockId,
+        }),
       },
     };
   },
   parseHTML() {
-    return [{ tag: "p" }];
+    return [
+      {
+        tag: "p",
+      },
+    ];
   },
   renderHTML({ HTMLAttributes }) {
     return [
       "p",
-      mergeAttributes(HTMLAttributes, { class: "screenplay-block" }),
+      mergeAttributes(HTMLAttributes, {
+        class: "screenplay-block",
+      }),
       0,
     ];
   },
 });
-
 const CommentMark = Mark.create({
   name: "comment",
   inclusive: false,
@@ -246,22 +272,29 @@ const CommentMark = Mark.create({
       id: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-comment-id"),
-        renderHTML: (attributes) => ({ "data-comment-id": attributes.id }),
+        renderHTML: (attributes) => ({
+          "data-comment-id": attributes.id,
+        }),
       },
     };
   },
   parseHTML() {
-    return [{ tag: "span[data-comment-id]" }];
+    return [
+      {
+        tag: "span[data-comment-id]",
+      },
+    ];
   },
   renderHTML({ HTMLAttributes }) {
     return [
       "span",
-      mergeAttributes(HTMLAttributes, { class: "script-comment" }),
+      mergeAttributes(HTMLAttributes, {
+        class: "script-comment",
+      }),
       0,
     ];
   },
 });
-
 const EntityMark = Mark.create({
   name: "entity",
   inclusive: false,
@@ -273,12 +306,18 @@ const EntityMark = Mark.create({
         parseHTML: (element) =>
           element.getAttribute("data-entity-automatic") === "true",
         renderHTML: (attributes) =>
-          attributes.automatic ? { "data-entity-automatic": "true" } : {},
+          attributes.automatic
+            ? {
+                "data-entity-automatic": "true",
+              }
+            : {},
       },
       id: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-entity-id"),
-        renderHTML: (attributes) => ({ "data-entity-id": attributes.id }),
+        renderHTML: (attributes) => ({
+          "data-entity-id": attributes.id,
+        }),
       },
       color: {
         default: "#9b6ee7",
@@ -297,22 +336,30 @@ const EntityMark = Mark.create({
     };
   },
   parseHTML() {
-    return [{ tag: "span[data-entity-id]" }];
+    return [
+      {
+        tag: "span[data-entity-id]",
+      },
+    ];
   },
   renderHTML({ HTMLAttributes }) {
     return [
       "span",
-      mergeAttributes(HTMLAttributes, { class: "script-entity" }),
+      mergeAttributes(HTMLAttributes, {
+        class: "script-entity",
+      }),
       0,
     ];
   },
 });
-
 const ScreenplayBehavior = Extension.create({
   name: "screenplayBehavior",
   priority: 1000,
   addOptions() {
-    return { onComments: () => {}, minimal: false };
+    return {
+      onComments: () => {},
+      minimal: false,
+    };
   },
   addCommands() {
     return {
@@ -358,7 +405,9 @@ const ScreenplayBehavior = Extension.create({
         paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
       return this.editor
         .chain()
-        .splitBlock({ keepMarks: false })
+        .splitBlock({
+          keepMarks: false,
+        })
         .setScreenplayFormat(NEXT_FORMAT[format] || "action")
         .command(({ tr }) => {
           tr.setStoredMarks([]);
@@ -403,7 +452,6 @@ const ScreenplayBehavior = Extension.create({
     ];
   },
 });
-
 function scrollToText(view, position, frame, smooth = true) {
   if (frame.current !== null) cancelAnimationFrame(frame.current);
   frame.current = requestAnimationFrame(() => {
@@ -443,7 +491,6 @@ function scrollToText(view, position, frame, smooth = true) {
     frame.current = requestAnimationFrame(animate);
   });
 }
-
 const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   {
     content,
@@ -481,6 +528,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   },
   ref,
 ) {
+  const language = useLanguage();
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [caretReady, setCaretReady] = useState(false);
   const caretReadyRef = useRef(false);
@@ -535,7 +583,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   const initialContent = useRef(null);
   if (!initialContent.current)
     initialContent.current = normalizeContent(content);
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -705,11 +752,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       button.className = "outline-scene-link";
                       button.setAttribute(
                         "aria-label",
-                        "Открыть карточку " + card.title,
+                        t("Открыть карточку {0}", card.title),
                       );
                       button.setAttribute(
                         "data-tooltip",
-                        "Открыть карточку аутлайна",
+                        t("Открыть карточку аутлайна"),
                       );
                       button.contentEditable = "false";
                       button.innerHTML =
@@ -725,7 +772,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       return gutter;
                     },
                     {
-                      key: `scene-${node.attrs.blockId}-${number}-${card?.id || ""}-${card?.title || ""}`,
+                      key: `scene-${node.attrs.blockId}-${number}-${card?.id || ""}-${card?.title || ""}-${language}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -735,24 +782,16 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             if (propsRef.current.showLineHighlight && current?.pos === pos)
               attrs.class = "is-current-block";
             if (minimal && documentEmpty && pos === 0)
-              attrs["data-placeholder"] = "Начните историю…";
+              attrs["data-placeholder"] = t("Начни писать свою историю...");
             else if (!minimal && !node.textContent)
               attrs["data-placeholder"] =
                 node.attrs.format === "scene"
-                  ? minimal
-                    ? "ИНТ. МЕСТО — ДЕНЬ"
-                    : "INT. LOCATION — DAY"
+                  ? "INT. LOCATION — DAY"
                   : node.attrs.format === "character"
-                    ? minimal
-                      ? "ПЕРСОНАЖ"
-                      : "CHARACTER"
+                    ? "CHARACTER"
                     : node.attrs.format === "parenthetical"
-                      ? minimal
-                        ? "(тихо)"
-                        : "(quietly)"
-                      : minimal
-                        ? "Начните историю…"
-                        : "Write your story…";
+                      ? "(quietly)"
+                      : "Write your story…";
             if (Object.keys(attrs).length)
               decorations.push(
                 Decoration.node(pos, pos + node.nodeSize, attrs),
@@ -824,10 +863,13 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                   deleted.className = "comment-deleted-text";
                   deleted.textContent = part.text;
                   deleted.contentEditable = "false";
-                  deleted.dataset.tooltip = "Удалённый текст цитаты";
+                  deleted.dataset.tooltip = t("Удалённый текст цитаты");
                   return deleted;
                 },
-                { key: `deleted-${review.id}-${index}-${part.text}`, side: -1 },
+                {
+                  key: `deleted-${review.id}-${index}-${part.text}-${language}`,
+                  side: -1,
+                },
               ),
             );
           }
@@ -884,7 +926,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       propsRef.current.onSelection?.(selectionInfo(focusedEditor));
     },
   });
-
   useEffect(() => {
     if (!editor || !caretReady || !autoFocus || !focusPending.current) return;
     const frame = requestAnimationFrame(() => {
@@ -904,7 +945,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     });
     return () => cancelAnimationFrame(frame);
   }, [editor, caretReady, autoFocus]);
-
   useScreenplayPagination(
     editor,
     minimal,
@@ -913,7 +953,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     fontFamily,
     documentZoom,
   );
-
   useEffect(() => {
     if (!editor) return;
     editor.registerPlugin(
@@ -923,7 +962,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       if (!editor.isDestroyed) editor.unregisterPlugin(componentLinksKey);
     };
   }, [editor]);
-
   useEffect(() => {
     if (editor && !editor.isDestroyed)
       editor.view.dispatch(
@@ -932,7 +970,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .setMeta("addToHistory", false),
       );
   }, [editor, components]);
-
   useEffect(() => {
     if (!editor || !content) return;
     const serialized = JSON.stringify(content);
@@ -947,7 +984,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     const storedMarks = editor.state.storedMarks;
     editor
       .chain()
-      .setContent(normalizeContent(content), { emitUpdate: false })
+      .setContent(normalizeContent(content), {
+        emitUpdate: false,
+      })
       .command(({ tr }) => {
         tr.setSelection(selectionAtCaret(tr.doc, caret));
         tr.setStoredMarks(storedMarks);
@@ -957,7 +996,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     rememberCaret(editor);
     propsRef.current.onSelection?.(selectionInfo(editor));
   }, [content, editor]);
-
   useEffect(() => {
     if (editor && !editor.isDestroyed)
       editor.view.dispatch(editor.state.tr.setMeta("screenplay-display", true));
@@ -974,8 +1012,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     props,
     activeProp,
     outlineCards,
+    language,
   ]);
-
   useEffect(() => {
     if (!searchQuery && searchScrollFrame.current !== null) {
       cancelAnimationFrame(searchScrollFrame.current);
@@ -989,12 +1027,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     },
     [],
   );
-
   useImperativeHandle(
     ref,
     () => ({
       focus() {
         editor?.commands.focus();
+      },
+      focusEnd() {
+        editor?.commands.focus("end");
       },
       findText(query, index = 0, { fromCard = false, scroll = true } = {}) {
         if (!editor || !query.trim()) return 0;
@@ -1034,8 +1074,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             )
           )
             range = range
-              ? { from: range.from, to: pos + node.nodeSize }
-              : { from: pos, to: pos + node.nodeSize };
+              ? {
+                  from: range.from,
+                  to: pos + node.nodeSize,
+                }
+              : {
+                  from: pos,
+                  to: pos + node.nodeSize,
+                };
         });
         const comment = propsRef.current.comments?.find((c) => c.id === id);
         let position = range?.from ?? null;
@@ -1070,15 +1116,29 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .insertContentAt(end, [
             {
               type: "paragraph",
-              attrs: { format: "scene", blockId },
-              content: [{ type: "text", text: title }],
+              attrs: {
+                format: "scene",
+                blockId,
+              },
+              content: [
+                {
+                  type: "text",
+                  text: title,
+                },
+              ],
             },
             {
               type: "paragraph",
-              attrs: { format: "action", blockId: makeId() },
+              attrs: {
+                format: "action",
+                blockId: makeId(),
+              },
             },
           ])
-          .setTextSelection({ from: end + 1, to: end + 1 + title.length })
+          .setTextSelection({
+            from: end + 1,
+            to: end + 1 + title.length,
+          })
           .run();
         return blockId;
       },
@@ -1096,7 +1156,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .setTextSelection(found + 1)
           .run();
         const block = editor.view.nodeDOM(found);
-        block?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        block?.scrollIntoView?.({
+          behavior: "smooth",
+          block: "center",
+        });
         return true;
       },
       addComment(id, source) {
@@ -1106,7 +1169,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         const transaction = editor.state.tr.addMark(
           info.from,
           info.to,
-          editor.schema.marks.comment.create({ id }),
+          editor.schema.marks.comment.create({
+            id,
+          }),
         );
         transaction.removeStoredMark(editor.schema.marks.comment);
         editor.view.dispatch(transaction);
@@ -1122,7 +1187,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         const transaction = editor.state.tr.addMark(
           info.from,
           info.to,
-          editor.schema.marks.entity.create({ id, color }),
+          editor.schema.marks.entity.create({
+            id,
+            color,
+          }),
         );
         transaction.removeStoredMark(editor.schema.marks.entity);
         editor.view.dispatch(transaction);
@@ -1166,7 +1234,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             tr.setMeta(SKIP_COMPONENT_LINKS, true);
             return true;
           })
-          .setContent(normalizeContent(content), { emitUpdate: false })
+          .setContent(normalizeContent(content), {
+            emitUpdate: false,
+          })
           .command(({ tr }) => {
             tr.setSelection(selectionAtCaret(tr.doc, caret));
             return true;
@@ -1229,7 +1299,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         return editor?.getHTML() || "";
       },
       getText() {
-        return editor?.getText({ blockSeparator: "\n\n" }) || "";
+        return (
+          editor?.getText({
+            blockSeparator: "\n\n",
+          }) || ""
+        );
       },
       undo() {
         return editor?.chain().focus().undo().run();
@@ -1240,7 +1314,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     }),
     [editor],
   );
-
   return (
     <>
       <EditorContent
@@ -1271,5 +1344,4 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     </>
   );
 });
-
 export default ScreenplayEditor;

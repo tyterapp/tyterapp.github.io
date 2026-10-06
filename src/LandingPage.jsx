@@ -1,3 +1,6 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
+import LanguageSwitch from "./LanguageSwitch.jsx";
+import { useEffect } from "react";
 import {
   Download,
   Search,
@@ -11,26 +14,45 @@ import {
 } from "lucide-react";
 const donate = "https://boosty.to/sergeybuharev";
 function Preview({ panel }) {
-  if (panel === "Аутлайн · Pro")
+  const language = useLanguage();
+  if (panel === t("Аутлайн · Pro"))
     return (
-      <div className="landing-outline-preview" aria-label="Карточки аутлайна">
-        {["Завязка", "Развитие", "Развязка"].map((act, index) => (
+      <div
+        className="landing-outline-preview"
+        aria-label={t("Карточки аутлайна")}
+      >
+        {[t("Завязка"), t("Развитие"), t("Развязка")].map((act, index) => (
           <section key={act}>
-            <strong>Акт {index + 1}</strong>
+            <strong>
+              {t("Акт ")}
+              {index + 1}
+            </strong>
             {[
               act,
-              ["Незваный гость", "Поиски ответа", "Возвращение домой"][index],
+              [t("Незваный гость"), t("Поиски ответа"), t("Возвращение домой")][
+                index
+              ],
             ].map((title, cardIndex) => (
-              <article key={title}>
-                <strong style={{ color: cardIndex ? "#37343d" : "#1b2eff" }}>
-                  ▣ {title}
+              <article key={t(title)}>
+                <strong
+                  style={{
+                    color: cardIndex ? "#37343d" : "#1b2eff",
+                  }}
+                >
+                  ▣ {t(title)}
                 </strong>
                 <p>
                   {
                     [
-                      "Кошка замечает открытое окно. На улице начинается новая история.",
-                      "Анна ищет кошку в городе и встречает того, кто знает дорогу.",
-                      "Квартира снова полна света. Кошка возвращается домой.",
+                      t(
+                        "Кошка замечает открытое окно. На улице начинается новая история.",
+                      ),
+                      t(
+                        "Анна ищет кошку в городе и встречает того, кто знает дорогу.",
+                      ),
+                      t(
+                        "Квартира снова полна света. Кошка возвращается домой.",
+                      ),
                     ][index]
                   }
                 </p>
@@ -40,25 +62,25 @@ function Preview({ panel }) {
         ))}
       </div>
     );
-  if (panel === "Файлы TYT · Pro")
+  if (panel === t("Файлы TYT · Pro"))
     return (
       <div
         className="landing-tyt-preview"
-        aria-label="Проект Tyter в одном файле"
+        aria-label={t("Проект Tyter в одном файле")}
       >
         <div className="landing-tyt-file">
           <FolderOpen size={38} />
-          <strong>Глазами кошки.tyt</strong>
-          <span>Вся история в одном файле</span>
+          <strong>{t("Глазами кошки.tyt")}</strong>
+          <span>{t("Вся история в одном файле")}</span>
         </div>
         <div className="landing-tyt-items">
           {[
-            "Сценарий",
-            "Аутлайн",
-            "Комментарии",
-            "Компоненты",
-            "Реквизит",
-            "Обложка и авторство",
+            t("Сценарий"),
+            t("Аутлайн"),
+            t("Комментарии"),
+            t("Компоненты"),
+            t("Реквизит"),
+            t("Обложка и авторство"),
           ].map((item) => (
             <span key={item}>{item}</span>
           ))}
@@ -69,13 +91,16 @@ function Preview({ panel }) {
     <div
       className={`landing-preview ${panel ? "with-panel" : ""}`}
       aria-label={
-        panel ? `Предпросмотр: ${panel}` : "Предпросмотр редактора Tyter"
+        panel
+          ? t("Предпросмотр: {0}", panel)
+          : t("Предпросмотр редактора Tyter")
       }
     >
       <div className="preview-top">
         <span>
           <img src="/brand/tyter-logo.svg" alt="" />
-          Глазами кошки <small>⌄</small>
+          {t("Глазами кошки ")}
+          <small>⌄</small>
           <FolderOpen size={13} />
         </span>
         <span>
@@ -95,60 +120,64 @@ function Preview({ panel }) {
       <div className="preview-workspace">
         <div className="preview-paper">
           <small className="preview-number">1</small>
-          <b>ИНТ. КВАРТИРА — УТРО</b>
+          <b>{t("ИНТ. КВАРТИРА — УТРО")}</b>
           <p>
-            Кошка наблюдает за городом с подоконника. Внизу спешат люди, а на
-            кухне тихо звенит пустая миска.
+            {t(
+              "Кошка наблюдает за городом с подоконника. Внизу спешат люди, а на кухне тихо звенит пустая миска.",
+            )}
           </p>
           <div className="preview-dialogue">
-            <b>КОШКА</b>
+            <b>{t("КОШКА")}</b>
             <br />
-            Кажется, у них опять свои планы на завтрак.
+            {t("Кажется, у них опять свои планы на завтрак.")}
           </div>
-          <b>ИНТ. КВАРТИРА — ДЕНЬ</b>
+          <b>{t("ИНТ. КВАРТИРА — ДЕНЬ")}</b>
           <p>
             <span
               className={
-                panel === "Реквизит" ? "preview-orange" : "preview-blue"
+                panel === t("Реквизит") ? "preview-orange" : "preview-blue"
               }
             >
-              Миска
+              {t("Миска")}
             </span>{" "}
-            всё ещё пуста. Анна открывает дверь.
+            {t("всё ещё пуста. Анна открывает дверь.")}
           </p>
         </div>
         {panel && (
           <aside className="preview-panel">
             <strong>{panel}</strong>
-            {panel === "Компоненты" ? (
+            {panel === t("Компоненты") ? (
               <>
-                <small>Персонажи</small>
+                <small>{t("Персонажи")}</small>
                 <div>
-                  ♧ Анна <small>Главная героиня</small>
+                  {t("♧ Анна ")}
+                  <small>{t("Главная героиня")}</small>
                 </div>
                 <div>
-                  ♧ Кошка <small>Внимательный наблюдатель</small>
+                  {t("♧ Кошка ")}
+                  <small>{t("Внимательный наблюдатель")}</small>
                 </div>
-                <small>Места</small>
-                <div>♧ Квартира</div>
+                <small>{t("Места")}</small>
+                <div>{t("♧ Квартира")}</div>
               </>
-            ) : panel === "Статистика" ? (
+            ) : panel === t("Статистика") ? (
               <>
                 <div className="preview-metrics">
                   <b>
-                    12<small>страниц</small>
+                    12<small>{t("страниц")}</small>
                   </b>
                   <b>
-                    12 мин<small>хронометраж</small>
+                    {t("12 мин")}
+                    <small>{t("хронометраж")}</small>
                   </b>
                   <b>
-                    8<small>сцен</small>
+                    8<small>{t("сцен")}</small>
                   </b>
                   <b>
-                    24<small>реплики</small>
+                    24<small>{t("реплики")}</small>
                   </b>
                 </div>
-                <small>Доля диалогов</small>
+                <small>{t("Доля диалогов")}</small>
                 <div className="preview-chart">
                   <i />
                   <i />
@@ -157,36 +186,42 @@ function Preview({ panel }) {
                   <i />
                 </div>
                 <small>
-                  Кошка · 14 реплик
+                  {t("Кошка · 14 реплик")}
                   <br />
-                  Анна · 10 реплик
+                  {t("Анна · 10 реплик")}
                 </small>
               </>
-            ) : panel === "Реквизит" ? (
+            ) : panel === t("Реквизит") ? (
               <>
                 <div>
-                  ▧ Миска <small>1 шт. · В тексте: 3</small>
+                  {t("▧ Миска ")}
+                  <small>{t("1 шт. · В тексте: 3")}</small>
                 </div>
                 <div>
-                  ▧ Ключи <small>1 шт. · В тексте: 2</small>
+                  {t("▧ Ключи ")}
+                  <small>{t("1 шт. · В тексте: 2")}</small>
                 </div>
                 <div>
-                  ▧ Телефон <small>1 шт. · В тексте: 4</small>
+                  {t("▧ Телефон ")}
+                  <small>{t("1 шт. · В тексте: 4")}</small>
                 </div>
-                <span className="preview-report">↓ Отчёт в PDF</span>
+                <span className="preview-report">{t("↓ Отчёт в PDF")}</span>
               </>
             ) : (
               <>
                 <div>
-                  Сегодня, 12:42<small>Изменён текст сценария</small>
+                  {t("Сегодня, 12:42")}
+                  <small>{t("Изменён текст сценария")}</small>
                 </div>
                 <div>
-                  Сегодня, 12:30<small>Добавлен компонент «Анна»</small>
+                  {t("Сегодня, 12:30")}
+                  <small>{t("Добавлен компонент «Анна»")}</small>
                 </div>
                 <div>
-                  Вчера, 18:15<small>Первая сцена</small>
+                  {t("Вчера, 18:15")}
+                  <small>{t("Первая сцена")}</small>
                 </div>
-                <small>История хранится на устройстве</small>
+                <small>{t("История хранится на устройстве")}</small>
               </>
             )}
           </aside>
@@ -238,71 +273,78 @@ const features = [
   ],
 ];
 export default function LandingPage() {
+  const language = useLanguage();
+  useEffect(() => {
+    document.title = t("Tyter — редактор киносценариев");
+  }, [language]);
   return (
     <div className="landing">
       <header className="landing-nav">
-        <a className="landing-brand" href="/" aria-label="Tyter — главная">
+        <a className="landing-brand" href="/" aria-label={t("Tyter — главная")}>
           <img src="/brand/tyter-logo.svg" alt="" />
           Tyter
         </a>
-        <nav aria-label="Основная навигация">
-          <a href="#features">Продукт</a>
+        <nav aria-label={t("Основная навигация")}>
+          <a href="#features">{t("Продукт")}</a>
           <a href="#pro">Pro</a>
-          <a href="#help">Помощь</a>
+          <a href="#help">{t("Помощь")}</a>
         </nav>
         <a className="landing-button black" href="/free">
-          Попробовать
+          {t("Попробовать")}
         </a>
         <a className="landing-button purple" href="#pro">
-          Купить PRO
+          {t("Купить PRO")}
         </a>
+        <LanguageSwitch />
       </header>
       <main>
         <section className="landing-hero">
-          <h1>Сценарий без хаоса</h1>
+          <h1>{t("Сценарий без хаоса")}</h1>
           <p>
-            Tyter помогает сценаристам быстрее собирать сцены, структуру и
-            детали проекта.
+            {t(
+              "Tyter помогает сценаристам быстрее собирать сцены, структуру и детали проекта.",
+            )}
           </p>
           <Preview />
         </section>
         <div id="features">
           {features.map(([title, description]) => (
             <section className="landing-feature" key={title}>
-              <h2>{title}</h2>
-              <p>{description}</p>
-              <Preview panel={title} />
+              <h2>{t(title)}</h2>
+              <p>{t(description)}</p>
+              <Preview panel={t(title)} />
             </section>
           ))}
         </div>
         <section className="landing-editions" id="pro">
-          <h2>Выберите свой ритм</h2>
+          <h2>{t("Выберите свой ритм")}</h2>
           <div className="landing-plan-grid">
             <article>
-              <span className="plan-label">В браузере</span>
-              <h3>Пробная версия</h3>
-              <p>Для знакомства с редактором, бесплатно.</p>
+              <span className="plan-label">{t("В браузере")}</span>
+              <h3>{t("Пробная версия")}</h3>
+              <p>{t("Для знакомства с редактором, бесплатно.")}</p>
               <ul>
-                <li>2 документа и 10 компонентов на сценарий</li>
-                <li>История изменений за 14 дней</li>
-                <li>Форматирование, комментарии и поиск</li>
-                <li>Экспорт PDF, DOCX и FDX</li>
+                <li>{t("2 документа и 10 компонентов на сценарий")}</li>
+                <li>{t("История изменений за 14 дней")}</li>
+                <li>{t("Форматирование, комментарии и поиск")}</li>
+                <li>{t("Экспорт PDF, DOCX и FDX")}</li>
               </ul>
               <a className="landing-button black" href="/free">
-                Открыть редактор <ArrowRight size={15} />
+                {t("Открыть редактор ")}
+                <ArrowRight size={15} />
               </a>
             </article>
             <article>
-              <span className="plan-label">Pro в браузере</span>
+              <span className="plan-label">{t("Pro в браузере")}</span>
               <h3>Tyter Pro</h3>
-              <p>Полный редактор с локальными файлами.</p>
+              <p>{t("Полный редактор с локальными файлами.")}</p>
               <ul>
-                <li>Документы и компоненты без ограничений</li>
-                <li>Вся история изменений без ограничения срока</li>
-                <li>Реквизит с количеством и отчётами PDF</li>
-                <li>Локальное сохранение на вашем устройстве</li>
-                <li>Аутлайн с карточками истории и поиском</li>
-                <li>Импорт и экспорт TYT со всеми деталями</li>
+                <li>{t("Документы и компоненты без ограничений")}</li>
+                <li>{t("Вся история изменений без ограничения срока")}</li>
+                <li>{t("Реквизит с количеством и отчётами PDF")}</li>
+                <li>{t("Локальное сохранение на вашем устройстве")}</li>
+                <li>{t("Аутлайн с карточками истории и поиском")}</li>
+                <li>{t("Импорт и экспорт TYT со всеми деталями")}</li>
               </ul>
               <a
                 className="landing-button purple"
@@ -310,27 +352,30 @@ export default function LandingPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Купить PRO <ArrowRight size={15} />
+                {t("Купить PRO ")}
+                <ArrowRight size={15} />
               </a>
               <a className="landing-donate" href="/pro">
-                У меня есть ключ →
+                {t("У меня есть ключ →")}
               </a>
             </article>
           </div>
         </section>
         <section className="landing-download" id="download">
-          <h2>Ваша история. На вашем устройстве.</h2>
+          <h2>{t("Ваша история. На вашем устройстве.")}</h2>
           <p>
-            Для активации Tyter Pro нужен уникальный код. Его можно получить у
-            автора после отправки доната на{" "}
+            {t(
+              "Для активации Tyter Pro нужен уникальный код. Его можно получить у автора после отправки доната на",
+            )}{" "}
             <a href={donate} target="_blank" rel="noreferrer">
               Boosty
             </a>
             .
           </p>
           <p className="landing-note">
-            Введите email и ключ один раз. Сессия сохраняется надолго; для
-            проверки доступа нужен интернет.
+            {t(
+              "Введите email и ключ один раз. Сессия сохраняется надолго; для проверки доступа нужен интернет.",
+            )}
           </p>
           <div className="landing-download-buttons">
             <a
@@ -339,10 +384,12 @@ export default function LandingPage() {
               target="_blank"
               rel="noreferrer"
             >
-              Купить PRO <ArrowRight size={16} />
+              {t("Купить PRO ")}
+              <ArrowRight size={16} />
             </a>
             <a className="landing-button black" href="/pro">
-              У меня есть ключ <ArrowRight size={16} />
+              {t("У меня есть ключ ")}
+              <ArrowRight size={16} />
             </a>
           </div>
           <a
@@ -351,12 +398,12 @@ export default function LandingPage() {
             target="_blank"
             rel="noreferrer"
           >
-            Отправить донат и получить код ↗
+            {t("Отправить донат и получить код ↗")}
           </a>
         </section>
         <section className="landing-help" id="help">
-          <h2>Помощь рядом</h2>
-          <p>Если код не подошёл или возник вопрос, напишите автору.</p>
+          <h2>{t("Помощь рядом")}</h2>
+          <p>{t("Если код не подошёл или возник вопрос, напишите автору.")}</p>
           <a href="mailto:mrbuha@ya.ru">mrbuha@ya.ru</a>
           <a href="https://t.me/SergeyBuharev" target="_blank" rel="noreferrer">
             Telegram ↗

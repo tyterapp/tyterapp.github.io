@@ -1,30 +1,31 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useMemo } from "react";
 import { X } from "lucide-react";
 import { documentStatistics } from "./statistics.js";
-
-const number = (value) => value.toLocaleString("ru-RU");
+const number = (value) => value.toLocaleString(languageLocale());
 function Rows({ values }) {
+  const language = useLanguage();
   return (
     <dl className="statistics-rows">
       {values.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
+        <div key={t(label)}>
+          <dt>{t(label)}</dt>
           <dd>{typeof value === "number" ? number(value) : value}</dd>
         </div>
       ))}
     </dl>
   );
 }
-
 export default function StatisticsPanel({ document, pageCount, onClose }) {
+  const language = useLanguage();
   const stats = useMemo(() => documentStatistics(document), [document]);
   return (
-    <aside className="statistics-drawer" aria-label="Статистика документа">
+    <aside className="statistics-drawer" aria-label={t("Статистика документа")}>
       <div className="drawer-heading">
-        <h2>Статистика</h2>
+        <h2>{t("Статистика")}</h2>
         <button
           className="icon-button"
-          aria-label="Закрыть статистику"
+          aria-label={t("Закрыть статистику")}
           onClick={onClose}
         >
           <X size={18} />
@@ -34,62 +35,67 @@ export default function StatisticsPanel({ document, pageCount, onClose }) {
       <div className="statistics-scroll">
         <section
           className="statistics-overview"
-          aria-label="Основные показатели"
+          aria-label={t("Основные показатели")}
         >
           {[
-            ["Слов", stats.words],
-            ["Сцен", stats.scenes],
-            ["Персонажей", stats.characters.length],
-            ["Страниц", pageCount ?? stats.pages],
+            [t("Слов"), stats.words],
+            [t("Сцен"), stats.scenes],
+            [t("Персонажей"), stats.characters.length],
+            [t("Страниц"), pageCount ?? stats.pages],
           ].map(([label, value]) => (
-            <div key={label}>
+            <div key={t(label)}>
               <strong>{number(value)}</strong>
-              <span>{label}</span>
+              <span>{t(label)}</span>
             </div>
           ))}
         </section>
         <section>
-          <h3>Текст</h3>
+          <h3>{t("Текст")}</h3>
           <Rows
             values={[
-              ["Знаков с пробелами", stats.charactersWithSpaces],
-              ["Знаков без пробелов", stats.charactersWithoutSpaces],
-              ["Непустых абзацев", stats.paragraphs],
-              ["Чтение ≈", `${stats.readingMinutes} мин`],
-              ["Хронометраж ≈", `${pageCount ?? stats.pages} мин`],
-              ["Слов в репликах", stats.dialogueWords],
-              ["Доля реплик в словах", `${stats.dialoguePercent}%`],
+              [t("Знаков с пробелами"), stats.charactersWithSpaces],
+              [t("Знаков без пробелов"), stats.charactersWithoutSpaces],
+              [t("Непустых абзацев"), stats.paragraphs],
+              [t("Чтение ≈"), t("{0} мин", stats.readingMinutes)],
+              [t("Хронометраж ≈"), t("{0} мин", pageCount ?? stats.pages)],
+              [t("Слов в репликах"), stats.dialogueWords],
+              [t("Доля реплик в словах"), `${stats.dialoguePercent}%`],
             ]}
           />
         </section>
         <section>
-          <h3>Сцены</h3>
+          <h3>{t("Сцены")}</h3>
           <Rows
             values={[
-              ["ИНТ. · интерьер", stats.sceneTypes.interior],
-              ["ЭКС. · натура", stats.sceneTypes.exterior],
-              ["ИНТ. / ЭКС. · смешанные", stats.sceneTypes.mixed],
-              ["Другие заголовки", stats.sceneTypes.other],
+              [t("ИНТ. · интерьер"), stats.sceneTypes.interior],
+              [t("ЭКС. · натура"), stats.sceneTypes.exterior],
+              [t("ИНТ. / ЭКС. · смешанные"), stats.sceneTypes.mixed],
+              [t("Другие заголовки"), stats.sceneTypes.other],
             ]}
           />
         </section>
         <section>
-          <h3>Типы абзацев</h3>
+          <h3>{t("Типы абзацев")}</h3>
           <Rows values={stats.formats.map((f) => [f.label, f.count])} />
         </section>
         <section>
-          <h3>Персонажи и диалоги</h3>
+          <h3>{t("Персонажи и диалоги")}</h3>
           {stats.characters.length ? (
             <ul className="statistics-characters">
               {stats.characters.map((character) => (
                 <li key={character.name}>
                   <div>
                     <span>{character.name}</span>
-                    <strong>{number(character.words)} слов</strong>
+                    <strong>
+                      {number(character.words)}
+                      {t(" слов")}
+                    </strong>
                   </div>
                   <span className="statistics-character-meta">
-                    Реплик: {number(character.speeches)} · упоминаний в
-                    заголовках: {number(character.cues)}
+                    {t("Реплик: ")}
+                    {number(character.speeches)}
+                    {t(" · упоминаний в заголовках: ")}
+                    {number(character.cues)}
                   </span>
                   <div className="statistics-meter" aria-hidden="true">
                     <span
@@ -103,29 +109,31 @@ export default function StatisticsPanel({ document, pageCount, onClose }) {
             </ul>
           ) : (
             <p className="statistics-note">
-              Персонажи появятся после ввода их имён в формате Character.
+              {t("Персонажи появятся после ввода их имён в формате Character.")}
             </p>
           )}
         </section>
         <section>
-          <h3>Компоненты и заметки</h3>
+          <h3>{t("Компоненты и заметки")}</h3>
           <Rows
             values={[
-              ["Компонентов", stats.components],
-              ["Персонажей-компонентов", stats.characterComponents],
-              ["Мест", stats.places],
-              ["Комментариев всего", stats.comments],
-              ["Открытых", stats.openComments],
-              ["Решённых", stats.resolvedComments],
+              [t("Компонентов"), stats.components],
+              [t("Персонажей-компонентов"), stats.characterComponents],
+              [t("Мест"), stats.places],
+              [t("Комментариев всего"), stats.comments],
+              [t("Открытых"), stats.openComments],
+              [t("Решённых"), stats.resolvedComments],
             ]}
           />
         </section>
         <p className="statistics-note">
-          Хронометраж: 1 страница — 1 минута. Число страниц соответствует
-          разметке редактора; чтение рассчитано по 200 слов в минуту.
+          {t(
+            "Хронометраж: 1 страница — 1 минута. Число страниц соответствует разметке редактора; чтение рассчитано по 200 слов в минуту.",
+          )}
         </p>
         <p className="statistics-note">
-          Изменён: {new Date(document.updatedAt).toLocaleString("ru-RU")}
+          {t("Изменён: ")}
+          {new Date(document.updatedAt).toLocaleString(languageLocale())}
         </p>
       </div>
     </aside>

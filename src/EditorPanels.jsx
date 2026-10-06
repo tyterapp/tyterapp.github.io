@@ -1,4 +1,6 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
+import { SHORTCUT_GROUPS } from "./keyboard-shortcuts.js";
 import { commentText, quoteDiff } from "./comment-review.js";
 import {
   Check,
@@ -8,20 +10,24 @@ import {
   ChevronRight,
   Search,
 } from "lucide-react";
-
 export function SearchBar({ query, onQuery, index, count, onMove, onClose }) {
+  const language = useLanguage();
   const input = useRef(null);
   useEffect(() => {
     input.current?.focus();
     input.current?.select();
   }, []);
   return (
-    <div className="script-search" role="search" aria-label="Поиск по сценарию">
+    <div
+      className="script-search"
+      role="search"
+      aria-label={t("Поиск по сценарию")}
+    >
       <Search size={16} />
       <input
         ref={input}
-        aria-label="Поиск по тексту"
-        placeholder="Найти в сценарии…"
+        aria-label={t("Поиск по тексту")}
+        placeholder={t("Найти в сценарии…")}
         value={query}
         onChange={(e) => onQuery(e.target.value)}
         onKeyDown={(e) => {
@@ -36,12 +42,16 @@ export function SearchBar({ query, onQuery, index, count, onMove, onClose }) {
         }}
       />
       <span className="search-count" aria-live="polite">
-        {count ? `${index + 1} / ${count}` : query ? "Нет совпадений" : "0 / 0"}
+        {count
+          ? `${index + 1} / ${count}`
+          : query
+            ? t("Нет совпадений")
+            : "0 / 0"}
       </span>
       <button
         disabled={!count}
         className="icon-button"
-        aria-label="Предыдущее совпадение"
+        aria-label={t("Предыдущее совпадение")}
         onClick={() => onMove(-1)}
       >
         <ChevronLeft size={16} />
@@ -49,14 +59,14 @@ export function SearchBar({ query, onQuery, index, count, onMove, onClose }) {
       <button
         disabled={!count}
         className="icon-button"
-        aria-label="Следующее совпадение"
+        aria-label={t("Следующее совпадение")}
         onClick={() => onMove(1)}
       >
         <ChevronRight size={16} />
       </button>
       <button
         className="icon-button"
-        aria-label="Закрыть поиск"
+        aria-label={t("Закрыть поиск")}
         onClick={onClose}
       >
         <X size={16} />
@@ -64,7 +74,6 @@ export function SearchBar({ query, onQuery, index, count, onMove, onClose }) {
     </div>
   );
 }
-
 export function CommentsPanel({
   comments,
   content,
@@ -77,6 +86,7 @@ export function CommentsPanel({
   onFocus,
   onFilterChange,
 }) {
+  const language = useLanguage();
   const [text, setText] = useState(""),
     [filter, setFilter] = useState("open");
   const input = useRef(null),
@@ -93,7 +103,9 @@ export function CommentsPanel({
         comments.find((c) => c.id === activeId)?.resolved ? "resolved" : "open",
       );
       requestAnimationFrame(() =>
-        active.current?.scrollIntoView({ block: "nearest" }),
+        active.current?.scrollIntoView({
+          block: "nearest",
+        }),
       );
     }
   }, [activeId]);
@@ -101,14 +113,15 @@ export function CommentsPanel({
     filter === "resolved" ? c.resolved : !c.resolved,
   );
   return (
-    <aside className="comments-drawer" aria-label="Комментарии сценария">
+    <aside className="comments-drawer" aria-label={t("Комментарии сценария")}>
       <div className="drawer-heading">
         <h2>
-          Комментарии <span>{comments.filter((c) => !c.resolved).length}</span>
+          {t("Комментарии ")}
+          <span>{comments.filter((c) => !c.resolved).length}</span>
         </h2>
         <button
           className="icon-button"
-          aria-label="Закрыть комментарии"
+          aria-label={t("Закрыть комментарии")}
           onClick={onClose}
         >
           <X size={18} />
@@ -122,7 +135,7 @@ export function CommentsPanel({
             onFilterChange?.();
           }}
         >
-          Открытые
+          {t("Открытые")}
         </button>
         <button
           aria-pressed={filter === "resolved"}
@@ -131,7 +144,7 @@ export function CommentsPanel({
             onFilterChange?.();
           }}
         >
-          Решённые
+          {t("Решённые")}
         </button>
       </div>
       <div className="comment-list">
@@ -145,9 +158,9 @@ export function CommentsPanel({
             }}
           >
             <div className="comment-meta">
-              <span>{c.author || "Вы"}</span>
+              <span>{c.author || t("Вы")}</span>
               <time>
-                {new Date(c.createdAt).toLocaleDateString("ru-RU", {
+                {new Date(c.createdAt).toLocaleDateString(languageLocale(), {
                   day: "numeric",
                   month: "short",
                 })}
@@ -157,7 +170,7 @@ export function CommentsPanel({
               <button
                 className="comment-quote"
                 onClick={() => onFocus(c)}
-                data-tooltip="Перейти к тексту"
+                data-tooltip={t("Перейти к тексту")}
               >
                 {c.resolved && c.id === activeId
                   ? quoteDiff(c.quote, commentText(content, c.id)).map(
@@ -180,7 +193,7 @@ export function CommentsPanel({
             <p>{c.text}</p>
             <button className="comment-resolve" onClick={() => onToggle(c)}>
               <Check size={13} />
-              {c.resolved ? "Открыть снова" : "Решено"}
+              {c.resolved ? t("Открыть снова") : t("Решено")}
             </button>
           </article>
         ))}
@@ -189,10 +202,12 @@ export function CommentsPanel({
             <MessageSquare size={23} />
             <p>
               {filter === "open"
-                ? "Здесь будут ваши заметки к сценарию."
-                : "Решённых комментариев пока нет."}
+                ? t("Здесь будут ваши заметки к сценарию.")
+                : t("Решённых комментариев пока нет.")}
             </p>
-            <small>Выделите текст и нажмите на иконку комментария.</small>
+            <small>
+              {t("Выделите текст и нажмите на иконку комментария.")}
+            </small>
           </div>
         )}
       </div>
@@ -212,7 +227,7 @@ export function CommentsPanel({
             <button
               type="button"
               className="icon-button"
-              aria-label="Убрать цитату"
+              aria-label={t("Убрать цитату")}
               onClick={onClearQuote}
             >
               <X size={14} />
@@ -220,7 +235,7 @@ export function CommentsPanel({
           </div>
         )}
         <label className="visually-hidden" htmlFor="comment-text">
-          Текст комментария
+          {t("Текст комментария")}
         </label>
         <textarea
           ref={input}
@@ -228,7 +243,7 @@ export function CommentsPanel({
           rows={3}
           maxLength={10000}
           placeholder={
-            quote ? "Комментарий к выделению…" : "Заметка к сценарию…"
+            quote ? t("Комментарий к выделению…") : t("Заметка к сценарию…")
           }
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -241,16 +256,15 @@ export function CommentsPanel({
           }}
         />
         <div>
-          <small>Ctrl+Enter — отправить</small>
+          <small>{t("Ctrl+Enter — отправить")}</small>
           <button className="primary-button" disabled={!text.trim()}>
-            Добавить
+            {t("Добавить")}
           </button>
         </div>
       </form>
     </aside>
   );
 }
-
 const STEPS = [
   [
     "Место для вашей истории",
@@ -279,13 +293,13 @@ const STEPS = [
   ],
   [
     "Находите и обсуждайте",
-    "Ctrl+F открывает справа все результаты поиска. Нажмите карточку, чтобы перейти к совпадению. Comments на нижней панели открывает заметки. Решённая заметка больше не подсвечивается жёлтым; при её выборе видны сохранившийся и удалённый текст.",
+    "Ctrl+F открывает слева результаты поиска. Нажмите карточку, чтобы перейти к совпадению. Иконка комментариев в левой панели открывает обсуждения. Решённый комментарий больше не открывается при клике на текст; его можно посмотреть во вкладке «Решённые».",
     "Ctrl+F — поиск · Ctrl+8 — комментарии",
   ],
   [
     "Настройте документ",
     "В настройках выбирайте шрифт для работы, добавляйте постер, автора, год и email. Экспорт всегда использует Courier. Масштаб документа меняется от 100% до 200% ползунком или Ctrl + колесо мыши на листе. Текст, лист и отступы увеличиваются вместе; масштаб не меняет экспорт и хронометраж. В статистике одна страница равна одной минуте хронометража.",
-    "Настройки — иконка ползунков вверху",
+    "Настройки — иконка ползунков внизу левой панели",
   ],
   [
     "Ваши файлы остаются у вас",
@@ -294,22 +308,31 @@ const STEPS = [
   ],
   [
     "Соберите историю в аутлайне",
-    "В Pro переключатель «Сценарий / Аутлайн» открывает карточки истории. Добавляйте акты, карточки, цвета и комментарии; ищите нужную карточку. Новая карточка создаёт сцену, затем текст карточки и сценария редактируется независимо. Прицел ведёт к сцене, синий значок рядом с номером сцены — обратно к карточке.",
-    "TYT сохраняет аутлайн, сценарий, компоненты, реквизит и комментарии.",
+    "В Pro переключатель справа сверху открывает «Сценарий / Аутлайн». Alt+1 ведёт к сценарию, Alt+2 — к карточкам. Добавляйте акты, карточки, цвета и комментарии; ищите нужную карточку. Новая карточка создаёт сцену, затем текст карточки и сценария редактируется независимо. Прицел ведёт к сцене, синий значок рядом с номером сцены — обратно к карточке.",
+    "Alt+1 — сценарий · Alt+2 — аутлайн · TYT сохраняет оба режима.",
   ],
 ];
 export function Onboarding({ onClose }) {
+  const language = useLanguage();
   const [step, setStep] = useState(0);
+  const [tab, setTab] = useState("onboarding");
   const ref = useRef(null);
+  const body = useRef(null);
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   useEffect(() => {
     ref.current.showModal();
     return () => ref.current?.close();
   }, []);
+  useEffect(() => {
+    body.current?.scrollTo({
+      top: 0,
+    });
+  }, [tab, step]);
   return (
     <dialog
       ref={ref}
-      className="minimal-dialog onboarding"
-      aria-label="Знакомство с редактором"
+      className={`minimal-dialog onboarding${tab === "shortcuts" ? " help-shortcuts" : ""}`}
+      aria-label={t("Знакомство с редактором")}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -320,42 +343,128 @@ export function Onboarding({ onClose }) {
           TYTER{" "}
           <span>
             {" "}
-            / {step + 1} из {STEPS.length}
+            {tab === "onboarding"
+              ? t("/ {0} из {1}", step + 1, STEPS.length)
+              : t("/ Помощь")}
           </span>
         </span>
         <button
           className="icon-button"
-          aria-label="Закрыть обучение"
+          aria-label={t("Закрыть обучение")}
           onClick={onClose}
         >
           <X size={18} />
         </button>
       </div>
-      <div className="tour-progress">
-        {STEPS.map((_, i) => (
-          <span key={i} className={i <= step ? "done" : ""} />
+      <div className="help-tabs" role="tablist" aria-label={t("Раздел помощи")}>
+        {[
+          ["onboarding", t("Онбординг")],
+          ["shortcuts", t("Горячие клавиши")],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            id={`help-tab-${id}`}
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`help-panel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
+            onClick={() => setTab(id)}
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              const next =
+                event.key === "Home"
+                  ? "onboarding"
+                  : event.key === "End"
+                    ? "shortcuts"
+                    : tab === "onboarding"
+                      ? "shortcuts"
+                      : "onboarding";
+              setTab(next);
+              document.getElementById(`help-tab-${next}`)?.focus();
+            }}
+          >
+            {t(label)}
+          </button>
         ))}
       </div>
-      <h2>{STEPS[step][0]}</h2>
-      <p>{STEPS[step][1]}</p>
-      <div className="tour-example">{STEPS[step][2]}</div>
-      <div className="dialog-actions">
-        <button className="quiet-button" onClick={onClose}>
-          Пропустить
-        </button>
-        {step > 0 && (
-          <button className="quiet-button" onClick={() => setStep(step - 1)}>
-            Назад
-          </button>
+      <div
+        ref={body}
+        className="help-body"
+        role="tabpanel"
+        id={`help-panel-${tab}`}
+        aria-labelledby={`help-tab-${tab}`}
+      >
+        {tab === "onboarding" ? (
+          <>
+            <div className="tour-progress">
+              {STEPS.map((_, i) => (
+                <span key={i} className={i <= step ? "done" : ""} />
+              ))}
+            </div>
+            <h2>{t(STEPS[step][0])}</h2>
+            <p>{t(STEPS[step][1])}</p>
+            <div className="tour-example">{t(STEPS[step][2])}</div>
+            <div className="dialog-actions">
+              <button className="quiet-button" onClick={onClose}>
+                {t("Пропустить")}
+              </button>
+              {step > 0 && (
+                <button
+                  className="quiet-button"
+                  onClick={() => setStep(step - 1)}
+                >
+                  {t("Назад")}
+                </button>
+              )}
+              <button
+                className="primary-button"
+                onClick={() =>
+                  step === STEPS.length - 1 ? onClose() : setStep(step + 1)
+                }
+              >
+                {step === STEPS.length - 1 ? t("Начать писать") : t("Далее")}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>{t("Горячие клавиши")}</h2>
+            <p className="shortcuts-intro">
+              {t(
+                "Сочетания для работы в редакторе. Действия с компонентами и реквизитом используют выделенный текст.",
+              )}
+            </p>
+            {SHORTCUT_GROUPS.map((group) => (
+              <section
+                className="shortcuts-section"
+                key={t(group.title)}
+                aria-label={t(group.title)}
+              >
+                <h3>{t(group.title)}</h3>
+                <dl>
+                  {group.items.map(([keys, description, macKeys], index) => (
+                    <div className="shortcut-row" key={index}>
+                      <dt>
+                        <kbd>
+                          {t(
+                            mac
+                              ? macKeys || keys.replaceAll("Ctrl", "⌘")
+                              : keys,
+                          )}
+                        </kbd>
+                      </dt>
+                      <dd>{t(description)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </>
         )}
-        <button
-          className="primary-button"
-          onClick={() =>
-            step === STEPS.length - 1 ? onClose() : setStep(step + 1)
-          }
-        >
-          {step === STEPS.length - 1 ? "Начать писать" : "Далее"}
-        </button>
       </div>
     </dialog>
   );

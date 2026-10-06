@@ -5,7 +5,6 @@
   background: #e2e1e7;
   border-radius: 9px;
   flex-shrink: 0;
-  margin-left: 12px;
 }
 .document-view-toggle button {
   border: 0;
@@ -174,6 +173,27 @@
 .outline-card-list:empty {
   min-height: 64px;
 }
+.outline-card-list[hidden] {
+  display: none;
+}
+.outline-column-heading .outline-act-toggle {
+  width: 40px;
+  min-height: 40px;
+  margin-left: -10px;
+}
+.outline-act-toggle svg {
+  transition: transform 130ms ease;
+}
+.outline-act-toggle.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+.outline-columns,
+.outline-card-list,
+.outline-detail-body,
+.outline-drama-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d7d5dc transparent;
+}
 .outline-card-list.drop-empty {
   margin: 9px 12px 12px;
   padding: 0;
@@ -240,11 +260,17 @@
   flex-shrink: 0;
 }
 .outline-card-title strong {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-weight: 600;
   font-size: 15px;
+  line-height: 1.35;
 }
 .outline-card-text {
   border: 0;
@@ -586,7 +612,7 @@
 .outline-drama-point:hover .drama-hit-area,
 .outline-drama-point:focus-visible .drama-hit-area,
 .outline-drama-point.is-selected .drama-hit-area {
-  fill: #1b2eff0b;
+  fill: color-mix(in srgb, var(--drama-color, #33313b) 8%, transparent);
 }
 .outline-history-preview {
   display: flex;
@@ -608,7 +634,7 @@
 .outline-drama-point:hover .drama-dot,
 .outline-drama-point:focus-visible .drama-dot,
 .outline-drama-point.is-selected .drama-dot {
-  fill: #1b2eff;
+  fill: var(--drama-color, #33313b);
   stroke-width: 4;
 }
 .outline-drama-point text {
@@ -627,9 +653,6 @@
   color: #827a91;
 }
 @media (max-width: 900px) {
-  .document-view-toggle {
-    margin-left: 0;
-  }
   .document-view-toggle button {
     padding-inline: 8px;
   }
@@ -641,6 +664,9 @@
     flex-basis: 300px;
   }
 }
+.outline-column.is-collapsed {
+  min-height: 0;
+}
 @media (max-width: 700px) {
   .outline-drama-panel {
     padding-inline: 10px;
@@ -650,18 +676,17 @@
     min-height: 44px;
   }
   .minimal-header:has(.document-view-toggle) {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 96px;
-    padding-block: 6px;
-    gap: 4px 8px;
-  }
-  .minimal-header:has(.document-view-toggle) .header-actions {
-    width: 100%;
-    justify-content: flex-end;
+    gap: 4px 6px;
+    height: 64px;
+    min-height: 64px;
   }
   .minimal-header:has(.document-view-toggle) .document-switcher {
-    flex: 1;
+    flex: 0 1 auto;
+  }
+  .document-view-toggle button {
+    min-height: 40px;
+    padding-inline: 7px;
+    font-size: 12px;
   }
   .outline-workspace {
     padding: 0 10px;

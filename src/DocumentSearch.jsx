@@ -1,8 +1,8 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useMemo, useRef } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { nodeText } from "./data.js";
 import { FORMATS } from "./FormatBar.jsx";
-
 export default function DocumentSearch({
   content,
   query,
@@ -11,6 +11,7 @@ export default function DocumentSearch({
   onSelect,
   onClose,
 }) {
+  const language = useLanguage();
   const input = useRef(null),
     active = useRef(null);
   const matches = useMemo(() => {
@@ -38,18 +39,20 @@ export default function DocumentSearch({
     input.current?.focus();
   }, []);
   useEffect(() => {
-    active.current?.scrollIntoView({ block: "nearest" });
+    active.current?.scrollIntoView({
+      block: "nearest",
+    });
   }, [index]);
   const move = (delta) =>
     matches.length &&
     onSelect((index + delta + matches.length) % matches.length);
   return (
-    <aside className="search-drawer" aria-label="Поиск по сценарию">
+    <aside className="search-drawer" aria-label={t("Поиск по сценарию")}>
       <div className="drawer-heading">
-        <h2>Поиск</h2>
+        <h2>{t("Поиск")}</h2>
         <button
           className="icon-button"
-          aria-label="Закрыть поиск"
+          aria-label={t("Закрыть поиск")}
           onClick={onClose}
         >
           <X size={18} />
@@ -59,8 +62,8 @@ export default function DocumentSearch({
         <Search size={15} />
         <input
           ref={input}
-          aria-label="Поиск по тексту"
-          placeholder="Найти в сценарии…"
+          aria-label={t("Поиск по тексту")}
+          placeholder={t("Найти в сценарии…")}
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -77,13 +80,13 @@ export default function DocumentSearch({
           {matches.length
             ? `${index + 1} / ${matches.length}`
             : query
-              ? "Нет совпадений"
+              ? t("Нет совпадений")
               : "0 / 0"}
         </span>
         <div>
           <button
             className="icon-button"
-            aria-label="Предыдущее совпадение"
+            aria-label={t("Предыдущее совпадение")}
             disabled={!matches.length}
             onClick={() => move(-1)}
           >
@@ -91,7 +94,7 @@ export default function DocumentSearch({
           </button>
           <button
             className="icon-button"
-            aria-label="Следующее совпадение"
+            aria-label={t("Следующее совпадение")}
             disabled={!matches.length}
             onClick={() => move(1)}
           >
@@ -112,7 +115,7 @@ export default function DocumentSearch({
               onClick={() => onSelect(i, "card")}
             >
               <span className="search-result-meta">
-                {FORMATS.find((f) => f[0] === match.format)?.[2] || "Текст"}
+                {FORMATS.find((f) => f[0] === match.format)?.[2] || t("Текст")}
                 <span>{i + 1}</span>
               </span>
               <span>
@@ -129,7 +132,9 @@ export default function DocumentSearch({
         })}
         {!query && (
           <p className="sidebar-empty">
-            Введите слово или фразу, чтобы найти все совпадения в документе.
+            {t(
+              "Введите слово или фразу, чтобы найти все совпадения в документе.",
+            )}
           </p>
         )}
       </div>

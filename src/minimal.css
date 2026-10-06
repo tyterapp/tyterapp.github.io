@@ -142,6 +142,56 @@ kbd {
   border-bottom: 1px solid var(--line);
   z-index: 20;
 }
+.header-switches {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+  border-radius: 9px;
+  background: #e2e1e7;
+  flex-shrink: 0;
+}
+.language-switch button {
+  border: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  color: #3a3741;
+  border-radius: 5px;
+  background: transparent;
+  transition: background-color 130ms ease;
+}
+.language-switch button:hover {
+  background: #ffffff66;
+}
+.language-switch button[aria-pressed="true"] {
+  background: white;
+  box-shadow: 0 1px 5px #0000000e;
+}
+.web-pro-gate > .language-switch {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+@media (max-width: 700px) {
+  .header-switches {
+    gap: 6px;
+  }
+  .language-switch button {
+    min-height: 40px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+  .minimal-header .save-status {
+    display: none;
+  }
+}
 .document-switcher,
 .export-control {
   position: relative;
@@ -217,6 +267,19 @@ kbd {
   padding: 16px 10px;
   background: #f7f7f9;
   border-right: 1px solid var(--line);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.workspace-tools-primary,
+.workspace-tools-secondary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.workspace-tools-secondary {
+  margin-top: auto;
 }
 .workspace-tools .icon-button {
   position: relative;
@@ -228,7 +291,8 @@ kbd {
   background: #e9e6ee;
   color: #4b4156;
 }
-.workspace-tools .components-toggle small {
+.workspace-tools .components-toggle small,
+.workspace-tools .comments-toggle small {
   position: absolute;
   right: 0;
   top: 0;
@@ -238,7 +302,10 @@ kbd {
 }
 .minimal-workspace > .search-drawer,
 .minimal-workspace > .statistics-drawer,
-.minimal-workspace > .components-drawer {
+.minimal-workspace > .components-drawer,
+.minimal-workspace > .comments-drawer,
+.minimal-workspace > .settings-drawer,
+.minimal-workspace > .history-drawer {
   order: -1;
   border-left: 0;
   border-right: 1px solid var(--line);
@@ -257,6 +324,9 @@ kbd {
   margin: 16px 0;
   font-size: 12px;
   color: #625969;
+}
+.minimal-app input[type="file"][hidden] {
+  display: none !important;
 }
 .thumbnail-field .thumbnail-field-image {
   width: 100%;
@@ -334,7 +404,10 @@ kbd {
 @media (max-width: 700px) {
   .minimal-workspace > .search-drawer,
   .minimal-workspace > .statistics-drawer,
-  .minimal-workspace > .components-drawer {
+  .minimal-workspace > .components-drawer,
+  .minimal-workspace > .comments-drawer,
+  .minimal-workspace > .settings-drawer,
+  .minimal-workspace > .history-drawer {
     left: 64px;
     right: auto;
     width: min(306px, calc(100vw - 64px));
@@ -480,7 +553,14 @@ kbd {
   background: #e7e0ef;
 }
 .minimal-app .screenplay-editor [data-placeholder]::after {
-  color: #c9c5cd;
+  content: attr(data-placeholder);
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  color: #9b96a1;
+  text-transform: none;
+  font-weight: 400;
 }
 /* Compact screenplay controls, matching the reference strip. */
 .minimal-footer {
@@ -883,6 +963,13 @@ kbd {
   top: 46px;
   right: 0;
   width: 292px;
+}
+.export-menu.rail-export-menu {
+  position: fixed;
+  right: auto;
+  max-width: calc(100vw - 80px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
 }
 .export-item {
   display: flex;
@@ -1806,6 +1893,85 @@ kbd {
 .onboarding {
   width: 460px;
   padding: 25px 28px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+}
+.onboarding[open] {
+  display: flex;
+  flex-direction: column;
+}
+.onboarding.help-shortcuts {
+  width: 620px;
+}
+.help-body {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+.help-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 3px;
+  margin: 16px 0 12px;
+  background: #eae8ee;
+  border-radius: 7px;
+}
+.help-tabs button {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #65586f;
+}
+.help-tabs button[aria-selected="true"] {
+  background: #fff;
+  color: #43394e;
+  box-shadow: 0 1px 4px #0000000a;
+}
+.onboarding .shortcuts-intro {
+  min-height: 0;
+  margin-bottom: 20px;
+  color: #74687d;
+}
+.shortcuts-section + .shortcuts-section {
+  margin-top: 22px;
+}
+.shortcuts-section h3 {
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 500;
+  margin: 0 0 10px;
+  color: #51465d;
+}
+.shortcuts-section dl {
+  margin: 0;
+}
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eeebf1;
+  line-height: 1.5;
+  font-size: 12px;
+}
+.shortcut-row kbd {
+  display: inline-block;
+  color: #574b63;
+  font-size: 12px;
+  white-space: normal;
+}
+.shortcut-row dd {
+  margin: 0;
+  color: #6d6176;
+  overflow-wrap: anywhere;
+}
+.tour-top {
+  flex-shrink: 0;
 }
 .onboarding::backdrop {
   background: #26202e33;

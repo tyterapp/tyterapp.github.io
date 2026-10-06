@@ -1,18 +1,19 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
-
 export function ThumbnailImage({ src, name, className = "" }) {
+  const language = useLanguage();
   return src ? (
     <img
       className={`annotation-thumbnail ${className}`}
       src={src}
-      alt={`Миниатюра: ${name}`}
+      alt={t("Миниатюра: {0}", name)}
       data-thumbnail-preview="true"
     />
   ) : null;
 }
-
 export default function ThumbnailField({ value, onChange, name, showPreview }) {
+  const language = useLanguage();
   const input = useRef(null);
   const [error, setError] = useState("");
   const upload = async (event) => {
@@ -46,7 +47,8 @@ export default function ThumbnailField({ value, onChange, name, showPreview }) {
   return (
     <div className="thumbnail-field">
       <span>
-        Миниатюра <span className="muted">· необязательно</span>
+        {t("Миниатюра ")}
+        <span className="muted">{t("· необязательно")}</span>
       </span>
       {showPreview && (
         <ThumbnailImage
@@ -62,14 +64,14 @@ export default function ThumbnailField({ value, onChange, name, showPreview }) {
           onClick={() => input.current?.click()}
         >
           <ImagePlus size={16} />
-          {value ? "Заменить миниатюру" : "Загрузить миниатюру"}
+          {value ? t("Заменить картинку") : t("Загрузить картинку")}
         </button>
         {value && (
           <button
             type="button"
             className="icon-button"
-            aria-label="Удалить миниатюру"
-            data-tooltip="Удалить миниатюру"
+            aria-label={t("Удалить миниатюру")}
+            data-tooltip={t("Удалить миниатюру")}
             onClick={() => {
               onChange(null);
               setError("");
@@ -83,13 +85,13 @@ export default function ThumbnailField({ value, onChange, name, showPreview }) {
         ref={input}
         type="file"
         accept="image/png,image/jpeg,image/webp"
-        aria-label="Файл миниатюры"
+        aria-label={t("Файл миниатюры")}
         hidden
         onChange={upload}
       />
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>

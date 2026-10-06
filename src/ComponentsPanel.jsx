@@ -1,3 +1,4 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -10,7 +11,6 @@ import {
 } from "lucide-react";
 import { useEdition } from "./edition.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
-
 export default function ComponentsPanel({
   document,
   activeId,
@@ -23,39 +23,50 @@ export default function ComponentsPanel({
   onDeleteFolder,
   renderEditor,
 }) {
+  const language = useLanguage();
   const { isPro: IS_PRO } = useEdition();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const active = useRef(null);
   const folders = [
-    { id: "character", name: "Персонажи", type: "character" },
-    { id: "place", name: "Места", type: "place" },
+    {
+      id: "character",
+      name: t("Персонажи"),
+      type: "character",
+    },
+    {
+      id: "place",
+      name: t("Места"),
+      type: "place",
+    },
     ...(document.componentFolders || []),
   ];
   const collapsed = document.collapsedComponentFolders || [];
   useEffect(() => {
     setQuery("");
     requestAnimationFrame(() =>
-      active.current?.scrollIntoView({ block: "nearest" }),
+      active.current?.scrollIntoView({
+        block: "nearest",
+      }),
     );
   }, [activeId, document.collapsedComponentFolders]);
   return (
-    <aside className="components-drawer" aria-label="Компоненты сценария">
+    <aside className="components-drawer" aria-label={t("Компоненты сценария")}>
       <div className="drawer-heading">
-        <h2>Компоненты</h2>
+        <h2>{t("Компоненты")}</h2>
         <div className="drawer-tools">
           <button
             className="icon-button"
-            aria-label="Создать папку компонентов"
-            data-tooltip="Новая папка"
+            aria-label={t("Создать папку компонентов")}
+            data-tooltip={t("Новая папка")}
             onClick={() => setAdding((v) => !v)}
           >
             <FolderPlus size={17} />
           </button>
           <button
             className="icon-button"
-            aria-label="Закрыть компоненты"
+            aria-label={t("Закрыть компоненты")}
             onClick={onClose}
           >
             <X size={18} />
@@ -83,15 +94,15 @@ export default function ComponentsPanel({
         >
           <input
             autoFocus
-            aria-label="Название папки"
-            placeholder="Название папки"
+            aria-label={t("Название папки")}
+            placeholder={t("Название папки")}
             maxLength={100}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <button
             className="icon-button"
-            aria-label="Добавить папку"
+            aria-label={t("Добавить папку")}
             disabled={
               !name.trim() ||
               folders.some(
@@ -108,15 +119,16 @@ export default function ComponentsPanel({
       <label className="sidebar-search">
         <Search size={15} />
         <input
-          aria-label="Поиск компонентов"
-          placeholder="Найти компонент…"
+          aria-label={t("Поиск компонентов")}
+          placeholder={t("Найти компонент…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </label>
       {!IS_PRO && (
         <p className="component-quota">
-          {document.components.length} / 10 компонентов
+          {document.components.length}
+          {t(" / 10 компонентов")}
         </p>
       )}
       <div className="component-folders">
@@ -135,7 +147,7 @@ export default function ComponentsPanel({
               <div className="component-group-heading">
                 <button
                   className="folder-toggle"
-                  aria-label={`Папка: ${folder.name}`}
+                  aria-label={t("Папка: {0}", folder.name)}
                   aria-expanded={!closed}
                   onClick={() => onToggleFolder(folder.id)}
                 >
@@ -148,7 +160,7 @@ export default function ComponentsPanel({
                 </button>
                 <button
                   className="icon-button"
-                  aria-label={`Добавить: ${folder.name}`}
+                  aria-label={t("Добавить: {0}", folder.name)}
                   onClick={() =>
                     onCreate({
                       type: folder.type || "character",
@@ -161,8 +173,8 @@ export default function ComponentsPanel({
                 {!folder.type && (
                   <button
                     className="icon-button folder-delete"
-                    aria-label={`Удалить папку: ${folder.name}`}
-                    data-tooltip="Удалить папку"
+                    aria-label={t("Удалить папку: {0}", folder.name)}
+                    data-tooltip={t("Удалить папку")}
                     onClick={() => onDeleteFolder(folder)}
                   >
                     <Trash2 size={15} />
@@ -198,7 +210,9 @@ export default function ComponentsPanel({
                           ) : (
                             <Shapes
                               size={16}
-                              style={{ color: component.color }}
+                              style={{
+                                color: component.color,
+                              }}
                             />
                           )}
                           <span>
@@ -218,7 +232,9 @@ export default function ComponentsPanel({
                     </div>
                   ))}
                   {!items.length && (
-                    <p className="empty-components">Пока нет компонентов</p>
+                    <p className="empty-components">
+                      {t("Пока нет компонентов")}
+                    </p>
                   )}
                 </div>
               )}
@@ -231,7 +247,7 @@ export default function ComponentsPanel({
           `${c.name} ${c.description}`
             .toLocaleLowerCase()
             .includes(query.trim().toLocaleLowerCase()),
-        ) && <p className="sidebar-empty">Ничего не найдено</p>}
+        ) && <p className="sidebar-empty">{t("Ничего не найдено")}</p>}
     </aside>
   );
 }

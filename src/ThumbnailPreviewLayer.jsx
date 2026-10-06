@@ -1,12 +1,19 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-
 export default function ThumbnailPreviewLayer({ components, props }) {
+  const language = useLanguage();
   const [active, setActive] = useState(null);
   const [position, setPosition] = useState(null);
   const bubble = useRef(null);
-  const records = useRef({ components, props });
-  records.current = { components, props };
+  const records = useRef({
+    components,
+    props,
+  });
+  records.current = {
+    components,
+    props,
+  };
   useEffect(() => {
     let timer;
     let target;
@@ -50,7 +57,12 @@ export default function ThumbnailPreviewLayer({ components, props }) {
         records.current.components.find((item) => item.id === componentId),
         records.current.props.find((item) => item.id === propId),
       ].filter((item) => item?.thumbnail);
-      return items.length ? { target: anchor, items } : null;
+      return items.length
+        ? {
+            target: anchor,
+            items,
+          }
+        : null;
     };
     const over = (event) => {
       if (event.pointerType !== "mouse") {
@@ -102,7 +114,10 @@ export default function ThumbnailPreviewLayer({ components, props }) {
     } else if (top < 8) top = anchor.bottom + 12;
     left = Math.max(8, Math.min(window.innerWidth - box.width - 8, left));
     top = Math.max(8, Math.min(window.innerHeight - box.height - 8, top));
-    setPosition({ left, top });
+    setPosition({
+      left,
+      top,
+    });
   }, [active]);
   if (!active) return null;
   return createPortal(
@@ -110,7 +125,7 @@ export default function ThumbnailPreviewLayer({ components, props }) {
       ref={bubble}
       className="thumbnail-preview"
       role="tooltip"
-      aria-label="Миниатюра"
+      aria-label={t("Миниатюра")}
       style={{
         left: position?.left ?? 0,
         top: position?.top ?? 0,

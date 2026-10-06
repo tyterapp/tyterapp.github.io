@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { t, useLanguage, languageLocale } from "./i18n.js";
+import LanguageSwitch from "./LanguageSwitch.jsx";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   Download,
@@ -19,6 +28,7 @@ import {
   Box,
   ListTree,
   AlignLeft,
+  MessageSquare,
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
 import { exportTYT } from "./tyt-format.js";
@@ -71,7 +81,6 @@ import {
   exportPropsPDF,
   saveBlob,
 } from "./exports.js";
-
 const STORAGE = "tyter.projects.v1";
 const EMPTY_PROPS = [];
 const BLOCK_LAYOUT_STYLE = Object.fromEntries(
@@ -88,14 +97,23 @@ const grandfatherDocuments = (documents, isPro = BUILD_IS_PRO) =>
   !window.tyterDesktop?.request &&
   documents.length > 2 &&
   !documents.some((doc) => doc.quotaExempt)
-    ? documents.map((doc) => ({ ...doc, quotaExempt: true }))
+    ? documents.map((doc) => ({
+        ...doc,
+        quotaExempt: true,
+      }))
     : documents;
 const quotaFull = (documents, isPro = BUILD_IS_PRO) =>
   !isPro && documents.filter((doc) => !doc.quotaExempt).length >= 2;
 function newDocument() {
-  const doc = createProject("Без названия");
+  const doc = createProject(t("Без названия"));
   doc.content.content = [
-    { type: "paragraph", attrs: { format: "scene", blockId: uid() } },
+    {
+      type: "paragraph",
+      attrs: {
+        format: "scene",
+        blockId: uid(),
+      },
+    },
   ];
   return doc;
 }
@@ -104,12 +122,23 @@ function sampleDocuments() {
   cat.content.content = [
     {
       type: "paragraph",
-      attrs: { format: "scene", blockId: uid() },
-      content: [{ type: "text", text: "ИНТ. КВАРТИРА — УТРО" }],
+      attrs: {
+        format: "scene",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "ИНТ. КВАРТИРА — УТРО",
+        },
+      ],
     },
     {
       type: "paragraph",
-      attrs: { format: "action", blockId: uid() },
+      attrs: {
+        format: "action",
+        blockId: uid(),
+      },
       content: [
         {
           type: "text",
@@ -119,14 +148,28 @@ function sampleDocuments() {
     },
     {
       type: "paragraph",
-      attrs: { format: "character", blockId: uid() },
-      content: [{ type: "text", text: "КОШКА" }],
+      attrs: {
+        format: "character",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "КОШКА",
+        },
+      ],
     },
     {
       type: "paragraph",
-      attrs: { format: "speech", blockId: uid() },
+      attrs: {
+        format: "speech",
+        blockId: uid(),
+      },
       content: [
-        { type: "text", text: "Кажется, у них опять свои планы на завтрак." },
+        {
+          type: "text",
+          text: "Кажется, у них опять свои планы на завтрак.",
+        },
       ],
     },
   ];
@@ -145,13 +188,20 @@ function loadDocuments(isPro = BUILD_IS_PRO) {
           hasSaved: true,
         };
     }
-    return { documents: sampleDocuments(), error: false };
+    return {
+      documents: sampleDocuments(),
+      error: false,
+    };
   } catch {
     // Keep the original storage untouched if an older or damaged file cannot be read.
-    return { documents: [newDocument()], error: !isWebPro() };
+    return {
+      documents: [newDocument()],
+      error: !isWebPro(),
+    };
   }
 }
 function Dialog({ title, children, onClose }) {
+  const language = useLanguage();
   const ref = useRef(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -164,7 +214,7 @@ function Dialog({ title, children, onClose }) {
     <dialog
       ref={ref}
       className="minimal-dialog"
-      aria-label={title}
+      aria-label={t(title)}
       onCancel={(e) => {
         e.preventDefault();
         close.current();
@@ -174,8 +224,12 @@ function Dialog({ title, children, onClose }) {
       }}
     >
       <div className="dialog-heading">
-        <h2>{title}</h2>
-        <button className="icon-button" onClick={onClose} aria-label="Закрыть">
+        <h2>{t(title)}</h2>
+        <button
+          className="icon-button"
+          onClick={onClose}
+          aria-label={t("Закрыть")}
+        >
           <X size={18} />
         </button>
       </div>
@@ -184,12 +238,16 @@ function Dialog({ title, children, onClose }) {
   );
 }
 function DeleteComponentFolderDialog({ folder, onClose, onConfirm }) {
+  const language = useLanguage();
   const [deleteComponents, setDeleteComponents] = useState(false);
   return (
-    <Dialog title="Удалить папку?" onClose={onClose}>
+    <Dialog title={t("Удалить папку?")} onClose={onClose}>
       <p className="delete-document-copy">
-        Папка «{folder.name}» исчезнет. Без галочки компоненты останутся в
-        разделах «Персонажи» и «Места».
+        {t("Папка «")}
+        {folder.name}
+        {t(
+          "» исчезнет. Без галочки компоненты останутся в разделах «Персонажи» и «Места».",
+        )}
       </p>
       <label className="folder-delete-option">
         <input
@@ -197,17 +255,17 @@ function DeleteComponentFolderDialog({ folder, onClose, onConfirm }) {
           checked={deleteComponents}
           onChange={(event) => setDeleteComponents(event.target.checked)}
         />
-        <span>Удалить компоненты в папке</span>
+        <span>{t("Удалить компоненты в папке")}</span>
       </label>
       <div className="dialog-actions">
         <button className="quiet-button" onClick={onClose}>
-          Отмена
+          {t("Отмена")}
         </button>
         <button
           className="primary-button"
           onClick={() => onConfirm(deleteComponents)}
         >
-          Удалить папку
+          {t("Удалить папку")}
         </button>
       </div>
     </Dialog>
@@ -223,6 +281,7 @@ function ComponentForm({
   onDelete,
   onClose,
 }) {
+  const language = useLanguage();
   const [name, setName] = useState(value.name || "");
   const [description, setDescription] = useState(value.description || "");
   const [quantity, setQuantity] = useState(value.quantity || 1);
@@ -239,15 +298,17 @@ function ComponentForm({
   return (
     <Wrapper
       {...(inline
-        ? { className: "component-editor minimal-dialog" }
+        ? {
+            className: "component-editor minimal-dialog",
+          }
         : {
             title: prop
               ? value.id
-                ? "Реквизит"
-                : "Новый реквизит"
+                ? t("Реквизит")
+                : t("Новый реквизит")
               : value.id
-                ? "Компонент"
-                : "Новый компонент",
+                ? t("Компонент")
+                : t("Новый компонент"),
             onClose,
           })}
     >
@@ -293,21 +354,21 @@ function ComponentForm({
         }}
       >
         <label>
-          Название
+          {t("Название")}
           <input
             autoFocus
             required
             maxLength={200}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например, Анна"
+            placeholder={t("Например, Анна")}
           />
         </label>
         {prop ? (
           <label>
-            Количество
+            {t("Количество")}
             <input
-              aria-label="Количество реквизита"
+              aria-label={t("Количество реквизита")}
               type="number"
               min="1"
               max="999999"
@@ -318,14 +379,14 @@ function ComponentForm({
           </label>
         ) : (
           <label>
-            Папка
+            {t("Папка")}
             <select
-              aria-label="Папка"
+              aria-label={t("Папка")}
               value={folderId}
               onChange={(e) => setFolderId(e.target.value)}
             >
-              <option value="character">Персонажи</option>
-              <option value="place">Места</option>
+              <option value="character">{t("Персонажи")}</option>
+              <option value="place">{t("Места")}</option>
               {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.name}
@@ -335,7 +396,8 @@ function ComponentForm({
           </label>
         )}
         <label>
-          Описание <span className="muted">· необязательно</span>
+          {t("Описание ")}
+          <span className="muted">{t("· необязательно")}</span>
           <textarea
             rows={3}
             maxLength={5000}
@@ -343,22 +405,22 @@ function ComponentForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder={
               prop
-                ? "Что важно помнить об этом реквизите"
-                : "Что важно помнить об этом компоненте"
+                ? t("Что важно помнить об этом реквизите")
+                : t("Что важно помнить об этом компоненте")
             }
           />
         </label>
         {duplicate && (
           <p className="form-error" role="alert">
             {prop
-              ? "Реквизит с таким названием уже есть."
-              : "Компонент с таким названием уже есть."}
+              ? t("Реквизит с таким названием уже есть.")
+              : t("Компонент с таким названием уже есть.")}
           </p>
         )}
         <ThumbnailField
           value={thumbnail}
           onChange={setThumbnail}
-          name={name || (prop ? "Реквизит" : "Компонент")}
+          name={name || (prop ? t("Реквизит") : t("Компонент"))}
           showPreview={inline}
         />
         <div className="dialog-actions">
@@ -366,30 +428,32 @@ function ComponentForm({
             <button
               type="button"
               className="icon-button delete-component"
-              aria-label={prop ? "Удалить реквизит" : "Удалить компонент"}
-              data-tooltip={prop ? "Удалить реквизит" : "Удалить компонент"}
+              aria-label={prop ? t("Удалить реквизит") : t("Удалить компонент")}
+              data-tooltip={
+                prop ? t("Удалить реквизит") : t("Удалить компонент")
+              }
               onClick={() => onDelete(value.id)}
             >
               <Trash2 size={17} />
             </button>
           )}
           <button type="button" className="quiet-button" onClick={onClose}>
-            Отмена
+            {t("Отмена")}
           </button>
           <button
             className="primary-button"
             aria-keyshortcuts="Control+Enter Meta+Enter"
             disabled={!name.trim() || duplicate}
           >
-            {value.id ? "Сохранить" : "Создать"}
+            {value.id ? t("Сохранить") : t("Создать")}
           </button>
         </div>
       </form>
     </Wrapper>
   );
 }
-
 export default function MinimalApp() {
+  const language = useLanguage();
   const { isPro: IS_PRO, historyDays } = useEdition();
   useEffect(() => {
     const keyboard = (event) => {
@@ -431,9 +495,14 @@ export default function MinimalApp() {
   const editorRef = useRef(null),
     menuRef = useRef(null),
     exportRef = useRef(null),
+    exportMenuRef = useRef(null),
     importRef = useRef(null);
-  const componentHistory = useRef({ undo: [], redo: [] });
+  const componentHistory = useRef({
+    undo: [],
+    redo: [],
+  });
   const [menu, setMenu] = useState(null);
+  const [exportPosition, setExportPosition] = useState(null);
   const [documentActions, setDocumentActions] = useState(null);
   const [query, setQuery] = useState("");
   const [componentsOpen, setComponentsOpen] = useState(false);
@@ -494,7 +563,9 @@ export default function MinimalApp() {
   const [componentDialog, setComponentDialog] = useState(null);
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [rename, setRename] = useState(null);
-  const [selection, setSelection] = useState({ format: "scene" });
+  const [selection, setSelection] = useState({
+    format: "scene",
+  });
   const [pageCount, setPageCount] = useState(1);
   const [saveState, setSaveState] = useState("saving");
   const [busy, setBusy] = useState("");
@@ -683,7 +754,10 @@ export default function MinimalApp() {
         pendingOutlineHistory.current.set(current.id, pending);
       }
     }
-    historyTracked.current.set(current.id, { snapshot, signature });
+    historyTracked.current.set(current.id, {
+      snapshot,
+      signature,
+    });
   }, [current, filesReady, historyDays, flushOutlineHistory]);
   const restoreHistory = async (entry) => {
     try {
@@ -722,20 +796,62 @@ export default function MinimalApp() {
       setSaveState("error");
     }
   }, [current.id, current.title]);
+  const changeView = useCallback(
+    (next) => {
+      if (next === "outline" && !IS_PRO) {
+        setSubscriptionOpen(true);
+        return;
+      }
+      showSidebar(null);
+      setView(next);
+      setMenu(null);
+      if (next === "screenplay")
+        requestAnimationFrame(() => editorRef.current?.focus());
+    },
+    [IS_PRO, showSidebar],
+  );
+  useLayoutEffect(() => {
+    if (menu !== "export") {
+      setExportPosition(null);
+      return;
+    }
+    const place = () => {
+      const anchor = exportRef.current?.getBoundingClientRect();
+      const popup = exportMenuRef.current?.getBoundingClientRect();
+      if (!anchor || !popup) return;
+      setExportPosition({
+        left: Math.max(
+          8,
+          Math.min(
+            exportRef.current
+              .closest(".workspace-tools")
+              .getBoundingClientRect().right + 8,
+            innerWidth - popup.width - 8,
+          ),
+        ),
+        top: Math.max(8, Math.min(anchor.top, innerHeight - popup.height - 8)),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    document.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      document.removeEventListener("scroll", place, true);
+    };
+  }, [menu]);
   useEffect(() => {
     const outside = (e) => {
       if (
-        ![menuRef, exportRef].some((ref) => ref.current?.contains(e.target))
+        ![menuRef, exportRef, exportMenuRef].some((ref) =>
+          ref.current?.contains(e.target),
+        )
       ) {
         setMenu(null);
         setDocumentActions(null);
       }
     };
     const keys = (e) => {
-      if (e.key === "Escape") {
-        setMenu(null);
-        setDocumentActions(null);
-      }
       if (
         (e.ctrlKey || e.metaKey) &&
         (e.code === "KeyF" || e.key.toLowerCase() === "f") &&
@@ -746,7 +862,12 @@ export default function MinimalApp() {
           window.document.querySelector(".outline-search input")?.focus();
         else showSidebar("search");
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.code === "KeyS" || e.key.toLowerCase() === "s")
+      ) {
         e.preventDefault();
         writeStorage();
       }
@@ -763,7 +884,10 @@ export default function MinimalApp() {
       setDocuments((list) =>
         list.map((d) =>
           d.id === current.id
-            ? { ...fn(d), updatedAt: new Date().toISOString() }
+            ? {
+                ...fn(d),
+                updatedAt: new Date().toISOString(),
+              }
             : d,
         ),
       ),
@@ -775,23 +899,18 @@ export default function MinimalApp() {
         ...d,
         content,
         comments: anchors
-          ? d.comments.map((c) => ({ ...c, anchor: anchors[c.id] ?? c.anchor }))
+          ? d.comments.map((c) => ({
+              ...c,
+              anchor: anchors[c.id] ?? c.anchor,
+            }))
           : d.comments,
       })),
     [update],
   );
-  const changeView = (next) => {
-    if (next === "outline" && !IS_PRO) {
-      setSubscriptionOpen(true);
-      return;
-    }
-    showSidebar(null);
-    setView(next);
-    setMenu(null);
-    if (next === "screenplay")
-      requestAnimationFrame(() => editorRef.current?.focus());
+  const outline = current.outline || {
+    columns: [],
+    cards: [],
   };
-  const outline = current.outline || { columns: [], cards: [] };
   const outlineWithLinks = {
     ...outline,
     cards: outline.cards.map((card) => ({
@@ -809,17 +928,30 @@ export default function MinimalApp() {
     const blockId = uid();
     const textBlock = (format, text, id) => ({
       type: "paragraph",
-      attrs: { format, blockId: id },
-      ...(text ? { content: [{ type: "text", text }] } : {}),
+      attrs: {
+        format,
+        blockId: id,
+      },
+      ...(text
+        ? {
+            content: [
+              {
+                type: "text",
+                text,
+              },
+            ],
+          }
+        : {}),
     });
     return {
       blockId,
       blocks: [
         textBlock(
           "scene",
-          card.title?.trim() && card.title !== "Без названия"
+          card.title?.trim() &&
+            !["Без названия", "Untitled"].includes(card.title)
             ? card.title
-            : "ИНТ. НОВАЯ СЦЕНА — ДЕНЬ",
+            : t("ИНТ. НОВАЯ СЦЕНА — ДЕНЬ"),
           blockId,
         ),
         ...String(card.text || "")
@@ -832,7 +964,7 @@ export default function MinimalApp() {
     const card = {
       id: uid(),
       columnId,
-      title: source.title || "Без названия",
+      title: source.title || t("Без названия"),
       text: source.text || "",
       color: source.color || "#33313b",
       drama: dramaValue(source.drama),
@@ -842,7 +974,18 @@ export default function MinimalApp() {
     card.blockId = blockId;
     update((document) => ({
       ...document,
-      outline: { ...outline, cards: [...outline.cards, card] },
+      outline: {
+        ...outline,
+        columns: outline.columns.map((column) =>
+          column.id === columnId
+            ? {
+                ...column,
+                collapsed: false,
+              }
+            : column,
+        ),
+        cards: [...outline.cards, card],
+      },
       content: {
         ...document.content,
         content: [...document.content.content, ...blocks],
@@ -857,7 +1000,12 @@ export default function MinimalApp() {
       outline: {
         ...outline,
         cards: outline.cards.map((item) =>
-          item.id === card.id ? { ...item, blockId } : item,
+          item.id === card.id
+            ? {
+                ...item,
+                blockId,
+              }
+            : item,
         ),
       },
       content: {
@@ -1001,7 +1149,10 @@ export default function MinimalApp() {
       setMessage("Выделенный текст изменился. Выделите его снова.");
       return;
     }
-    update((d) => ({ ...d, comments: [...d.comments, comment] }));
+    update((d) => ({
+      ...d,
+      comments: [...d.comments, comment],
+    }));
     setCommentQuote(null);
     setActiveComment(comment.id);
   };
@@ -1031,12 +1182,53 @@ export default function MinimalApp() {
     current.content,
     current.id,
   ]);
-  const closeTour = () => {
+  const closeTour = useCallback(() => {
     setTourOpen(false);
     try {
       localStorage.setItem("tyter.onboarding.v1", "done");
     } catch {}
-  };
+  }, []);
+  useEffect(() => {
+    const keyboard = (event) => {
+      if (event.isComposing) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenu(null);
+        setDocumentActions(null);
+        showSidebar(null);
+        setCommentQuote(null);
+        setActiveComment(null);
+        setSubscriptionOpen(false);
+        setRename(null);
+        setFolderToDelete(null);
+        if (!deleting) setDeleteTarget(null);
+        if (tourOpen) closeTour();
+        if (view === "screenplay" && !deleting)
+          requestAnimationFrame(() => editorRef.current?.focus());
+        return;
+      }
+      if (
+        !event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        document.querySelector("dialog[open]")
+      )
+        return;
+      const next =
+        event.code === "Digit1" || event.key === "1"
+          ? "screenplay"
+          : event.code === "Digit2" || event.key === "2"
+            ? "outline"
+            : null;
+      if (next) {
+        event.preventDefault();
+        if (!event.repeat) changeView(next);
+      }
+    };
+    document.addEventListener("keydown", keyboard, true);
+    return () => document.removeEventListener("keydown", keyboard, true);
+  }, [showSidebar, closeTour, changeView, view, tourOpen, deleting]);
   const openLocalFolder = async () => {
     if (isWebPro()) {
       try {
@@ -1054,11 +1246,10 @@ export default function MinimalApp() {
                 merged.set(document.id, document);
             return [...merged.values()];
           });
-        setMessage(
-          "Подключена папка «" +
-            name +
-            "». Файлы TYT будут сохраняться автоматически.",
-        );
+        setMessage({
+          key: "Подключена папка «{0}». Файлы TYT будут сохраняться автоматически.",
+          values: [name],
+        });
         setDiskAvailable(true);
       } catch (error) {
         if (error.name !== "AbortError") setMessage(error.message);
@@ -1170,7 +1361,11 @@ export default function MinimalApp() {
         ...d,
         props: d.props.map((item) =>
           item.id === pairedProp.id
-            ? { ...item, name: next.name, componentId: next.id }
+            ? {
+                ...item,
+                name: next.name,
+                componentId: next.id,
+              }
             : item,
         ),
       }));
@@ -1179,7 +1374,10 @@ export default function MinimalApp() {
   };
   const openAnnotations = (component, prop) => {
     showSidebar("annotations");
-    setAnnotations({ componentId: component.id, propId: prop.id });
+    setAnnotations({
+      componentId: component.id,
+      propId: prop.id,
+    });
   };
   const editComponent = (component) => {
     showSidebar("components");
@@ -1261,7 +1459,11 @@ export default function MinimalApp() {
       );
       if (paired) openAnnotations(paired, existing);
       else editProp(existing);
-    } else beginProp({ name: source.text.slice(0, 200), quantity: 1 });
+    } else
+      beginProp({
+        name: source.text.slice(0, 200),
+        quantity: 1,
+      });
   };
   const saveProp = (value) => {
     if (!IS_PRO) return;
@@ -1289,7 +1491,11 @@ export default function MinimalApp() {
       ...value,
       id: value.id || uid(),
       color: "#aa6032",
-      ...(paired ? { componentId: paired.id } : {}),
+      ...(paired
+        ? {
+            componentId: paired.id,
+          }
+        : {}),
     };
     update((d) => ({
       ...d,
@@ -1298,7 +1504,12 @@ export default function MinimalApp() {
         : [...d.props, next],
       components: paired
         ? d.components.map((item) =>
-            item.id === paired.id ? { ...item, name: value.name } : item,
+            item.id === paired.id
+              ? {
+                  ...item,
+                  name: value.name,
+                }
+              : item,
           )
         : d.components,
     }));
@@ -1321,7 +1532,10 @@ export default function MinimalApp() {
       afterContent,
     });
     componentHistory.current.redo = [];
-    update((d) => ({ ...d, props: d.props.filter((item) => item.id !== id) }));
+    update((d) => ({
+      ...d,
+      props: d.props.filter((item) => item.id !== id),
+    }));
     setPropDialog(null);
   };
   const deleteComponent = (id) => {
@@ -1377,7 +1591,10 @@ export default function MinimalApp() {
           )
         : beforeFolderState.components.map((component) =>
             component.folderId === folderId
-              ? { ...component, folderId: null }
+              ? {
+                  ...component,
+                  folderId: null,
+                }
               : component,
           ),
     };
@@ -1390,7 +1607,11 @@ export default function MinimalApp() {
       afterFolderState,
     });
     componentHistory.current.redo = [];
-    update((d) => ({ ...d, ...afterFolderState, content: afterContent }));
+    update((d) => ({
+      ...d,
+      ...afterFolderState,
+      content: afterContent,
+    }));
     setComponentDialog(null);
     setFolderToDelete(null);
   };
@@ -1462,13 +1683,22 @@ export default function MinimalApp() {
   const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
   const changeMetadata = (fields) =>
-    update((d) => ({ ...d, metadata: { ...d.metadata, ...fields } }));
+    update((d) => ({
+      ...d,
+      metadata: {
+        ...d.metadata,
+        ...fields,
+      },
+    }));
   const columnRef = useRef(null);
   const setDocumentZoom = useCallback(
     (zoom) =>
       update((d) => ({
         ...d,
-        metadata: { ...d.metadata, documentZoom: clampDocumentZoom(zoom) },
+        metadata: {
+          ...d.metadata,
+          documentZoom: clampDocumentZoom(zoom),
+        },
       })),
     [update],
   );
@@ -1488,7 +1718,9 @@ export default function MinimalApp() {
         },
       }));
     };
-    column?.addEventListener("wheel", zoom, { passive: false });
+    column?.addEventListener("wheel", zoom, {
+      passive: false,
+    });
     return () => column?.removeEventListener("wheel", zoom);
   }, [update]);
   return (
@@ -1504,7 +1736,7 @@ export default function MinimalApp() {
         <div className="document-switcher" ref={menuRef}>
           <button
             className="document-trigger"
-            aria-label="Документы"
+            aria-label={t("Документы")}
             aria-expanded={menu === "documents"}
             onClick={() => {
               setDocumentActions(null);
@@ -1524,14 +1756,15 @@ export default function MinimalApp() {
           {menu === "documents" && (
             <div className="minimal-popover document-menu">
               <div className="popover-heading">
-                Документы <span>На этом устройстве</span>
+                {t("Документы ")}
+                <span>{t("На этом устройстве")}</span>
               </div>
               <label className="document-search">
                 <Search size={15} />
                 <input
                   autoFocus
-                  aria-label="Найти документ"
-                  placeholder="Найти документ…"
+                  aria-label={t("Найти документ")}
+                  placeholder={t("Найти документ…")}
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value);
@@ -1573,18 +1806,21 @@ export default function MinimalApp() {
                         <span>
                           <strong>{d.title}</strong>
                           <small>
-                            {new Date(d.updatedAt).toLocaleDateString("ru-RU", {
-                              day: "numeric",
-                              month: "short",
-                            })}
+                            {new Date(d.updatedAt).toLocaleDateString(
+                              languageLocale(),
+                              {
+                                day: "numeric",
+                                month: "short",
+                              },
+                            )}
                           </small>
                         </span>
                       </button>
                       <button
                         className="document-more"
-                        aria-label={`Действия с документом: ${d.title}`}
+                        aria-label={t("Действия с документом: {0}", d.title)}
                         aria-expanded={documentActions?.id === d.id}
-                        data-tooltip="Действия с документом"
+                        data-tooltip={t("Действия с документом")}
                         onClick={(event) => {
                           if (documentActions?.id === d.id) {
                             setDocumentActions(null);
@@ -1617,7 +1853,7 @@ export default function MinimalApp() {
                     d.title
                       .toLocaleLowerCase()
                       .includes(query.toLocaleLowerCase()),
-                  ) && <p className="empty-search">Ничего не найдено</p>}
+                  ) && <p className="empty-search">{t("Ничего не найдено")}</p>}
               </div>
               {documentActions &&
                 (() => {
@@ -1634,12 +1870,16 @@ export default function MinimalApp() {
                     >
                       <button
                         onClick={() => {
-                          setRename({ id: target.id, title: target.title });
+                          setRename({
+                            id: target.id,
+                            title: target.title,
+                          });
                           setDocumentActions(null);
                           setMenu(null);
                         }}
                       >
-                        <Pencil size={15} /> Переименовать
+                        <Pencil size={15} />
+                        {t(" Переименовать")}
                       </button>
                       <button
                         className="danger-action"
@@ -1649,7 +1889,8 @@ export default function MinimalApp() {
                           setMenu(null);
                         }}
                       >
-                        <Trash2 size={15} /> Удалить документ
+                        <Trash2 size={15} />
+                        {t(" Удалить документ")}
                       </button>
                     </div>
                   ) : null;
@@ -1657,7 +1898,7 @@ export default function MinimalApp() {
               <div className="menu-divider" />
               <button className="menu-item" onClick={createDocument}>
                 <Plus size={17} />
-                Новый сценарий
+                {t("Новый сценарий")}
               </button>
               <button
                 className="menu-item"
@@ -1672,21 +1913,21 @@ export default function MinimalApp() {
               >
                 <FolderOpen size={17} />
                 {IS_PRO
-                  ? "Открыть TYT, FDX, DOCX, PDF"
-                  : "Открыть FDX, DOCX, PDF"}
+                  ? t("Открыть TYT, FDX, DOCX, PDF")
+                  : t("Открыть FDX, DOCX, PDF")}
               </button>
             </div>
           )}
         </div>
         <button
           className={`save-status ${saveState === "error" || diskState === "error" ? "save-error" : ""}`}
-          aria-label="Открыть папку сценариев"
+          aria-label={t("Открыть папку сценариев")}
           data-tooltip={
             saveState === "error"
-              ? "Не сохранено — скачайте файл"
+              ? t("Не сохранено — скачайте файл")
               : diskState === "error"
-                ? "Файл не обновлён · копия в браузере"
-                : "Открыть папку локальных файлов"
+                ? t("Файл не обновлён · копия в браузере")
+                : t("Открыть папку локальных файлов")
           }
           onClick={openLocalFolder}
         >
@@ -1699,125 +1940,57 @@ export default function MinimalApp() {
             {saveState === "saved" ? (
               <>
                 {diskState === "saved"
-                  ? "Сохранено на устройстве"
+                  ? t("Сохранено на устройстве")
                   : diskState === "saving"
-                    ? "Сохранение файла…"
+                    ? t("Сохранение файла…")
                     : diskState === "error"
-                      ? "Файл не обновлён · копия в браузере"
-                      : "Сохранено в браузере"}
+                      ? t("Файл не обновлён · копия в браузере")
+                      : t("Сохранено в браузере")}
               </>
             ) : saveState === "saving" ? (
-              "Сохранение…"
+              t("Сохранение…")
             ) : (
-              "Не сохранено — скачайте файл"
+              t("Не сохранено — скачайте файл")
             )}
           </span>
         </button>
-        <div
-          className="document-view-toggle"
-          role="group"
-          aria-label="Режим документа"
-        >
-          <button
-            aria-pressed={view === "screenplay"}
-            onClick={() => changeView("screenplay")}
+        <div className="header-switches">
+          <LanguageSwitch />
+          <div
+            className="document-view-toggle"
+            role="group"
+            aria-label={t("Режим документа")}
           >
-            <AlignLeft size={18} />
-            Сценарий
-          </button>
-          <button
-            aria-pressed={view === "outline"}
-            data-tooltip={IS_PRO ? "Карточки истории" : "Аутлайн · Pro"}
-            onClick={() => changeView("outline")}
-          >
-            <ListTree size={18} />
-            Аутлайн
-          </button>
-        </div>
-        <div className="header-actions">
-          <button
-            className={`icon-button${settingsOpen ? " active" : ""}`}
-            aria-label="Настройки документа"
-            data-tooltip="Настройки документа"
-            aria-expanded={settingsOpen}
-            onClick={() => showSidebar(settingsOpen ? null : "settings")}
-          >
-            <Settings2 size={17} />
-          </button>
-          <button
-            className={`icon-button${historyOpen ? " active" : ""}`}
-            aria-label="История изменений"
-            data-tooltip="История изменений"
-            aria-expanded={historyOpen}
-            onClick={() => {
-              setHistoryArea(view);
-              showSidebar(historyOpen ? null : "history");
-              flushOutlineHistory(current.id).catch(() => {});
-            }}
-          >
-            <History size={17} />
-          </button>
-          <span className="header-divider" />
-          <div ref={exportRef} className="export-control">
             <button
-              className="icon-button"
-              disabled={!!busy}
-              aria-label="Скачать сценарий"
-              data-tooltip={busy ? "Подготовка файла…" : "Скачать сценарий"}
-              aria-expanded={menu === "export"}
-              onClick={() => setMenu(menu === "export" ? null : "export")}
+              aria-pressed={view === "screenplay"}
+              aria-keyshortcuts="Alt+1"
+              onClick={() => changeView("screenplay")}
             >
-              <Download size={16} />
+              <AlignLeft size={18} />
+              {t("Сценарий")}
             </button>
-            {menu === "export" && (
-              <div className="minimal-popover export-menu">
-                <div className="popover-heading">Сохранить файл</div>
-                {[
-                  ["pdf", "PDF", "Для чтения и печати"],
-                  ["docx", "Word · DOCX", "Для работы в Word"],
-                  ["fdx", "Final Draft · FDX", "Для сценарных редакторов"],
-                  ...(IS_PRO
-                    ? [
-                        [
-                          "tyt",
-                          "Проект Tyter · TYT",
-                          "Сценарий, аутлайн, комментарии и все детали",
-                        ],
-                      ]
-                    : []),
-                ].map(([format, label, hint]) => (
-                  <button
-                    className="export-item"
-                    key={format}
-                    onClick={() => download(format)}
-                  >
-                    <FileText size={18} />
-                    <span>
-                      <strong>{label}</strong>
-                      <small>{hint}</small>
-                    </span>
-                    <span className="file-extension">.{format}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              aria-pressed={view === "outline"}
+              aria-keyshortcuts="Alt+2"
+              data-tooltip={IS_PRO ? t("Карточки истории") : t("Аутлайн · Pro")}
+              onClick={() => changeView("outline")}
+            >
+              <ListTree size={18} />
+              {t("Аутлайн")}
+            </button>
           </div>
-          <button
-            className="icon-button"
-            aria-label="Обучение"
-            data-tooltip="Знакомство с редактором"
-            onClick={() => setTourOpen(true)}
-          >
-            <CircleHelp size={17} />
-          </button>
         </div>
       </header>
       {message && (
         <div className="app-message" role="alert">
-          <span>{message}</span>
+          <span>
+            {typeof message === "object"
+              ? t(message.key, ...message.values)
+              : t(message)}
+          </span>
           <button
             className="icon-button"
-            aria-label="Закрыть уведомление"
+            aria-label={t("Закрыть уведомление")}
             onClick={() => setMessage("")}
           >
             <X size={16} />
@@ -1825,57 +1998,135 @@ export default function MinimalApp() {
         </div>
       )}
       <div className="minimal-workspace">
-        {view === "screenplay" && (
-          <nav className="workspace-tools" aria-label="Инструменты сценария">
+        <nav
+          className="workspace-tools"
+          aria-label={t("Инструменты редактора")}
+        >
+          {view === "screenplay" && (
+            <div className="workspace-tools-primary">
+              <button
+                className={`icon-button${searchOpen ? " active" : ""}`}
+                aria-expanded={searchOpen}
+                aria-label={t("Поиск по сценарию")}
+                data-tooltip={t("Поиск · Ctrl+F")}
+                onClick={() => showSidebar(searchOpen ? null : "search")}
+              >
+                <Search size={17} />
+              </button>
+              <button
+                className={`icon-button${statisticsOpen ? " active" : ""}`}
+                aria-label={t("Статистика документа")}
+                data-tooltip={t("Статистика документа")}
+                aria-expanded={statisticsOpen}
+                onClick={() => {
+                  showSidebar(statisticsOpen ? null : "statistics");
+                }}
+              >
+                <ChartNoAxesColumn size={17} />
+              </button>
+              <button
+                className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                aria-label={t("Компоненты")}
+                data-tooltip={t("Компоненты")}
+                aria-expanded={componentsOpen}
+                onClick={() => {
+                  showSidebar(componentsOpen ? null : "components");
+                }}
+              >
+                <Shapes size={17} />
+                {current.components.length > 0 && (
+                  <small>{current.components.length}</small>
+                )}
+              </button>
+              <button
+                className={`icon-button${propsOpen ? " active" : ""}`}
+                aria-label={t("Реквизит")}
+                data-tooltip={t("Реквизит · Pro")}
+                aria-expanded={propsOpen}
+                onClick={() =>
+                  IS_PRO
+                    ? showSidebar(propsOpen ? null : "props")
+                    : setSubscriptionOpen(true)
+                }
+              >
+                <Box size={17} />
+              </button>
+              <button
+                className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
+                aria-label={t("Комментарии")}
+                data-tooltip={t("Комментарии · Ctrl+8")}
+                aria-keyshortcuts="Control+8 Meta+8"
+                aria-expanded={commentsOpen}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  if (commentsOpen) {
+                    showSidebar(null);
+                    setCommentQuote(null);
+                  } else openComments(editorRef.current?.getSelection());
+                }}
+              >
+                <MessageSquare size={17} />
+                {current.comments.some((comment) => !comment.resolved) && (
+                  <small>
+                    {
+                      current.comments.filter((comment) => !comment.resolved)
+                        .length
+                    }
+                  </small>
+                )}
+              </button>
+            </div>
+          )}
+          <div className="workspace-tools-secondary">
             <button
-              className={`icon-button${searchOpen ? " active" : ""}`}
-              aria-expanded={searchOpen}
-              aria-label="Поиск по сценарию"
-              data-tooltip="Поиск · Ctrl+F"
-              onClick={() => showSidebar(searchOpen ? null : "search")}
-            >
-              <Search size={17} />
-            </button>
-            <button
-              className={`icon-button${statisticsOpen ? " active" : ""}`}
-              aria-label="Статистика документа"
-              data-tooltip="Статистика документа"
-              aria-expanded={statisticsOpen}
+              className={`icon-button${historyOpen ? " active" : ""}`}
+              aria-label={t("История изменений")}
+              data-tooltip={t("История изменений")}
+              aria-expanded={historyOpen}
               onClick={() => {
-                showSidebar(statisticsOpen ? null : "statistics");
+                setHistoryArea(view);
+                showSidebar(historyOpen ? null : "history");
+                flushOutlineHistory(current.id).catch(() => {});
               }}
             >
-              <ChartNoAxesColumn size={17} />
+              <History size={17} />
+            </button>
+            <div ref={exportRef} className="export-control">
+              <button
+                className={`icon-button${menu === "export" ? " active" : ""}`}
+                disabled={!!busy}
+                aria-label={t("Скачать сценарий")}
+                data-tooltip={
+                  busy ? t("Подготовка файла…") : t("Скачать сценарий")
+                }
+                aria-expanded={menu === "export"}
+                onClick={() => setMenu(menu === "export" ? null : "export")}
+              >
+                <Download size={17} />
+              </button>
+            </div>
+            <button
+              className={`icon-button${settingsOpen ? " active" : ""}`}
+              aria-label={t("Настройки документа")}
+              data-tooltip={t("Настройки документа")}
+              aria-expanded={settingsOpen}
+              onClick={() => showSidebar(settingsOpen ? null : "settings")}
+            >
+              <Settings2 size={17} />
             </button>
             <button
-              className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
-              aria-label="Компоненты"
-              data-tooltip="Компоненты"
-              aria-expanded={componentsOpen}
+              className="icon-button"
+              aria-label={t("Обучение")}
+              data-tooltip={t("Онбординг и горячие клавиши")}
               onClick={() => {
-                showSidebar(componentsOpen ? null : "components");
+                setMenu(null);
+                setTourOpen(true);
               }}
             >
-              <Shapes size={17} />
-              {current.components.length > 0 && (
-                <small>{current.components.length}</small>
-              )}
+              <CircleHelp size={17} />
             </button>
-            <button
-              className={`icon-button${propsOpen ? " active" : ""}`}
-              aria-label="Реквизит"
-              data-tooltip="Реквизит · Pro · Ctrl+E для выделения"
-              aria-expanded={propsOpen}
-              onClick={() =>
-                IS_PRO
-                  ? showSidebar(propsOpen ? null : "props")
-                  : setSubscriptionOpen(true)
-              }
-            >
-              <Box size={17} />
-            </button>
-          </nav>
-        )}
+          </div>
+        </nav>
         {view === "outline" &&
           (historyRevision ? (
             <OutlineHistoryPreview
@@ -1891,7 +2142,10 @@ export default function MinimalApp() {
                 setOutlineCard(id);
               }}
               onChange={(value) =>
-                update((document) => ({ ...document, outline: value }))
+                update((document) => ({
+                  ...document,
+                  outline: value,
+                }))
               }
               onAddCard={addOutlineCard}
               onLocate={locateOutlineCard}
@@ -1901,11 +2155,30 @@ export default function MinimalApp() {
         <div
           className="editor-column"
           ref={columnRef}
-          style={view === "outline" ? { display: "none" } : undefined}
+          style={
+            view === "outline"
+              ? {
+                  display: "none",
+                }
+              : undefined
+          }
         >
-          <main className="minimal-scroll" aria-label="Сценарий">
+          <main className="minimal-scroll" aria-label={t("Сценарий")}>
             <article
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}`}
+              onMouseDownCapture={(event) => {
+                if (
+                  historyRevision ||
+                  event.button !== 0 ||
+                  (event.target !== event.currentTarget &&
+                    !event.target.matches(
+                      ".screenplay-editor, .screenplay-editor-shell",
+                    ))
+                )
+                  return;
+                event.preventDefault();
+                editorRef.current?.focusEnd();
+              }}
               style={{
                 minHeight: pageCount * pageHeight,
                 zoom: documentZoom / 100,
@@ -1924,16 +2197,24 @@ export default function MinimalApp() {
             >
               {!historyRevision && (
                 <div className="page-guides" aria-hidden="true">
-                  {Array.from({ length: pageCount }, (_, index) => (
-                    <div
-                      className="page-guide"
-                      key={index}
-                      style={{ top: index * pageHeight, height: pageHeight }}
-                    >
-                      {index > 0 && <div className="page-separator" />}
-                      <span className="paper-label">{index + 1}</span>
-                    </div>
-                  ))}
+                  {Array.from(
+                    {
+                      length: pageCount,
+                    },
+                    (_, index) => (
+                      <div
+                        className="page-guide"
+                        key={index}
+                        style={{
+                          top: index * pageHeight,
+                          height: pageHeight,
+                        }}
+                      >
+                        {index > 0 && <div className="page-separator" />}
+                        <span className="paper-label">{index + 1}</span>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
               {historyRevision ? (
@@ -2030,7 +2311,7 @@ export default function MinimalApp() {
                 />
               ) : (
                 <p className="sidebar-empty" role="status">
-                  Открываем локальный документ…
+                  {t("Открываем локальный документ…")}
                 </p>
               )}
             </article>
@@ -2040,14 +2321,6 @@ export default function MinimalApp() {
               format={selection?.format}
               displayMode={current.metadata?.formatBarMode}
               onFormat={(key) => editorRef.current?.setFormat(key)}
-              commentsOpen={commentsOpen}
-              commentCount={current.comments.filter((c) => !c.resolved).length}
-              onComments={() => {
-                if (commentsOpen) {
-                  setCommentsOpen(false);
-                  setCommentQuote(null);
-                } else openComments(selection);
-              }}
             />
           )}
         </div>
@@ -2065,7 +2338,10 @@ export default function MinimalApp() {
               setSearchIndex(index);
               setSearchCardSelection(
                 source === "card"
-                  ? { index, request: ++searchCardRequest.current }
+                  ? {
+                      index,
+                      request: ++searchCardRequest.current,
+                    }
                   : null,
               );
             }}
@@ -2135,7 +2411,12 @@ export default function MinimalApp() {
               update((d) => ({
                 ...d,
                 comments: d.comments.map((c) =>
-                  c.id === comment.id ? { ...c, resolved: !c.resolved } : c,
+                  c.id === comment.id
+                    ? {
+                        ...c,
+                        resolved: !c.resolved,
+                      }
+                    : c,
                 ),
               }));
             }}
@@ -2174,7 +2455,10 @@ export default function MinimalApp() {
                 ...d,
                 componentFolders: [
                   ...(d.componentFolders || []),
-                  { id: uid(), name },
+                  {
+                    id: uid(),
+                    name,
+                  },
                 ],
               }))
             }
@@ -2210,7 +2494,7 @@ export default function MinimalApp() {
               try {
                 saveBlob(
                   await exportPropsPDF(current),
-                  `${current.title} — реквизит`,
+                  t("{0} — реквизит", current.title),
                   "pdf",
                 );
               } catch {
@@ -2309,7 +2593,7 @@ export default function MinimalApp() {
         />
       )}
       {rename !== null && (
-        <Dialog title="Название сценария" onClose={() => setRename(null)}>
+        <Dialog title={t("Название сценария")} onClose={() => setRename(null)}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -2330,14 +2614,17 @@ export default function MinimalApp() {
             }}
           >
             <label>
-              Название
+              {t("Название")}
               <input
                 autoFocus
                 required
                 maxLength={160}
                 value={rename.title}
                 onChange={(e) =>
-                  setRename({ ...rename, title: e.target.value })
+                  setRename({
+                    ...rename,
+                    title: e.target.value,
+                  })
                 }
               />
             </label>
@@ -2347,29 +2634,72 @@ export default function MinimalApp() {
                 className="quiet-button"
                 onClick={() => setRename(null)}
               >
-                Отмена
+                {t("Отмена")}
               </button>
               <button
                 className="primary-button"
                 disabled={!rename.title.trim()}
               >
-                Сохранить
+                {t("Сохранить")}
               </button>
             </div>
           </form>
         </Dialog>
       )}
+      {menu === "export" &&
+        createPortal(
+          <div
+            ref={exportMenuRef}
+            className="minimal-popover export-menu rail-export-menu"
+            style={{
+              left: exportPosition?.left ?? 72,
+              top: exportPosition?.top ?? 8,
+              visibility: exportPosition ? "visible" : "hidden",
+            }}
+          >
+            <div className="popover-heading">{t("Сохранить файл")}</div>
+            {[
+              ["pdf", "PDF", t("Для чтения и печати")],
+              ["docx", "Word · DOCX", t("Для работы в Word")],
+              ["fdx", "Final Draft · FDX", t("Для сценарных редакторов")],
+              ...(IS_PRO
+                ? [
+                    [
+                      "tyt",
+                      t("Проект Tyter · TYT"),
+                      t("Сценарий, аутлайн, комментарии и все детали"),
+                    ],
+                  ]
+                : []),
+            ].map(([format, label, hint]) => (
+              <button
+                className="export-item"
+                key={format}
+                onClick={() => download(format)}
+              >
+                <FileText size={18} />
+                <span>
+                  <strong>{t(label)}</strong>
+                  <small>{t(hint)}</small>
+                </span>
+                <span className="file-extension">.{format}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {subscriptionOpen && (
         <SubscriptionDialog onClose={() => setSubscriptionOpen(false)} />
       )}
       {deleteTarget && (
         <Dialog
-          title="Удалить документ?"
+          title={t("Удалить документ?")}
           onClose={() => !deleting && setDeleteTarget(null)}
         >
           <p className="delete-document-copy">
-            «{deleteTarget.title}» будет удалён из списка документов.
+            «{deleteTarget.title}
+            {t("» будет удалён из списка документов.")}
           </p>
           <div className="dialog-actions">
             <button
@@ -2377,14 +2707,14 @@ export default function MinimalApp() {
               disabled={deleting}
               onClick={() => setDeleteTarget(null)}
             >
-              Отмена
+              {t("Отмена")}
             </button>
             <button
               className="primary-button"
               disabled={deleting}
               onClick={deleteDocument}
             >
-              {deleting ? "Удаление…" : "Удалить"}
+              {deleting ? t("Удаление…") : t("Удалить")}
             </button>
           </div>
         </Dialog>

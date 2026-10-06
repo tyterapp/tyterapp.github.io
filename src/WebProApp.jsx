@@ -1,3 +1,5 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
+import LanguageSwitch from "./LanguageSwitch.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, KeyRound, LoaderCircle } from "lucide-react";
 import App from "./MinimalApp.jsx";
@@ -9,7 +11,6 @@ import {
   verifyProAccess,
 } from "./pro-access.js";
 import "./web-pro.css";
-
 const STORAGE = PRO_SESSION_STORAGE;
 const readToken = () => {
   try {
@@ -19,8 +20,8 @@ const readToken = () => {
     return "";
   }
 };
-
 export default function WebProApp() {
+  const language = useLanguage();
   const [gate, setGate] = useState({
     status: "checking",
     message: "",
@@ -50,8 +51,8 @@ export default function WebProApp() {
     };
   }, []);
   useEffect(() => {
-    if (gate.status !== "allowed") document.title = "Tyter Pro — вход";
-  }, [gate.status]);
+    if (gate.status !== "allowed") document.title = t("Tyter Pro — вход");
+  }, [gate.status, language]);
   const lock = useCallback((message = "", forget = true) => {
     window.dispatchEvent(new Event("tyter:save-now"));
     if (forget) token.current = "";
@@ -151,37 +152,38 @@ export default function WebProApp() {
       request.current?.abort();
     };
   }, [call, lock]);
-
   if (gate.status === "allowed")
     return (
       <EditionContext.Provider value={true}>
         <App />
       </EditionContext.Provider>
     );
-
   return (
     <main
       ref={gateElement}
       className="web-pro-gate"
       key={gate.revision}
-      aria-label="Вход в Tyter Pro"
+      aria-label={t("Вход в Tyter Pro")}
     >
-      <a className="web-pro-logo" href="/" aria-label="Tyter — главная">
+      <LanguageSwitch />
+      <a className="web-pro-logo" href="/" aria-label={t("Tyter — главная")}>
         <img src="/brand/tyter-logo.svg" alt="Tyter" />
       </a>
-      <section className="web-pro-card" aria-label="Доступ к Pro">
+      <section className="web-pro-card" aria-label={t("Доступ к Pro")}>
         <span className="web-pro-symbol">
           <KeyRound size={23} />
         </span>
-        <span className="web-pro-label">TYTER PRO · ВЕБ-ВЕРСИЯ</span>
-        <h1>Вход в Pro</h1>
+        <span className="web-pro-label">{t("TYTER PRO · ВЕБ-ВЕРСИЯ")}</span>
+        <h1>{t("Вход в Pro")}</h1>
         <p>
-          Введите email и ключ, полученные после доната, чтобы открыть редактор
-          без ограничений.
+          {t(
+            "Введите email и ключ, полученные после доната, чтобы открыть редактор без ограничений.",
+          )}
         </p>
         {gate.status === "checking" ? (
           <p className="web-pro-checking" role="status">
-            <LoaderCircle size={18} /> Проверяем доступ…
+            <LoaderCircle size={18} />
+            {t(" Проверяем доступ…")}
           </p>
         ) : (
           <form
@@ -191,7 +193,10 @@ export default function WebProApp() {
               busyRef.current = true;
               setBusy(true);
               try {
-                await call("POST", { code, email });
+                await call("POST", {
+                  code,
+                  email,
+                });
               } finally {
                 busyRef.current = false;
                 setBusy(false);
@@ -210,7 +215,7 @@ export default function WebProApp() {
               disabled={busy}
               onChange={(event) => setEmail(event.target.value)}
             />
-            <label htmlFor="web-pro-code">Ключ доступа</label>
+            <label htmlFor="web-pro-code">{t("Ключ доступа")}</label>
             <input
               id="web-pro-code"
               autoComplete="off"
@@ -232,14 +237,14 @@ export default function WebProApp() {
             />
             {gate.message && (
               <p className="web-pro-error" role="alert">
-                {gate.message}
+                {t(gate.message)}
               </p>
             )}
             <button
               className="primary-button web-pro-submit"
               disabled={busy || code.length !== 6 || !email.trim()}
             >
-              {busy ? "Проверяем ключ…" : "Открыть Pro"}
+              {busy ? t("Проверяем ключ…") : t("Открыть Pro")}
               <ArrowRight size={17} />
             </button>
           </form>
@@ -247,7 +252,7 @@ export default function WebProApp() {
         <div className="web-pro-free">
           {token.current && (
             <button className="quiet-button" onClick={() => call("GET")}>
-              Повторить проверку
+              {t("Повторить проверку")}
             </button>
           )}
           <a
@@ -255,19 +260,23 @@ export default function WebProApp() {
             target="_blank"
             rel="noreferrer"
           >
-            Получить ключ после доната <ArrowRight size={15} />
+            {t("Получить ключ после доната ")}
+            <ArrowRight size={15} />
           </a>
           <a href="/free">
-            Бесплатная веб-версия <ArrowRight size={15} />
+            {t("Бесплатная веб-версия ")}
+            <ArrowRight size={15} />
           </a>
-          <span>2 документа · 10 компонентов · 14 дней истории</span>
+          <span>{t("2 документа · 10 компонентов · 14 дней истории")}</span>
         </div>
       </section>
       <p className="web-pro-note">
-        Документы сохраняются на вашем устройстве. Для проверки доступа нужен
-        интернет.
+        {t(
+          "Документы сохраняются на вашем устройстве. Для проверки доступа нужен интернет.",
+        )}
         <br />
-        Помощь: <a href="mailto:mrbuha@ya.ru">mrbuha@ya.ru</a> ·{" "}
+        {t("Помощь: ")}
+        <a href="mailto:mrbuha@ya.ru">mrbuha@ya.ru</a> ·{" "}
         <a href="https://t.me/SergeyBuharev" target="_blank" rel="noreferrer">
           Telegram
         </a>

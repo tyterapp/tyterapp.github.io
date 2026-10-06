@@ -1,3 +1,4 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -9,7 +10,6 @@ import {
   MessageSquarePlus,
 } from "lucide-react";
 import "./selection-toolbar.css";
-
 export function sourceForRange(editor, from, to) {
   if (!editor || editor.isDestroyed) return null;
   const { doc } = editor.state;
@@ -40,13 +40,11 @@ export function sourceForRange(editor, from, to) {
     entityId: entityIds.size === 1 ? [...entityIds][0] : null,
   };
 }
-
 function selectedSource(editor) {
   if (!editor || editor.isDestroyed) return null;
   const { selection } = editor.state;
   return sourceForRange(editor, selection.from, selection.to);
 }
-
 export function nativeSelectedSource(editor) {
   const selection = window.getSelection();
   if (
@@ -74,11 +72,9 @@ export function nativeSelectedSource(editor) {
     return null;
   }
 }
-
 const sourceKey = (source) =>
   source && `${source.from}:${source.to}:${source.text}`;
 const clipsContent = (overflow) => /auto|scroll|hidden|clip/.test(overflow);
-
 function visibleEditorBounds(element) {
   const bounds = {
     left: 0,
@@ -106,7 +102,6 @@ function visibleEditorBounds(element) {
   }
   return bounds;
 }
-
 function selectionRect(editor, source, bounds) {
   try {
     // Build the range from the editor state so focusing a toolbar button cannot
@@ -130,7 +125,6 @@ function selectionRect(editor, source, bounds) {
     return null;
   }
 }
-
 export default function SelectionToolbar({
   editor,
   onCreateComponent,
@@ -139,6 +133,7 @@ export default function SelectionToolbar({
   disabled = false,
   minimal = false,
 }) {
+  const language = useLanguage();
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "CTRL";
   const toolbarRef = useRef(null);
   const dismissedRef = useRef(null);
@@ -148,7 +143,6 @@ export default function SelectionToolbar({
   const createPropRef = useRef(onCreateProp);
   createPropRef.current = onCreateProp;
   const [position, setPosition] = useState(null);
-
   useEffect(() => {
     if (!editor || editor.isDestroyed || disabled) {
       setPosition(null);
@@ -294,7 +288,6 @@ export default function SelectionToolbar({
       window.removeEventListener("keydown", onComponentShortcut, true);
     };
   }, [editor, disabled, minimal]);
-
   const createFromSelection = (callback) => {
     const source = selectedSource(editor);
     if (!source) return;
@@ -302,7 +295,6 @@ export default function SelectionToolbar({
     setPosition(null);
     callback?.(source);
   };
-
   const toggleFormat = (format) => {
     if (!selectedSource(editor)) return;
     const chain = editor.chain().focus();
@@ -310,9 +302,7 @@ export default function SelectionToolbar({
     if (format === "italic") chain.toggleItalic().run();
     if (format === "underline") chain.toggleUnderline().run();
   };
-
   if (!position || disabled || !editor || editor.isDestroyed) return null;
-
   return createPortal(
     <div
       ref={toolbarRef}
@@ -333,19 +323,19 @@ export default function SelectionToolbar({
         <>
           {[
             {
-              name: minimal ? "Жирный" : "Bold",
+              name: minimal ? t("Жирный") : "Bold",
               mark: "bold",
               Icon: Bold,
               key: "B",
             },
             {
-              name: minimal ? "Курсив" : "Italic",
+              name: minimal ? t("Курсив") : "Italic",
               mark: "italic",
               Icon: Italic,
               key: "I",
             },
             {
-              name: minimal ? "Подчёркнутый" : "Underline",
+              name: minimal ? t("Подчёркнутый") : "Underline",
               mark: "underline",
               Icon: Underline,
               key: "U",
@@ -354,7 +344,7 @@ export default function SelectionToolbar({
             <button
               key={mark}
               type="button"
-              aria-label={name}
+              aria-label={t(name)}
               aria-describedby={`selection-tip-${mark}`}
               aria-keyshortcuts={`Control+${key.replace("SHIFT + ", "Shift+")} Meta+${key.replace("SHIFT + ", "Shift+")}`}
               aria-pressed={position[mark]}
@@ -394,7 +384,7 @@ export default function SelectionToolbar({
         type="button"
         aria-label={
           minimal
-            ? "Создать компонент из выделения"
+            ? t("Создать компонент из выделения")
             : "Create component from selection"
         }
         aria-describedby="selection-tip-component"
@@ -413,7 +403,7 @@ export default function SelectionToolbar({
       {minimal && (
         <button
           type="button"
-          aria-label="Создать реквизит из выделения"
+          aria-label={t("Создать реквизит из выделения")}
           aria-keyshortcuts="Control+E Meta+E"
           aria-describedby="selection-tip-prop"
           onClick={() => createFromSelection(onCreateProp)}
@@ -424,7 +414,8 @@ export default function SelectionToolbar({
             role="tooltip"
             id="selection-tip-prop"
           >
-            Реквизит · {shortcut} + E
+            {t("Реквизит · ")}
+            {shortcut} + E
           </span>
         </button>
       )}
@@ -432,7 +423,7 @@ export default function SelectionToolbar({
         <button
           type="button"
           aria-label={
-            minimal ? "Комментировать выделение" : "Comment on selection"
+            minimal ? t("Комментировать выделение") : "Comment on selection"
           }
           aria-describedby="selection-tip-comment"
           onClick={() => createFromSelection(onComment)}
@@ -443,7 +434,7 @@ export default function SelectionToolbar({
             role="tooltip"
             id="selection-tip-comment"
           >
-            {minimal ? "Комментировать" : "Add comment"}
+            {minimal ? t("Комментировать") : "Add comment"}
           </span>
         </button>
       }

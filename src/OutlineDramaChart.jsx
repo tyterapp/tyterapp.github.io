@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { t, useLanguage, languageLocale } from "./i18n.js";
+import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { dramaValue } from "./document-layout.js";
-
 export default function OutlineDramaChart({
   columns,
   cards,
@@ -9,7 +9,9 @@ export default function OutlineDramaChart({
   onSelect,
   onClose,
 }) {
+  const language = useLanguage();
   const plot = useRef(null);
+  const gradientId = useId().replaceAll(":", "");
   const [availableWidth, setAvailableWidth] = useState(660);
   const [height, setHeight] = useState(220);
   const [hovered, setHovered] = useState(null);
@@ -31,11 +33,11 @@ export default function OutlineDramaChart({
     0,
   );
   const compact = availableWidth < 360;
-  const width = Math.max(availableWidth, units * 32 + (compact ? 48 : 72), 1);
+  const width = Math.max(availableWidth, units * 32 + (compact ? 20 : 72), 1);
   const top = 28,
     bottom = height - 42,
-    left = compact ? 32 : 48,
-    right = width - (compact ? 16 : 24);
+    left = compact ? 18 : 48,
+    right = width - (compact ? 2 : 24);
   const step = (right - left) / Math.max(units, 1);
   const hitWidth = Math.max(32, Math.min(88, step));
   let offset = 0;
@@ -48,38 +50,71 @@ export default function OutlineDramaChart({
       y: bottom - (dramaValue(card.drama) * (bottom - top)) / 10,
     }));
     offset += Math.max(1, actCards.length);
-    return { column, start, end: left + offset * step, points };
+    return {
+      column,
+      start,
+      end: left + offset * step,
+      points,
+    };
   });
   const points = acts.flatMap((act) => act.points);
   const focused = ordered.find((card) => card.id === (hovered || selectedId));
   return (
-    <aside className="outline-drama-panel" aria-label="График драматичности">
+    <aside
+      className="outline-drama-panel"
+      aria-label={t("График драматичности")}
+    >
       <div className="outline-drama-heading">
-        <h2>Драматичность истории</h2>
+        <h2>{t("Драматичность истории")}</h2>
         <button
           className="icon-button"
-          aria-label="Закрыть график"
+          aria-label={t("Закрыть график")}
           onClick={onClose}
         >
           <X size={18} />
         </button>
       </div>
       <p className="outline-drama-caption">
-        Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть
-        карточку.
+        {t(
+          "Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть карточку.",
+        )}
       </p>
       {!ordered.length && (
         <p className="outline-drama-empty">
-          Добавьте карточки и укажите их драматичность от 0 до 10.
+          {t("Добавьте карточки и укажите их драматичность от 0 до 10.")}
         </p>
       )}
       <div className="outline-drama-scroll" ref={plot}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          style={{ width }}
+          style={{
+            width,
+          }}
           role="group"
-          aria-label="Драматичность по актам"
+          aria-label={t("Драматичность по актам")}
         >
+          <defs>
+            {points.slice(1).map((point, index) => {
+              const from = points[index];
+              return (
+                <linearGradient
+                  key={point.card.id}
+                  id={`${gradientId}-${index}`}
+                  gradientUnits="userSpaceOnUse"
+                  x1={from.x}
+                  y1={from.y}
+                  x2={point.x}
+                  y2={point.y}
+                >
+                  <stop offset="0%" stopColor={from.card.color || "#33313b"} />
+                  <stop
+                    offset="100%"
+                    stopColor={point.card.color || "#33313b"}
+                  />
+                </linearGradient>
+              );
+            })}
+          </defs>
           {acts.map(({ column, start, end }, index) => (
             <g key={column.id}>
               <rect
@@ -106,22 +141,35 @@ export default function OutlineDramaChart({
             return (
               <g key={value}>
                 <line x1={left} x2={right} y1={y} y2={y} stroke="#e7e3ed" />
-                <text x={left - 12} y={y + 4} textAnchor="end">
+                <text
+                  x={left - (compact ? 8 : 12)}
+                  y={y + 4}
+                  textAnchor={compact ? "middle" : "end"}
+                >
                   {value}
                 </text>
               </g>
             );
           })}
-          <polyline
-            points={points.map(({ x, y }) => `${x},${y}`).join(" ")}
-            fill="none"
-            stroke="#1b2eff"
-            strokeWidth={2.5}
-            strokeLinejoin="round"
-          />
+          {points.slice(1).map((point, index) => (
+            <line
+              className="drama-segment"
+              key={point.card.id}
+              x1={points[index].x}
+              y1={points[index].y}
+              x2={point.x}
+              y2={point.y}
+              stroke={`url(#${gradientId}-${index})`}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            />
+          ))}
           {points.map(({ card, x, y }) => (
             <g
               key={card.id}
+              style={{
+                "--drama-color": card.color || "#33313b",
+              }}
               className={
                 "outline-drama-point" +
                 (card.id === selectedId ? " is-selected" : "")
@@ -129,7 +177,11 @@ export default function OutlineDramaChart({
               role="button"
               tabIndex={0}
               aria-pressed={card.id === selectedId}
-              aria-label={`${card.title || "Без названия"}: драматичность ${dramaValue(card.drama)} из 10`}
+              aria-label={t(
+                "{0}: драматичность {1} из 10",
+                card.title || "Без названия",
+                dramaValue(card.drama),
+              )}
               onMouseEnter={() => setHovered(card.id)}
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(card.id)}
@@ -155,8 +207,8 @@ export default function OutlineDramaChart({
                 cx={x}
                 cy={y}
                 r={5}
-                fill="white"
-                stroke="#1b2eff"
+                fill={card.color || "#33313b"}
+                stroke={card.color || "#33313b"}
                 strokeWidth={2.5}
               />
               <text x={x} y={y - 13} textAnchor="middle">
@@ -169,14 +221,14 @@ export default function OutlineDramaChart({
       <div className="outline-drama-preview" aria-live="polite">
         {focused ? (
           <>
-            <strong>{focused.title || "Без названия"}</strong>
+            <strong>{focused.title || t("Без названия")}</strong>
             <span>
               {columns.find((column) => column.id === focused.columnId)?.title}{" "}
               · {dramaValue(focused.drama)}/10
             </span>
           </>
         ) : (
-          <span>Выберите точку на графике</span>
+          <span>{t("Выберите точку на графике")}</span>
         )}
       </div>
     </aside>

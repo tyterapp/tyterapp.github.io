@@ -1,8 +1,8 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { Box, ChevronDown, Plus, Search, X, Download } from "lucide-react";
 import { propOccurrences } from "./prop-matches.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
-
 export default function PropsPanel({
   document,
   activeId,
@@ -13,12 +13,15 @@ export default function PropsPanel({
   onExport,
   renderEditor,
 }) {
+  const language = useLanguage();
   const [query, setQuery] = useState("");
   const active = useRef(null);
   useEffect(() => {
     setQuery("");
     requestAnimationFrame(() =>
-      active.current?.scrollIntoView({ block: "nearest" }),
+      active.current?.scrollIntoView({
+        block: "nearest",
+      }),
     );
   }, [activeId]);
   const items = document.props.filter((item) =>
@@ -29,30 +32,30 @@ export default function PropsPanel({
   return (
     <aside
       className="components-drawer props-drawer"
-      aria-label="Реквизит сценария"
+      aria-label={t("Реквизит сценария")}
     >
       <div className="drawer-heading">
-        <h2>Реквизит</h2>
+        <h2>{t("Реквизит")}</h2>
         <div className="drawer-tools">
           <button
             className="icon-button"
-            aria-label="Скачать отчёт реквизита"
-            data-tooltip="Отчёт реквизита · PDF"
+            aria-label={t("Скачать отчёт реквизита")}
+            data-tooltip={t("Отчёт реквизита · PDF")}
             onClick={onExport}
           >
             <Download size={17} />
           </button>
           <button
             className="icon-button"
-            aria-label="Добавить реквизит"
-            data-tooltip="Новый реквизит · Ctrl+E для выделения"
+            aria-label={t("Добавить реквизит")}
+            data-tooltip={t("Новый реквизит")}
             onClick={() => onCreate({})}
           >
             <Plus size={17} />
           </button>
           <button
             className="icon-button"
-            aria-label="Закрыть реквизит"
+            aria-label={t("Закрыть реквизит")}
             onClick={onClose}
           >
             <X size={18} />
@@ -62,8 +65,8 @@ export default function PropsPanel({
       <label className="sidebar-search">
         <Search size={15} />
         <input
-          aria-label="Поиск реквизита"
-          placeholder="Найти реквизит…"
+          aria-label={t("Поиск реквизита")}
+          placeholder={t("Найти реквизит…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -94,7 +97,8 @@ export default function PropsPanel({
                 <span>
                   <strong>{item.name}</strong>
                   <small>
-                    {item.quantity} шт. · В тексте:{" "}
+                    {item.quantity}
+                    {t(" шт. · В тексте:")}{" "}
                     {propOccurrences(document.content, item.name)}
                   </small>
                 </span>
@@ -106,7 +110,7 @@ export default function PropsPanel({
         ))}
         {!items.length && (
           <p className="sidebar-empty">
-            {query ? "Ничего не найдено" : "Пока нет реквизита"}
+            {query ? t("Ничего не найдено") : t("Пока нет реквизита")}
           </p>
         )}
       </div>

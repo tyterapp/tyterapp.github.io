@@ -1,3 +1,4 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -11,12 +12,12 @@ import {
   Search,
   Trash2,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { uid } from "./data.js";
 import { dramaValue } from "./document-layout.js";
 import OutlineDramaChart from "./OutlineDramaChart.jsx";
 import "./outline.css";
-
 const COLORS = [
   "#33313b",
   "#d89b17",
@@ -26,6 +27,7 @@ const COLORS = [
   "#1b2eff",
 ];
 function RemoveDialog({ removing, onClose, onConfirm }) {
+  const language = useLanguage();
   const dialog = useRef(null);
   useEffect(() => {
     dialog.current.showModal();
@@ -35,7 +37,7 @@ function RemoveDialog({ removing, onClose, onConfirm }) {
     <dialog
       ref={dialog}
       className="minimal-dialog"
-      aria-label="Удалить из аутлайна"
+      aria-label={t("Удалить из аутлайна")}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -43,24 +45,30 @@ function RemoveDialog({ removing, onClose, onConfirm }) {
     >
       <div className="dialog-heading">
         <h2>
-          {removing.kind === "column" ? "Удалить акт?" : "Удалить карточку?"}
+          {removing.kind === "column"
+            ? t("Удалить акт?")
+            : t("Удалить карточку?")}
         </h2>
-        <button className="icon-button" aria-label="Закрыть" onClick={onClose}>
+        <button
+          className="icon-button"
+          aria-label={t("Закрыть")}
+          onClick={onClose}
+        >
           <X size={18} />
         </button>
       </div>
       <p>
         {removing.kind === "column"
-          ? "Акт и его карточки будут удалены. "
-          : "Карточка будет удалена. "}
-        Текст сцен останется в сценарии.
+          ? t("Акт и его карточки будут удалены. ")
+          : t("Карточка будет удалена. ")}
+        {t("Текст сцен останется в сценарии.")}
       </p>
       <div className="dialog-actions">
         <button className="quiet-button" onClick={onClose}>
-          Отмена
+          {t("Отмена")}
         </button>
         <button className="primary-button danger" onClick={onConfirm}>
-          Удалить
+          {t("Удалить")}
         </button>
       </div>
     </dialog>
@@ -75,6 +83,7 @@ export default function OutlineBoard({
   onLocate,
   onRelink,
 }) {
+  const language = useLanguage();
   const [query, setQuery] = useState("");
   const [showDrama, setShowDrama] = useState(false);
   const [menu, setMenu] = useState(null);
@@ -106,6 +115,10 @@ export default function OutlineBoard({
     const escape = (event) => {
       if (event.key === "Escape") {
         setMenu(null);
+        setRenaming(null);
+        setRemoving(null);
+        setShowDrama(false);
+        onSelect(null);
         draggedCard.current = null;
         setDraggedId(null);
         setDropTarget(null);
@@ -121,16 +134,23 @@ export default function OutlineBoard({
       document.removeEventListener("keydown", escape);
       element?.removeEventListener("scroll", scroll, true);
     };
-  }, []);
+  }, [onSelect]);
   useEffect(() => {
     setComment("");
-    detailBody.current?.scrollTo({ top: 0 });
+    detailBody.current?.scrollTo({
+      top: 0,
+    });
   }, [selectedId]);
   const changeCard = (id, fields) =>
     onChange({
       ...outline,
       cards: cards.map((card) =>
-        card.id === id ? { ...card, ...fields } : card,
+        card.id === id
+          ? {
+              ...card,
+              ...fields,
+            }
+          : card,
       ),
     });
   const dropPosition = (element, columnId, y) => {
@@ -141,7 +161,10 @@ export default function OutlineBoard({
       const rect = item.getBoundingClientRect();
       return y < rect.top + rect.height / 2;
     });
-    return { columnId, beforeId: before?.dataset.cardId || null };
+    return {
+      columnId,
+      beforeId: before?.dataset.cardId || null,
+    };
   };
   const moveCard = (id, columnId, beforeId) => {
     const card = cards.find((item) => item.id === id);
@@ -161,25 +184,47 @@ export default function OutlineBoard({
     remaining.splice(
       index,
       0,
-      card.columnId === columnId ? card : { ...card, columnId },
+      card.columnId === columnId
+        ? card
+        : {
+            ...card,
+            columnId,
+          },
     );
     if (remaining.some((item, position) => item !== cards[position]))
-      onChange({ ...outline, cards: remaining });
+      onChange({
+        ...outline,
+        columns: columns.map((column) =>
+          column.id === columnId
+            ? {
+                ...column,
+                collapsed: false,
+              }
+            : column,
+        ),
+        cards: remaining,
+      });
   };
   const addColumn = () =>
     onChange({
       ...outline,
       columns: [
         ...columns,
-        { id: uid(), title: "Акт " + (columns.length + 1) },
+        {
+          id: uid(),
+          title: t("Акт") + " " + (columns.length + 1),
+        },
       ],
     });
   const addTemplate = () => {
     const additions = [1, 2, 3].map((number) => ({
       id: uid(),
-      title: "Акт " + number,
+      title: t("Акт") + " " + number,
     }));
-    onChange({ ...outline, columns: [...columns, ...additions] });
+    onChange({
+      ...outline,
+      columns: [...columns, ...additions],
+    });
   };
   const deleteTarget = () => {
     if (removing.kind === "column")
@@ -203,10 +248,10 @@ export default function OutlineBoard({
         className="icon-button"
         aria-label={
           kind === "column"
-            ? "Действия с актом " + item.title
-            : "Действия с карточкой " + item.title
+            ? t("Действия с актом ") + item.title
+            : t("Действия с карточкой ") + item.title
         }
-        data-tooltip="Действия"
+        data-tooltip={t("Действия")}
         aria-expanded={menu?.id === item.id}
         onClick={(event) => {
           event.stopPropagation();
@@ -232,7 +277,10 @@ export default function OutlineBoard({
         createPortal(
           <div
             className="outline-menu minimal-popover"
-            style={{ left: menu.x, top: menu.y }}
+            style={{
+              left: menu.x,
+              top: menu.y,
+            }}
           >
             {kind === "column" ? (
               <button
@@ -242,7 +290,7 @@ export default function OutlineBoard({
                   setMenu(null);
                 }}
               >
-                Переименовать акт
+                {t("Переименовать акт")}
               </button>
             ) : (
               <button
@@ -253,18 +301,21 @@ export default function OutlineBoard({
                 }}
               >
                 <Copy size={15} />
-                Дублировать карточку
+                {t("Дублировать карточку")}
               </button>
             )}
             <button
               className="menu-item danger"
               onClick={() => {
-                setRemoving({ kind, id: item.id });
+                setRemoving({
+                  kind,
+                  id: item.id,
+                });
                 setMenu(null);
               }}
             >
               <Trash2 size={15} />
-              Удалить
+              {t("Удалить")}
             </button>
           </div>,
           document.body,
@@ -288,43 +339,45 @@ export default function OutlineBoard({
             <button
               ref={dramaButton}
               className="quiet-button"
-              aria-label="График драматичности"
+              aria-label={t("График драматичности")}
               onClick={() => setShowDrama(true)}
             >
               <ChartLine size={17} />
-              <span className="outline-tool-label">График драматичности</span>
+              <span className="outline-tool-label">
+                {t("График драматичности")}
+              </span>
             </button>
           )}
           <button
             className="quiet-button"
-            aria-label="Добавить акт"
+            aria-label={t("Добавить акт")}
             onClick={addColumn}
           >
             <Plus size={17} />
-            <span className="outline-tool-label">Добавить акт</span>
+            <span className="outline-tool-label">{t("Добавить акт")}</span>
           </button>
           {!columns.length && (
             <button
               className="quiet-button"
-              aria-label="Три акта"
+              aria-label={t("Три акта")}
               onClick={addTemplate}
             >
               <Columns3 size={17} />
-              <span className="outline-tool-label">Три акта</span>
+              <span className="outline-tool-label">{t("Три акта")}</span>
             </button>
           )}
           <label className="outline-search">
             <Search size={16} />
             <input
-              aria-label="Поиск карточек"
-              placeholder="Найти карточку…"
+              aria-label={t("Поиск карточек")}
+              placeholder={t("Найти карточку…")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             {query && (
               <button
                 className="icon-button"
-                aria-label="Очистить поиск карточек"
+                aria-label={t("Очистить поиск карточек")}
                 onClick={() => setQuery("")}
               >
                 <X size={15} />
@@ -334,7 +387,7 @@ export default function OutlineBoard({
         </div>
         <section
           className="outline-workspace"
-          aria-label="Аутлайн"
+          aria-label={t("Аутлайн")}
           onDragOver={(event) => {
             if (draggedCard.current && !event.target.closest(".outline-column"))
               setDropTarget(null);
@@ -343,15 +396,17 @@ export default function OutlineBoard({
           {!columns.length && (
             <div className="outline-empty">
               <Columns3 size={32} />
-              <h1>Сначала — история</h1>
+              <h1>{t("Сначала — история")}</h1>
               <p>
-                Добавьте акт или начните с трёх актов. Каждая новая карточка
-                создаёт сцену в сценарии; тексты можно редактировать независимо.
+                {t(
+                  "Добавьте акт или начните с трёх актов. Каждая новая карточка создаёт сцену в сценарии; тексты можно редактировать независимо.",
+                )}
               </p>
             </div>
           )}
           <div className="outline-columns">
             {columns.map((column) => {
+              const closed = !!column.collapsed && !query.trim();
               const visibleCards = cards.filter(
                 (card) =>
                   card.columnId === column.id &&
@@ -366,7 +421,9 @@ export default function OutlineBoard({
               return (
                 <section
                   className={
-                    "outline-column" + (isTarget ? " is-drop-target" : "")
+                    "outline-column" +
+                    (closed ? " is-collapsed" : "") +
+                    (isTarget ? " is-drop-target" : "")
                   }
                   key={column.id}
                   data-column-id={column.id}
@@ -403,17 +460,48 @@ export default function OutlineBoard({
                   }}
                 >
                   <header className="outline-column-heading">
+                    <button
+                      className={`icon-button outline-act-toggle${closed ? " is-collapsed" : ""}`}
+                      aria-label={t(
+                        "{0} карточки в {1}",
+                        closed ? t("Развернуть") : t("Свернуть"),
+                        column.title,
+                      )}
+                      aria-expanded={!closed}
+                      disabled={!!query.trim()}
+                      data-tooltip={
+                        closed ? t("Развернуть акт") : t("Свернуть акт")
+                      }
+                      onClick={() =>
+                        onChange({
+                          ...outline,
+                          columns: columns.map((item) =>
+                            item.id === column.id
+                              ? {
+                                  ...item,
+                                  collapsed: !closed,
+                                }
+                              : item,
+                          ),
+                        })
+                      }
+                    >
+                      <ChevronDown size={17} />
+                    </button>
                     {renaming === column.id ? (
                       <input
                         autoFocus
-                        aria-label="Название акта"
+                        aria-label={t("Название акта")}
                         value={column.title}
                         onChange={(event) =>
                           onChange({
                             ...outline,
                             columns: columns.map((item) =>
                               item.id === column.id
-                                ? { ...item, title: event.target.value }
+                                ? {
+                                    ...item,
+                                    title: event.target.value,
+                                  }
                                 : item,
                             ),
                           })
@@ -429,8 +517,8 @@ export default function OutlineBoard({
                     )}
                     <button
                       className="icon-button"
-                      aria-label={"Добавить карточку в " + column.title}
-                      data-tooltip="Добавить карточку"
+                      aria-label={t("Добавить карточку в ") + column.title}
+                      data-tooltip={t("Добавить карточку")}
                       onClick={() => onAddCard(column.id)}
                     >
                       <Plus size={20} />
@@ -438,92 +526,103 @@ export default function OutlineBoard({
                     {menuFor("column", column)}
                   </header>
                   <div
+                    hidden={closed}
                     className={
                       "outline-card-list" +
                       (isTarget && !lastTargetId ? " drop-empty" : "")
                     }
                   >
-                    {visibleCards.map((card) => (
-                      <article
-                        key={card.id}
-                        className={
-                          "outline-card" +
-                          (selectedId === card.id ? " selected" : "") +
-                          (draggedId === card.id ? " is-dragging" : "") +
-                          (isTarget && dropTarget.beforeId === card.id
-                            ? " drop-before"
-                            : "") +
-                          (isTarget &&
-                          !dropTarget.beforeId &&
-                          lastTargetId === card.id
-                            ? " drop-after"
-                            : "")
-                        }
-                        data-card-id={card.id}
-                        style={{ "--card-color": card.color }}
-                        draggable
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData(
-                            "text/tyter-card",
-                            card.id,
-                          );
-                          event.dataTransfer.effectAllowed = "move";
-                          draggedCard.current = card.id;
-                          setDraggedId(card.id);
-                          setMenu(null);
-                        }}
-                        onDragEnd={endDrag}
-                      >
-                        <div className="outline-card-heading">
+                    {!closed &&
+                      visibleCards.map((card) => (
+                        <article
+                          key={card.id}
+                          className={
+                            "outline-card" +
+                            (selectedId === card.id ? " selected" : "") +
+                            (draggedId === card.id ? " is-dragging" : "") +
+                            (isTarget && dropTarget.beforeId === card.id
+                              ? " drop-before"
+                              : "") +
+                            (isTarget &&
+                            !dropTarget.beforeId &&
+                            lastTargetId === card.id
+                              ? " drop-after"
+                              : "")
+                          }
+                          data-card-id={card.id}
+                          style={{
+                            "--card-color": card.color,
+                          }}
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData(
+                              "text/tyter-card",
+                              card.id,
+                            );
+                            event.dataTransfer.effectAllowed = "move";
+                            draggedCard.current = card.id;
+                            setDraggedId(card.id);
+                            setMenu(null);
+                          }}
+                          onDragEnd={endDrag}
+                        >
+                          <div className="outline-card-heading">
+                            <button
+                              className="outline-card-title"
+                              onClick={() => onSelect(card.id)}
+                            >
+                              <Copy size={17} />
+                              <strong>{card.title || t("Без названия")}</strong>
+                            </button>
+                            <button
+                              className="icon-button"
+                              aria-label={t("Перейти к сцене ") + card.title}
+                              data-tooltip={
+                                card.blockId
+                                  ? t("Перейти к сцене")
+                                  : t("Сцена удалена · вставить снова")
+                              }
+                              onClick={() =>
+                                card.blockId ? onLocate(card) : onRelink(card)
+                              }
+                            >
+                              <Crosshair size={18} />
+                            </button>
+                            {menuFor("card", card)}
+                          </div>
                           <button
-                            className="outline-card-title"
+                            className="outline-card-text"
                             onClick={() => onSelect(card.id)}
                           >
-                            <Copy size={17} />
-                            <strong>{card.title || "Без названия"}</strong>
+                            {card.text ||
+                              t(
+                                "Опишите, что происходит в этой части истории.",
+                              )}
                           </button>
+                          {!!card.comments?.length && (
+                            <button
+                              className="outline-card-comments"
+                              onClick={() => onSelect(card.id)}
+                            >
+                              <MessageSquare size={14} />
+                              {card.comments.length}
+                              {t(" комм.")}
+                            </button>
+                          )}
                           <button
-                            className="icon-button"
-                            aria-label={"Перейти к сцене " + card.title}
-                            data-tooltip={
-                              card.blockId
-                                ? "Перейти к сцене"
-                                : "Сцена удалена · вставить снова"
-                            }
-                            onClick={() =>
-                              card.blockId ? onLocate(card) : onRelink(card)
-                            }
-                          >
-                            <Crosshair size={18} />
-                          </button>
-                          {menuFor("card", card)}
-                        </div>
-                        <button
-                          className="outline-card-text"
-                          onClick={() => onSelect(card.id)}
-                        >
-                          {card.text ||
-                            "Опишите, что происходит в этой части истории."}
-                        </button>
-                        {!!card.comments?.length && (
-                          <button
-                            className="outline-card-comments"
+                            className="outline-card-drama"
                             onClick={() => onSelect(card.id)}
+                            aria-label={t(
+                              "Драматичность карточки {0}: {1} из 10",
+                              card.title,
+                              dramaValue(card.drama),
+                            )}
                           >
-                            <MessageSquare size={14} />
-                            {card.comments.length} комм.
+                            <ChartLine size={14} />
+                            {dramaValue(card.drama)}/10
                           </button>
-                        )}
-                        <button
-                          className="outline-card-drama"
-                          onClick={() => onSelect(card.id)}
-                          aria-label={`Драматичность карточки ${card.title}: ${dramaValue(card.drama)} из 10`}
-                        >
-                          <ChartLine size={14} />
-                          {dramaValue(card.drama)}/10
-                        </button>
-                      </article>
-                    ))}
+                        </article>
+                      ))}
                   </div>
                 </section>
               );
@@ -534,23 +633,25 @@ export default function OutlineBoard({
               (card.title + "\n" + card.text)
                 .toLocaleLowerCase()
                 .includes(query.toLocaleLowerCase()),
-            ) && <p className="outline-no-results">Карточки не найдены</p>}
+            ) && (
+              <p className="outline-no-results">{t("Карточки не найдены")}</p>
+            )}
         </section>
       </div>
       {selected && (
         <aside
           className="component-drawer outline-card-drawer"
-          aria-label="Редактирование карточки"
+          aria-label={t("Редактирование карточки")}
         >
           <div className="drawer-header">
             <h2>
               <Copy size={17} />
-              Карточка истории
+              {t("Карточка истории")}
             </h2>
             <button
               className="icon-button"
-              aria-label="Перейти к сцене карточки"
-              data-tooltip="Перейти к сцене"
+              aria-label={t("Перейти к сцене карточки")}
+              data-tooltip={t("Перейти к сцене")}
               onClick={() =>
                 selected.blockId ? onLocate(selected) : onRelink(selected)
               }
@@ -559,8 +660,8 @@ export default function OutlineBoard({
             </button>
             <button
               className="icon-button"
-              aria-label="Закрыть карточку"
-              data-tooltip="Закрыть"
+              aria-label={t("Закрыть карточку")}
+              data-tooltip={t("Закрыть")}
               onClick={() => onSelect(null)}
             >
               <X size={18} />
@@ -568,38 +669,44 @@ export default function OutlineBoard({
           </div>
           <div className="outline-detail-body" ref={detailBody}>
             <label>
-              Название
+              {t("Название")}
               <input
-                aria-label="Название карточки"
+                aria-label={t("Название карточки")}
                 value={selected.title}
                 maxLength={200}
                 onChange={(event) =>
-                  changeCard(selected.id, { title: event.target.value })
+                  changeCard(selected.id, {
+                    title: event.target.value,
+                  })
                 }
               />
             </label>
             <label>
-              Текст карточки
+              {t("Текст карточки")}
               <textarea
-                aria-label="Текст карточки"
+                aria-label={t("Текст карточки")}
                 value={selected.text}
                 maxLength={20000}
-                placeholder="Что происходит в истории?"
+                placeholder={t("Что происходит в истории?")}
                 onChange={(event) =>
-                  changeCard(selected.id, { text: event.target.value })
+                  changeCard(selected.id, {
+                    text: event.target.value,
+                  })
                 }
               />
             </label>
             <p className="outline-detail-note">
-              Изменения здесь не заменяют текст сцены в сценарии.
+              {t("Изменения здесь не заменяют текст сцены в сценарии.")}
             </p>
             <label>
-              Акт
+              {t("Акт")}
               <select
-                aria-label="Акт карточки"
+                aria-label={t("Акт карточки")}
                 value={selected.columnId}
                 onChange={(event) =>
-                  changeCard(selected.id, { columnId: event.target.value })
+                  changeCard(selected.id, {
+                    columnId: event.target.value,
+                  })
                 }
               >
                 {columns.map((column) => (
@@ -611,14 +718,15 @@ export default function OutlineBoard({
             </label>
             <label className="outline-drama-control">
               <span>
-                Драматичность <output>{dramaValue(selected.drama)}/10</output>
+                {t("Драматичность ")}
+                <output>{dramaValue(selected.drama)}/10</output>
               </span>
               <input
                 type="range"
                 min="0"
                 max="10"
                 step="1"
-                aria-label="Драматичность карточки"
+                aria-label={t("Драматичность карточки")}
                 value={dramaValue(selected.drama)}
                 onChange={(event) =>
                   changeCard(selected.id, {
@@ -632,12 +740,12 @@ export default function OutlineBoard({
               </span>
             </label>
             <fieldset className="outline-colors">
-              <legend>Цвет карточки</legend>
+              <legend>{t("Цвет карточки")}</legend>
               <div>
                 {COLORS.map((color, index) => (
                   <button
                     key={color}
-                    aria-label={
+                    aria-label={t(
                       [
                         "Графитовый",
                         "Жёлтый",
@@ -645,11 +753,17 @@ export default function OutlineBoard({
                         "Оранжевый",
                         "Зелёный",
                         "Синий",
-                      ][index]
-                    }
+                      ][index],
+                    )}
                     aria-pressed={selected.color === color}
-                    style={{ "--card-color": color }}
-                    onClick={() => changeCard(selected.id, { color })}
+                    style={{
+                      "--card-color": color,
+                    }}
+                    onClick={() =>
+                      changeCard(selected.id, {
+                        color,
+                      })
+                    }
                   >
                     <span />
                   </button>
@@ -659,15 +773,15 @@ export default function OutlineBoard({
             <section className="outline-comments">
               <h3>
                 <MessageSquare size={17} />
-                Комментарии
+                {t("Комментарии")}
               </h3>
               {(selected.comments || []).map((item) => (
                 <div className="outline-comment" key={item.id}>
                   <p>{item.text}</p>
                   <button
                     className="icon-button"
-                    aria-label="Удалить комментарий карточки"
-                    data-tooltip="Удалить комментарий"
+                    aria-label={t("Удалить комментарий карточки")}
+                    data-tooltip={t("Удалить комментарий")}
                     onClick={() =>
                       changeCard(selected.id, {
                         comments: selected.comments.filter(
@@ -698,15 +812,15 @@ export default function OutlineBoard({
                 }}
               >
                 <textarea
-                  aria-label="Комментарий карточки"
-                  placeholder="Добавить комментарий…"
+                  aria-label={t("Комментарий карточки")}
+                  placeholder={t("Добавить комментарий…")}
                   value={comment}
                   maxLength={10000}
                   onChange={(event) => setComment(event.target.value)}
                 />
                 <button
                   className="icon-button"
-                  aria-label="Добавить комментарий карточки"
+                  aria-label={t("Добавить комментарий карточки")}
                   disabled={!comment.trim()}
                 >
                   <Plus size={20} />

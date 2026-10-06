@@ -1,7 +1,7 @@
+import { t, useLanguage, getLanguage } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shapes } from "lucide-react";
-
 function componentMatches(before, position, format, components) {
   const matches = [];
   const lower = before.toLocaleLowerCase();
@@ -33,7 +33,6 @@ function componentMatches(before, position, format, components) {
   }
   return matches.slice(0, 3);
 }
-
 function mergeSuggestions(components, words) {
   const seen = new Set();
   return [...components, ...words].filter((item) => {
@@ -43,7 +42,6 @@ function mergeSuggestions(components, words) {
     return true;
   });
 }
-
 function context(editor, components) {
   if (
     !editor ||
@@ -72,9 +70,14 @@ function context(editor, components) {
   const matches = componentMatches(before, selection.from, format, components);
   if (format === "scene") {
     const key = before.replace(/\s/g, "").toUpperCase();
-    const headings = ["ИНТ.", "ЭКС.", "ИНТ. / ЭКС.", "ЭКС. / ИНТ."].filter(
-      (text) => text.replace(/\s/g, "").startsWith(key),
-    );
+    const englishHeading =
+      /^(?:INT|EXT)[.\s/]/i.test(before) ||
+      (!/^[А-ЯЁ]/i.test(before) && getLanguage() === "en");
+    const headings = (
+      englishHeading
+        ? ["INT.", "EXT.", "INT. / EXT.", "EXT. / INT."]
+        : ["ИНТ.", "ЭКС.", "ИНТ. / ЭКС.", "ЭКС. / ИНТ."]
+    ).filter((text) => text.replace(/\s/g, "").startsWith(key));
     if (headings.length)
       return {
         prefix: before,
@@ -90,12 +93,14 @@ function context(editor, components) {
         ),
       };
     // A time of day follows a location and a spaced dash at the end of a heading.
-    const ending = before.match(/^.+\s[—–-]\s*([А-ЯЁ]*)$/iu);
+    const ending = before.match(/^.+\s[—–-]\s*([А-ЯЁA-Z]*)$/iu);
     if (ending) {
       const prefix = ending[1];
-      const endings = ["ДЕНЬ", "НОЧЬ", "ВЕЧЕР", "УТРО"].filter((text) =>
-        text.startsWith(prefix.toUpperCase()),
-      );
+      const endings = (
+        englishHeading
+          ? ["DAY", "NIGHT", "EVENING", "MORNING"]
+          : ["ДЕНЬ", "НОЧЬ", "ВЕЧЕР", "УТРО"]
+      ).filter((text) => text.startsWith(prefix.toUpperCase()));
       if (endings.length)
         return {
           prefix,
@@ -141,12 +146,19 @@ export default function Suggestions({
   components = [],
   disabled = false,
 }) {
+  const language = useLanguage();
   const [popup, setPopup] = useState(null);
   const popupRef = useRef(null),
-    config = useRef({ components, disabled }),
+    config = useRef({
+      components,
+      disabled,
+    }),
     acceptRef = useRef(null),
     scheduleRef = useRef(null);
-  config.current = { components, disabled };
+  config.current = {
+    components,
+    disabled,
+  };
   popupRef.current = popup;
   useEffect(() => {
     if (!editor) return;
@@ -245,13 +257,33 @@ export default function Suggestions({
       editor
         .chain()
         .focus()
-        .insertContentAt({ from: item.from, to: c.to }, [
-          ...(leadingSpace
-            ? [{ type: "text", text: leadingSpace, marks: [] }]
-            : []),
-          { type: "text", text, marks },
-          { type: "text", text: " ", marks: [] },
-        ])
+        .insertContentAt(
+          {
+            from: item.from,
+            to: c.to,
+          },
+          [
+            ...(leadingSpace
+              ? [
+                  {
+                    type: "text",
+                    text: leadingSpace,
+                    marks: [],
+                  },
+                ]
+              : []),
+            {
+              type: "text",
+              text,
+              marks,
+            },
+            {
+              type: "text",
+              text: " ",
+              marks: [],
+            },
+          ],
+        )
         .run();
       setPopup(null);
       return true;
@@ -298,10 +330,22 @@ export default function Suggestions({
       return original?.(view, event) || false;
     };
     editor.setOptions({
-      editorProps: { ...editor.options.editorProps, handleKeyDown: handler },
+      editorProps: {
+        ...editor.options.editorProps,
+        handleKeyDown: handler,
+      },
     });
     const captureShortcut = (event) => {
       const current = popupRef.current;
+      if (event.key === "Escape") {
+        const c =
+          current?.context || context(editor, config.current.components);
+        if (c) dismissed = key(c);
+        active = null;
+        clearTimeout(timer);
+        setPopup(null);
+        return;
+      }
       if (
         !current ||
         !editor.isFocused ||
@@ -353,14 +397,18 @@ export default function Suggestions({
   }, [editor]);
   useEffect(() => {
     scheduleRef.current?.();
-  }, [components, disabled]);
+  }, [components, disabled, language]);
   if (!popup || disabled) return null;
   return createPortal(
     <div
       className="word-suggestions"
       role="listbox"
-      aria-label="Подсказки"
-      style={{ left: popup.left, top: popup.top, width: popup.width }}
+      aria-label={t("Подсказки")}
+      style={{
+        left: popup.left,
+        top: popup.top,
+        width: popup.width,
+      }}
       onPointerDown={(e) => e.preventDefault()}
     >
       {popup.items.map((item, i) => (
@@ -373,7 +421,7 @@ export default function Suggestions({
           onClick={() => acceptRef.current?.(item)}
         >
           {item.component ? (
-            <Shapes size={14} aria-label="Компонент" />
+            <Shapes size={14} aria-label={t("Компонент")} />
           ) : (
             <span className="suggestion-spacer" />
           )}
@@ -382,7 +430,8 @@ export default function Suggestions({
         </button>
       ))}
       <div className="suggestion-hint">
-        ↑ ↓ выбрать <span>Ctrl+Enter вставить · Esc закрыть</span>
+        {t("↑ ↓ выбрать ")}
+        <span>{t("Ctrl+Enter вставить · Esc закрыть")}</span>
       </div>
     </div>,
     document.body,

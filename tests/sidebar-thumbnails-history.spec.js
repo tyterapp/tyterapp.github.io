@@ -79,7 +79,7 @@ test("left tools open left sidebars and disappear completely in outline", async 
   page,
 }, info) => {
   await open(page);
-  const tools = page.getByRole("navigation", { name: "Инструменты сценария" });
+  const tools = page.getByRole("navigation", { name: "Инструменты редактора" });
   expect((await tools.boundingBox()).x).toBe(0);
   for (const [button, drawer] of [
     ["Поиск по сценарию", "Поиск по сценарию"],
@@ -107,7 +107,7 @@ test("left tools open left sidebars and disappear completely in outline", async 
   expect(mobile.x).toBe(64);
   expect(mobile.x + mobile.width).toBeLessThanOrEqual(390);
   await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
-  await expect(tools).toHaveCount(0);
+  await expect(tools).toBeVisible();
   for (const name of [
     "Поиск по сценарию",
     "Статистика документа",

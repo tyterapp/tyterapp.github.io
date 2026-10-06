@@ -444,7 +444,11 @@ test("a selected phrase creates a component and keeps its exact text link", asyn
   await dialog.getByLabel("Название", { exact: true }).fill("Лампа у окна");
   await dialog.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(block(page)).toHaveText(original);
-  await expect(block(page).locator("[data-entity-id]")).toHaveText("лампа");
+  await expect(
+    block(page)
+      .locator("[data-entity-id]")
+      .filter({ hasText: /^лампа$/ }),
+  ).toHaveText("лампа");
   await expect(
     page.getByRole("complementary", { name: "Компоненты сценария" }),
   ).toContainText("Лампа у окна");
@@ -454,6 +458,7 @@ test("a selected phrase creates a component and keeps its exact text link", asyn
   await expect(
     page.locator(".component-item").filter({ hasText: "Лампа у окна" }),
   ).toBeVisible();
+  await caret(page, block(page), start);
   await caret(page, block(page), start, start + 5);
   await page
     .getByRole("button", { name: "Создать компонент из выделения" })
@@ -568,7 +573,15 @@ test("FDX download retains Unicode, escapes XML and round-trips element types", 
     testInfo,
   );
   const xml = bytes.toString("utf8");
-  expect(xml).toContain("Анна &amp; Иван &lt;ждут&gt;");
+  expect(xml).toContain("&amp; Иван &lt;ждут&gt;");
+  const actionText = await page.evaluate(
+    (xml) =>
+      new DOMParser()
+        .parseFromString(xml, "text/xml")
+        .querySelector('Paragraph[Type="Action"]').textContent,
+    xml,
+  );
+  expect(actionText).toBe("Анна & Иван <ждут> «корабль».");
   for (const type of [
     "Scene Heading",
     "Action",
@@ -609,7 +622,7 @@ test("DOCX is a real Word file with Cyrillic, screenplay styles and page layout"
   expect(bytes.subarray(0, 2).toString()).toBe("PK");
   const zip = unzipSync(bytes);
   const xml = strFromU8(zip["word/document.xml"]);
-  expect(xml).toContain("Анна смотрит в окно.");
+  expect(xml.replace(/<[^>]+>/g, "")).toContain("Анна смотрит в окно.");
   expect(xml).toContain('w:ascii="Courier New"');
   expect(xml).toContain('w:left="2160"');
   expect(xml).toContain('w:pStyle w:val="speech"');
@@ -663,12 +676,12 @@ test("mobile screen has no horizontal overflow and core menus remain usable", as
   await page.screenshot({ path: testInfo.outputPath("mobile.png") });
 });
 
-test("bottom format strip preserves the caret, shows shortcuts, and opens comments", async ({
+test("bottom format strip preserves the caret and left rail opens comments", async ({
   page,
 }, testInfo) => {
   await seed(page);
   const bar = page.getByRole("group", { name: "Форматирование сценария" });
-  await expect(bar.getByRole("button")).toHaveCount(8);
+  await expect(bar.getByRole("button")).toHaveCount(7);
   await expect(page.locator(".word-count")).toHaveCount(0);
   await caret(page, block(page), 5);
   await expect(
@@ -687,15 +700,16 @@ test("bottom format strip preserves the caret, shows shortcuts, and opens commen
     bar.getByRole("button", { name: "Действие", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await caret(page, block(page), 0, 4);
-  await bar.getByRole("button", { name: "Комментарии", exact: true }).click();
+  const comments = page.locator(".workspace-tools .comments-toggle");
+  await comments.click();
   await expect(page.locator(".composer-quote")).toContainText("Анна");
   await page
     .getByRole("textbox", { name: "Текст комментария" })
     .fill("Уточнить действие");
   await page.getByRole("button", { name: "Добавить", exact: true }).click();
-  await expect(bar.locator(".comment-count")).toHaveText("1");
+  await expect(comments.locator("small")).toHaveText("1");
   await page.getByRole("button", { name: "Решено", exact: true }).click();
-  await expect(bar.locator(".comment-count")).toHaveText("0");
+  await expect(comments.locator("small")).toHaveCount(0);
   await page.getByRole("button", { name: "Закрыть комментарии" }).click();
   await bar.getByRole("button", { name: "ИНТ/ЭКС", exact: true }).hover();
   await expect(page.locator(".unified-tooltip")).toHaveText("CTRL + 1");
@@ -723,7 +737,7 @@ test("document setting switches the quick bar between text and supplied icons", 
     "aria-pressed",
     "true",
   );
-  await expect(bar.locator(".format-bar-icon")).toHaveCount(8);
+  await expect(bar.locator(".format-bar-icon")).toHaveCount(7);
   await expect
     .poll(() =>
       bar
@@ -737,9 +751,9 @@ test("document setting switches the quick bar between text and supplied icons", 
   await expect(page.locator(".unified-tooltip")).toHaveText(
     "Персонаж · CTRL + 3",
   );
-  await bar.getByRole("button", { name: "Комментарии" }).hover();
+  await page.locator(".workspace-tools .comments-toggle").hover();
   await expect(page.locator(".unified-tooltip")).toHaveText(
-    "Комментарии · CTRL + 8",
+    "Комментарии · Ctrl+8",
   );
   await caret(page, block(page), 5);
   await bar.getByRole("button", { name: "Персонаж" }).click();
@@ -747,13 +761,13 @@ test("document setting switches the quick bar between text and supplied icons", 
   await page.screenshot({ path: testInfo.outputPath("icon-format-bar.png") });
   await saved(page);
   await page.reload();
-  await expect(bar.locator(".format-bar-icon")).toHaveCount(8);
+  await expect(bar.locator(".format-bar-icon")).toHaveCount(7);
   await page.getByRole("button", { name: "Настройки документа" }).click();
   const reopenedMode = page.getByRole("group", { name: "Вид нижней панели" });
   await reopenedMode.getByRole("button", { name: "Текст" }).click();
   await expect(bar.locator(".format-bar-icon")).toHaveCount(0);
   await reopenedMode.getByRole("button", { name: "Иконки" }).click();
-  await expect(bar.locator(".format-bar-icon")).toHaveCount(8);
+  await expect(bar.locator(".format-bar-icon")).toHaveCount(7);
   await page.getByRole("button", { name: "Документы", exact: true }).click();
   await page
     .locator('.document-row[data-document-id="second"] .document-item')
@@ -889,7 +903,7 @@ test("empty-document placeholder appears only once and never in subsequent blank
   await expect(editor(page).locator("[data-placeholder]")).toHaveCount(1);
   await expect(block(page, "empty")).toHaveAttribute(
     "data-placeholder",
-    "Начните историю…",
+    "Начни писать свою историю...",
   );
   await caret(page, block(page, "empty"), 0);
   await page.keyboard.insertText("История начинается.");
@@ -1080,7 +1094,9 @@ test("Ctrl+D creates a component from the selected screenplay text", async ({
   await dialog.getByRole("textbox", { name: /Описание/ }).fill("Взгляд в окно");
   await page.keyboard.press("Control+Enter");
   await expect(dialog).toHaveCount(0);
-  const mention = block(page).locator("[data-entity-id]");
+  const mention = block(page)
+    .locator("[data-entity-id]")
+    .filter({ hasText: /^смотрит$/ });
   await expect(mention).toHaveText("смотрит");
   const panel = page.getByRole("complementary", {
     name: "Компоненты сценария",
@@ -1622,7 +1638,9 @@ test("resolved comments hide yellow marks and preview surviving and deleted quot
     .getByRole("textbox", { name: "Текст комментария" })
     .fill("Проверить глагол");
   await page.getByRole("button", { name: "Добавить", exact: true }).click();
-  await expect(block(page).locator(".comment-open")).toHaveCount(1);
+  expect(
+    (await block(page).locator(".comment-open").allTextContents()).join(""),
+  ).toBe(original);
   await page.getByRole("button", { name: "Закрыть комментарии" }).click();
   await caret(page, block(page), 5, 12);
   await page.keyboard.press("Backspace");
@@ -2188,7 +2206,7 @@ test("document title uses available header space before truncating", async ({
       content: title.scrollWidth,
       titleRight: title.getBoundingClientRect().right,
       actionsLeft: header
-        .querySelector(".header-actions")
+        .querySelector(".document-view-toggle")
         .getBoundingClientRect().left,
     };
   });
@@ -2222,7 +2240,7 @@ test("local history survives reload and restores a previous screenplay version",
   await page.screenshot({ path: testInfo.outputPath("history-sidebar.png") });
 });
 
-test("paper shifts left, sidebars reach the edge, and selection tooltips and focus states match the UI", async ({
+test("paper and left sidebars align, and selection tooltips and focus states match the UI", async ({
   page,
 }, testInfo) => {
   await seed(page);
@@ -2245,7 +2263,11 @@ test("paper shifts left, sidebars reach the edge, and selection tooltips and foc
   const right = await panel
     .locator(".settings-scroll")
     .evaluate((el) => el.getBoundingClientRect().right);
-  expect(right).toBe(1440);
+  const drawerBounds = await panel.boundingBox();
+  expect(drawerBounds.x).toBe(64);
+  expect(
+    Math.abs(right - drawerBounds.x - drawerBounds.width),
+  ).toBeLessThanOrEqual(1);
   const settingsInset = await panel
     .locator(".settings-scroll section")
     .first()

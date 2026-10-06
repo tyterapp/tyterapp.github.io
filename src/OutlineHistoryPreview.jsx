@@ -1,16 +1,20 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
 import { ArrowLeft, Copy, ChartLine } from "lucide-react";
-
 export default function OutlineHistoryPreview({ revision, onExit }) {
-  const outline = revision.snapshot.outline || { columns: [], cards: [] };
+  const language = useLanguage();
+  const outline = revision.snapshot.outline || {
+    columns: [],
+    cards: [],
+  };
   return (
     <div
       className="outline-history-preview"
-      aria-label="Аутлайн выбранной версии"
+      aria-label={t("Аутлайн выбранной версии")}
     >
       <div className="history-preview-banner">
         <span>
-          Версия от{" "}
-          {new Date(revision.createdAt).toLocaleString("ru-RU", {
+          {t("Версия от")}{" "}
+          {new Date(revision.createdAt).toLocaleString(languageLocale(), {
             day: "numeric",
             month: "long",
             hour: "2-digit",
@@ -18,7 +22,8 @@ export default function OutlineHistoryPreview({ revision, onExit }) {
           })}
         </span>
         <button className="quiet-button" onClick={onExit}>
-          <ArrowLeft size={14} />К текущему аутлайну
+          <ArrowLeft size={14} />
+          {t("К текущему аутлайну")}
         </button>
       </div>
       <div className="outline-columns">
@@ -34,18 +39,23 @@ export default function OutlineHistoryPreview({ revision, onExit }) {
                   <article className="outline-card" key={card.id}>
                     <div
                       className="outline-card-heading"
-                      style={{ color: card.color }}
+                      style={{
+                        color: card.color,
+                      }}
                     >
                       <Copy size={17} />
                       <strong>{card.title}</strong>
                     </div>
-                    <p>{card.text || "Без текста"}</p>
+                    <p>{card.text || t("Без текста")}</p>
                     <small className="outline-drama-badge">
                       <ChartLine size={12} />
                       {card.drama || 0}/10
                     </small>
                     {!!card.comments?.length && (
-                      <small>{card.comments.length} комментариев</small>
+                      <small>
+                        {card.comments.length}
+                        {t(" комментариев")}
+                      </small>
                     )}
                   </article>
                 ))}
@@ -53,7 +63,7 @@ export default function OutlineHistoryPreview({ revision, onExit }) {
           </section>
         ))}
         {!outline.columns.length && (
-          <p className="sidebar-empty">В этой версии ещё нет актов.</p>
+          <p className="sidebar-empty">{t("В этой версии ещё нет актов.")}</p>
         )}
       </div>
     </div>

@@ -481,6 +481,9 @@ export function validateImport(input) {
         list(source.outline?.columns).map((column) => ({
           id: cleanId(column.id),
           title: cleanText(column.title, 100).trim() || "Акт",
+          ...(typeof column.collapsed === "boolean"
+            ? { collapsed: column.collapsed }
+            : {}),
         })),
       ),
       cards: uniqueItems(
