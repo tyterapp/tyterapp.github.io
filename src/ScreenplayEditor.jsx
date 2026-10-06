@@ -1142,24 +1142,34 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .run();
         return blockId;
       },
+      insertOutlineScene(blocks) {
+        if (!editor || editor.isDestroyed || !caretReadyRef.current)
+          return null;
+        // Insert at the last writing position without replacing selected text.
+        const inserted = editor
+          .chain()
+          .setTextSelection(editor.state.selection.head)
+          .insertContent(blocks)
+          .run();
+        return inserted ? editor.getJSON() : null;
+      },
       focusBlock(blockId) {
-        if (!editor) return false;
+        if (
+          !editor ||
+          editor.isDestroyed ||
+          !caretReadyRef.current ||
+          !editor.view.dom.getClientRects().length
+        )
+          return false;
         let found = null;
         editor.state.doc.descendants((node, pos) => {
           if (node.type.name === "paragraph" && node.attrs.blockId === blockId)
             found = pos;
         });
         if (found === null) return false;
-        editor
-          .chain()
-          .focus()
-          .setTextSelection(found + 1)
-          .run();
-        const block = editor.view.nodeDOM(found);
-        block?.scrollIntoView?.({
-          behavior: "smooth",
-          block: "center",
-        });
+        editor.commands.setTextSelection(found + 1);
+        editor.view.focus();
+        scrollToText(editor.view, found + 1, searchScrollFrame);
         return true;
       },
       addComment(id, source) {

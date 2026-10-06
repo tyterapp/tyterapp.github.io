@@ -116,7 +116,6 @@
   gap: 12px;
   overflow: auto;
   padding: 2px 0 18px;
-  scrollbar-width: thin;
 }
 .outline-column {
   width: 320px;
@@ -167,7 +166,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 12px 12px;
-  scrollbar-width: thin;
   min-height: 0;
 }
 .outline-card-list:empty {
@@ -186,13 +184,6 @@
 }
 .outline-act-toggle.is-collapsed svg {
   transform: rotate(-90deg);
-}
-.outline-columns,
-.outline-card-list,
-.outline-detail-body,
-.outline-drama-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #d7d5dc transparent;
 }
 .outline-card-list.drop-empty {
   margin: 9px 12px 12px;
@@ -366,7 +357,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: 4px 18px 28px;
-  scrollbar-width: thin;
 }
 .outline-detail-body label {
   display: block;
@@ -580,7 +570,6 @@
   height: clamp(150px, 24vh, 220px);
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
   border: 1px solid #e7e3ed;
   border-radius: 8px;
 }
@@ -608,6 +597,12 @@
 .outline-drama-point {
   cursor: pointer;
   outline: none;
+  touch-action: none;
+  user-select: none;
+}
+.outline-drama-point .drama-dot,
+.outline-drama-point.is-dragging {
+  cursor: ns-resize;
 }
 .outline-drama-point:hover .drama-hit-area,
 .outline-drama-point:focus-visible .drama-hit-area,

@@ -60,24 +60,44 @@ test("Free limits all new component entry points and allows editing existing com
   );
   await page.getByRole("button", { name: "Закрыть компоненты" }).click();
   const select = async (text) => {
-    await page.locator(".screenplay-editor p").first().evaluate((element, word) => {
-      element.closest("[contenteditable]").focus();
-      const node = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
-      const start = node.textContent.indexOf(word);
-      const range = document.createRange();
-      range.setStart(node, start); range.setEnd(node, start + word.length);
-      window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
-      document.dispatchEvent(new Event("selectionchange"));
-    }, text);
+    await page
+      .locator(".screenplay-editor p")
+      .first()
+      .evaluate((element, word) => {
+        element.closest("[contenteditable]").focus();
+        const start = element.textContent.indexOf(word);
+        const point = (offset) => {
+          const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+          );
+          let node;
+          while ((node = walker.nextNode())) {
+            if (offset <= node.length) return [node, offset];
+            offset -= node.length;
+          }
+          throw new Error("Selected fixture text was not found");
+        };
+        const range = document.createRange();
+        range.setStart(...point(start));
+        range.setEnd(...point(start + word.length));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.dispatchEvent(new Event("selectionchange"));
+      }, text);
     await page.keyboard.press("Shift");
   };
   await select("лампа");
   await page.keyboard.press("Control+D");
-  await expect(page.getByRole("dialog", { name: "Полная версия Tyter" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Полная версия Tyter" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Закрыть подписку" }).click();
   await select("Имя0");
   await page.keyboard.press("Control+D");
-  await expect(page.locator(".component-editor input").first()).toHaveValue("Имя0");
+  await expect(page.locator(".component-editor input").first()).toHaveValue(
+    "Имя0",
+  );
   await page.getByRole("button", { name: "Закрыть компоненты" }).click();
   await page.getByRole("button", { name: "Реквизит", exact: true }).click();
   await expect(

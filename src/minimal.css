@@ -325,7 +325,6 @@ kbd {
   border-right: 1px solid var(--line);
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 .workspace-tools-primary,
 .workspace-tools-secondary {
@@ -523,8 +522,6 @@ kbd {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #d7d5dc transparent;
   padding: 44px 32px 64px;
   scroll-padding-top: 64px;
 }
@@ -885,7 +882,6 @@ kbd {
 .document-list {
   max-height: min(380px, 45vh);
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 .document-item {
   width: 100%;
@@ -1066,7 +1062,6 @@ kbd {
   border-left: 1px solid var(--line);
   padding: 20px 18px;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 .drawer-heading {
   display: flex;
@@ -1814,7 +1809,6 @@ kbd {
 .comment-list {
   overflow: auto;
   flex: 1;
-  scrollbar-width: thin;
   min-height: 0;
 }
 .comment-card {
@@ -1970,7 +1964,6 @@ kbd {
 .help-body {
   min-height: 0;
   overflow: auto;
-  scrollbar-width: thin;
   padding-right: 4px;
 }
 .help-tabs {
@@ -2379,7 +2372,6 @@ kbd {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  scrollbar-width: thin;
   scrollbar-gutter: stable;
   padding: 2px 10px 14px 2px;
 }
@@ -2957,7 +2949,6 @@ kbd {
 .statistics-scroll {
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
   padding-right: 4px;
 }
 .statistics-scroll section + section {

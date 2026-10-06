@@ -94,6 +94,12 @@ export default {
   "Восстановить эту версию": "Restore this version",
   "Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть карточку.":
     "All acts and cards in outline order. Click a point to open its card.",
+  "Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть карточку, или перетащите её вверх и вниз, чтобы изменить драматичность.":
+    "All acts and cards in outline order. Click a point to open its card, or drag it up and down to change dramatic intensity.",
+  "Не удалось вставить сцену. Вернитесь в сценарий и попробуйте снова.":
+    "Could not insert the scene. Return to the screenplay and try again.",
+  "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Компонент сразу создаётся и открывается для редактирования в сайдбаре; существующий откроется без дубликата. Бесплатно доступны 10 компонентов на сценарий. В Pro Ctrl+E сразу создаёт реквизит и открывает его в сайдбаре: задайте количество, и все совпадения названия подсветятся в тексте.":
+    "Select a name or location and press Ctrl+D or the component icon. The component is created immediately and opens for editing in the sidebar; existing components reopen without duplication. Free allows 10 components per screenplay. In Pro, Ctrl+E immediately creates a prop and opens it in the sidebar: set its quantity, and all matching names will be highlighted in the text.",
   "Все версии сохраняются на этом устройстве без ограничения срока.":
     "All versions are saved on this device without a time limit.",
   Вставить: "Paste",

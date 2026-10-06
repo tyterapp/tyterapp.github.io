@@ -7,14 +7,18 @@ export default function OutlineDramaChart({
   cards,
   selectedId,
   onSelect,
+  onChangeDrama,
   onClose,
 }) {
   const language = useLanguage();
   const plot = useRef(null);
+  const drag = useRef(null);
+  const suppressClick = useRef(false);
   const gradientId = useId().replaceAll(":", "");
   const [availableWidth, setAvailableWidth] = useState(660);
   const [height, setHeight] = useState(220);
   const [hovered, setHovered] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
       setAvailableWidth(Math.floor(entry.contentRect.width));
@@ -59,6 +63,45 @@ export default function OutlineDramaChart({
   });
   const points = acts.flatMap((act) => act.points);
   const focused = ordered.find((card) => card.id === (hovered || selectedId));
+  const startDrag = (event, card) => {
+    if (event.button !== 0 || drag.current) return;
+    event.preventDefault();
+    const svg = event.currentTarget.ownerSVGElement;
+    const scale = svg.getBoundingClientRect().height / height;
+    drag.current = {
+      pointerId: event.pointerId,
+      cardId: card.id,
+      startY: event.clientY,
+      startValue: dramaValue(card.drama),
+      value: dramaValue(card.drama),
+      pixelsPerUnit: Math.max(1, ((bottom - top) * scale) / 10),
+      moved: false,
+    };
+    suppressClick.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggingId(card.id);
+    onSelect(card.id);
+  };
+  const moveDrag = (event) => {
+    const active = drag.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    const delta = active.startY - event.clientY;
+    if (Math.abs(delta) >= 3) active.moved = true;
+    if (!active.moved) return;
+    const value = dramaValue(active.startValue + delta / active.pixelsPerUnit);
+    if (value !== active.value) {
+      active.value = value;
+      onChangeDrama(active.cardId, value);
+    }
+  };
+  const endDrag = (event) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    suppressClick.current = drag.current.moved;
+    drag.current = null;
+    setDraggingId(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   return (
     <aside
       className="outline-drama-panel"
@@ -76,7 +119,7 @@ export default function OutlineDramaChart({
       </div>
       <p className="outline-drama-caption">
         {t(
-          "Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть карточку.",
+          "Все акты и карточки в порядке аутлайна. Нажмите на точку, чтобы открыть карточку, или перетащите её вверх и вниз, чтобы изменить драматичность.",
         )}
       </p>
       {!ordered.length && (
@@ -172,7 +215,8 @@ export default function OutlineDramaChart({
               }}
               className={
                 "outline-drama-point" +
-                (card.id === selectedId ? " is-selected" : "")
+                (card.id === selectedId ? " is-selected" : "") +
+                (card.id === draggingId ? " is-dragging" : "")
               }
               role="button"
               tabIndex={0}
@@ -186,7 +230,15 @@ export default function OutlineDramaChart({
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(card.id)}
               onBlur={() => setHovered(null)}
-              onClick={() => onSelect(card.id)}
+              onPointerDown={(event) => startDrag(event, card)}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onLostPointerCapture={endDrag}
+              onClick={() => {
+                if (!suppressClick.current) onSelect(card.id);
+                suppressClick.current = false;
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();

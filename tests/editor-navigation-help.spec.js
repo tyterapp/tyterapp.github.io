@@ -264,11 +264,10 @@ test("Escape closes popovers, annotation forms and outline panels without deleti
   await expect(page.locator(".document-menu")).toHaveCount(0);
   await page.locator(".screenplay-editor").press("Control+a");
   await page.keyboard.press("Control+d");
-  await expect(
-    page.getByRole("dialog", { name: "Новый компонент", exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".component-editor")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".components-drawer")).toHaveCount(0);
   await page.keyboard.press("Alt+2");
   await page.locator('.outline-card[data-card-id="card"]').click();
   await page

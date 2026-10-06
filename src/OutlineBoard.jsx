@@ -331,6 +331,7 @@ export default function OutlineBoard({
             cards={cards}
             selectedId={selectedId}
             onSelect={onSelect}
+            onChangeDrama={(id, drama) => changeCard(id, { drama })}
             onClose={closeDrama}
           />
         )}

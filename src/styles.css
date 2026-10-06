@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap");
+@import "./scrollbars.css";
 
 :root {
   font-family: Inter, Arial, Helvetica, sans-serif;
@@ -92,17 +93,6 @@ kbd {
 }
 button .icon {
   display: flex;
-}
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-thumb {
-  background: #c8c5d1;
-  border-radius: 9px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
 }
 .icon-btn {
   width: 40px;

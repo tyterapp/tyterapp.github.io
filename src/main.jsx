@@ -7,6 +7,7 @@ import WebProApp from "./WebProApp.jsx";
 import { EditionContext } from "./edition.js";
 import "./minimal.css";
 import "./landing.css";
+import "./scrollbars.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";

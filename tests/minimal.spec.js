@@ -427,7 +427,7 @@ test("component suggestions support numeric and mixed numeric names", async ({
   ).toBeVisible();
 });
 
-test("a selected phrase creates a component and keeps its exact text link", async ({
+test("a selected phrase creates a component immediately and keeps its text link when renamed", async ({
   page,
 }) => {
   await seed(page);
@@ -437,18 +437,23 @@ test("a selected phrase creates a component and keeps its exact text link", asyn
   await page
     .getByRole("button", { name: "Создать компонент из выделения" })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Новый компонент" });
-  await expect(dialog.getByLabel("Название", { exact: true })).toHaveValue(
+  const panel = page.getByRole("complementary", {
+    name: "Компоненты сценария",
+  });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByLabel("Название", { exact: true })).toHaveValue(
     "лампа",
   );
-  await dialog.getByLabel("Название", { exact: true }).fill("Лампа у окна");
-  await dialog.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(block(page)).toHaveText(original);
+  await panel.getByLabel("Название", { exact: true }).fill("Лампа у окна");
+  await panel.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(block(page)).toHaveText(
+    original.replace("лампа", "Лампа у окна"),
+  );
   await expect(
     block(page)
       .locator("[data-entity-id]")
-      .filter({ hasText: /^лампа$/ }),
-  ).toHaveText("лампа");
+      .filter({ hasText: /^Лампа у окна$/ }),
+  ).toHaveText("Лампа у окна");
   await expect(
     page.getByRole("complementary", { name: "Компоненты сценария" }),
   ).toContainText("Лампа у окна");
@@ -459,7 +464,7 @@ test("a selected phrase creates a component and keeps its exact text link", asyn
     page.locator(".component-item").filter({ hasText: "Лампа у окна" }),
   ).toBeVisible();
   await caret(page, block(page), start);
-  await caret(page, block(page), start, start + 5);
+  await caret(page, block(page), start, start + "Лампа у окна".length);
   await page
     .getByRole("button", { name: "Создать компонент из выделения" })
     .click();
@@ -1086,21 +1091,19 @@ test("Ctrl+D creates a component from the selected screenplay text", async ({
   );
   await expect(component.locator(".selection-shortcut")).toHaveText("CTRL + D");
   await page.keyboard.press("Control+d");
-  const dialog = page.getByRole("dialog", { name: "Новый компонент" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("textbox", { name: "Название" })).toHaveValue(
+  const panel = page.getByRole("complementary", {
+    name: "Компоненты сценария",
+  });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByRole("textbox", { name: "Название" })).toHaveValue(
     "смотрит",
   );
-  await dialog.getByRole("textbox", { name: /Описание/ }).fill("Взгляд в окно");
+  await panel.getByRole("textbox", { name: /Описание/ }).fill("Взгляд в окно");
   await page.keyboard.press("Control+Enter");
-  await expect(dialog).toHaveCount(0);
   const mention = block(page)
     .locator("[data-entity-id]")
     .filter({ hasText: /^смотрит$/ });
   await expect(mention).toHaveText("смотрит");
-  const panel = page.getByRole("complementary", {
-    name: "Компоненты сценария",
-  });
   await expect(panel).toBeVisible();
   await expect(mention).toHaveCSS("color", "rgb(138, 121, 154)");
   await panel.getByRole("button", { name: "Закрыть компоненты" }).click();

@@ -204,7 +204,18 @@ function Dialog({ title, children, onClose }) {
   const language = useLanguage();
   const ref = useRef(null);
   const close = useRef(onClose);
+  const backdropPress = useRef(false);
   close.current = onClose;
+  const isBackdrop = (event) => {
+    if (event.target !== event.currentTarget) return false;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return (
+      event.clientX < bounds.left ||
+      event.clientX >= bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY >= bounds.bottom
+    );
+  };
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
@@ -219,8 +230,16 @@ function Dialog({ title, children, onClose }) {
         e.preventDefault();
         close.current();
       }}
-      onClick={(e) => {
-        if (e.target === ref.current) close.current();
+      onPointerDownCapture={(event) => {
+        backdropPress.current = event.button === 0 && isBackdrop(event);
+      }}
+      onPointerCancelCapture={() => {
+        backdropPress.current = false;
+      }}
+      onClick={(event) => {
+        const startedOnBackdrop = backdropPress.current;
+        backdropPress.current = false;
+        if (startedOnBackdrop && isBackdrop(event)) close.current();
       }}
     >
       <div className="dialog-heading">
@@ -1013,6 +1032,13 @@ export default function MinimalApp() {
   };
   const relinkOutlineCard = (card) => {
     const { blockId, blocks } = insertCardScene(card);
+    const content = editorRef.current?.insertOutlineScene(blocks);
+    if (!content) {
+      setMessage(
+        "Не удалось вставить сцену. Вернитесь в сценарий и попробуйте снова.",
+      );
+      return;
+    }
     update((document) => ({
       ...document,
       outline: {
@@ -1026,10 +1052,7 @@ export default function MinimalApp() {
             : item,
         ),
       },
-      content: {
-        ...document.content,
-        content: [...document.content.content, ...blocks],
-      },
+      content,
     }));
     changeView("screenplay");
     setSceneTarget(blockId);
@@ -1040,9 +1063,10 @@ export default function MinimalApp() {
   };
   useEffect(() => {
     if (view !== "screenplay" || !sceneTarget) return;
-    const frame = requestAnimationFrame(() => {
-      editorRef.current?.focusBlock(sceneTarget);
-      setSceneTarget(null);
+    let attempts = 0;
+    let frame = requestAnimationFrame(function focusScene() {
+      if (editorRef.current?.focusBlock(sceneTarget)) setSceneTarget(null);
+      else if (++attempts < 60) frame = requestAnimationFrame(focusScene);
     });
     return () => cancelAnimationFrame(frame);
   }, [view, sceneTarget, current.content]);
@@ -1329,7 +1353,7 @@ export default function MinimalApp() {
       setDeleting(false);
     }
   };
-  const saveComponent = (value) => {
+  const saveComponent = (value, { edit = false } = {}) => {
     const { source, ...fields } = value;
     const duplicate = current.components.find(
       (c) =>
@@ -1388,7 +1412,8 @@ export default function MinimalApp() {
         ),
       }));
       openAnnotations(next, pairedProp);
-    } else showSidebar("components");
+    } else if (edit) editComponent(next);
+    else showSidebar("components");
   };
   const openAnnotations = (component, prop) => {
     showSidebar("annotations");
@@ -1430,11 +1455,15 @@ export default function MinimalApp() {
       if (paired) openAnnotations(existing, paired);
       else editComponent(existing);
     } else
-      beginComponent({
-        name: source.text.slice(0, 200),
-        type: source.format === "scene" ? "place" : "character",
-        source,
-      });
+      saveComponent(
+        {
+          name: source.text.trim().slice(0, 200),
+          type: source.format === "scene" ? "place" : "character",
+          description: "",
+          source,
+        },
+        { edit: true },
+      );
   };
   const beginComponent = (value) => {
     if (!IS_PRO && current.components.length >= 10) {
@@ -1478,12 +1507,17 @@ export default function MinimalApp() {
       if (paired) openAnnotations(paired, existing);
       else editProp(existing);
     } else
-      beginProp({
-        name: source.text.slice(0, 200),
-        quantity: 1,
-      });
+      saveProp(
+        {
+          name: source.text.trim().slice(0, 200),
+          quantity: 1,
+          category: "Objects",
+          description: "",
+        },
+        { edit: true },
+      );
   };
-  const saveProp = (value) => {
+  const saveProp = (value, { edit = false } = {}) => {
     if (!IS_PRO) return;
     const duplicate = current.props.find(
       (item) =>
@@ -1531,9 +1565,10 @@ export default function MinimalApp() {
           )
         : d.components,
     }));
-    if (paired) openAnnotations(paired, next);
-    else showSidebar("props");
     setPropDialog(null);
+    if (paired) openAnnotations(paired, next);
+    else if (edit) editProp(next);
+    else showSidebar("props");
   };
   const deleteProp = (id) => {
     const prop = current.props.find((item) => item.id === id);
