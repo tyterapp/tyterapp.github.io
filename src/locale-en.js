@@ -1,5 +1,7 @@
 // UI messages only. Document text and user names are never translated.
 export default {
+  "Формат текста": "Text format",
+  "Все форматы": "All formats",
   "/ 10 компонентов": "/ 10 components",
   "/ {0} из {1}": "/ {0} of {1}",
   "/ Помощь": "/ Help",

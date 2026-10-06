@@ -12,7 +12,12 @@ export function ThumbnailImage({ src, name, className = "" }) {
     />
   ) : null;
 }
-export default function ThumbnailField({ value, onChange, name, showPreview }) {
+export default function ThumbnailField({
+  value,
+  onChange,
+  name,
+  showPreview = true,
+}) {
   const language = useLanguage();
   const input = useRef(null);
   const [error, setError] = useState("");

@@ -103,21 +103,24 @@ export default function ThumbnailPreviewLayer({ components, props }) {
   }, [components, props]);
   useLayoutEffect(() => {
     if (!active || !bubble.current) return;
-    const anchor = active.target.getBoundingClientRect();
-    const box = bubble.current.getBoundingClientRect();
-    const sidebar = active.target.closest("aside");
-    let left = anchor.left + anchor.width / 2 - box.width / 2;
-    let top = anchor.top - box.height - 12;
-    if (sidebar && anchor.right + box.width + 20 <= window.innerWidth) {
-      left = anchor.right + 12;
-      top = anchor.top;
-    } else if (top < 8) top = anchor.bottom + 12;
-    left = Math.max(8, Math.min(window.innerWidth - box.width - 8, left));
-    top = Math.max(8, Math.min(window.innerHeight - box.height - 8, top));
-    setPosition({
-      left,
-      top,
-    });
+    const place = () => {
+      const anchor = active.target.getBoundingClientRect();
+      const box = bubble.current.getBoundingClientRect();
+      const sidebar = active.target.closest("aside");
+      let left = anchor.left + anchor.width / 2 - box.width / 2;
+      let top = anchor.top - box.height - 12;
+      if (sidebar && anchor.right + box.width + 20 <= window.innerWidth) {
+        left = anchor.right + 12;
+        top = anchor.top;
+      } else if (top < 8) top = anchor.bottom + 12;
+      left = Math.max(8, Math.min(window.innerWidth - box.width - 8, left));
+      top = Math.max(8, Math.min(window.innerHeight - box.height - 8, top));
+      setPosition({ left, top });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(bubble.current);
+    return () => observer.disconnect();
   }, [active]);
   if (!active) return null;
   return createPortal(

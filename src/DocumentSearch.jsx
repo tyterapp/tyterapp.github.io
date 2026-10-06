@@ -1,12 +1,18 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useMemo, useRef } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { nodeText } from "./data.js";
+import {
+  matchesSearchFormat,
+  searchBlockText,
+  textSearchRanges,
+} from "./document-search.js";
 import { FORMATS } from "./FormatBar.jsx";
 export default function DocumentSearch({
   content,
   query,
   onQuery,
+  format,
+  onFormat,
   index,
   onSelect,
   onClose,
@@ -15,26 +21,21 @@ export default function DocumentSearch({
   const input = useRef(null),
     active = useRef(null);
   const matches = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return [];
     const results = [];
     for (const [blockIndex, block] of (content?.content || []).entries()) {
-      const text = nodeText(block),
-        lower = text.toLocaleLowerCase();
-      let at = lower.indexOf(needle);
-      while (at !== -1) {
+      if (!matchesSearchFormat(block.attrs?.format, format)) continue;
+      const text = searchBlockText(block);
+      for (const range of textSearchRanges(text, query)) {
         results.push({
           text,
-          at,
-          length: needle.length,
+          ...range,
           blockIndex,
-          format: block.attrs?.format,
+          format: block.attrs?.format || "action",
         });
-        at = lower.indexOf(needle, at + needle.length);
       }
     }
     return results;
-  }, [content, query]);
+  }, [content, query, format]);
   useEffect(() => {
     input.current?.focus();
   }, []);
@@ -74,6 +75,20 @@ export default function DocumentSearch({
             if (e.key === "Escape") onClose();
           }}
         />
+      </label>
+      <label className="search-format-filter">
+        <span>{t("Формат текста")}</span>
+        <select
+          value={format}
+          onChange={(event) => onFormat(event.target.value)}
+        >
+          <option value="all">{t("Все форматы")}</option>
+          {FORMATS.map(([key, , label]) => (
+            <option key={key} value={key}>
+              {t(label)}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="search-summary">
         <span className="search-count">
@@ -115,7 +130,7 @@ export default function DocumentSearch({
               onClick={() => onSelect(i, "card")}
             >
               <span className="search-result-meta">
-                {FORMATS.find((f) => f[0] === match.format)?.[2] || t("Текст")}
+                {t(FORMATS.find((f) => f[0] === match.format)?.[2] || "Текст")}
                 <span>{i + 1}</span>
               </span>
               <span>

@@ -219,6 +219,9 @@ function Dialog({ title, children, onClose }) {
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
+    dialog
+      .querySelector("[data-dialog-autofocus]")
+      ?.focus({ preventScroll: true });
     return () => dialog.close();
   }, []);
   return (
@@ -376,6 +379,7 @@ function ComponentForm({
           {t("Название")}
           <input
             autoFocus
+            data-dialog-autofocus
             required
             maxLength={200}
             value={name}
@@ -440,7 +444,6 @@ function ComponentForm({
           value={thumbnail}
           onChange={setThumbnail}
           name={name || (prop ? t("Реквизит") : t("Компонент"))}
-          showPreview={inline}
         />
         <div className="dialog-actions">
           {value.id && (
@@ -566,6 +569,7 @@ export default function MinimalApp() {
   const [activeComment, setActiveComment] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [searchFormat, setSearchFormat] = useState("all");
   const [searchIndex, setSearchIndex] = useState(0);
   const [searchCardSelection, setSearchCardSelection] = useState(null);
   const searchCardRequest = useRef(0);
@@ -1211,6 +1215,7 @@ export default function MinimalApp() {
       handledSearchCardRequest.current = searchCardSelection.request;
     const count =
       editorRef.current?.findText(searchText, searchIndex, {
+        format: searchFormat,
         fromCard,
         scroll,
       }) || 0;
@@ -1219,6 +1224,7 @@ export default function MinimalApp() {
   }, [
     searchOpen,
     searchText,
+    searchFormat,
     searchIndex,
     searchCardSelection,
     current.content,
@@ -2230,8 +2236,13 @@ export default function MinimalApp() {
                     ))
                 )
                   return;
-                event.preventDefault();
-                editorRef.current?.focusEnd();
+                if (
+                  editorRef.current?.focusBlankSpace(
+                    event.clientX,
+                    event.clientY,
+                  )
+                )
+                  event.preventDefault();
               }}
               style={{
                 minHeight: pageCount * pageHeight,
@@ -2337,6 +2348,7 @@ export default function MinimalApp() {
                   showLineHighlight={false}
                   showComponents={componentsOpen}
                   searchQuery={searchOpen ? searchText : ""}
+                  searchFormat={searchFormat}
                   searchIndex={searchIndex}
                   searchCardIndex={
                     searchOpen ? searchCardSelection?.index : null
@@ -2381,6 +2393,12 @@ export default function MinimalApp() {
           <DocumentSearch
             content={current.content}
             query={searchText}
+            format={searchFormat}
+            onFormat={(value) => {
+              setSearchFormat(value);
+              setSearchIndex(0);
+              setSearchCardSelection(null);
+            }}
             onQuery={(value) => {
               setSearchText(value);
               setSearchIndex(0);

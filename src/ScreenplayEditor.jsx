@@ -10,13 +10,14 @@ import EditorContextMenu from "./EditorContextMenu.jsx";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
 import { quoteDiff } from "./comment-review.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
+import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import {
   captureCaret,
   selectionAtCaret,
@@ -515,6 +516,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     showComponents = false,
     activeEntity = null,
     searchQuery = "",
+    searchFormat = "all",
     searchIndex = 0,
     searchCardIndex = null,
     minimal = false,
@@ -552,6 +554,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     showComponents,
     activeEntity,
     searchQuery,
+    searchFormat,
     searchIndex,
     searchCardIndex,
   });
@@ -572,6 +575,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     showComponents,
     activeEntity,
     searchQuery,
+    searchFormat,
     searchIndex,
     searchCardIndex,
     comments,
@@ -797,24 +801,23 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                 Decoration.node(pos, pos + node.nodeSize, attrs),
               );
           }
-          if (node.type.name === "paragraph" && query) {
-            const text = node
-              .textBetween(0, node.content.size, "", "\n")
-              .toLocaleLowerCase();
-            let start = text.indexOf(query);
-            while (start !== -1) {
+          if (
+            node.type.name === "paragraph" &&
+            query &&
+            matchesSearchFormat(
+              node.attrs.format,
+              propsRef.current.searchFormat,
+            )
+          ) {
+            const text = node.textBetween(0, node.content.size, "", "\n");
+            for (const { at, length } of textSearchRanges(text, query)) {
               decorations.push(
-                Decoration.inline(
-                  pos + 1 + start,
-                  pos + 1 + start + query.length,
-                  {
-                    class: `script-search-result${matchIndex === propsRef.current.searchIndex ? " search-is-current" : ""}${matchIndex === propsRef.current.searchCardIndex ? " search-from-card" : ""}`,
-                    "data-search-index": String(matchIndex),
-                  },
-                ),
+                Decoration.inline(pos + 1 + at, pos + 1 + at + length, {
+                  class: `script-search-result${matchIndex === propsRef.current.searchIndex ? " search-is-current" : ""}${matchIndex === propsRef.current.searchCardIndex ? " search-from-card" : ""}`,
+                  "data-search-index": String(matchIndex),
+                }),
               );
               matchIndex++;
-              start = text.indexOf(query, start + query.length);
             }
           }
           if (
@@ -1005,6 +1008,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     showComponents,
     activeEntity,
     searchQuery,
+    searchFormat,
     searchIndex,
     searchCardIndex,
     comments,
@@ -1036,22 +1040,52 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       focusEnd() {
         editor?.commands.focus("end");
       },
-      findText(query, index = 0, { fromCard = false, scroll = true } = {}) {
+      focusBlankSpace(x, y) {
+        if (!editor || editor.isDestroyed) return false;
+        const blocks = editor.view.dom.querySelectorAll(".screenplay-block");
+        const first = blocks[0]?.getBoundingClientRect();
+        const last = blocks[blocks.length - 1]?.getBoundingClientRect();
+        if (!first || !last) return false;
+        // Only the unused paper below the text should place the caret at the end.
+        // Between paragraphs (including page gaps), let the editor choose the
+        // closest text position instead of jumping to the final page.
+        let position;
+        if (y > last.bottom) position = editor.state.doc.content.size - 1;
+        else {
+          const bounds = editor.view.dom.getBoundingClientRect();
+          position = editor.view.posAtCoords({
+            left: Math.max(bounds.left + 1, Math.min(bounds.right - 1, x)),
+            top: Math.max(first.top + 1, y),
+          })?.pos;
+        }
+        if (position == null) return false;
+        editor.view.dispatch(
+          editor.state.tr.setSelection(
+            TextSelection.near(editor.state.doc.resolve(position)),
+          ),
+        );
+        editor.view.focus();
+        return true;
+      },
+      findText(
+        query,
+        index = 0,
+        { format = "all", fromCard = false, scroll = true } = {},
+      ) {
         if (!editor || !query.trim()) return 0;
-        const matches = [],
-          needle = query.trim().toLocaleLowerCase();
+        const matches = [];
         editor.state.doc.descendants((node, pos) => {
-          if (node.type.name !== "paragraph") return;
-          const text = node
-            .textBetween(0, node.content.size, "", "\n")
-            .toLocaleLowerCase();
-          let offset = text.indexOf(needle);
-          while (offset !== -1) {
+          if (
+            node.type.name !== "paragraph" ||
+            !matchesSearchFormat(node.attrs.format, format)
+          )
+            return;
+          const text = node.textBetween(0, node.content.size, "", "\n");
+          for (const { at, length } of textSearchRanges(text, query)) {
             matches.push({
-              from: pos + 1 + offset,
-              to: pos + 1 + offset + needle.length,
+              from: pos + 1 + at,
+              to: pos + 1 + at + length,
             });
-            offset = text.indexOf(needle, offset + needle.length);
           }
         });
         if (!matches.length) return 0;

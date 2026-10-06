@@ -189,14 +189,16 @@ test("blank paper clicks place the caret at the last line and the initial hint i
   await page.keyboard.insertText("Последняя строка.");
   await expect(hint).toHaveCount(0);
   await page.keyboard.press("Control+Home");
-  await page.locator(".script-paper").click({ position: { x: 10, y: 30 } });
+  let last = await editor.locator("p").last().boundingBox();
+  await page.mouse.click(last.x + 30, last.y + last.height + 40);
   await expect(editor).toBeFocused();
   await page.keyboard.insertText(" Ещё текст.");
   await expect(editor.locator("p").last()).toHaveText(
     "Последняя строка. Ещё текст.",
   );
   await page.keyboard.press("Control+Home");
-  await editor.click({ position: { x: 150, y: 30 } });
+  last = await editor.locator("p").last().boundingBox();
+  await page.mouse.click(last.x + 150, last.y + last.height + 60);
   await page.keyboard.insertText(" Конец.");
   await expect(editor.locator("p").last()).toHaveText(
     "Последняя строка. Ещё текст. Конец.",
