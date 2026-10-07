@@ -1,6 +1,7 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
+import { imageThumbnail } from "./image-thumbnail.js";
 export function ThumbnailImage({ src, name, className = "" }) {
   const language = useLanguage();
   return src ? (
@@ -25,28 +26,11 @@ export default function ThumbnailField({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (
-      !/^image\/(png|jpeg|webp)$/.test(file.type) ||
-      file.size > 5 * 1024 * 1024
-    ) {
-      setError("Выберите JPG, PNG или WebP размером до 5 МБ.");
-      return;
-    }
     try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, 640 / bitmap.width, 640 / bitmap.height);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      const context = canvas.getContext("2d");
-      context.fillStyle = "#fff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
-      onChange(canvas.toDataURL("image/jpeg", 0.85));
+      onChange(await imageThumbnail(file, 5 * 1024 * 1024));
       setError("");
-    } catch {
-      setError("Не удалось прочитать изображение.");
+    } catch (error) {
+      setError(error.message);
     }
   };
   return (

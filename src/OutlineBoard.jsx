@@ -591,15 +591,14 @@ export default function OutlineBoard({
                             </button>
                             {menuFor("card", card)}
                           </div>
-                          <button
-                            className="outline-card-text"
-                            onClick={() => onSelect(card.id)}
-                          >
-                            {card.text ||
-                              t(
-                                "Опишите, что происходит в этой части истории.",
-                              )}
-                          </button>
+                          {card.text && (
+                            <button
+                              className="outline-card-text"
+                              onClick={() => onSelect(card.id)}
+                            >
+                              {card.text}
+                            </button>
+                          )}
                           {!!card.comments?.length && (
                             <button
                               className="outline-card-comments"
@@ -671,7 +670,10 @@ export default function OutlineBoard({
           <div className="outline-detail-body" ref={detailBody}>
             <label>
               {t("Название")}
-              <input
+              <textarea
+                key={selected.id}
+                className="outline-card-name"
+                rows={2}
                 aria-label={t("Название карточки")}
                 value={selected.title}
                 maxLength={200}

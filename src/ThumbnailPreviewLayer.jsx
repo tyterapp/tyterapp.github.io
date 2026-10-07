@@ -26,20 +26,21 @@ export default function ThumbnailPreviewLayer({ components, props }) {
     const resolve = (node) => {
       if (!(node instanceof Element)) return null;
       const image = node.closest('[data-thumbnail-preview="true"]');
-      if (image)
-        return {
-          target: image,
-          items: [
-            {
-              thumbnail: image.src,
-              name: image.alt.replace(/^Миниатюра: /, ""),
-            },
-          ],
-        };
       const anchor = node.closest(
         "[data-component-preview], [data-prop-preview], .screenplay-editor [data-entity-id], .screenplay-editor [data-prop-id]",
       );
-      if (!anchor) return null;
+      if (!anchor)
+        return image
+          ? {
+              target: image,
+              items: [
+                {
+                  thumbnail: image.src,
+                  name: image.alt.replace(/^(Миниатюра|Thumbnail): /, ""),
+                },
+              ],
+            }
+          : null;
       const componentId =
         anchor
           .closest("[data-component-preview], [data-entity-id]")
@@ -53,10 +54,16 @@ export default function ThumbnailPreviewLayer({ components, props }) {
           .closest("[data-prop-preview], [data-prop-id]")
           ?.getAttribute("data-prop-preview") ||
         anchor.closest("[data-prop-id]")?.getAttribute("data-prop-id");
+      const component = records.current.components.find(
+        (item) => item.id === componentId,
+      );
+      const prop = records.current.props.find((item) => item.id === propId);
       const items = [
-        records.current.components.find((item) => item.id === componentId),
-        records.current.props.find((item) => item.id === propId),
-      ].filter((item) => item?.thumbnail);
+        component?.thumbnail || component?.description?.trim()
+          ? component
+          : null,
+        prop?.thumbnail ? { ...prop, description: "" } : null,
+      ].filter(Boolean);
       return items.length
         ? {
             target: anchor,
@@ -137,8 +144,11 @@ export default function ThumbnailPreviewLayer({ components, props }) {
     >
       {active.items.map((item, index) => (
         <figure key={index}>
-          <img src={item.thumbnail} alt={item.name} />
+          {item.thumbnail && <img src={item.thumbnail} alt={item.name} />}
           <figcaption>{item.name}</figcaption>
+          {item.description?.trim() && (
+            <p className="preview-description">{item.description}</p>
+          )}
         </figure>
       ))}
     </div>,

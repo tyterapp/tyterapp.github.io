@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   timeline: false,
   components: false,
   formatLabels: false,
+  spellcheck: false,
 };
 
 export function uid() {
@@ -51,6 +52,8 @@ export function createProject(title = "Untitled") {
     },
     components: [],
     props: [],
+    propFolders: [],
+    collapsedPropFolders: [],
     comments: [],
     outline: { columns: [], cards: [] },
     settings: { ...DEFAULT_SETTINGS },
@@ -430,6 +433,14 @@ export function validateImport(input) {
       return item;
     });
   };
+  const propFolders = uniqueItems(
+    list(source.propFolders)
+      .filter((item) => cleanText(item.name).trim())
+      .map((item) => ({
+        id: cleanId(item.id),
+        name: cleanText(item.name, 100).trim(),
+      })),
+  );
   return {
     id: cleanId(source.id),
     title: cleanText(source.title, 160).trim() || "Untitled",
@@ -471,6 +482,14 @@ export function validateImport(input) {
     collapsedComponentFolders: Array.isArray(source.collapsedComponentFolders)
       ? source.collapsedComponentFolders
           .filter((id) => typeof id === "string")
+          .slice(0, 10000)
+      : [],
+    propFolders,
+    collapsedPropFolders: Array.isArray(source.collapsedPropFolders)
+      ? source.collapsedPropFolders
+          .filter(
+            (id) => id === "" || propFolders.some((folder) => folder.id === id),
+          )
           .slice(0, 10000)
       : [],
     outline: {
@@ -530,6 +549,11 @@ export function validateImport(input) {
           id: cleanId(item.id),
           name: cleanText(item.name, 200).trim(),
           category: CATEGORIES.has(item.category) ? item.category : "Objects",
+          folderId:
+            typeof item.folderId === "string" &&
+            propFolders.some((folder) => folder.id === item.folderId)
+              ? item.folderId
+              : null,
           componentId:
             typeof item.componentId === "string" ? item.componentId : null,
           quantity: Number.isFinite(Number(item.quantity))

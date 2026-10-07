@@ -142,6 +142,8 @@ export default function SelectionToolbar({
   createComponentRef.current = onCreateComponent;
   const createPropRef = useRef(onCreateProp);
   createPropRef.current = onCreateProp;
+  const commentRef = useRef(onComment);
+  commentRef.current = onComment;
   const [position, setPosition] = useState(null);
   useEffect(() => {
     if (!editor || editor.isDestroyed || disabled) {
@@ -243,9 +245,11 @@ export default function SelectionToolbar({
         (event.code === "KeyB" || key === "b") && event.shiftKey;
       const createProp =
         (event.code === "KeyE" || key === "e") && !event.shiftKey;
+      const createComment =
+        (event.code === "KeyQ" || key === "q") && !event.shiftKey;
       if (
         !minimal ||
-        (!createComponent && !createProp && !boldAlias) ||
+        (!createComponent && !createProp && !createComment && !boldAlias) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         (!editor.isFocused &&
@@ -257,13 +261,15 @@ export default function SelectionToolbar({
       if (!source) return;
       event.preventDefault();
       event.stopPropagation();
+      if (event.repeat) return;
       if (boldAlias) {
         editor.chain().focus().toggleBold().run();
         return;
       }
       dismissedRef.current = sourceKey(source);
       setPosition(null);
-      if (createProp) createPropRef.current?.(source);
+      if (createComment) commentRef.current?.(source);
+      else if (createProp) createPropRef.current?.(source);
       else createComponentRef.current?.(source);
     };
     refreshRef.current = scheduleUpdate;
@@ -426,6 +432,7 @@ export default function SelectionToolbar({
             minimal ? t("Комментировать выделение") : "Comment on selection"
           }
           aria-describedby="selection-tip-comment"
+          aria-keyshortcuts="Control+Q Meta+Q"
           onClick={() => createFromSelection(onComment)}
         >
           <MessageSquarePlus size={21} strokeWidth={1.65} aria-hidden="true" />
@@ -435,6 +442,8 @@ export default function SelectionToolbar({
             id="selection-tip-comment"
           >
             {minimal ? t("Комментировать") : "Add comment"}
+            {" · "}
+            {shortcut} + Q
           </span>
         </button>
       }

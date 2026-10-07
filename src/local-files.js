@@ -1,4 +1,4 @@
-import { browserRequest } from "./browser-files.js";
+import { browserRequest, localLibraryRevision } from "./browser-files.js";
 let pending = Promise.resolve();
 export const isWebPro = () =>
   !window.tyterDesktop?.request && /\/pro\/?$/.test(location.pathname);
@@ -25,16 +25,24 @@ export async function localRequest(endpoint, body) {
 }
 export function saveLocalFiles(documents) {
   const snapshot = structuredClone(documents);
+  const revision = isWebPro()
+    ? { libraryRevision: localLibraryRevision() }
+    : {};
   const next = pending
     .catch(() => {})
-    .then(() => localRequest("documents", { documents: snapshot }));
+    .then(() =>
+      localRequest("documents", { documents: snapshot, ...revision }),
+    );
   pending = next;
   return next;
 }
 export function deleteLocalFile(id) {
+  const revision = isWebPro()
+    ? { libraryRevision: localLibraryRevision() }
+    : {};
   const next = pending
     .catch(() => {})
-    .then(() => localRequest("delete-document", { id }));
+    .then(() => localRequest("delete-document", { id, ...revision }));
   pending = next;
   return next;
 }

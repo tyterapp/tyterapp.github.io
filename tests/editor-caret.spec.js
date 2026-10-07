@@ -143,7 +143,7 @@ test("caret: adding an outline scene preserves the original writing position", a
   await expect(editor(page)).toBeFocused();
   await page.keyboard.insertText("X");
   await expect(editor(page).locator('p[data-format="scene"]')).toHaveText(
-    /^XИНТ\./,
+    "X",
   );
 });
 

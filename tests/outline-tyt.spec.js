@@ -119,7 +119,7 @@ test("outline cards create independent scenes and navigate in both directions", 
   const scene = page
     .locator('.screenplay-editor p[data-format="scene"]')
     .last();
-  await expect(scene).toContainText("НОВАЯ СЦЕНА");
+  await expect(scene).toHaveText("");
   await scene.click();
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+End");

@@ -21,6 +21,13 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await page.getByRole("button", { name: "Открыть папку сценариев" }).click();
   await expect(page.getByRole("alert")).toContainText("Подключена папка");
+  await expect(
+    page.getByText("В папке нет сценариев", { exact: true }),
+  ).toBeVisible();
+  await page
+    .locator(".local-library-empty")
+    .getByRole("button", { name: "Новый сценарий" })
+    .click();
   await page.getByRole("button", { name: "Настройки документа" }).click();
   await page.getByLabel("Автор", { exact: true }).fill("Локальный автор");
   await expect
@@ -54,7 +61,7 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
         return (await browserRequest("documents")).documents.length;
       }),
     )
-    .toBe(3);
+    .toBe(2);
   const selected = await page.evaluate(() =>
     localStorage.getItem("tyter.active"),
   );

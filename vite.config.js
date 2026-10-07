@@ -16,7 +16,9 @@ export default defineConfig({
       ],
     },
   },
-  optimizeDeps: { include: ["docx", "jspdf", "pdfjs-dist", "fflate"] },
+  optimizeDeps: {
+    include: ["docx", "jspdf", "pdfjs-dist", "fflate", "nspell"],
+  },
   build: {
     rollupOptions: {
       output: {

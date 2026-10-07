@@ -51,7 +51,7 @@ const storedFont = (page) =>
         .fontFamily,
   );
 
-test("only a scene followed by action gets a 10px gap, including live format changes and zoom", async ({
+test("scene to action gets a 10px gap, including live format changes and zoom", async ({
   page,
 }) => {
   await open(page, fixture());
@@ -74,6 +74,74 @@ test("only a scene followed by action gets a 10px gap, including live format cha
     .fill("200");
   await expect.poll(() => gapAfter(page, "scene-action")).toBeCloseTo(20, 1);
   await expect.poll(() => gapAfter(page, "scene-scene")).toBeCloseTo(40, 1);
+});
+
+test("consecutive actions have 10px spacing; other formats retain 20px in the editor, PDF and DOCX", async ({
+  page,
+}) => {
+  const project = createProject("Интервалы действий");
+  project.content.content = [
+    paragraph("action", "First action.", "first"),
+    paragraph("action", "Second action.", "second"),
+    paragraph("plain", "Plain text.", "third"),
+  ];
+  await open(page, project);
+  await expect.poll(() => gapAfter(page, "first")).toBeCloseTo(10, 1);
+  await expect.poll(() => gapAfter(page, "second")).toBeCloseTo(20, 1);
+  await page.locator('[data-block-id="second"]').click();
+  await page.keyboard.press("Control+7");
+  await expect.poll(() => gapAfter(page, "first")).toBeCloseTo(20, 1);
+  await page.keyboard.press("Control+2");
+  await expect.poll(() => gapAfter(page, "first")).toBeCloseTo(10, 1);
+  await page
+    .getByRole("button", { name: "Настройки документа", exact: true })
+    .click();
+  await page
+    .getByRole("slider", { name: "Масштаб документа", exact: true })
+    .fill("200");
+  await expect.poll(() => gapAfter(page, "first")).toBeCloseTo(20, 1);
+  await expect.poll(() => gapAfter(page, "second")).toBeCloseTo(40, 1);
+  const exports = await page.evaluate(async (project) => {
+    const { exportPDF, exportDOCX } = await import("/src/exports.js");
+    const pdfjs = await import("/node_modules/pdfjs-dist/build/pdf.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc =
+      "/node_modules/pdfjs-dist/build/pdf.worker.mjs";
+    const task = pdfjs.getDocument({
+      data: new Uint8Array(await (await exportPDF(project)).arrayBuffer()),
+      isEvalSupported: false,
+    });
+    const pdf = await task.promise;
+    const text = await (await pdf.getPage(1)).getTextContent();
+    const y = [
+      ...new Set(
+        text.items
+          .filter((item) => item.height > 9 && item.str.trim())
+          .map((item) => item.transform[5]),
+      ),
+    ];
+    await task.destroy();
+    return {
+      y,
+      docx: Array.from(
+        new Uint8Array(await (await exportDOCX(project)).arrayBuffer()),
+      ),
+    };
+  }, project);
+  expect(exports.y[0] - exports.y[1]).toBeCloseTo(22.5, 2);
+  expect(exports.y[1] - exports.y[2]).toBeCloseTo(30, 2);
+  const xml = strFromU8(
+    unzipSync(new Uint8Array(exports.docx))["word/document.xml"],
+  );
+  const after = await page.evaluate((xml) => {
+    const dom = new DOMParser().parseFromString(xml, "application/xml");
+    const ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    return [...dom.getElementsByTagNameNS(ns, "p")]
+      .filter((p) => p.textContent.includes("action."))
+      .map((p) =>
+        p.getElementsByTagNameNS(ns, "spacing")[0].getAttributeNS(ns, "after"),
+      );
+  }, xml);
+  expect(after).toEqual(["150", "300"]);
 });
 
 test("Courier New persists in both languages; ENG-only Courier Prime resets to Courier in RU even with settings closed", async ({

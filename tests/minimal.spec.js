@@ -757,9 +757,7 @@ test("document setting switches the quick bar between text and supplied icons", 
     "Персонаж · CTRL + 3",
   );
   await page.locator(".workspace-tools .comments-toggle").hover();
-  await expect(page.locator(".unified-tooltip")).toHaveText(
-    "Комментарии · Ctrl+8",
-  );
+  await expect(page.locator(".unified-tooltip")).toHaveText("Комментарии");
   await caret(page, block(page), 5);
   await bar.getByRole("button", { name: "Персонаж" }).click();
   await expect(block(page)).toHaveAttribute("data-format", "character");

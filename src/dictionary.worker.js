@@ -1,4 +1,7 @@
+import nspell from "nspell";
+
 let words = [];
+let russianAvailable = false;
 const ready = fetch("/dictionary/words.txt")
   .then((r) => {
     if (!r.ok) throw new Error("dictionary");
@@ -13,12 +16,50 @@ const ready = fetch("/dictionary/words.txt")
           .filter((w) => /^[а-яё-]+$/i.test(w)),
       ),
     ].sort();
+    russianAvailable = true;
     postMessage({ type: "ready", count: words.length });
   })
   .catch(() => postMessage({ type: "error" }));
-self.onmessage = async ({ data: { prefix, id, type, word } }) => {
+let englishReady;
+const readDictionary = async (file) => {
+  const response = await fetch(`/dictionary/${file}`);
+  if (!response.ok) throw new Error("dictionary");
+  return response.text();
+};
+const englishDictionary = () =>
+  (englishReady ??= Promise.all([
+    readDictionary("en.aff"),
+    readDictionary("en.dic"),
+  ])
+    .then(([aff, dic]) => nspell(aff, dic))
+    .catch(() => null));
+
+self.onmessage = async ({
+  data: { prefix, id, type, word, language = "ru" },
+}) => {
+  if (type === "spell" && language === "en") {
+    const spell = await englishDictionary();
+    if (!spell) {
+      englishReady = undefined;
+      postMessage({ type: "spelling", id, unavailable: true, words: [] });
+      return;
+    }
+    const normalized = word.replace(/’/g, "'");
+    const correct = spell.correct(normalized);
+    postMessage({
+      type: "spelling",
+      id,
+      correct,
+      words: correct ? [] : spell.suggest(normalized).slice(0, 5),
+    });
+    return;
+  }
   await ready;
   if (type === "spell") {
+    if (!russianAvailable) {
+      postMessage({ type: "spelling", id, unavailable: true, words: [] });
+      return;
+    }
     const key = word.toLocaleLowerCase("ru");
     if (words.includes(key)) {
       postMessage({ type: "spelling", id, correct: true, words: [] });

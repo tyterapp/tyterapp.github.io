@@ -2,15 +2,20 @@ import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { sourceForRange, nativeSelectedSource } from "./SelectionToolbar.jsx";
+import { IMAGE_TYPES } from "./image-thumbnail.js";
 export default function EditorContextMenu({
   editor,
   onCreateComponent,
   onCreateProp,
+  onPasteImages,
   onOpenChange,
 }) {
   const language = useLanguage();
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const [menu, setMenu] = useState(null),
     [clipboard, setClipboard] = useState(""),
+    [clipboardImages, setClipboardImages] = useState([]),
     [spelling, setSpelling] = useState(null),
     [error, setError] = useState("");
   const menuRef = useRef(null),
@@ -19,11 +24,13 @@ export default function EditorContextMenu({
   const handlers = useRef({
     onCreateComponent,
     onCreateProp,
+    onPasteImages,
     onOpenChange,
   });
   handlers.current = {
     onCreateComponent,
     onCreateProp,
+    onPasteImages,
     onOpenChange,
   };
   useEffect(() => {
@@ -64,9 +71,17 @@ export default function EditorContextMenu({
       const resolved = editor.state.doc.resolve(pos);
       const text = resolved.parent.textContent;
       const offset = resolved.parentOffset;
-      const before = text.slice(0, offset).match(/[а-яё]+$/i)?.[0] || "";
-      const after = text.slice(offset).match(/^[а-яё]+/i)?.[0] || "";
-      const word = source?.text.match(/^[а-яё]+$/i)
+      const english = languageRef.current === "en";
+      const before =
+        text
+          .slice(0, offset)
+          .match(english ? /[a-z'’]+$/i : /[а-яё]+$/i)?.[0] || "";
+      const after =
+        text.slice(offset).match(english ? /^[a-z'’]+/i : /^[а-яё]+/i)?.[0] ||
+        "";
+      const word = source?.text.match(
+        english ? /^[a-z]+(?:['’][a-z]+)*$/i : /^[а-яё]+$/i,
+      )
         ? source.text
         : before + after;
       const wordRange =
@@ -82,18 +97,47 @@ export default function EditorContextMenu({
         pos,
         word,
         wordRange,
+        language: languageRef.current,
         x: Math.max(8, Math.min(event.clientX, innerWidth - 292)),
         y: event.clientY,
         id,
       });
       setSpelling(null);
       setClipboard("");
+      setClipboardImages([]);
       setError("");
       handlers.current.onOpenChange?.(true);
-      navigator.clipboard
-        ?.readText()
-        .then((value) => {
-          if (request.current === id) setClipboard(value);
+      const readClipboard = async () => {
+        try {
+          const items = await navigator.clipboard?.read?.();
+          const files = [];
+          for (const item of items || []) {
+            const type =
+              item.types.find((type) => IMAGE_TYPES.includes(type)) ||
+              item.types.find((type) => type.startsWith("image/"));
+            if (type)
+              files.push(
+                new File(
+                  [await item.getType(type)],
+                  `clipboard.${type.split("/")[1]}`,
+                  { type },
+                ),
+              );
+          }
+          if (files.length) return { files, text: "" };
+        } catch {
+          /* Text-only browsers can still paste text. */
+        }
+        return {
+          files: [],
+          text: (await navigator.clipboard?.readText()) || "",
+        };
+      };
+      readClipboard()
+        .then(({ files, text }) => {
+          if (request.current !== id) return;
+          setClipboardImages(files);
+          setClipboard(text);
         })
         .catch(() => {});
       if (word.length > 1) {
@@ -112,6 +156,7 @@ export default function EditorContextMenu({
         worker.current.postMessage({
           type: "spell",
           word,
+          language: languageRef.current,
           id,
         });
       }
@@ -171,6 +216,11 @@ export default function EditorContextMenu({
         await navigator.clipboard.writeText(source.text);
         if (action === "cut") editor.chain().focus().deleteRange(source).run();
       } else if (action === "paste") {
+        if (clipboardImages.length) {
+          handlers.current.onPasteImages?.(clipboardImages);
+          close();
+          return;
+        }
         const lines = clipboard.replace(/\r/g, "").split("\n");
         const content =
           lines.length === 1
@@ -231,7 +281,11 @@ export default function EditorContextMenu({
       onMouseDown={(event) => event.preventDefault()}
     >
       {[
-        ["paste", t("Вставить"), !!clipboard],
+        [
+          "paste",
+          t("Вставить"),
+          !!clipboard || (!!clipboardImages.length && !!onPasteImages),
+        ],
         ["copy", t("Копировать"), selected],
         ["cut", t("Вырезать"), selected],
         ["all", t("Выделить всё"), true],
@@ -265,11 +319,17 @@ export default function EditorContextMenu({
         </button>
       ))}
       <div className="context-spelling-heading">
-        {t("Орфография · русский")}
+        {t(
+          menu.language === "en"
+            ? "Орфография · английский"
+            : "Орфография · русский",
+        )}
       </div>
       {menu.word ? (
         spelling ? (
-          spelling.correct ? (
+          spelling.unavailable ? (
+            <p>{t("Словарь недоступен. Повторите проверку позже.")}</p>
+          ) : spelling.correct ? (
             <p>{t("Слово есть в словаре")}</p>
           ) : spelling.words.length ? (
             spelling.words.map((word) => (
@@ -282,9 +342,13 @@ export default function EditorContextMenu({
                     .focus()
                     .insertContentAt(menu.wordRange, {
                       type: "text",
-                      text: /^[А-ЯЁ]/.test(menu.word)
-                        ? word[0].toLocaleUpperCase("ru") + word.slice(1)
-                        : word,
+                      text:
+                        menu.word === menu.word.toLocaleUpperCase(menu.language)
+                          ? word.toLocaleUpperCase(menu.language)
+                          : /^[А-ЯЁA-Z]/.test(menu.word)
+                            ? word[0].toLocaleUpperCase(menu.language) +
+                              word.slice(1)
+                            : word,
                     })
                     .run();
                   close();

@@ -4,6 +4,8 @@ import { ImagePlus, X } from "lucide-react";
 import { documentFont, documentFonts } from "./document-fonts.js";
 export default function DocumentSettings({
   metadata = {},
+  spellcheck = false,
+  onSpellcheck,
   documentZoom,
   onChange,
   onZoom,
@@ -55,6 +57,21 @@ export default function DocumentSettings({
         </button>
       </div>
       <div className="settings-scroll">
+        <section>
+          <label className="spelling-setting">
+            <input
+              type="checkbox"
+              checked={spellcheck}
+              onChange={(event) => onSpellcheck(event.target.checked)}
+            />
+            {t("Подсветка орфографии")}
+          </label>
+          <p className="settings-hint">
+            {language === "en"
+              ? t("Язык проверки — английский")
+              : t("Язык проверки — русский")}
+          </p>
+        </section>
         <section className="metadata-fields">
           <label>
             {t("Шрифт в редакторе")}

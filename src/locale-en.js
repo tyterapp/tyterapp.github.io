@@ -1,5 +1,28 @@
 // UI messages only. Document text and user names are never translated.
 export default {
+  "Выберите JPG, PNG или WebP размером до 10 МБ.":
+    "Choose a JPG, PNG or WebP image up to 10 MB.",
+  "Вставка изображения": "Pasting an image",
+  "Отпустите картинку, чтобы создать компонент":
+    "Drop the image to create a component",
+  "Добавляем картинку…": "Adding an image…",
+  "JPG, JPEG, PNG, WebP · до 10 МБ": "JPG, JPEG, PNG, WebP · up to 10 MB",
+  "Esc — отменить": "Esc — cancel",
+  "Создать папку реквизита": "Create a props folder",
+  "папок реквизита": "props folders",
+  "» исчезнет. Реквизит останется в разделе «Без папки».":
+    "» will be removed. Its props will remain under Unfiled.",
+  "В папке нет сценариев": "There are no screenplays in this folder",
+  "Папка сценариев изменена в другой вкладке. Обновите страницу.":
+    "The screenplay folder was changed in another tab. Reload this page.",
+  "Выйти из аккаунта": "Sign out",
+  "Подсветка орфографии": "Highlight spelling errors",
+  "Язык проверки — русский": "Spelling language — Russian",
+  "Язык проверки — английский": "Spelling language — English",
+  "Орфография · английский": "Spelling · English",
+  "Словарь недоступен. Повторите проверку позже.":
+    "Dictionary unavailable. Try again later.",
+  "Открыть файл сценария": "Open a screenplay file",
   "Формат текста": "Text format",
   "Все форматы": "All formats",
   "/ 10 компонентов": "/ 10 components",
@@ -25,8 +48,8 @@ export default {
   "Ctrl+Enter — принять · ↑ ↓ — выбрать": "Ctrl+Enter — accept · ↑ ↓ — choose",
   "Ctrl+F открывает слева результаты поиска. Нажмите карточку, чтобы перейти к совпадению. Иконка комментариев в левой панели открывает обсуждения. Решённый комментарий больше не открывается при клике на текст; его можно посмотреть во вкладке «Решённые».":
     "Ctrl+F opens search results on the left. Click a result to jump to the text. The comments icon in the left toolbar opens discussions. Resolved comments cannot be opened by clicking the text; find them in the Resolved tab.",
-  "Ctrl+F — поиск · Ctrl+8 — комментарии":
-    "Ctrl+F — search · Ctrl+8 — comments",
+  "Ctrl+F — поиск · Ctrl+Q — комментарий к выделению":
+    "Ctrl+F — search · Ctrl+Q — comment on selection",
   "Email автора": "Author email",
   "Enter / пробел": "Enter / Space",
   "JPG, PNG, WebP · до 5 МБ": "JPG, PNG, WebP · up to 5 MB",
@@ -253,7 +276,6 @@ export default {
   "Количество реквизита": "Prop quantity",
   "Комментариев всего": "Total comments",
   Комментарии: "Comments",
-  "Комментарии · Ctrl+8": "Comments · Ctrl+8",
   "Комментарии сценария": "Screenplay comments",
   "Комментарий к выделению…": "Comment on selection…",
   "Комментарий карточки": "Card comment",

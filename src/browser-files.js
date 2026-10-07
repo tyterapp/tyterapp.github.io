@@ -4,6 +4,8 @@ import { friendlyTytName } from "./local-file-names.js";
 
 const DATABASE = "tyter.local-files.v1";
 let directory = null;
+let libraryRevision = null;
+export const localLibraryRevision = () => libraryRevision;
 let fileWork = Promise.resolve();
 function withFileWork(work) {
   const next = fileWork
@@ -51,7 +53,7 @@ async function write(values) {
   }
 }
 async function connectedDirectory() {
-  directory ||= await read("directory");
+  directory = await read("directory");
   if (
     !directory ||
     (await directory.queryPermission({ mode: "readwrite" })) !== "granted"
@@ -221,33 +223,76 @@ export async function chooseLocalDirectory() {
       if (!mapping.names.has(document.id))
         mapping.names.set(document.id, entry.name);
     }
+    // Replace the active library only after the entire folder has been read.
+    // Keep a recovery copy of browser-only projects when first connecting a folder.
+    const previousDirectory = await read("directory");
+    const previousDocuments = (await read("documents")) || [];
+    const nextRevision = crypto.randomUUID();
+    const selected = [...documents.values()];
+    const deletedIds = ((await read("deletedIds")) || []).filter(
+      (id) => !documents.has(id),
+    );
+    await write({
+      ...(!previousDirectory ? { browserDocuments: previousDocuments } : {}),
+      directory: chosen,
+      documents: selected,
+      libraryRevision: nextRevision,
+      deletedIds,
+    });
     directory = chosen;
-    await write({ directory });
+    libraryRevision = nextRevision;
     await saveMapping(chosen, mapping);
     await navigator.storage?.persist?.().catch(() => {});
-    return { documents: [...documents.values()], name: directory.name };
+    return { documents: selected, name: directory.name, libraryRevision };
   });
 }
 export async function browserRequest(endpoint, body) {
   if (endpoint === "documents" && body === undefined) {
-    return {
-      documents: (await read("documents")) || [],
-      deletedIds: (await read("deletedIds")) || [],
-    };
+    return withFileWork(async () => {
+      libraryRevision = (await read("libraryRevision")) || null;
+      const folder = await read("directory");
+      return {
+        documents: (await read("documents")) || [],
+        deletedIds: (await read("deletedIds")) || [],
+        directoryName: folder?.name || null,
+        libraryRevision,
+      };
+    });
   }
   if (endpoint === "documents") {
     return withFileWork(async () => {
-      await write({ documents: body.documents });
+      if (
+        Object.hasOwn(body, "libraryRevision") &&
+        body.libraryRevision !== ((await read("libraryRevision")) || null)
+      )
+        throw new Error(
+          "Папка сценариев изменена в другой вкладке. Обновите страницу.",
+        );
+      // A tab signing out may hold an older snapshot than another open tab.
+      const deleted = new Set((await read("deletedIds")) || []);
+      const merged = new Map(
+        ((await read("documents")) || [])
+          .filter((document) => !deleted.has(document.id))
+          .map((document) => [document.id, document]),
+      );
+      for (const document of body.documents) {
+        if (deleted.has(document.id)) continue;
+        const previous = merged.get(document.id);
+        if (!previous || document.updatedAt >= previous.updatedAt)
+          merged.set(document.id, document);
+      }
+      const documents = [...merged.values()];
+      await write({ documents });
       const folder = await connectedDirectory();
       if (folder) {
         const mapping = await mappingOf(folder);
         const entries = await inventoryOf(folder);
-        for (const document of body.documents) {
+        for (const document of documents) {
           await saveNamedDocument(folder, mapping, entries, document);
         }
         // An earlier document may now be able to drop its collision suffix after
         // another document was renamed in the same batch.
-        for (const document of body.documents) {
+        for (const document of documents) {
           const primary = primaryFile(document, mapping, entries);
           if (
             primary &&
@@ -261,6 +306,13 @@ export async function browserRequest(endpoint, body) {
   }
   if (endpoint === "delete-document") {
     return withFileWork(async () => {
+      if (
+        Object.hasOwn(body, "libraryRevision") &&
+        body.libraryRevision !== ((await read("libraryRevision")) || null)
+      )
+        throw new Error(
+          "Папка сценариев изменена в другой вкладке. Обновите страницу.",
+        );
       const deletedIds = [
         ...new Set([...((await read("deletedIds")) || []), body.id]),
       ];

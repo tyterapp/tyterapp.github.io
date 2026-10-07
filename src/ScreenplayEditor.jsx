@@ -18,6 +18,7 @@ import { quoteDiff } from "./comment-review.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
+import { scrollToText } from "./editor-scroll.js";
 import {
   captureCaret,
   selectionAtCaret,
@@ -397,10 +398,6 @@ const ScreenplayBehavior = Extension.create({
     });
     shortcuts["Ctrl-Alt-ArrowRight"] = () => cycleFormat(1);
     shortcuts["Ctrl-Alt-ArrowLeft"] = () => cycleFormat(-1);
-    shortcuts["Mod-8"] = () => {
-      this.options.onComments(selectionInfo(this.editor));
-      return true;
-    };
     shortcuts.Enter = () => {
       const format =
         paragraphAt(this.editor.state.selection)?.node.attrs.format || "action";
@@ -453,45 +450,6 @@ const ScreenplayBehavior = Extension.create({
     ];
   },
 });
-function scrollToText(view, position, frame, smooth = true) {
-  if (frame.current !== null) cancelAnimationFrame(frame.current);
-  frame.current = requestAnimationFrame(() => {
-    frame.current = null;
-    if (view.isDestroyed) return;
-    const scroller = view.dom.closest(".minimal-scroll");
-    if (!scroller) {
-      view.dispatch(view.state.tr.scrollIntoView());
-      return;
-    }
-    const rect = view.coordsAtPos(position);
-    const viewport = scroller.getBoundingClientRect();
-    const target = Math.max(
-      0,
-      Math.min(
-        scroller.scrollHeight - scroller.clientHeight,
-        scroller.scrollTop +
-          rect.top -
-          viewport.top -
-          (scroller.clientHeight - (rect.bottom - rect.top)) / 2,
-      ),
-    );
-    if (
-      !smooth ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      scroller.scrollTop = target;
-      return;
-    }
-    const start = scroller.scrollTop;
-    const began = performance.now();
-    const animate = (now) => {
-      const progress = Math.min(1, (now - began) / 260);
-      scroller.scrollTop = start + (target - start) * (1 - (1 - progress) ** 3);
-      frame.current = progress < 1 ? requestAnimationFrame(animate) : null;
-    };
-    frame.current = requestAnimationFrame(animate);
-  });
-}
 const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   {
     content,
@@ -502,6 +460,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onComments,
     onCommentFromSelection,
     onCreateComponent,
+    onPasteImages,
     onEditComponent,
     onCreateProp,
     onEditProp,
@@ -513,6 +472,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     selectionToolbarDisabled = false,
     onReady,
     showLineHighlight = true,
+    spellcheck = false,
     showComponents = false,
     activeEntity = null,
     searchQuery = "",
@@ -584,6 +544,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   const lastEmitted = useRef(null);
   const lastReceived = useRef(JSON.stringify(content));
   const searchScrollFrame = useRef(null);
+  const navigationFlash = useRef(null);
+  const navigationFlashTimer = useRef(null);
   const initialContent = useRef(null);
   if (!initialContent.current)
     initialContent.current = normalizeContent(content);
@@ -618,8 +580,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         role: "textbox",
         "aria-label": "Screenplay editor",
         "aria-multiline": "true",
-        spellcheck: "true",
-        lang: "ru",
+        spellcheck: String(spellcheck),
+        lang: language,
       },
       handleClick(view, pos, event) {
         if ((event.ctrlKey || event.metaKey) && event.button === 0) {
@@ -731,6 +693,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           }
           if (node.type.name === "paragraph") {
             const attrs = {};
+            if (node.attrs.blockId === navigationFlash.current) {
+              attrs["data-outline-navigation-target"] = "true";
+              if (node.content.size)
+                decorations.push(
+                  Decoration.inline(pos + 1, pos + node.content.size + 1, {
+                    class: "outline-navigation-flash",
+                  }),
+                );
+            }
             if (node.attrs.format === "scene") {
               const number = ++sceneNumber;
               attrs["data-scene-number"] = String(number);
@@ -1028,6 +999,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     () => () => {
       if (searchScrollFrame.current !== null)
         cancelAnimationFrame(searchScrollFrame.current);
+      clearTimeout(navigationFlashTimer.current);
     },
     [],
   );
@@ -1203,7 +1175,32 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (found === null) return false;
         editor.commands.setTextSelection(found + 1);
         editor.view.focus();
-        scrollToText(editor.view, found + 1, searchScrollFrame);
+        scrollToText(editor.view, found + 1, searchScrollFrame, true, {
+          ensureRoom: true,
+          onComplete: () => {
+            clearTimeout(navigationFlashTimer.current);
+            // Remove a previous pulse before adding a fresh one, including
+            // repeated navigation to the same scene within a second.
+            if (navigationFlash.current) {
+              navigationFlash.current = null;
+              editor.view.dispatch(
+                editor.state.tr.setMeta("addToHistory", false),
+              );
+              editor.view.dom.getBoundingClientRect();
+            }
+            navigationFlash.current = blockId;
+            editor.view.dispatch(
+              editor.state.tr.setMeta("addToHistory", false),
+            );
+            navigationFlashTimer.current = setTimeout(() => {
+              navigationFlash.current = null;
+              if (!editor.isDestroyed)
+                editor.view.dispatch(
+                  editor.state.tr.setMeta("addToHistory", false),
+                );
+            }, 1000);
+          },
+        });
         return true;
       },
       addComment(id, source) {
@@ -1358,6 +1355,19 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     }),
     [editor],
   );
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        attributes: {
+          ...editor.options.editorProps.attributes,
+          spellcheck: String(spellcheck),
+          lang: language,
+        },
+      },
+    });
+  }, [editor, spellcheck, language]);
   return (
     <>
       <EditorContent
@@ -1375,6 +1385,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       <EditorContextMenu
         editor={editor}
         onCreateComponent={onCreateComponent}
+        onPasteImages={onPasteImages}
         onCreateProp={onCreateProp}
         onOpenChange={setContextMenuOpen}
       />

@@ -151,7 +151,7 @@ test("PDF and DOCX include metadata and poster on a separate cover; FDX keeps ti
   expect(result.pages).toHaveLength(2);
   expect(result.pages[0]).toContain("Сергей Бухарев");
   expect(result.pages[0]).toContain("mrbuha@ya.ru");
-  expect(result.pages[1]).toContain("ИНТ. ДОМ");
+  expect(result.pages[1].replace(/\s+/g, " ")).toContain("ИНТ. ДОМ");
   expect(result.pages[0]).not.toContain("ИНТ. ДОМ");
   const archive = unzipSync(Buffer.from(result.docx, "base64"));
   expect(

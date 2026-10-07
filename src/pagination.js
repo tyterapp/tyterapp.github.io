@@ -34,7 +34,13 @@ export function useScreenplayPagination(
     });
     editor.registerPlugin(plugin);
     const measure = () => {
-      if (stopped || editor.isDestroyed || editor.view.composing) return;
+      if (
+        stopped ||
+        editor.isDestroyed ||
+        editor.view.composing ||
+        !editor.view.dom.getClientRects().length
+      )
+        return;
       measuring = true;
       const scroll = editor.view.dom.closest(".minimal-scroll");
       const scrollTop = scroll?.scrollTop;

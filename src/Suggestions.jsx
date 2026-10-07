@@ -420,12 +420,14 @@ export default function Suggestions({
           className={i === popup.index ? "selected" : ""}
           onClick={() => acceptRef.current?.(item)}
         >
-          {item.component ? (
-            <Shapes size={14} aria-label={t("Компонент")} />
-          ) : (
-            <span className="suggestion-spacer" />
+          <span className="suggestion-label">{item.text}</span>
+          {item.component && (
+            <Shapes
+              className="suggestion-icon"
+              size={14}
+              aria-label={t("Компонент")}
+            />
           )}
-          <span>{item.text}</span>
           {i === popup.index && <kbd>Ctrl + Enter</kbd>}
         </button>
       ))}

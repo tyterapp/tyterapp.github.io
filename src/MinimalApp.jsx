@@ -29,6 +29,7 @@ import {
   ListTree,
   AlignLeft,
   MessageSquare,
+  LogOut,
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
 import { exportTYT } from "./tyt-format.js";
@@ -51,6 +52,7 @@ import OutlineHistoryPreview from "./OutlineHistoryPreview.jsx";
 import TooltipLayer from "./TooltipLayer.jsx";
 import ThumbnailField from "./ThumbnailField.jsx";
 import ThumbnailPreviewLayer from "./ThumbnailPreviewLayer.jsx";
+import ImageComponentPaste from "./ImageComponentPaste.jsx";
 import {
   changeLabel,
   deleteRevisions,
@@ -262,23 +264,28 @@ function Dialog({ title, children, onClose }) {
 function DeleteComponentFolderDialog({ folder, onClose, onConfirm }) {
   const language = useLanguage();
   const [deleteComponents, setDeleteComponents] = useState(false);
+  const propsFolder = folder.kind === "props";
   return (
     <Dialog title={t("Удалить папку?")} onClose={onClose}>
       <p className="delete-document-copy">
         {t("Папка «")}
         {folder.name}
         {t(
-          "» исчезнет. Без галочки компоненты останутся в разделах «Персонажи» и «Места».",
+          propsFolder
+            ? "» исчезнет. Реквизит останется в разделе «Без папки»."
+            : "» исчезнет. Без галочки компоненты останутся в разделах «Персонажи» и «Места».",
         )}
       </p>
-      <label className="folder-delete-option">
-        <input
-          type="checkbox"
-          checked={deleteComponents}
-          onChange={(event) => setDeleteComponents(event.target.checked)}
-        />
-        <span>{t("Удалить компоненты в папке")}</span>
-      </label>
+      {!propsFolder && (
+        <label className="folder-delete-option">
+          <input
+            type="checkbox"
+            checked={deleteComponents}
+            onChange={(event) => setDeleteComponents(event.target.checked)}
+          />
+          <span>{t("Удалить компоненты в папке")}</span>
+        </label>
+      )}
       <div className="dialog-actions">
         <button className="quiet-button" onClick={onClose}>
           {t("Отмена")}
@@ -309,7 +316,7 @@ function ComponentForm({
   const [quantity, setQuantity] = useState(value.quantity || 1);
   const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
   const [folderId, setFolderId] = useState(
-    value.folderId || value.type || "character",
+    value.folderId || (prop ? "" : value.type || "character"),
   );
   const Wrapper = inline ? "div" : Dialog;
   const duplicate = components.some(
@@ -368,8 +375,9 @@ function ComponentForm({
                     : value.type || "character",
               description: description.trim(),
               thumbnail,
-              folderId:
-                folderId === "place" || folderId === "character"
+              folderId: prop
+                ? folderId || null
+                : folderId === "place" || folderId === "character"
                   ? null
                   : folderId,
             });
@@ -400,24 +408,29 @@ function ComponentForm({
               onChange={(e) => setQuantity(e.target.value)}
             />
           </label>
-        ) : (
-          <label>
-            {t("Папка")}
-            <select
-              aria-label={t("Папка")}
-              value={folderId}
-              onChange={(e) => setFolderId(e.target.value)}
-            >
-              <option value="character">{t("Персонажи")}</option>
-              <option value="place">{t("Места")}</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        ) : null}
+        <label>
+          {t("Папка")}
+          <select
+            aria-label={t("Папка")}
+            value={folderId}
+            onChange={(e) => setFolderId(e.target.value)}
+          >
+            {prop ? (
+              <option value="">{t("Без папки")}</option>
+            ) : (
+              <>
+                <option value="character">{t("Персонажи")}</option>
+                <option value="place">{t("Места")}</option>
+              </>
+            )}
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           {t("Описание ")}
           <span className="muted">{t("· необязательно")}</span>
@@ -474,7 +487,7 @@ function ComponentForm({
     </Wrapper>
   );
 }
-export default function MinimalApp() {
+export default function MinimalApp({ onLogout }) {
   const language = useLanguage();
   const { isPro: IS_PRO, historyDays } = useEdition();
   useEffect(() => {
@@ -529,7 +542,9 @@ export default function MinimalApp() {
       return initial.documents[0].id;
     }
   });
-  const current = documents.find((d) => d.id === activeId) || documents[0];
+  const [emptyDocument] = useState(newDocument);
+  const current =
+    documents.find((d) => d.id === activeId) || documents[0] || emptyDocument;
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
   const editorRef = useRef(null),
@@ -537,6 +552,7 @@ export default function MinimalApp() {
     exportRef = useRef(null),
     exportMenuRef = useRef(null),
     importRef = useRef(null);
+  const imagePasteRef = useRef(null);
   const componentHistory = useRef({
     undo: [],
     redo: [],
@@ -637,10 +653,15 @@ export default function MinimalApp() {
               if (desktop || browserPro) setSaveState("saved");
             }
           })
-          .catch(() => {
+          .catch((error) => {
             if (revision === diskRevision.current) {
               setDiskState("error");
               if (desktop || browserPro) setSaveState("error");
+              if (
+                error.message ===
+                "Папка сценариев изменена в другой вкладке. Обновите страницу."
+              )
+                setMessage(error.message);
             }
           });
       } else if (desktop || browserPro) setSaveState("error");
@@ -656,10 +677,16 @@ export default function MinimalApp() {
       return;
     }
     localRequest("documents")
-      .then(({ documents: stored, deletedIds = [] }) => {
+      .then(({ documents: stored, deletedIds = [], directoryName }) => {
         if (cancelled) return;
         const disk = stored.map(validateImport);
-        if (disk.length || deletedIds.length)
+        if (isWebPro() && directoryName) {
+          setDocuments(disk);
+          showSidebar(null);
+          setActiveId((id) =>
+            disk.some((doc) => doc.id === id) ? id : disk[0]?.id || "",
+          );
+        } else if (disk.length || deletedIds.length)
           setDocuments((list) => {
             const merged = new Map(
               (initial.hasSaved ? list : [])
@@ -749,7 +776,7 @@ export default function MinimalApp() {
     });
   }, []);
   useEffect(() => {
-    if (!filesReady) return;
+    if (!filesReady || !documents.length) return;
     const snapshot = snapshotOf(current);
     const signature = JSON.stringify(snapshot);
     const previous = historyTracked.current.get(current.id);
@@ -799,7 +826,7 @@ export default function MinimalApp() {
       snapshot,
       signature,
     });
-  }, [current, filesReady, historyDays, flushOutlineHistory]);
+  }, [current, filesReady, historyDays, flushOutlineHistory, documents.length]);
   const restoreHistory = async (entry) => {
     try {
       await flushOutlineHistory(current.id);
@@ -838,7 +865,8 @@ export default function MinimalApp() {
     }
   }, [current.id, current.title]);
   const changeView = useCallback(
-    (next) => {
+    (next, { focus = true } = {}) => {
+      if (!documents.length) return;
       if (next === "outline" && !IS_PRO) {
         setSubscriptionOpen(true);
         return;
@@ -846,10 +874,10 @@ export default function MinimalApp() {
       showSidebar(null);
       setView(next);
       setMenu(null);
-      if (next === "screenplay")
+      if (next === "screenplay" && focus)
         requestAnimationFrame(() => editorRef.current?.focus());
     },
-    [IS_PRO, showSidebar],
+    [IS_PRO, showSidebar, documents.length],
   );
   useLayoutEffect(() => {
     if (menu !== "export") {
@@ -965,7 +993,7 @@ export default function MinimalApp() {
         : null,
     })),
   };
-  const insertCardScene = (card) => {
+  const insertCardScene = (card, { blank = false } = {}) => {
     const blockId = uid();
     const textBlock = (format, text, id) => ({
       type: "paragraph",
@@ -986,19 +1014,21 @@ export default function MinimalApp() {
     });
     return {
       blockId,
-      blocks: [
-        textBlock(
-          "scene",
-          card.title?.trim() &&
-            !["Без названия", "Untitled"].includes(card.title)
-            ? card.title
-            : t("ИНТ. НОВАЯ СЦЕНА — ДЕНЬ"),
-          blockId,
-        ),
-        ...String(card.text || "")
-          .split("\n")
-          .map((line) => textBlock("action", line, uid())),
-      ],
+      blocks: blank
+        ? [textBlock("scene", "", blockId)]
+        : [
+            textBlock(
+              "scene",
+              card.title?.trim() &&
+                !["Без названия", "Untitled"].includes(card.title)
+                ? card.title
+                : t("ИНТ. НОВАЯ СЦЕНА — ДЕНЬ"),
+              blockId,
+            ),
+            ...String(card.text || "")
+              .split("\n")
+              .map((line) => textBlock("action", line, uid())),
+          ],
     };
   };
   const addOutlineCard = (columnId, source = {}) => {
@@ -1011,7 +1041,7 @@ export default function MinimalApp() {
       drama: dramaValue(source.drama),
       comments: [],
     };
-    const { blockId, blocks } = insertCardScene(card);
+    const { blockId, blocks } = insertCardScene(card, { blank: true });
     card.blockId = blockId;
     update((document) => ({
       ...document,
@@ -1058,11 +1088,11 @@ export default function MinimalApp() {
       },
       content,
     }));
-    changeView("screenplay");
+    changeView("screenplay", { focus: false });
     setSceneTarget(blockId);
   };
   const locateOutlineCard = (card) => {
-    changeView("screenplay");
+    changeView("screenplay", { focus: false });
     setSceneTarget(card.blockId);
   };
   useEffect(() => {
@@ -1239,6 +1269,19 @@ export default function MinimalApp() {
   useEffect(() => {
     const keyboard = (event) => {
       if (event.isComposing) return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        (event.code === "KeyO" || event.key.toLowerCase() === "o")
+      ) {
+        event.preventDefault();
+        if (!event.repeat && !document.querySelector("dialog[open]")) {
+          setMenu(null);
+          importRef.current?.click();
+        }
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         setMenu(null);
@@ -1280,20 +1323,16 @@ export default function MinimalApp() {
   const openLocalFolder = async () => {
     if (isWebPro()) {
       try {
+        writeStorage();
         const { documents: disk, name } = await chooseLocalDirectory();
-        if (disk.length)
-          setDocuments((list) => {
-            const merged = new Map(
-              list.map((document) => [document.id, document]),
-            );
-            for (const document of disk)
-              if (
-                !merged.has(document.id) ||
-                document.updatedAt > merged.get(document.id).updatedAt
-              )
-                merged.set(document.id, document);
-            return [...merged.values()];
-          });
+        setDocuments(disk);
+        documentsRef.current = disk;
+        showSidebar(null);
+        setMenu(null);
+        setQuery("");
+        setView("screenplay");
+        setActiveId(disk[0]?.id || "");
+        if (disk[0]) switchDocument(disk[0]);
         setMessage({
           key: "Подключена папка «{0}». Файлы TYT будут сохраняться автоматически.",
           values: [name],
@@ -1478,9 +1517,67 @@ export default function MinimalApp() {
     }
     setComponentDialog(value);
   };
+  const canCreateImageComponents = (amount, documentId) => {
+    const doc = documentsRef.current.find((item) => item.id === documentId);
+    if (!doc) return false;
+    if (!IS_PRO && doc.components.length + amount > 10) {
+      setSubscriptionOpen(true);
+      return false;
+    }
+    return true;
+  };
+  const createImageComponents = (thumbnails, documentId, baseName) => {
+    if (!canCreateImageComponents(thumbnails.length, documentId)) return;
+    const doc = documentsRef.current.find((item) => item.id === documentId);
+    const names = new Set(
+      doc.components.map((component) => component.name.toLocaleLowerCase()),
+    );
+    let number = 1;
+    const added = thumbnails.map((thumbnail) => {
+      let name;
+      do {
+        name = number === 1 ? baseName : `${baseName} ${number}`;
+        number++;
+      } while (names.has(name.toLocaleLowerCase()));
+      names.add(name.toLocaleLowerCase());
+      return {
+        id: uid(),
+        name,
+        type: "character",
+        folderId: null,
+        description: "",
+        thumbnail,
+        color: "#8a799a",
+      };
+    });
+    const next = documentsRef.current.map((document) =>
+      document.id === documentId
+        ? {
+            ...document,
+            components: [...document.components, ...added],
+            collapsedComponentFolders: (
+              document.collapsedComponentFolders || []
+            ).filter((id) => id !== "character"),
+            updatedAt: new Date().toISOString(),
+          }
+        : document,
+    );
+    documentsRef.current = next;
+    setDocuments(next);
+    showSidebar("components");
+    setComponentDialog(added.at(-1));
+  };
   const editProp = (prop) => {
     showSidebar("props");
     setPropDialog(prop);
+    const folderId = prop.folderId || "";
+    if (current.collapsedPropFolders?.includes(folderId))
+      update((document) => ({
+        ...document,
+        collapsedPropFolders: document.collapsedPropFolders.filter(
+          (id) => id !== folderId,
+        ),
+      }));
   };
   useEffect(() => {
     setAnnotations(null);
@@ -1620,6 +1717,23 @@ export default function MinimalApp() {
   const deleteComponentFolder = (deleteComponents = false) => {
     if (!folderToDelete) return;
     const folderId = folderToDelete.id;
+    if (folderToDelete.kind === "props") {
+      update((d) => ({
+        ...d,
+        propFolders: (d.propFolders || []).filter(
+          (folder) => folder.id !== folderId,
+        ),
+        collapsedPropFolders: (d.collapsedPropFolders || []).filter(
+          (id) => id !== folderId,
+        ),
+        props: d.props.map((item) =>
+          item.folderId === folderId ? { ...item, folderId: null } : item,
+        ),
+      }));
+      setPropDialog(null);
+      setFolderToDelete(null);
+      return;
+    }
     const ids = new Set(
       current.components
         .filter((component) => component.folderId === folderId)
@@ -1681,13 +1795,16 @@ export default function MinimalApp() {
     writeStorage();
     try {
       await flushOutlineHistory(current.id);
+      const document = structuredClone(
+        documentsRef.current.find((item) => item.id === current.id) || current,
+      );
       const blob = await {
         pdf: exportPDF,
         docx: exportDOCX,
         fdx: exportFDX,
         tyt: exportTYT,
-      }[format](current);
-      saveBlob(blob, current.title, format);
+      }[format](document);
+      saveBlob(blob, document.title, format);
     } catch (error) {
       console.error(error);
       setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
@@ -1714,7 +1831,14 @@ export default function MinimalApp() {
         throw new Error("Файл слишком большой.");
       const imported = await importDocument(file);
       const doc = validateImport(imported);
-      if (documentsRef.current.some((document) => document.id === doc.id))
+      const deletedIds =
+        isWebPro() && /\.tyt$/i.test(file.name)
+          ? (await localRequest("documents")).deletedIds || []
+          : [];
+      if (
+        documentsRef.current.some((document) => document.id === doc.id) ||
+        deletedIds.includes(doc.id)
+      )
         doc.id = uid();
       await importRevisions(
         doc.id,
@@ -2023,6 +2147,7 @@ export default function MinimalApp() {
           >
             <button
               aria-pressed={view === "screenplay"}
+              disabled={!documents.length}
               aria-keyshortcuts="Alt+1"
               onClick={() => changeView("screenplay")}
             >
@@ -2031,6 +2156,7 @@ export default function MinimalApp() {
             </button>
             <button
               aria-pressed={view === "outline"}
+              disabled={!documents.length}
               aria-keyshortcuts="Alt+2"
               data-tooltip={IS_PRO ? t("Карточки истории") : t("Аутлайн · Pro")}
               onClick={() => changeView("outline")}
@@ -2062,7 +2188,7 @@ export default function MinimalApp() {
           className="workspace-tools"
           aria-label={t("Инструменты редактора")}
         >
-          {view === "screenplay" && (
+          {view === "screenplay" && !!documents.length && (
             <div className="workspace-tools-primary">
               <button
                 className={`icon-button${searchOpen ? " active" : ""}`}
@@ -2114,8 +2240,7 @@ export default function MinimalApp() {
               <button
                 className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
                 aria-label={t("Комментарии")}
-                data-tooltip={t("Комментарии · Ctrl+8")}
-                aria-keyshortcuts="Control+8 Meta+8"
+                data-tooltip={t("Комментарии")}
                 aria-expanded={commentsOpen}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
@@ -2141,6 +2266,7 @@ export default function MinimalApp() {
             <button
               className={`icon-button${historyOpen ? " active" : ""}`}
               aria-label={t("История изменений")}
+              disabled={!documents.length}
               data-tooltip={t("История изменений")}
               aria-expanded={historyOpen}
               onClick={() => {
@@ -2154,7 +2280,7 @@ export default function MinimalApp() {
             <div ref={exportRef} className="export-control">
               <button
                 className={`icon-button${menu === "export" ? " active" : ""}`}
-                disabled={!!busy}
+                disabled={!!busy || !documents.length}
                 aria-label={t("Скачать сценарий")}
                 data-tooltip={
                   busy ? t("Подготовка файла…") : t("Скачать сценарий")
@@ -2168,6 +2294,7 @@ export default function MinimalApp() {
             <button
               className={`icon-button${settingsOpen ? " active" : ""}`}
               aria-label={t("Настройки документа")}
+              disabled={!documents.length}
               data-tooltip={t("Настройки документа")}
               aria-expanded={settingsOpen}
               onClick={() => showSidebar(settingsOpen ? null : "settings")}
@@ -2185,6 +2312,16 @@ export default function MinimalApp() {
             >
               <CircleHelp size={17} />
             </button>
+            {onLogout && (
+              <button
+                className="icon-button"
+                aria-label={t("Выйти из аккаунта")}
+                data-tooltip={t("Выйти из аккаунта")}
+                onClick={onLogout}
+              >
+                <LogOut size={17} />
+              </button>
+            )}
           </div>
         </nav>
         {view === "outline" &&
@@ -2223,7 +2360,43 @@ export default function MinimalApp() {
               : undefined
           }
         >
-          <main className="minimal-scroll" aria-label={t("Сценарий")}>
+          <ImageComponentPaste
+            ref={imagePasteRef}
+            containerRef={columnRef}
+            documentId={current.id}
+            enabled={
+              filesReady &&
+              !!documents.length &&
+              view === "screenplay" &&
+              !historyRevision &&
+              !tourOpen &&
+              !subscriptionOpen &&
+              !deleteTarget &&
+              !rename &&
+              !folderToDelete &&
+              !(componentDialog && !componentDialog.id) &&
+              !(propDialog && !propDialog.id)
+            }
+            canCreate={canCreateImageComponents}
+            onCreate={createImageComponents}
+            onError={setMessage}
+          />
+          {filesReady && !documents.length && (
+            <div className="local-library-empty" role="status">
+              <p>{t("В папке нет сценариев")}</p>
+              <button className="primary-button" onClick={createDocument}>
+                <Plus size={17} />
+                {t("Новый сценарий")}
+              </button>
+            </div>
+          )}
+          <main
+            className="minimal-scroll"
+            aria-label={t("Сценарий")}
+            style={
+              !documents.length && filesReady ? { display: "none" } : undefined
+            }
+          >
             <article
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}`}
               onMouseDownCapture={(event) => {
@@ -2255,6 +2428,7 @@ export default function MinimalApp() {
                 "--paper-right": `${sheet.right}px`,
                 "--block-gap": `${sheet.gap}px`,
                 "--scene-action-gap": `${sheet.sceneActionGap}px`,
+                "--action-gap": `${sheet.actionGap}px`,
                 "--sheet-line-height": sheet.lineHeight,
                 ...BLOCK_LAYOUT_STYLE,
               }}
@@ -2286,7 +2460,7 @@ export default function MinimalApp() {
                   revision={historyRevision}
                   onExit={() => setHistoryRevision(null)}
                 />
-              ) : filesReady ? (
+              ) : filesReady && documents.length ? (
                 <ScreenplayEditor
                   key={current.id}
                   ref={editorRef}
@@ -2346,6 +2520,7 @@ export default function MinimalApp() {
                   onChange={changeContent}
                   onSelection={setSelection}
                   showLineHighlight={false}
+                  spellcheck={current.settings.spellcheck}
                   showComponents={componentsOpen}
                   searchQuery={searchOpen ? searchText : ""}
                   searchFormat={searchFormat}
@@ -2367,6 +2542,9 @@ export default function MinimalApp() {
                     searchOpen
                   }
                   onCreateComponent={componentFromSelection}
+                  onPasteImages={(files) =>
+                    imagePasteRef.current?.insert(files)
+                  }
                   onEditComponent={(id) => {
                     const component = current.components.find(
                       (c) => c.id === id,
@@ -2381,7 +2559,7 @@ export default function MinimalApp() {
               )}
             </article>
           </main>
-          {!historyRevision && view === "screenplay" && (
+          {!!documents.length && !historyRevision && view === "screenplay" && (
             <FormatBar
               format={selection?.format}
               displayMode={current.metadata?.formatBarMode}
@@ -2427,6 +2605,13 @@ export default function MinimalApp() {
           <DocumentSettings
             key={current.id}
             metadata={current.metadata}
+            spellcheck={current.settings.spellcheck}
+            onSpellcheck={(spellcheck) =>
+              update((document) => ({
+                ...document,
+                settings: { ...document.settings, spellcheck },
+              }))
+            }
             documentZoom={documentZoom}
             onZoom={setDocumentZoom}
             onChange={changeMetadata}
@@ -2559,6 +2744,25 @@ export default function MinimalApp() {
             }}
             onCreate={beginProp}
             onEdit={editProp}
+            onToggleFolder={(id) =>
+              update((d) => ({
+                ...d,
+                collapsedPropFolders: (d.collapsedPropFolders || []).includes(
+                  id,
+                )
+                  ? d.collapsedPropFolders.filter((value) => value !== id)
+                  : [...(d.collapsedPropFolders || []), id],
+              }))
+            }
+            onAddFolder={(name) =>
+              update((d) => ({
+                ...d,
+                propFolders: [...(d.propFolders || []), { id: uid(), name }],
+              }))
+            }
+            onDeleteFolder={(folder) =>
+              setFolderToDelete({ ...folder, kind: "props" })
+            }
             onCloseEdit={() => setPropDialog(null)}
             onExport={async () => {
               setBusy("props-pdf");
@@ -2581,6 +2785,7 @@ export default function MinimalApp() {
                 prop
                 value={prop}
                 components={current.props}
+                folders={current.propFolders}
                 onSubmit={saveProp}
                 onDelete={deleteProp}
                 onClose={() => setPropDialog(null)}
@@ -2620,6 +2825,7 @@ export default function MinimalApp() {
                 prop
                 value={prop}
                 components={current.props}
+                folders={current.propFolders}
                 onSubmit={saveProp}
                 onDelete={(id) => {
                   deleteProp(id);
@@ -2658,6 +2864,7 @@ export default function MinimalApp() {
           prop
           value={propDialog}
           components={current.props}
+          folders={current.propFolders}
           onSubmit={saveProp}
           onDelete={deleteProp}
           onClose={() => setPropDialog(null)}

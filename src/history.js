@@ -40,6 +40,8 @@ export function snapshotOf(document) {
     comments: document.comments,
     metadata: document.metadata,
     props: document.props || [],
+    propFolders: document.propFolders || [],
+    collapsedPropFolders: document.collapsedPropFolders || [],
     settings: document.settings || {},
     outline: document.outline || { columns: [], cards: [] },
   };
@@ -53,6 +55,7 @@ export function changeLabel(before, after) {
     ["comments", "комментариев"],
     ["metadata", "настроек"],
     ["props", "реквизита"],
+    ["propFolders", "папок реквизита"],
     ["settings", "параметров"],
     ["title", "названия"],
     ["outline", "аутлайна"],

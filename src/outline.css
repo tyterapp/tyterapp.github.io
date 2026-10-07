@@ -383,6 +383,12 @@
   min-height: 210px;
   resize: vertical;
 }
+.outline-detail-body .outline-card-name {
+  min-height: 64px;
+  max-height: 320px;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
 .outline-detail-note {
   font-size: 12px;
   line-height: 1.6;

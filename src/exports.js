@@ -266,10 +266,10 @@ export async function exportDOCX(document) {
         right: Math.round(spec.right * 20),
       },
       spacing: {
-        after:
-          block.attrs?.format === "scene"
-            ? screenplayBlockLayout("scene", nextFormat).after * 15
-            : spec.after * 20,
+        after: ["scene", "action"].includes(block.attrs?.format || "action")
+          ? screenplayBlockLayout(block.attrs?.format || "action", nextFormat)
+              .after * 15
+          : spec.after * 20,
         before: 0,
         line: 240,
         lineRule: LineRuleType.EXACT,

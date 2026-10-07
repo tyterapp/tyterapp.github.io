@@ -128,6 +128,14 @@ export default function WebProApp() {
     },
     [lock],
   );
+  const logout = useCallback(() => {
+    // Ignore a verification that was already in flight when the user signed out.
+    ++requestId.current;
+    request.current?.abort();
+    setCode("");
+    setEmail("");
+    lock();
+  }, [lock]);
   useEffect(() => {
     const verify = () => {
       if (busyRef.current) return;
@@ -142,20 +150,26 @@ export default function WebProApp() {
     const visible = () => {
       if (!document.hidden) verify();
     };
+    const storage = (event) => {
+      if ((event.key === STORAGE || event.key === null) && !readToken())
+        logout();
+    };
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", verify);
+    window.addEventListener("storage", storage);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("focus", verify);
+      window.removeEventListener("storage", storage);
       ++requestId.current;
       request.current?.abort();
     };
-  }, [call, lock]);
+  }, [call, lock, logout]);
   if (gate.status === "allowed")
     return (
       <EditionContext.Provider value={true}>
-        <App />
+        <App onLogout={logout} />
       </EditionContext.Provider>
     );
   return (

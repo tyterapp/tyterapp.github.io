@@ -7,6 +7,7 @@ export const SCREENPLAY_LAYOUT = Object.freeze({
   bottom: 88,
   gap: 20,
   sceneActionGap: 10,
+  actionGap: 10,
   lineHeight: 1.25,
 });
 
@@ -41,7 +42,9 @@ export function screenplayBlockLayout(format, nextFormat) {
         after:
           format === "scene" && nextFormat === "action"
             ? SCREENPLAY_LAYOUT.sceneActionGap
-            : gap,
+            : format === "action" && nextFormat === "action"
+              ? SCREENPLAY_LAYOUT.actionGap
+              : gap,
         before: format === "scene" ? gap : 0,
       };
   }
