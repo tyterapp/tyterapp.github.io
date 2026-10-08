@@ -117,11 +117,20 @@
   :is(
     .icon-button:hover,
     .quiet-button:hover,
+    .quiet-button.active,
+    .document-trigger:hover,
+    .menu-item:hover,
+    .document-actions-popover button:hover,
+    .format-bar-button:hover,
+    .format-bar-button[aria-expanded="true"],
+    .editor-context-menu button:not(:disabled):hover,
+    .editor-context-menu button:not(:disabled):focus-visible,
     .document-row:hover,
     .export-item:hover,
     .search-result:hover,
     .history-item:hover,
     .component-row:hover,
+    .component-row.active,
     .outline-card:hover,
     .outline-card.selected,
     .comment-card.selected,
@@ -132,6 +141,12 @@
   ) {
   background: var(--hover);
   color: var(--dark-text);
+}
+:root[data-theme="dark"] .outline-column {
+  box-shadow: inset 0 0 0 1px #686471;
+}
+:root[data-theme="dark"] .outline-column.is-drop-target {
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
 }
 :root[data-theme="dark"]
   :is(
@@ -300,12 +315,38 @@
   :is(
     .workspace-tools .icon-button.active,
     .outline-tools > button:hover,
+    .search-result-card:hover,
+    .history-card:hover,
+    .doctor-finding:hover,
     .format-bar-mode-toggle button[aria-pressed="true"],
     .outline-colors button[aria-pressed="true"],
     .history-card.selected
   ) {
   background: var(--hover);
   color: var(--dark-text);
+}
+:root[data-theme="dark"] :is(.search-result-card:hover, .history-card:hover) {
+  border-color: var(--ui-accent);
+}
+:root[data-theme="dark"]
+  :is(
+    .character-dialogue-scene:hover,
+    .export-item,
+    .document-actions-popover button
+  ) {
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .history-card time,
+    .history-card span,
+    .search-result-meta,
+    .editor-context-menu small,
+    .component-item small,
+    .export-item > svg,
+    .file-extension
+  ) {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .format-bar-mode-toggle button {
   color: var(--dark-text);

@@ -450,7 +450,7 @@ test("scene menu matches the interface, works with keyboard and keeps the outlin
   await expect(menu).toHaveCSS("border-radius", "10px");
   await expect(menu.getByRole("option")).toHaveCount(6);
   const rect = await menu.boundingBox();
-  expect(rect.width).toBe(112);
+  expect(rect.width).toBe(56);
   expect(rect.x).toBeGreaterThanOrEqual(8);
   await page.screenshot({ path: info.outputPath("dark-scene-menu.png") });
   await page.keyboard.press("End");

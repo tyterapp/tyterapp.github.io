@@ -232,8 +232,9 @@ export default function ComponentsPanel({
                           ) : (
                             <Shapes
                               size={16}
+                              className="component-color-icon"
                               style={{
-                                color: component.color,
+                                "--component-color": component.color,
                               }}
                             />
                           )}

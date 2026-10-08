@@ -176,6 +176,82 @@
   background: var(--ui-accent-soft);
   color: var(--ui-text);
 }
+.scene-variant-menu .app-select-option {
+  padding-inline: 8px;
+}
+.scene-variant-menu .app-select-option > span {
+  flex: 0 0 auto;
+}
+.selection-toolbar.minimal-selection {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.selection-toolbar.minimal-selection button:hover,
+.selection-toolbar.minimal-selection button:focus-visible {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+}
+.selection-toolbar.minimal-selection button[aria-pressed="true"],
+.selection-toolbar.minimal-selection button[aria-pressed="true"]:hover {
+  background: var(--ui-accent-soft);
+  color: var(--ui-text);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+}
+.selection-toolbar.minimal-selection button[aria-pressed="true"] svg {
+  color: inherit;
+  stroke: currentColor;
+}
+:root[data-keyboard-focus] .selection-toolbar.minimal-selection button:focus {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  outline-color: var(--ui-accent);
+}
+.minimal-selection .selection-toolbar-divider {
+  background: var(--ui-border);
+}
+.component-color-icon {
+  color: var(--component-color, currentColor);
+}
+.component-arrow {
+  color: var(--ui-muted);
+}
+:root[data-theme="dark"] .component-color-icon {
+  color: oklch(
+    from var(--component-color, var(--ui-text)) max(l, 0.85) min(c, 0.12) h
+  );
+}
+:root[data-theme="dark"] .props-drawer .component-item > svg:first-child {
+  color: oklch(0.84 0.09 70);
+}
+:root[data-theme="dark"] .save-status:not(.save-error) {
+  color: var(--ui-muted);
+}
+:root[data-theme="dark"] .save-status .saving-spinner {
+  color: var(--ui-accent);
+}
+:root[data-theme="dark"] .save-status > svg {
+  opacity: 1;
+}
+:root[data-theme="dark"] .save-status.save-error {
+  color: oklch(0.8 0.13 25);
+}
+:root[data-theme="dark"] .components-toggle small,
+:root[data-theme="dark"] .outline-card-comments {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+}
+:root[data-theme="dark"] .minimal-app .screenplay-editor .outline-scene-link {
+  color: var(--ui-accent);
+}
+:root[data-theme="dark"]
+  .minimal-app
+  .screenplay-editor
+  .outline-scene-link:hover {
+  background: var(--ui-soft);
+}
+:root[data-theme="dark"] .outline-empty h1 {
+  color: var(--ui-text);
+}
 .scene-variant-select {
   display: inline-flex;
   align-items: center;

@@ -225,12 +225,16 @@ test("scene numbers and enlarged links center on the heading, including paginate
           .querySelector(".scene-number")
           .getBoundingClientRect();
         const paper = element.closest(".script-paper").getBoundingClientRect();
+        const variant = element
+          .querySelector(".scene-variant-select")
+          .getBoundingClientRect();
         const link = element.querySelector(".outline-scene-link");
         const icon = link.getBoundingClientRect();
         return {
           numberError: Math.abs((number.top + number.bottom) / 2 - titleCenter),
           left: number.left - paper.left,
-          gap: icon.left - number.right,
+          variantGap: variant.left - number.right,
+          gap: icon.left - variant.right,
           linkError: Math.abs((icon.top + icon.bottom) / 2 - titleCenter),
           position: getComputedStyle(link.parentElement).position,
           width: icon.width,
@@ -248,6 +252,7 @@ test("scene numbers and enlarged links center on the heading, including paginate
             item.position === "absolute" &&
             item.numberError < 2 * scale &&
             Math.abs(item.left - 16 * scale) < 1 &&
+            Math.abs(item.variantGap - 16 * scale) < 1 &&
             Math.abs(item.gap - 16 * scale) < 1 &&
             item.linkError < 2 * scale &&
             item.width === 34 * scale &&

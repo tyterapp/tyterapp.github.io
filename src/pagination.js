@@ -147,7 +147,12 @@ export function useScreenplayPagination(
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
     };
-    editor.on("update", schedule);
+    // Silent content replacements (scene variants, history) still change the
+    // document, but deliberately suppress the editor's public update event.
+    const changed = ({ transaction }) => {
+      if (transaction.docChanged) schedule();
+    };
+    editor.on("transaction", changed);
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width !== observer.lastWidth) {
@@ -164,7 +169,7 @@ export function useScreenplayPagination(
       stopped = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
-      editor.off("update", schedule);
+      editor.off("transaction", changed);
       if (!editor.isDestroyed) editor.unregisterPlugin(pageKey);
     };
   }, [editor, enabled, fontSize, fontFamily, documentZoom]);

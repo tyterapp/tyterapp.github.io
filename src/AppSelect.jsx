@@ -19,7 +19,7 @@ export function SelectMenu({
       const rect = anchor.getBoundingClientRect();
       const width = Math.min(
         innerWidth - 16,
-        compact ? 112 : Math.max(180, rect.width),
+        compact ? 56 : Math.max(180, rect.width),
       );
       const height = Math.min(320, options.length * 40 + 8);
       const below = innerHeight - rect.bottom - 8;
