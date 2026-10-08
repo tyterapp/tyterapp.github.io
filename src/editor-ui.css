@@ -157,10 +157,10 @@
   justify-content: flex-start;
   gap: 4px;
   position: relative;
-  flex: 0 0 52px;
-  width: 52px;
+  flex: 0 0 auto;
+  width: auto;
   height: 28px;
-  padding: 3px 12px 3px 8px;
+  padding: 3px 8px;
   border: 0;
   border-radius: 6px;
   background: var(--ui-soft);
@@ -170,6 +170,16 @@
     Arial,
     sans-serif;
   text-transform: none;
+}
+.comment-scene-variant {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--ui-soft);
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 .scene-variant-select::before {
   content: "";

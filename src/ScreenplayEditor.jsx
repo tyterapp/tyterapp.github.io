@@ -1173,7 +1173,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           scrollToText(editor.view, match.from, searchScrollFrame, fromCard);
         return matches.length;
       },
-      focusComment(id, blockId) {
+      focusComment(id, blockId, sceneId) {
         if (!editor) return false;
         let range = null;
         editor.state.doc.descendants((node, pos) => {
@@ -1195,6 +1195,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         });
         const comment = propsRef.current.comments?.find((c) => c.id === id);
         let position = range?.from ?? null;
+        if (position === null && sceneId) {
+          editor.state.doc.descendants((node, at) => {
+            if (node.attrs.blockId === blockId) position = at + 1;
+          });
+          if (position === null)
+            editor.state.doc.descendants((node, at) => {
+              if (node.attrs.blockId === sceneId) position = at + 1;
+            });
+        }
         if (position === null && Number.isInteger(comment?.anchor))
           position = Math.max(
             1,
@@ -1206,6 +1215,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           });
         if (position === null) return false;
         editor.commands.setTextSelection(position);
+        editor.view.focus();
         scrollToText(editor.view, position, searchScrollFrame);
         return !!range;
       },
@@ -1450,6 +1460,17 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       getSelection() {
         return selectionInfo(editor);
+      },
+      getCaret() {
+        return editor && captureCaret(editor.state);
+      },
+      restoreCaret(caret) {
+        if (!editor || !caret) return;
+        editor.commands.command(({ tr }) => {
+          tr.setSelection(selectionAtCaret(tr.doc, caret));
+          return true;
+        });
+        rememberCaret(editor);
       },
       getHTML() {
         return editor?.getHTML() || "";

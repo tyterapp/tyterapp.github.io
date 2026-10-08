@@ -56,7 +56,12 @@ import {
   useEditorPreferences,
   useTypewriterSound,
 } from "./editor-preferences.js";
-import { switchSceneVariant } from "./scene-variants.js";
+import {
+  switchSceneVariant,
+  sceneRange,
+  sceneLetter,
+} from "./scene-variants.js";
+import { activeSceneForBlock, commentSceneIndex } from "./comment-scenes.js";
 import { cleanCommentOptions } from "./comment-options.js";
 import ScriptDoctor from "./ScriptDoctor.jsx";
 import CharacterDialogue from "./CharacterDialogue.jsx";
@@ -603,6 +608,8 @@ export default function MinimalApp({ onLogout }) {
   const [deleting, setDeleting] = useState(false);
   const [commentQuote, setCommentQuote] = useState(null);
   const [activeComment, setActiveComment] = useState(null);
+  const commentPreview = useRef(null);
+  const pendingCommentFocus = useRef(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [searchFormat, setSearchFormat] = useState("all");
@@ -1023,6 +1030,94 @@ export default function MinimalApp({ onLogout }) {
     update(() => next);
     editorRef.current?.focusBlock(id, { highlight: false });
   };
+  const resolveCommentScene = commentSceneIndex(current);
+  const commentScenes = new Map(
+    current.comments.map((comment) => [
+      comment.id,
+      resolveCommentScene(comment),
+    ]),
+  );
+  const focusComment = (comment) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const document = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    const reference = commentSceneIndex(document)(comment);
+    const range = reference && sceneRange(document.content, reference.sceneId);
+    const original = range && sceneLetter(range.nodes[0]);
+    if (range && original !== reference.variant) {
+      if (commentPreview.current?.documentId !== current.id)
+        commentPreview.current = {
+          documentId: current.id,
+          variants: new Map(),
+          caret: editorRef.current?.getCaret(),
+        };
+      const preview = commentPreview.current;
+      if (!preview.variants.has(reference.sceneId))
+        preview.variants.set(reference.sceneId, original);
+      const next = switchSceneVariant(
+        document,
+        reference.sceneId,
+        reference.variant,
+      );
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+    pendingCommentFocus.current = {
+      documentId: current.id,
+      id: comment.id,
+      blockId: comment.blockId,
+      sceneId: reference?.sceneId,
+    };
+    setCommentQuote(null);
+    setActiveComment(comment.id);
+    // Also handle clicking the same comment twice without a variant change.
+    requestAnimationFrame(() => {
+      const pending = pendingCommentFocus.current;
+      if (!pending || pending.documentId !== current.id) return;
+      pendingCommentFocus.current = null;
+      editorRef.current?.focusComment(
+        pending.id,
+        pending.blockId,
+        pending.sceneId,
+      );
+    });
+  };
+  useEffect(() => {
+    if (!commentsOpen || pendingCommentFocus.current?.documentId !== current.id)
+      pendingCommentFocus.current = null;
+    const preview = commentPreview.current;
+    if (!preview || (commentsOpen && preview.documentId === current.id)) return;
+    commentPreview.current = null;
+    pendingCommentFocus.current = null;
+    const latest = documentsRef.current.find(
+      (doc) => doc.id === preview.documentId,
+    );
+    if (!latest) return;
+    const sameDocument = preview.documentId === current.id;
+    let next = {
+      ...latest,
+      content: sameDocument
+        ? editorRef.current?.getJSON() || latest.content
+        : latest.content,
+    };
+    for (const [sceneId, variant] of preview.variants)
+      next = switchSceneVariant(next, sceneId, variant);
+    if (sameDocument) {
+      editorRef.current?.restoreContent(next.content);
+      editorRef.current?.restoreCaret(preview.caret);
+    }
+    setDocuments((list) =>
+      list.map((doc) =>
+        doc.id === preview.documentId
+          ? { ...next, updatedAt: new Date().toISOString() }
+          : doc,
+      ),
+    );
+    setActiveComment(null);
+  }, [commentsOpen, current.id]);
   const embedLibrary = (library, selected) => {
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
@@ -1287,6 +1382,13 @@ export default function MinimalApp({ onLogout }) {
       text,
       quote: commentQuote?.text || "",
       blockId: commentQuote?.blockId || null,
+      ...activeSceneForBlock(
+        {
+          ...current,
+          content: editorRef.current?.getJSON() || current.content,
+        },
+        commentQuote?.blockId,
+      ),
       author: "Вы",
       createdAt: new Date().toISOString(),
       ...cleanCommentOptions(options),
@@ -2679,7 +2781,16 @@ export default function MinimalApp({ onLogout }) {
                     const prop = current.props.find((item) => item.id === id);
                     if (prop) editProp(prop);
                   }}
-                  comments={current.comments}
+                  comments={current.comments.filter((comment) => {
+                    const reference = commentScenes.get(comment.id);
+                    return (
+                      !reference ||
+                      sceneLetter(
+                        sceneRange(current.content, reference.sceneId)
+                          ?.nodes[0],
+                      ) === reference.variant
+                    );
+                  })}
                   activeComment={commentsOpen ? activeComment : null}
                   onPageCount={setPageCount}
                   fontSize={fontSize}
@@ -2882,11 +2993,13 @@ export default function MinimalApp({ onLogout }) {
             key={current.id}
             comments={current.comments}
             content={current.content}
+            commentScenes={commentScenes}
             quote={commentQuote}
             activeId={activeComment}
             onClose={() => {
               setCommentsOpen(false);
               setCommentQuote(null);
+              pendingCommentFocus.current = null;
             }}
             onClearQuote={() => setCommentQuote(null)}
             onAdd={addComment}
@@ -2920,10 +3033,7 @@ export default function MinimalApp({ onLogout }) {
               }));
             }}
             onFilterChange={() => setActiveComment(null)}
-            onFocus={(comment) => {
-              setActiveComment(comment.id);
-              editorRef.current?.focusComment(comment.id, comment.blockId);
-            }}
+            onFocus={focusComment}
           />
         )}
         {componentsOpen && (

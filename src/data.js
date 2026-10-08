@@ -604,6 +604,18 @@ export function validateImport(input) {
           quote: cleanText(item.quote, 5000),
           blockId: usedIds.has(item.blockId) ? item.blockId : null,
           author: cleanText(item.author, 100) || "Alex Morgan",
+          sceneId: content.some(
+            (block) =>
+              block.attrs.format === "scene" &&
+              block.attrs.blockId === item.sceneId,
+          )
+            ? item.sceneId
+            : null,
+          sceneVariant: ["A", "B", "C", "D", "E", "F"].includes(
+            item.sceneVariant,
+          )
+            ? item.sceneVariant
+            : null,
           createdAt: cleanDate(item.createdAt),
           ...cleanCommentOptions(item),
           anchor:

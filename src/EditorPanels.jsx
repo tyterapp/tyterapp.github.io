@@ -85,6 +85,7 @@ export function SearchBar({ query, onQuery, index, count, onMove, onClose }) {
 export function CommentsPanel({
   comments,
   content,
+  commentScenes,
   quote,
   activeId,
   onClose,
@@ -228,6 +229,18 @@ export function CommentsPanel({
                 })}
               </time>
             </div>
+            {commentScenes?.get(c.id) && (
+              <div
+                className="comment-scene-variant"
+                data-scene-variant={commentScenes.get(c.id).variant}
+              >
+                {t(
+                  "Сцена {0} · вариант {1}",
+                  commentScenes.get(c.id).number,
+                  commentScenes.get(c.id).variant,
+                )}
+              </div>
+            )}
             {c.quote && (
               <button
                 className="comment-quote"

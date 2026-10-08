@@ -6,6 +6,7 @@ export default {
   Тёмная: "Dark",
   "Вариант сцены {0}": "Scene {0} variant",
   "Вариант {0}": "Variant {0}",
+  "Сцена {0} · вариант {1}": "Scene {0} · variant {1}",
   "Варианты сцены": "Scene variants",
   "Встроенный компонент": "Linked component",
   "Библиотека: {0}": "Library: {0}",

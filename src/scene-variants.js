@@ -35,6 +35,13 @@ export function switchSceneVariant(document, id, letter) {
       ...(index === 0 ? { sceneVariant: letter } : {}),
     },
   }));
+  if (!exists) {
+    // A new variant inherits text and entities, but comments belong to the source.
+    for (const block of replacement)
+      for (const node of block.content || [])
+        if (node.marks)
+          node.marks = node.marks.filter((mark) => mark.type !== "comment");
+  }
   variants[letter] = structuredClone(replacement);
   return {
     ...document,

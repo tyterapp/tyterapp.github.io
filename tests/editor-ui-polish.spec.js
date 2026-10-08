@@ -464,15 +464,16 @@ test("scene menu matches the interface, works with keyboard and keeps the outlin
         .getBoundingClientRect();
     return {
       right: style.paddingRight,
+      left: style.paddingLeft,
       gap: style.gap,
       width: node.offsetWidth,
       iconGap: icon.left - rect.right,
     };
   });
   expect(geometry).toMatchObject({
-    right: "12px",
+    right: "8px",
+    left: "8px",
     gap: "4px",
-    width: 52,
     iconGap: 32,
   });
   await trigger.click();
