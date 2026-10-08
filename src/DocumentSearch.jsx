@@ -7,8 +7,10 @@ import {
   textSearchRanges,
 } from "./document-search.js";
 import { FORMATS } from "./FormatBar.jsx";
+import { sceneLetter, sceneVariantLetters } from "./scene-variants.js";
 export default function DocumentSearch({
   content,
+  sceneVariants = {},
   query,
   onQuery,
   format,
@@ -22,7 +24,9 @@ export default function DocumentSearch({
     active = useRef(null);
   const matches = useMemo(() => {
     const results = [];
+    let scene = null;
     for (const [blockIndex, block] of (content?.content || []).entries()) {
+      if (block.attrs?.format === "scene") scene = block;
       if (!matchesSearchFormat(block.attrs?.format, format)) continue;
       const text = searchBlockText(block);
       for (const range of textSearchRanges(text, query)) {
@@ -31,11 +35,19 @@ export default function DocumentSearch({
           ...range,
           blockIndex,
           format: block.attrs?.format || "action",
+          variant: scene ? sceneLetter(scene) : null,
+          variants: scene
+            ? sceneVariantLetters(
+                { sceneVariants },
+                scene.attrs.blockId,
+                sceneLetter(scene),
+              )
+            : [],
         });
       }
     }
     return results;
-  }, [content, query, format]);
+  }, [content, query, format, sceneVariants]);
   useEffect(() => {
     input.current?.focus();
   }, []);
@@ -133,6 +145,17 @@ export default function DocumentSearch({
                 {t(FORMATS.find((f) => f[0] === match.format)?.[2] || "Текст")}
                 <span>{i + 1}</span>
               </span>
+              {match.variant && (
+                <span
+                  className={`search-variant-badge${match.variants.length > 1 ? " has-variants" : ""}`}
+                  aria-label={t("Варианты сцены")}
+                >
+                  {t("Вариант {0}", match.variant)}
+                  {match.variants.length > 1
+                    ? ` · ${match.variants.join(" / ")}`
+                    : ""}
+                </span>
+              )}
               <span>
                 {start > 0 ? "…" : ""}
                 {match.text.slice(start, match.at)}

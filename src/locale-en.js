@@ -1,5 +1,74 @@
 // UI messages only. Document text and user names are never translated.
 export default {
+  "Звук печатной машинки": "Typewriter sound",
+  "Тема интерфейса": "Interface theme",
+  Светлая: "Light",
+  Тёмная: "Dark",
+  "Вариант сцены {0}": "Scene {0} variant",
+  "Вариант {0}": "Variant {0}",
+  "Варианты сцены": "Scene variants",
+  "Встроенный компонент": "Linked component",
+  "Библиотека: {0}": "Library: {0}",
+  "вариантов сцен": "scene variants",
+  "Варианты сцены: {0}": "Scene variants: {0}",
+  "Доктор сценария": "Script doctor",
+  "Закрыть доктора сценария": "Close script doctor",
+  "Заголовки, повторы и диалоги. Нажмите на замечание, чтобы перейти к тексту.":
+    "Scene headings, duplicates and dialogue. Select a finding to jump to its text.",
+  Проверка: "Check",
+  "Все замечания": "All findings",
+  Повторы: "Duplicates",
+  Диалоги: "Dialogue",
+  "Замечаний не найдено": "No issues found",
+  "Не указан тип сцены": "Missing scene type",
+  "Начните заголовок с ИНТ./ЭКС. или INT./EXT.":
+    "Start the heading with INT. or EXT.",
+  "Не указано время суток": "Missing time of day",
+  "Добавьте ДЕНЬ/НОЧЬ или DAY/NIGHT в конец заголовка.":
+    "Add DAY or NIGHT at the end of the heading.",
+  "Сцена без текста": "Empty scene",
+  "После заголовка пока нет действия или диалога.":
+    "There is no action or dialogue after the heading yet.",
+  "Возможный дубликат сцены": "Possible duplicate scene",
+  "Повтор сцены {0}": "Duplicate of scene {0}",
+  "Повтор действия": "Repeated action",
+  "Два одинаковых абзаца действия идут подряд.":
+    "Two identical action paragraphs appear in a row.",
+  "Персонаж без реплики": "Character without dialogue",
+  "После имени персонажа должна идти реплика.":
+    "Add dialogue after the character's name.",
+  "Реплика без персонажа": "Dialogue without a character",
+  "Перед репликой укажите имя в формате «Персонаж».":
+    "Add a name in Character format before the dialogue.",
+  "Реплики персонажа": "Character dialogue",
+  "Посмотреть реплики: {0}": "View dialogue: {0}",
+  "Вернуться к сценарию": "Back to screenplay",
+  "У персонажа пока нет реплик": "This character has no dialogue yet",
+  "Открыть во весь экран": "Enter full screen",
+  "Выйти из полноэкранного режима": "Exit full screen",
+  "Библиотеки компонентов": "Component libraries",
+  "Закрыть библиотеки": "Close libraries",
+  "Экспорт библиотеки компонентов": "Export component library",
+  "Импорт библиотеки компонентов": "Import component library",
+  "Встроенный компонент · {0}": "Linked component · {0}",
+  "В выбранной папке найдены библиотеки. Выберите компоненты для этого сценария.":
+    "Libraries were found in the selected folder. Choose components for this screenplay.",
+  "Загрузите библиотеку с компьютера или выберите сохранённую на этом устройстве.":
+    "Upload a library from your computer or select one saved on this device.",
+  "Загрузить библиотеку": "Upload library",
+  "Пока нет библиотек": "No libraries yet",
+  "Внедрить в сценарий": "Add to screenplay",
+  "Компоненты: добавлено {0}, обновлено {1}, совпадений пропущено {2}.":
+    "Components: {0} added, {1} updated, {2} name conflicts skipped.",
+  "Не удалось открыть локальные библиотеки.": "Could not open local libraries.",
+  "Не удалось сохранить библиотеку на устройстве.":
+    "Could not save the library on this device.",
+  "Библиотека слишком большая: максимум 50 МБ.":
+    "The library is too large: maximum 50 MB.",
+  "Не удалось прочитать библиотеку компонентов.":
+    "Could not read the component library.",
+  "Выберите библиотеку TYTL или сценарий TYT.":
+    "Choose a TYTL library or a TYT screenplay.",
   "Выберите JPG, PNG или WebP размером до 10 МБ.":
     "Choose a JPG, PNG or WebP image up to 10 MB.",
   "Вставка изображения": "Pasting an image",

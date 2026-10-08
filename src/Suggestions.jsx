@@ -42,6 +42,15 @@ function mergeSuggestions(components, words) {
     return true;
   });
 }
+function sceneWords(pairs, prefix) {
+  const key = prefix.replace(/\s/g, "").toUpperCase();
+  const index = getLanguage() === "en" ? 1 : 0;
+  return pairs
+    .filter((pair) =>
+      pair.some((text) => text.replace(/\s/g, "").startsWith(key)),
+    )
+    .map((pair) => pair[index]);
+}
 function context(editor, components) {
   if (
     !editor ||
@@ -69,15 +78,15 @@ function context(editor, components) {
   const format = selection.$from.parent.attrs.format;
   const matches = componentMatches(before, selection.from, format, components);
   if (format === "scene") {
-    const key = before.replace(/\s/g, "").toUpperCase();
-    const englishHeading =
-      /^(?:INT|EXT)[.\s/]/i.test(before) ||
-      (!/^[А-ЯЁ]/i.test(before) && getLanguage() === "en");
-    const headings = (
-      englishHeading
-        ? ["INT.", "EXT.", "INT. / EXT.", "EXT. / INT."]
-        : ["ИНТ.", "ЭКС.", "ИНТ. / ЭКС.", "ЭКС. / ИНТ."]
-    ).filter((text) => text.replace(/\s/g, "").startsWith(key));
+    const headings = sceneWords(
+      [
+        ["ИНТ.", "INT."],
+        ["ЭКС.", "EXT."],
+        ["ИНТ. / ЭКС.", "INT. / EXT."],
+        ["ЭКС. / ИНТ.", "EXT. / INT."],
+      ],
+      before,
+    );
     if (headings.length)
       return {
         prefix: before,
@@ -96,11 +105,15 @@ function context(editor, components) {
     const ending = before.match(/^.+\s[—–-]\s*([А-ЯЁA-Z]*)$/iu);
     if (ending) {
       const prefix = ending[1];
-      const endings = (
-        englishHeading
-          ? ["DAY", "NIGHT", "EVENING", "MORNING"]
-          : ["ДЕНЬ", "НОЧЬ", "ВЕЧЕР", "УТРО"]
-      ).filter((text) => text.startsWith(prefix.toUpperCase()));
+      const endings = sceneWords(
+        [
+          ["ДЕНЬ", "DAY"],
+          ["НОЧЬ", "NIGHT"],
+          ["ВЕЧЕР", "EVENING"],
+          ["УТРО", "MORNING"],
+        ],
+        prefix,
+      );
       if (endings.length)
         return {
           prefix,

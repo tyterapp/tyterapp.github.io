@@ -6,6 +6,8 @@ export default function DocumentSettings({
   metadata = {},
   spellcheck = false,
   onSpellcheck,
+  preferences = { theme: "light", typewriter: false },
+  onPreferences,
   documentZoom,
   onChange,
   onZoom,
@@ -57,6 +59,28 @@ export default function DocumentSettings({
         </button>
       </div>
       <div className="settings-scroll">
+        <section>
+          <label className="spelling-setting">
+            <input
+              type="checkbox"
+              checked={preferences.typewriter}
+              onChange={(event) =>
+                onPreferences({ typewriter: event.target.checked })
+              }
+            />
+            {t("Звук печатной машинки")}
+          </label>
+          <label className="theme-setting">
+            {t("Тема интерфейса")}
+            <select
+              value={preferences.theme}
+              onChange={(event) => onPreferences({ theme: event.target.value })}
+            >
+              <option value="light">{t("Светлая")}</option>
+              <option value="dark">{t("Тёмная")}</option>
+            </select>
+          </label>
+        </section>
         <section>
           <label className="spelling-setting">
             <input

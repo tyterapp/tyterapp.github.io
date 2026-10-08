@@ -1,7 +1,7 @@
 export const SCREENPLAY_LAYOUT = Object.freeze({
-  width: 856,
+  width: 936,
   height: 1056,
-  left: 104,
+  left: 184,
   right: 96,
   top: 88,
   bottom: 88,

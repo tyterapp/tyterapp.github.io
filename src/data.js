@@ -1,5 +1,6 @@
 import { dramaValue, clampDocumentZoom } from "./document-layout.js";
 import { documentFont } from "./document-fonts.js";
+import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
 
 const FORMATS = new Set([
   "scene",
@@ -56,6 +57,7 @@ export function createProject(title = "Untitled") {
     collapsedPropFolders: [],
     comments: [],
     outline: { columns: [], cards: [] },
+    sceneVariants: {},
     settings: { ...DEFAULT_SETTINGS },
     metadata: {
       fontSize: 12,
@@ -415,6 +417,11 @@ export function validateImport(input) {
             ? node.attrs.format
             : "action",
           blockId,
+          sceneVariant:
+            node.attrs?.format === "scene" &&
+            SCENE_VARIANTS.includes(node.attrs.sceneVariant)
+              ? node.attrs.sceneVariant
+              : null,
         },
         ...(children.length ? { content: children } : {}),
       };
@@ -441,6 +448,16 @@ export function validateImport(input) {
         name: cleanText(item.name, 100).trim(),
       })),
   );
+  const sceneVariants = cleanSceneVariants(
+    source.sceneVariants,
+    content,
+    (blocks) =>
+      validateImport({ content: { type: "doc", content: blocks } }).content
+        .content,
+  );
+  for (const versions of Object.values(sceneVariants))
+    for (const blocks of Object.values(versions))
+      for (const block of blocks) usedIds.add(block.attrs.blockId);
   return {
     id: cleanId(source.id),
     title: cleanText(source.title, 160).trim() || "Untitled",
@@ -451,6 +468,7 @@ export function validateImport(input) {
       ? source.cover
       : null,
     content: { type: "doc", content },
+    sceneVariants,
     metadata: {
       fontFamily: documentFont(source.metadata?.fontFamily).id,
       fontSize: Number.isFinite(Number(source.metadata?.fontSize))
@@ -533,6 +551,17 @@ export function validateImport(input) {
           description: cleanText(item.description, 5000),
           color: cleanColor(item.color),
           thumbnail: cleanThumbnail(item.thumbnail),
+          ...(item.librarySource &&
+          typeof item.librarySource.libraryId === "string" &&
+          typeof item.librarySource.componentId === "string"
+            ? {
+                librarySource: {
+                  libraryId: cleanId(item.librarySource.libraryId),
+                  componentId: cleanId(item.librarySource.componentId),
+                  name: cleanText(item.librarySource.name, 160),
+                },
+              }
+            : {}),
           folderId:
             typeof item.folderId === "string" &&
             list(source.componentFolders).some(

@@ -2,6 +2,9 @@ import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
+  Download,
+  LibraryBig,
+  Link2,
   FolderPlus,
   Plus,
   Search,
@@ -22,6 +25,8 @@ export default function ComponentsPanel({
   onAddFolder,
   onDeleteFolder,
   renderEditor,
+  onExportLibrary,
+  onImportLibrary,
 }) {
   const language = useLanguage();
   const { isPro: IS_PRO } = useEdition();
@@ -56,6 +61,23 @@ export default function ComponentsPanel({
       <div className="drawer-heading">
         <h2>{t("Компоненты")}</h2>
         <div className="drawer-tools">
+          <button
+            className="icon-button"
+            aria-label={t("Экспорт библиотеки компонентов")}
+            data-tooltip={t("Экспорт библиотеки компонентов")}
+            disabled={!document.components.length}
+            onClick={onExportLibrary}
+          >
+            <Download size={17} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label={t("Библиотеки компонентов")}
+            data-tooltip={t("Библиотеки компонентов")}
+            onClick={onImportLibrary}
+          >
+            <LibraryBig size={17} />
+          </button>
           <button
             className="icon-button"
             aria-label={t("Создать папку компонентов")}
@@ -221,6 +243,17 @@ export default function ComponentsPanel({
                               <small>{component.description}</small>
                             )}
                           </span>
+                          {component.librarySource && (
+                            <Link2
+                              className="component-library-link"
+                              size={14}
+                              aria-label={t("Встроенный компонент")}
+                              data-tooltip={t(
+                                "Библиотека: {0}",
+                                component.librarySource.name,
+                              )}
+                            />
+                          )}
                           <ChevronDown
                             size={16}
                             className="component-arrow"

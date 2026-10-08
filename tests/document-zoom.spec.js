@@ -150,7 +150,7 @@ test("document zoom scales sheet and text together without repagination, UI grow
         .locator(".script-paper")
         .evaluate((node) => node.getBoundingClientRect().width),
     )
-    .toBeCloseTo(1712, 0);
+    .toBeCloseTo(1872, 0);
   await expect
     .poll(() => page.locator(".page-guide").count())
     .toBe(original.pages);
@@ -214,6 +214,6 @@ test("document zoom survives TYT import and keeps the exported PDF at its origin
   expect(result.zoom).toBe(200);
   expect(result.fontSize).toBe(12);
   expect(result.enlarged).toEqual(result.original);
-  expect(result.enlarged.width).toBe(642);
+  expect(result.enlarged.width).toBe(702);
   expect(result.enlarged.height).toBe(792);
 });

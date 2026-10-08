@@ -34,6 +34,7 @@ export function snapshotOf(document) {
   return {
     title: document.title,
     content: document.content,
+    sceneVariants: document.sceneVariants || {},
     components: document.components,
     componentFolders: document.componentFolders || [],
     collapsedComponentFolders: document.collapsedComponentFolders || [],
@@ -50,6 +51,7 @@ export function snapshotOf(document) {
 export function changeLabel(before, after) {
   const names = [
     ["content", "текста"],
+    ["sceneVariants", "вариантов сцен"],
     ["components", "компонентов"],
     ["componentFolders", "папок"],
     ["comments", "комментариев"],

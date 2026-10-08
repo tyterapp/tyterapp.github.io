@@ -149,10 +149,15 @@ export default function OutlineDramaChart({
                   x2={point.x}
                   y2={point.y}
                 >
-                  <stop offset="0%" stopColor={from.card.color || "#33313b"} />
+                  <stop
+                    offset="0%"
+                    stopColor={from.card.color || "#33313b"}
+                    style={{ "--drama-color": from.card.color || "#33313b" }}
+                  />
                   <stop
                     offset="100%"
                     stopColor={point.card.color || "#33313b"}
+                    style={{ "--drama-color": point.card.color || "#33313b" }}
                   />
                 </linearGradient>
               );
@@ -162,6 +167,7 @@ export default function OutlineDramaChart({
             <g key={column.id}>
               <rect
                 x={start}
+                className="drama-act-band"
                 y={top}
                 width={end - start}
                 height={bottom - top}

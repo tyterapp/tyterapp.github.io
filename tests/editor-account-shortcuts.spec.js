@@ -296,7 +296,6 @@ test("sign out is below Help, clears the session across tabs, and retains the la
   await page.getByLabel("Ключ доступа").fill(login.code);
   await page.getByRole("button", { name: "Открыть Pro", exact: true }).click();
   await expect(page.locator(".screenplay-editor")).toBeFocused();
-  const other = await context.newPage();
   await expect
     .poll(() =>
       page.evaluate(async () => {
@@ -305,6 +304,7 @@ test("sign out is below Help, clears the session across tabs, and retains the la
       }),
     )
     .toBeGreaterThan(0);
+  const other = await context.newPage();
   await other.goto("/pro");
   await expect(other.locator(".screenplay-editor")).toBeVisible();
   await page.bringToFront();

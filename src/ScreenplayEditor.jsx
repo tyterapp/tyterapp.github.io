@@ -19,6 +19,7 @@ import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
+import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import {
   captureCaret,
   selectionAtCaret,
@@ -246,6 +247,20 @@ const ScreenplayParagraph = Node.create({
           "data-block-id": attributes.blockId,
         }),
       },
+      sceneVariant: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-scene-variant"),
+        renderHTML: (attributes) =>
+          attributes.format === "scene"
+            ? {
+                "data-scene-variant": SCENE_VARIANTS.includes(
+                  attributes.sceneVariant,
+                )
+                  ? attributes.sceneVariant
+                  : "A",
+              }
+            : {},
+      },
     };
   },
   parseHTML() {
@@ -375,6 +390,10 @@ const ScreenplayBehavior = Extension.create({
             tr.setNodeMarkup(block.pos, undefined, {
               ...block.node.attrs,
               format,
+              sceneVariant:
+                format === "scene" && block.node.attrs.format === "scene"
+                  ? block.node.attrs.sceneVariant
+                  : null,
             });
           return true;
         },
@@ -467,6 +486,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onEditAnnotations,
     outlineCards = [],
     onEditOutlineCard,
+    onSceneVariant,
+    onCharacterDialogues,
     props = [],
     activeProp = null,
     selectionToolbarDisabled = false,
@@ -522,6 +543,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     components,
     outlineCards,
     onEditOutlineCard,
+    onSceneVariant,
+    onCharacterDialogues,
     props,
     activeProp,
     onEditProp,
@@ -721,6 +744,27 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       label.setAttribute("data-number", String(number));
                       label.setAttribute("aria-hidden", "true");
                       gutter.append(label);
+                      const select = document.createElement("select");
+                      select.className = "scene-variant-select";
+                      select.contentEditable = "false";
+                      select.setAttribute(
+                        "aria-label",
+                        t("Вариант сцены {0}", number),
+                      );
+                      for (const letter of SCENE_VARIANTS) {
+                        const option = document.createElement("option");
+                        option.value = letter;
+                        option.textContent = letter;
+                        select.append(option);
+                      }
+                      select.value = sceneLetter(node);
+                      select.addEventListener("change", () =>
+                        propsRef.current.onSceneVariant?.(
+                          node.attrs.blockId,
+                          select.value,
+                        ),
+                      );
+                      gutter.append(select);
                       if (!card) return gutter;
                       const button = document.createElement("button");
                       button.type = "button";
@@ -747,13 +791,48 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       return gutter;
                     },
                     {
-                      key: `scene-${node.attrs.blockId}-${number}-${card?.id || ""}-${card?.title || ""}-${language}`,
+                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${card?.id || ""}-${card?.title || ""}-${language}`,
                       side: -1,
                       stopEvent: () => true,
                     },
                   ),
                 );
             }
+            if (
+              minimal &&
+              node.attrs.format === "character" &&
+              node.textContent.trim()
+            )
+              decorations.push(
+                Decoration.widget(
+                  pos + 1,
+                  () => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.contentEditable = "false";
+                    button.className = "character-dialogue-link";
+                    button.setAttribute(
+                      "aria-label",
+                      t("Посмотреть реплики: {0}", node.textContent),
+                    );
+                    button.setAttribute("data-tooltip", t("Реплики персонажа"));
+                    button.innerHTML =
+                      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5z"/></svg>';
+                    button.addEventListener("mousedown", (event) =>
+                      event.preventDefault(),
+                    );
+                    button.addEventListener("click", () =>
+                      propsRef.current.onCharacterDialogues?.(node.textContent),
+                    );
+                    return button;
+                  },
+                  {
+                    key: `character-dialogue-${node.attrs.blockId}-${node.textContent}-${language}`,
+                    side: -1,
+                    stopEvent: () => true,
+                  },
+                ),
+              );
             if (propsRef.current.showLineHighlight && current?.pos === pos)
               attrs.class = "is-current-block";
             if (minimal && documentEmpty && pos === 0)

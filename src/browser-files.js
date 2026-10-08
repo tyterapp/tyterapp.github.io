@@ -61,6 +61,30 @@ async function connectedDirectory() {
     return null;
   return directory;
 }
+export async function directoryComponentLibraries() {
+  const folder = await connectedDirectory();
+  if (!folder) return [];
+  const { readComponentLibrary } = await import("./component-library.js");
+  const libraries = [];
+  for await (const handle of folder.values()) {
+    if (
+      handle.kind !== "file" ||
+      !/\.tytl$/i.test(handle.name) ||
+      libraries.length >= 100
+    )
+      continue;
+    try {
+      const file = await handle.getFile();
+      if (file.size <= 50 * 1024 * 1024)
+        libraries.push(readComponentLibrary(await file.text()));
+    } catch {
+      /* A damaged library must not prevent opening the screenplay folder. */
+    }
+  }
+  return [
+    ...new Map(libraries.map((library) => [library.id, library])).values(),
+  ];
+}
 async function fileDocumentId(handle) {
   let file;
   try {

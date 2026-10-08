@@ -191,7 +191,9 @@ test("new outline cards link one empty scene and their titles can be resized ver
     .click();
   const scenes = page.locator('.screenplay-editor p[data-format="scene"]');
   await expect(scenes).toHaveCount(2);
-  await expect(scenes.last()).toHaveText("");
+  await expect(
+    scenes.last().locator("br.ProseMirror-trailingBreak"),
+  ).toHaveCount(1);
   await expect(page.locator(".screenplay-editor p")).toHaveCount(3);
   await expect(page.locator(".screenplay-editor")).not.toContainText(
     "Это текст только для карточки.",

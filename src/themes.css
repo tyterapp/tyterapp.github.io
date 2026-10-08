@@ -1,0 +1,352 @@
+/* The preview palette is separate from the exported screenplay colours. */
+:root[data-theme="dark"] .outline-drama-scroll .drama-act-band {
+  fill: var(--dark-sheet);
+}
+:root[data-theme="dark"] .outline-drama-scroll .drama-act-band[fill="#f4f2f8"] {
+  fill: var(--dark-surface);
+}
+:root[data-theme="dark"] .outline-drama-scroll line:not(.drama-segment) {
+  stroke: var(--line);
+}
+:root[data-theme="dark"] .outline-drama-scroll stop {
+  stop-color: oklch(from var(--drama-color) max(l, 0.85) min(c, 0.12) h);
+}
+:root[data-theme="dark"] .outline-drama-scroll .drama-dot {
+  stroke: oklch(from var(--drama-color) max(l, 0.85) min(c, 0.12) h);
+  fill: var(--dark-sheet);
+}
+:root[data-theme="dark"] .outline-drama-scroll .is-selected .drama-dot {
+  fill: oklch(from var(--drama-color) max(l, 0.85) min(c, 0.12) h);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --muted: #a5a0ad;
+  --line: #38343f;
+  --hover: #36313e;
+  --dark-canvas: #1b1920;
+  --dark-surface: #24212b;
+  --dark-sheet: #2b2732;
+  --dark-text: #e2dce8;
+  --scrollbar-thumb: #57505e;
+}
+:root[data-theme="dark"] body {
+  background: var(--dark-canvas);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .minimal-app,
+    .minimal-header,
+    .minimal-scroll,
+    .workspace-tools,
+    .minimal-footer,
+    .outline-workspace,
+    .outline-board,
+    .character-dialogue-view,
+    .web-pro-gate
+  ) {
+  background: var(--dark-canvas);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .script-paper,
+    .outline-card,
+    .doctor-finding,
+    .character-dialogue-card,
+    .minimal-dialog,
+    .minimal-popover,
+    .word-suggestions,
+    .word-suggestions-popup,
+    .editor-context-menu,
+    .selection-toolbar,
+    .thumbnail-preview,
+    .web-pro-card
+  ) {
+  background: var(--dark-sheet);
+  color: var(--dark-text);
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .minimal-app .screenplay-editor {
+  color: var(--dark-text);
+  caret-color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .components-drawer,
+    .props-drawer,
+    .annotations-drawer,
+    .comments-drawer,
+    .statistics-drawer,
+    .settings-drawer,
+    .history-drawer,
+    .search-drawer,
+    .doctor-drawer,
+    .outline-card-editor,
+    .outline-column,
+    .outline-drama-panel,
+    .library-list
+  ) {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-color: var(--line);
+}
+:root[data-theme="dark"]
+  :is(.minimal-app, .minimal-dialog, .web-pro-gate)
+  :is(input:not([type="checkbox"]):not([type="range"]), textarea, select) {
+  background: var(--dark-canvas);
+  color: var(--dark-text);
+  border-color: #494151;
+}
+:root[data-theme="dark"]
+  :is(
+    .document-trigger,
+    .icon-button,
+    .quiet-button,
+    .format-bar-button,
+    .drawer-heading h2,
+    .settings-drawer h3,
+    .component-title,
+    .comment-card,
+    .search-result,
+    .history-item
+  ) {
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .icon-button:hover,
+    .quiet-button:hover,
+    .document-row:hover,
+    .export-item:hover,
+    .search-result:hover,
+    .history-item:hover,
+    .component-row:hover,
+    .outline-card:hover,
+    .outline-card.selected,
+    .comment-card.selected,
+    .search-result.active,
+    .comment-tabs button.active,
+    .history-tabs button.active,
+    .word-suggestion.selected
+  ) {
+  background: var(--hover);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .language-switch,
+    .editor-view-switch,
+    .screenplay-format-bar,
+    .focus-mode-toggle,
+    .focus-format-hint,
+    .outline-drama-chart,
+    .component-editor-inline,
+    .prop-editor-inline
+  ) {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .language-switch button.active,
+    .editor-view-switch button.active,
+    .format-bar-button[aria-pressed="true"],
+    .language-switch button[aria-pressed="true"],
+    .editor-view-switch button[aria-pressed="true"]
+  ) {
+  background: var(--hover);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .settings-hint,
+    .doctor-finding span,
+    .thumbnail-field,
+    .sidebar-empty,
+    .search-result small,
+    .component-description,
+    .dialog-heading .icon-button
+  ) {
+  color: var(--muted);
+}
+:root[data-theme="dark"] :is(.component-mark, [data-component-id]) {
+  color: #c5a5ef;
+}
+:root[data-theme="dark"] :is(.prop-mark, [data-prop-id]) {
+  color: #efbb79;
+}
+:root[data-theme="dark"] .comment-open {
+  background: #5c4b2d;
+  color: inherit;
+}
+:root[data-theme="dark"] .comment-open-selected {
+  background: #755c30;
+  color: inherit;
+}
+:root[data-theme="dark"] .search-variant-badge.has-variants {
+  background: #463654;
+  color: #dec5fb;
+}
+:root[data-theme="dark"] .focus-format-hint .current {
+  color: #d9c5ec;
+}
+:root[data-theme="dark"] .search-match {
+  background: #605036;
+  color: inherit;
+}
+:root[data-theme="dark"]
+  :is(
+    .document-view-toggle,
+    .component-editor,
+    .comment-card,
+    .comment-quote,
+    .outline-drama-scroll,
+    .help-tabs,
+    .comment-filters,
+    .app-message
+  ) {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-color: var(--line);
+}
+:root[data-theme="dark"]
+  :is(
+    .document-view-toggle button[aria-pressed="true"],
+    .comment-card.active,
+    .help-tabs button[aria-selected="true"],
+    .comment-filters button[aria-pressed="true"]
+  ) {
+  background: var(--hover);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .view-mode-switch,
+    .outline-layout,
+    .outline-main,
+    .outline-tools,
+    .outline-workspace
+  ) {
+  background: var(--dark-canvas);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .component-drawer,
+    .outline-card-drawer,
+    .drama-chart-panel,
+    .view-mode-switch,
+    .comment-item,
+    .search-result-card,
+    .component-form,
+    .prop-form,
+    .annotation-card
+  ) {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-color: var(--line);
+}
+:root[data-theme="dark"]
+  :is(
+    .view-mode-switch button[aria-pressed="true"],
+    .search-result-card.active,
+    .word-suggestions button.selected,
+    .word-suggestions button:hover
+  ) {
+  background: var(--hover);
+  color: var(--dark-text);
+}
+@media print {
+  :root[data-theme="dark"] .script-paper,
+  :root[data-theme="dark"] .minimal-app .screenplay-editor {
+    background: #fff;
+    color: #000;
+  }
+}
+:root[data-theme="dark"]
+  :is(
+    .language-switch button,
+    .document-view-toggle button,
+    .outline-card-text,
+    .menu-item,
+    .document-item,
+    .help-tabs button,
+    .outline-column-heading h3,
+    .outline-card-drawer label,
+    .outline-colors legend,
+    .metadata-fields label
+  ) {
+  color: var(--dark-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .outline-tools > button,
+    .outline-search,
+    .outline-colors > div,
+    .outline-card-drama,
+    .poster-upload,
+    .format-bar-mode-toggle,
+    .history-card,
+    .sidebar-search,
+    .component-item.active
+  ) {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-color: var(--line);
+  box-shadow: none;
+}
+:root[data-theme="dark"]
+  :is(
+    .workspace-tools .icon-button.active,
+    .outline-tools > button:hover,
+    .format-bar-mode-toggle button[aria-pressed="true"],
+    .outline-colors button[aria-pressed="true"],
+    .history-card.selected
+  ) {
+  background: var(--hover);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"] .format-bar-mode-toggle button {
+  color: var(--dark-text);
+}
+:root[data-theme="dark"] .outline-card-title {
+  color: var(--dark-text);
+  color: oklch(
+    from var(--card-color, var(--dark-text)) max(l, 0.85) min(c, 0.12) h
+  );
+}
+:root[data-theme="dark"]
+  .minimal-app
+  .screenplay-editor-shell
+  .screenplay-editor
+  .script-entity {
+  color: oklch(0.82 0.1 286);
+}
+:root[data-theme="dark"]
+  .minimal-app
+  .screenplay-editor-shell
+  .screenplay-editor
+  .script-prop {
+  color: oklch(0.84 0.09 70);
+}
+:root[data-theme="dark"]
+  .minimal-app
+  .screenplay-editor-shell
+  .screenplay-editor
+  .script-search-result {
+  background: oklch(0.38 0.06 80);
+  color: var(--dark-text);
+}
+:root[data-theme="dark"] :is(.brand-mark, .web-pro-logo img, .format-bar-icon) {
+  filter: brightness(0) invert(0.88);
+}
+@media print {
+  :root[data-theme="dark"]
+    .minimal-app
+    .screenplay-editor-shell
+    .screenplay-editor
+    :is(.script-entity, .script-prop) {
+    color: inherit;
+  }
+}

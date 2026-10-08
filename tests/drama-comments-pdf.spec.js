@@ -400,8 +400,12 @@ test("PDF uses TYT sheet dimensions, margins, paragraph spacing and default Cour
           const text = walker.nextNode();
           range.selectNodeContents(text);
           const rect = range.getBoundingClientRect();
+          const content = el.cloneNode(true);
+          content
+            .querySelectorAll(".ProseMirror-widget")
+            .forEach((widget) => widget.remove());
           return {
-            text: el.textContent,
+            text: content.textContent,
             x: rect.left - paper.left,
             right: rect.right - paper.left,
             top: el.getBoundingClientRect().top - paper.top,
@@ -409,7 +413,7 @@ test("PDF uses TYT sheet dimensions, margins, paragraph spacing and default Cour
         }),
       };
     });
-  expect(positions.width).toBe(856);
+  expect(positions.width).toBe(936);
   const result = await page.evaluate(async (project) => {
     const { exportPDF } = await import("/src/exports.js");
     const { exportTYT, readTYT } = await import("/src/tyt-format.js");
@@ -493,10 +497,10 @@ test("PDF uses TYT sheet dimensions, margins, paragraph spacing and default Cour
     );
     return { regular, larger };
   }, project);
-  expect(result.regular.width).toBe(642);
+  expect(result.regular.width).toBe(702);
   expect(result.regular.height).toBe(792);
   expect(result.regular.pages).toBeGreaterThan(2);
-  expect(result.larger.width).toBe(642);
+  expect(result.larger.width).toBe(702);
   expect(result.larger.height).toBe(1188);
   expect(result.larger.data[0].fontHeight).toBeCloseTo(18, 0);
   const { writeFile } = await import("node:fs/promises");
@@ -507,8 +511,8 @@ test("PDF uses TYT sheet dimensions, margins, paragraph spacing and default Cour
         Buffer.from(value.previews[i].split(",")[1], "base64"),
       );
     for (const page of value.pageGeometry) {
-      expect(page.left).toBeGreaterThanOrEqual(77.9);
-      expect(page.right).toBeLessThanOrEqual(570.1);
+      expect(page.left).toBeGreaterThanOrEqual(137.9);
+      expect(page.right).toBeLessThanOrEqual(630.1);
       expect(page.top).toBeGreaterThanOrEqual(name === "regular" ? 66 : 99);
       expect(page.bottom).toBeLessThanOrEqual(name === "regular" ? 726 : 1089);
     }
@@ -559,12 +563,14 @@ test("scene numbers grow with their digits and keep a 16px gap to their outline 
         const number = el.querySelector(".scene-number");
         const rect = number.getBoundingClientRect();
         const icon = el.querySelector("button").getBoundingClientRect();
+        const variant = el.querySelector("select").getBoundingClientRect();
         const paper = el.closest(".script-paper").getBoundingClientRect();
         return {
           value: number.dataset.number,
           width: rect.width,
           left: rect.left - paper.left,
-          gap: icon.left - rect.right,
+          gap: variant.left - rect.right,
+          cardGap: icon.left - variant.right,
           iconWidth: icon.width,
         };
       }),
@@ -575,6 +581,7 @@ test("scene numbers grow with their digits and keep a 16px gap to their outline 
   for (const item of metrics) {
     expect(item.left).toBe(16);
     expect(item.gap).toBe(16);
+    expect(item.cardGap).toBe(16);
     expect(item.iconWidth).toBe(34);
   }
 });

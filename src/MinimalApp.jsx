@@ -30,10 +30,16 @@ import {
   AlignLeft,
   MessageSquare,
   LogOut,
+  Stethoscope,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
 import { exportTYT } from "./tyt-format.js";
-import { chooseLocalDirectory } from "./browser-files.js";
+import {
+  chooseLocalDirectory,
+  directoryComponentLibraries,
+} from "./browser-files.js";
 import PropsPanel from "./PropsPanel.jsx";
 import AnnotationsPanel from "./AnnotationsPanel.jsx";
 import { documentFont } from "./document-fonts.js";
@@ -45,7 +51,19 @@ import { IS_PRO as BUILD_IS_PRO, useEdition } from "./edition.js";
 import { importDocument } from "./imports.js";
 import StatisticsPanel from "./StatisticsPanel.jsx";
 import ComponentsPanel from "./ComponentsPanel.jsx";
-import FormatBar from "./FormatBar.jsx";
+import FormatBar, { FORMATS } from "./FormatBar.jsx";
+import {
+  useEditorPreferences,
+  useTypewriterSound,
+} from "./editor-preferences.js";
+import { switchSceneVariant } from "./scene-variants.js";
+import ScriptDoctor from "./ScriptDoctor.jsx";
+import CharacterDialogue from "./CharacterDialogue.jsx";
+import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
+import {
+  exportComponentLibrary,
+  mergeComponentLibrary,
+} from "./component-library.js";
 import HistoryPanel from "./HistoryPanel.jsx";
 import HistoryPreview from "./HistoryPreview.jsx";
 import OutlineHistoryPreview from "./OutlineHistoryPreview.jsx";
@@ -490,6 +508,7 @@ function ComponentForm({
 export default function MinimalApp({ onLogout }) {
   const language = useLanguage();
   const { isPro: IS_PRO, historyDays } = useEdition();
+  const [preferences, setPreferences] = useEditorPreferences();
   useEffect(() => {
     const keyboard = (event) => {
       if (event.key === "Tab" && !event.ctrlKey && !event.metaKey)
@@ -591,7 +610,17 @@ export default function MinimalApp({ onLogout }) {
   const searchCardRequest = useRef(0);
   const handledSearchCardRequest = useRef(0);
   const [searchCount, setSearchCount] = useState(0);
+  const [doctorOpen, setDoctorOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [characterView, setCharacterView] = useState(null);
+  const [libraryDialog, setLibraryDialog] = useState(null);
+  const checkedFolderLibraries = useRef(false);
   const showSidebar = useCallback((kind) => {
+    setDoctorOpen(kind === "doctor");
+    if (kind) {
+      setFocusMode(false);
+      setCharacterView(null);
+    }
     setOutlineCard(null);
     if (kind !== "annotations") setAnnotations(null);
     setSearchOpen(kind === "search");
@@ -873,6 +902,8 @@ export default function MinimalApp({ onLogout }) {
       }
       showSidebar(null);
       setView(next);
+      setFocusMode(false);
+      setCharacterView(null);
       setMenu(null);
       if (next === "screenplay" && focus)
         requestAnimationFrame(() => editorRef.current?.focus());
@@ -924,7 +955,9 @@ export default function MinimalApp({ onLogout }) {
       if (
         (e.ctrlKey || e.metaKey) &&
         (e.code === "KeyF" || e.key.toLowerCase() === "f") &&
-        !window.document.querySelector("dialog[open]")
+        !window.document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        )
       ) {
         e.preventDefault();
         if (view === "outline")
@@ -976,6 +1009,42 @@ export default function MinimalApp({ onLogout }) {
       })),
     [update],
   );
+  const changeSceneVariant = (id, letter) => {
+    const content = editorRef.current?.getJSON();
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const next = switchSceneVariant(
+      { ...latest, content: content || latest.content },
+      id,
+      letter,
+    );
+    editorRef.current?.restoreContent(next.content);
+    update(() => next);
+    setSceneTarget(id);
+  };
+  const embedLibrary = (library, selected) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const merged = mergeComponentLibrary(latest, library, selected);
+    if (!IS_PRO && merged.document.components.length > 10) {
+      setSubscriptionOpen(true);
+      return false;
+    }
+    for (const component of merged.document.components) {
+      const previous = latest.components.find(
+        (item) => item.id === component.id,
+      );
+      if (previous && previous.name !== component.name)
+        editorRef.current?.renameEntity(component.id, component.name);
+    }
+    merged.document.content = editorRef.current?.getJSON() || latest.content;
+    update(() => merged.document);
+    setMessage({
+      key: "Компоненты: добавлено {0}, обновлено {1}, совпадений пропущено {2}.",
+      values: [merged.added, merged.updated, merged.skipped],
+    });
+    return true;
+  };
   const outline = current.outline || {
     columns: [],
     cards: [],
@@ -1176,6 +1245,10 @@ export default function MinimalApp({ onLogout }) {
     return () => document.removeEventListener("keydown", onUndoRedo, true);
   }, [activeId]);
   const switchDocument = (doc) => {
+    setFocusMode(false);
+    setCharacterView(null);
+    setLibraryDialog(null);
+    setDoctorOpen(false);
     setActiveId(doc.id);
     setView("screenplay");
     setMenu(null);
@@ -1276,7 +1349,12 @@ export default function MinimalApp({ onLogout }) {
         (event.code === "KeyO" || event.key.toLowerCase() === "o")
       ) {
         event.preventDefault();
-        if (!event.repeat && !document.querySelector("dialog[open]")) {
+        if (
+          !event.repeat &&
+          !document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"]',
+          )
+        ) {
           setMenu(null);
           importRef.current?.click();
         }
@@ -1289,6 +1367,9 @@ export default function MinimalApp({ onLogout }) {
         showSidebar(null);
         setCommentQuote(null);
         setActiveComment(null);
+        setFocusMode(false);
+        setCharacterView(null);
+        setLibraryDialog(null);
         setSubscriptionOpen(false);
         setRename(null);
         setFolderToDelete(null);
@@ -1303,7 +1384,9 @@ export default function MinimalApp({ onLogout }) {
         event.ctrlKey ||
         event.metaKey ||
         event.shiftKey ||
-        document.querySelector("dialog[open]")
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        )
       )
         return;
       const next =
@@ -1338,6 +1421,8 @@ export default function MinimalApp({ onLogout }) {
           values: [name],
         });
         setDiskAvailable(true);
+        const libraries = await directoryComponentLibraries().catch(() => []);
+        if (libraries.length && disk.length) setLibraryDialog(libraries);
       } catch (error) {
         if (error.name !== "AbortError") setMessage(error.message);
       }
@@ -1362,6 +1447,45 @@ export default function MinimalApp({ onLogout }) {
       setBusy("");
     }
   };
+  useEffect(() => {
+    if (
+      !filesReady ||
+      !documents.length ||
+      !isWebPro() ||
+      checkedFolderLibraries.current
+    )
+      return;
+    checkedFolderLibraries.current = true;
+    let cancelled = false;
+    directoryComponentLibraries()
+      .then((libraries) => {
+        if (
+          cancelled ||
+          document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"]',
+          )
+        )
+          return;
+        const existing =
+          documentsRef.current.find((doc) => doc.id === current.id)
+            ?.components || [];
+        const available = libraries.filter((library) =>
+          library.components.some(
+            (component) =>
+              !existing.some(
+                (item) =>
+                  item.librarySource?.libraryId === library.id &&
+                  item.librarySource.componentId === component.id,
+              ),
+          ),
+        );
+        if (available.length) setLibraryDialog(available);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [filesReady, !!documents.length]);
   const createDocument = () => {
     if (quotaFull(documents, IS_PRO)) {
       setMenu(null);
@@ -1875,6 +1999,7 @@ export default function MinimalApp({ onLogout }) {
       },
     }));
   const columnRef = useRef(null);
+  useTypewriterSound(preferences.typewriter, columnRef);
   const setDocumentZoom = useCallback(
     (zoom) =>
       update((d) => ({
@@ -1909,13 +2034,15 @@ export default function MinimalApp({ onLogout }) {
   }, [update]);
   return (
     <div
-      className={`minimal-app${propsOpen || annotations ? " show-props" : ""}`}
+      className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}`}
     >
       <TooltipLayer />
-      <ThumbnailPreviewLayer
-        components={current.components}
-        props={current.props || EMPTY_PROPS}
-      />
+      {!focusMode && (
+        <ThumbnailPreviewLayer
+          components={current.components}
+          props={current.props || EMPTY_PROPS}
+        />
+      )}
       <header className="minimal-header">
         <div className="document-switcher" ref={menuRef}>
           <button
@@ -2188,119 +2315,132 @@ export default function MinimalApp({ onLogout }) {
           className="workspace-tools"
           aria-label={t("Инструменты редактора")}
         >
-          {view === "screenplay" && !!documents.length && (
-            <div className="workspace-tools-primary">
+          <div className="workspace-tools-scroll">
+            {view === "screenplay" && !!documents.length && (
+              <div className="workspace-tools-primary">
+                <button
+                  className={`icon-button${searchOpen ? " active" : ""}`}
+                  aria-expanded={searchOpen}
+                  aria-label={t("Поиск по сценарию")}
+                  data-tooltip={t("Поиск · Ctrl+F")}
+                  onClick={() => showSidebar(searchOpen ? null : "search")}
+                >
+                  <Search size={17} />
+                </button>
+                <button
+                  className={`icon-button${statisticsOpen ? " active" : ""}`}
+                  aria-label={t("Статистика документа")}
+                  data-tooltip={t("Статистика документа")}
+                  aria-expanded={statisticsOpen}
+                  onClick={() => {
+                    showSidebar(statisticsOpen ? null : "statistics");
+                  }}
+                >
+                  <ChartNoAxesColumn size={17} />
+                </button>
+                <button
+                  className={`icon-button${doctorOpen ? " active" : ""}`}
+                  aria-label={t("Доктор сценария")}
+                  data-tooltip={t("Доктор сценария")}
+                  aria-expanded={doctorOpen}
+                  onClick={() => showSidebar(doctorOpen ? null : "doctor")}
+                >
+                  <Stethoscope size={17} />
+                </button>
+                <button
+                  className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                  aria-label={t("Компоненты")}
+                  data-tooltip={t("Компоненты")}
+                  aria-expanded={componentsOpen}
+                  onClick={() => {
+                    showSidebar(componentsOpen ? null : "components");
+                  }}
+                >
+                  <Shapes size={17} />
+                  {current.components.length > 0 && (
+                    <small>{current.components.length}</small>
+                  )}
+                </button>
+                <button
+                  className={`icon-button${propsOpen ? " active" : ""}`}
+                  aria-label={t("Реквизит")}
+                  data-tooltip={t("Реквизит · Pro")}
+                  aria-expanded={propsOpen}
+                  onClick={() =>
+                    IS_PRO
+                      ? showSidebar(propsOpen ? null : "props")
+                      : setSubscriptionOpen(true)
+                  }
+                >
+                  <Box size={17} />
+                </button>
+                <button
+                  className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
+                  aria-label={t("Комментарии")}
+                  data-tooltip={t("Комментарии")}
+                  aria-expanded={commentsOpen}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    if (commentsOpen) {
+                      showSidebar(null);
+                      setCommentQuote(null);
+                    } else openComments(editorRef.current?.getSelection());
+                  }}
+                >
+                  <MessageSquare size={17} />
+                  {current.comments.some((comment) => !comment.resolved) && (
+                    <small>
+                      {
+                        current.comments.filter((comment) => !comment.resolved)
+                          .length
+                      }
+                    </small>
+                  )}
+                </button>
+              </div>
+            )}
+            <div className="workspace-tools-secondary">
               <button
-                className={`icon-button${searchOpen ? " active" : ""}`}
-                aria-expanded={searchOpen}
-                aria-label={t("Поиск по сценарию")}
-                data-tooltip={t("Поиск · Ctrl+F")}
-                onClick={() => showSidebar(searchOpen ? null : "search")}
-              >
-                <Search size={17} />
-              </button>
-              <button
-                className={`icon-button${statisticsOpen ? " active" : ""}`}
-                aria-label={t("Статистика документа")}
-                data-tooltip={t("Статистика документа")}
-                aria-expanded={statisticsOpen}
+                className={`icon-button${historyOpen ? " active" : ""}`}
+                aria-label={t("История изменений")}
+                disabled={!documents.length}
+                data-tooltip={t("История изменений")}
+                aria-expanded={historyOpen}
                 onClick={() => {
-                  showSidebar(statisticsOpen ? null : "statistics");
+                  setHistoryArea(view);
+                  showSidebar(historyOpen ? null : "history");
+                  flushOutlineHistory(current.id).catch(() => {});
                 }}
               >
-                <ChartNoAxesColumn size={17} />
+                <History size={17} />
               </button>
+              <div ref={exportRef} className="export-control">
+                <button
+                  className={`icon-button${menu === "export" ? " active" : ""}`}
+                  disabled={!!busy || !documents.length}
+                  aria-label={t("Скачать сценарий")}
+                  data-tooltip={
+                    busy ? t("Подготовка файла…") : t("Скачать сценарий")
+                  }
+                  aria-expanded={menu === "export"}
+                  onClick={() => setMenu(menu === "export" ? null : "export")}
+                >
+                  <Download size={17} />
+                </button>
+              </div>
               <button
-                className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
-                aria-label={t("Компоненты")}
-                data-tooltip={t("Компоненты")}
-                aria-expanded={componentsOpen}
-                onClick={() => {
-                  showSidebar(componentsOpen ? null : "components");
-                }}
+                className={`icon-button${settingsOpen ? " active" : ""}`}
+                aria-label={t("Настройки документа")}
+                disabled={!documents.length}
+                data-tooltip={t("Настройки документа")}
+                aria-expanded={settingsOpen}
+                onClick={() => showSidebar(settingsOpen ? null : "settings")}
               >
-                <Shapes size={17} />
-                {current.components.length > 0 && (
-                  <small>{current.components.length}</small>
-                )}
-              </button>
-              <button
-                className={`icon-button${propsOpen ? " active" : ""}`}
-                aria-label={t("Реквизит")}
-                data-tooltip={t("Реквизит · Pro")}
-                aria-expanded={propsOpen}
-                onClick={() =>
-                  IS_PRO
-                    ? showSidebar(propsOpen ? null : "props")
-                    : setSubscriptionOpen(true)
-                }
-              >
-                <Box size={17} />
-              </button>
-              <button
-                className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
-                aria-label={t("Комментарии")}
-                data-tooltip={t("Комментарии")}
-                aria-expanded={commentsOpen}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  if (commentsOpen) {
-                    showSidebar(null);
-                    setCommentQuote(null);
-                  } else openComments(editorRef.current?.getSelection());
-                }}
-              >
-                <MessageSquare size={17} />
-                {current.comments.some((comment) => !comment.resolved) && (
-                  <small>
-                    {
-                      current.comments.filter((comment) => !comment.resolved)
-                        .length
-                    }
-                  </small>
-                )}
+                <Settings2 size={17} />
               </button>
             </div>
-          )}
-          <div className="workspace-tools-secondary">
-            <button
-              className={`icon-button${historyOpen ? " active" : ""}`}
-              aria-label={t("История изменений")}
-              disabled={!documents.length}
-              data-tooltip={t("История изменений")}
-              aria-expanded={historyOpen}
-              onClick={() => {
-                setHistoryArea(view);
-                showSidebar(historyOpen ? null : "history");
-                flushOutlineHistory(current.id).catch(() => {});
-              }}
-            >
-              <History size={17} />
-            </button>
-            <div ref={exportRef} className="export-control">
-              <button
-                className={`icon-button${menu === "export" ? " active" : ""}`}
-                disabled={!!busy || !documents.length}
-                aria-label={t("Скачать сценарий")}
-                data-tooltip={
-                  busy ? t("Подготовка файла…") : t("Скачать сценарий")
-                }
-                aria-expanded={menu === "export"}
-                onClick={() => setMenu(menu === "export" ? null : "export")}
-              >
-                <Download size={17} />
-              </button>
-            </div>
-            <button
-              className={`icon-button${settingsOpen ? " active" : ""}`}
-              aria-label={t("Настройки документа")}
-              disabled={!documents.length}
-              data-tooltip={t("Настройки документа")}
-              aria-expanded={settingsOpen}
-              onClick={() => showSidebar(settingsOpen ? null : "settings")}
-            >
-              <Settings2 size={17} />
-            </button>
+          </div>
+          <div className="workspace-tools-footer">
             <button
               className="icon-button"
               aria-label={t("Обучение")}
@@ -2314,7 +2454,7 @@ export default function MinimalApp({ onLogout }) {
             </button>
             {onLogout && (
               <button
-                className="icon-button"
+                className="icon-button workspace-signout"
                 aria-label={t("Выйти из аккаунта")}
                 data-tooltip={t("Выйти из аккаунта")}
                 onClick={onLogout}
@@ -2369,6 +2509,8 @@ export default function MinimalApp({ onLogout }) {
               !!documents.length &&
               view === "screenplay" &&
               !historyRevision &&
+              !characterView &&
+              !libraryDialog &&
               !tourOpen &&
               !subscriptionOpen &&
               !deleteTarget &&
@@ -2389,6 +2531,20 @@ export default function MinimalApp({ onLogout }) {
                 {t("Новый сценарий")}
               </button>
             </div>
+          )}
+          {characterView && (
+            <CharacterDialogue
+              content={current.content}
+              name={characterView}
+              onClose={() => {
+                setCharacterView(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }}
+              onGo={(id) => {
+                setCharacterView(null);
+                setSceneTarget(id);
+              }}
+            />
           )}
           <main
             className="minimal-scroll"
@@ -2482,9 +2638,19 @@ export default function MinimalApp({ onLogout }) {
                     !commentsOpen &&
                     !componentsOpen &&
                     !propsOpen &&
-                    !annotations
+                    !annotations &&
+                    !characterView &&
+                    !libraryDialog &&
+                    !doctorOpen
                   }
                   minimal
+                  onSceneVariant={changeSceneVariant}
+                  onCharacterDialogues={(name) => {
+                    showSidebar(null);
+                    setFocusMode(false);
+                    setCharacterView(name);
+                    setMenu(null);
+                  }}
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
                     if (IS_PRO) {
@@ -2539,7 +2705,10 @@ export default function MinimalApp({ onLogout }) {
                     tourOpen ||
                     subscriptionOpen ||
                     !!deleteTarget ||
-                    searchOpen
+                    searchOpen ||
+                    focusMode ||
+                    !!characterView ||
+                    !!libraryDialog
                   }
                   onCreateComponent={componentFromSelection}
                   onPasteImages={(files) =>
@@ -2559,17 +2728,71 @@ export default function MinimalApp({ onLogout }) {
               )}
             </article>
           </main>
-          {!!documents.length && !historyRevision && view === "screenplay" && (
-            <FormatBar
-              format={selection?.format}
-              displayMode={current.metadata?.formatBarMode}
-              onFormat={(key) => editorRef.current?.setFormat(key)}
-            />
+          {!!documents.length &&
+            !historyRevision &&
+            !characterView &&
+            view === "screenplay" && (
+              <FormatBar
+                format={selection?.format}
+                displayMode={current.metadata?.formatBarMode}
+                onFormat={(key) => editorRef.current?.setFormat(key)}
+              />
+            )}
+          {!!documents.length &&
+            !historyRevision &&
+            !characterView &&
+            view === "screenplay" && (
+              <button
+                className="icon-button focus-mode-toggle"
+                aria-label={t(
+                  focusMode
+                    ? "Выйти из полноэкранного режима"
+                    : "Открыть во весь экран",
+                )}
+                data-tooltip={t(
+                  focusMode
+                    ? "Выйти из полноэкранного режима"
+                    : "Открыть во весь экран",
+                )}
+                aria-pressed={focusMode}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  showSidebar(null);
+                  setMenu(null);
+                  setFocusMode((value) => !value);
+                  requestAnimationFrame(() => editorRef.current?.focus());
+                }}
+              >
+                {focusMode ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              </button>
+            )}
+          {focusMode && (
+            <div
+              className="focus-format-hint"
+              aria-label={t("Форматирование сценария")}
+            >
+              {FORMATS.map(([key, label], index) => (
+                <span
+                  className={selection?.format === key ? "current" : ""}
+                  key={key}
+                >
+                  {t(label)} <kbd>Ctrl+{index + 1}</kbd>
+                </span>
+              ))}
+            </div>
           )}
         </div>
+        {doctorOpen && (
+          <ScriptDoctor
+            content={current.content}
+            onClose={() => setDoctorOpen(false)}
+            onGo={(id) => setSceneTarget(id)}
+          />
+        )}
         {searchOpen && (
           <DocumentSearch
             content={current.content}
+            sceneVariants={current.sceneVariants}
             query={searchText}
             format={searchFormat}
             onFormat={(value) => {
@@ -2604,6 +2827,8 @@ export default function MinimalApp({ onLogout }) {
         {settingsOpen && (
           <DocumentSettings
             key={current.id}
+            preferences={preferences}
+            onPreferences={setPreferences}
             metadata={current.metadata}
             spellcheck={current.settings.spellcheck}
             onSpellcheck={(spellcheck) =>
@@ -2686,6 +2911,19 @@ export default function MinimalApp({ onLogout }) {
         {componentsOpen && (
           <ComponentsPanel
             key={current.id}
+            onExportLibrary={() =>
+              saveBlob(
+                exportComponentLibrary(current),
+                `${current.title} — ${t("Компоненты")}`,
+                "tytl",
+              )
+            }
+            onImportLibrary={async () => {
+              const libraries = await directoryComponentLibraries().catch(
+                () => [],
+              );
+              setLibraryDialog(libraries);
+            }}
             document={current}
             activeId={componentDialog?.id}
             onClose={() => {
@@ -2966,6 +3204,13 @@ export default function MinimalApp({ onLogout }) {
           </div>,
           document.body,
         )}
+      {libraryDialog && (
+        <ComponentLibraryDialog
+          discovered={libraryDialog}
+          onClose={() => setLibraryDialog(null)}
+          onEmbed={embedLibrary}
+        />
+      )}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {subscriptionOpen && (
         <SubscriptionDialog onClose={() => setSubscriptionOpen(false)} />
