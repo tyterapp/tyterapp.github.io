@@ -36,6 +36,31 @@
 :root[data-theme="dark"] .minimal-app .minimal-footer {
   background: transparent;
 }
+:root[data-theme="dark"] .document-menu .document-row.active {
+  background: var(--ui-accent-soft);
+}
+:root[data-theme="dark"] .document-menu .document-row:not(.active):hover {
+  background: var(--ui-soft);
+}
+:root[data-theme="dark"] .document-menu .document-item {
+  color: var(--ui-text);
+}
+:root[data-theme="dark"] .document-menu .document-item:hover {
+  background: transparent;
+}
+:root[data-theme="dark"]
+  .document-menu
+  :is(.document-item small, .document-item > svg, .document-more) {
+  color: var(--ui-muted);
+}
+:root[data-theme="dark"] .document-menu .document-item small {
+  color: oklch(from var(--ui-muted) max(l, 0.78) c h);
+}
+:root[data-theme="dark"]
+  .document-menu
+  :is(.document-more:hover, .document-more[aria-expanded="true"]) {
+  background: var(--ui-field);
+}
 .minimal-app .script-paper {
   padding-bottom: max(
     var(--page-margin, 88px),
@@ -158,7 +183,8 @@
   gap: 4px;
   position: relative;
   flex: 0 0 auto;
-  width: auto;
+  width: max-content;
+  min-width: 0;
   height: 28px;
   padding: 3px 8px;
   border: 0;
@@ -187,7 +213,8 @@
   inset: -6px 0;
 }
 .scene-variant-select > svg {
-  flex: 0 0 12px;
+  flex: 0 0 8px;
+  width: 8px;
 }
 .scene-variant-select:hover,
 .scene-variant-select[aria-expanded="true"] {
@@ -215,7 +242,8 @@
   color: var(--ui-accent);
 }
 .settings-drawer .settings-scroll {
-  padding: 4px 16px 16px 0;
+  margin-left: -12px;
+  padding: 4px 16px 16px 12px;
 }
 .settings-scroll .settings-section {
   margin-top: 20px;

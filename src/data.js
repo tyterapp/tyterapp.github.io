@@ -2,6 +2,7 @@ import { dramaValue, clampDocumentZoom } from "./document-layout.js";
 import { documentFont } from "./document-fonts.js";
 import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
 import { cleanCommentOptions } from "./comment-options.js";
+import { commentSceneIndex } from "./comment-scenes.js";
 
 const FORMATS = new Set([
   "scene",
@@ -459,7 +460,7 @@ export function validateImport(input) {
   for (const versions of Object.values(sceneVariants))
     for (const blocks of Object.values(versions))
       for (const block of blocks) usedIds.add(block.attrs.blockId);
-  return {
+  const document = {
     id: cleanId(source.id),
     title: cleanText(source.title, 160).trim() || "Untitled",
     updatedAt: cleanDate(source.updatedAt),
@@ -633,6 +634,22 @@ export function validateImport(input) {
       ]),
     ),
   };
+  // Older files have only a block ID, shared by all versions of a heading.
+  // Recover the variant from its marked text or quote before the user switches it.
+  if (document.comments.length) {
+    const resolve = commentSceneIndex(document);
+    document.comments = document.comments.map((comment) => {
+      const reference = resolve(comment);
+      return reference
+        ? {
+            ...comment,
+            sceneId: reference.sceneId,
+            sceneVariant: reference.variant,
+          }
+        : comment;
+    });
+  }
+  return document;
 }
 
 export function toFountain(project) {

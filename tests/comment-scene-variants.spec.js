@@ -73,7 +73,7 @@ function fixture() {
   }));
   return doc;
 }
-async function open(page) {
+async function open(page, document = fixture()) {
   await grantPro(page);
   await page.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
@@ -85,7 +85,7 @@ async function open(page) {
     localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
     localStorage.setItem("tyter.active", doc.id);
     localStorage.setItem("tyter.language.v1", "ru");
-  }, fixture());
+  }, document);
   await page.goto("/pro");
   await expect(page.locator(".screenplay-editor")).toBeFocused();
 }
@@ -255,4 +255,140 @@ test("creating a comment in F binds it to F; editing its text while viewing pres
   await expect(created.locator(".comment-scene-variant")).toHaveText(
     "Scene 1 · variant F",
   );
+});
+
+test("an older comment on a shared scene heading opens F even when its mark has been lost", async ({
+  page,
+}) => {
+  const doc = fixture();
+  const comment = doc.comments.find(
+    (comment) => comment.id === "comment-scene-1-F",
+  );
+  delete comment.sceneId;
+  delete comment.sceneVariant;
+  comment.blockId = "scene-1";
+  comment.quote = "ИНТ. КОМНАТА scene-1 F — ДЕНЬ";
+  delete doc.sceneVariants["scene-1"].F[1].content[0].marks;
+  await open(page, doc);
+  await rail(page).click();
+  await card(page, "scene-1-F").locator(".comment-quote").click();
+  await expect(variant(page)).toHaveAttribute("data-value", "F");
+  await expect(
+    card(page, "scene-1-F").locator(".comment-scene-variant"),
+  ).toHaveText("Сцена 1 · вариант F");
+  await page
+    .getByRole("button", { name: "Закрыть комментарии", exact: true })
+    .click();
+  await expect(variant(page)).toHaveAttribute("data-value", "A");
+  await expect
+    .poll(
+      async () =>
+        (await saved(page))?.comments.find(
+          (comment) => comment.id === "comment-scene-1-F",
+        )?.sceneVariant,
+    )
+    .toBe("F");
+  await page.reload();
+  await rail(page).click();
+  await card(page, "scene-1-F").locator(".comment-quote").click();
+  await expect(variant(page)).toHaveAttribute("data-value", "F");
+});
+
+test("a comment draft remembers F when the scene variant changes before it is submitted", async ({
+  page,
+}) => {
+  const doc = fixture();
+  for (const nodes of Object.values(doc.sceneVariants["scene-1"]))
+    nodes[0].content[0].text = "ИНТ. ОБЩИЙ ЗАГОЛОВОК — ДЕНЬ";
+  doc.content.content[0].content[0].text = "ИНТ. ОБЩИЙ ЗАГОЛОВОК — ДЕНЬ";
+  await open(page, doc);
+  await selectAppOption(page, variant(page), "F");
+  await selectText(page, "scene-1");
+  await page.keyboard.press("Control+q");
+  const composer = page.getByRole("textbox", {
+    name: "Текст комментария",
+    exact: true,
+  });
+  await composer.fill("Комментарий к заголовку F");
+  await selectAppOption(page, variant(page), "A");
+  await composer.focus();
+  await page.keyboard.press("Control+Enter");
+  const created = page.locator(".comment-card").filter({
+    has: page.locator("p", { hasText: "Комментарий к заголовку F" }),
+  });
+  await expect(created.locator(".comment-scene-variant")).toHaveText(
+    "Сцена 1 · вариант F",
+  );
+  await expect(variant(page)).toHaveAttribute("data-value", "F");
+  await page
+    .getByRole("button", { name: "Закрыть комментарии", exact: true })
+    .click();
+  await expect(variant(page)).toHaveAttribute("data-value", "A");
+  await rail(page).click();
+  await created.locator(".comment-quote").click();
+  await expect(variant(page)).toHaveAttribute("data-value", "F");
+});
+
+test("F opens and its distant comment stays visible at 200% before returning to A", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 820 });
+  const doc = fixture();
+  doc.metadata.documentZoom = 200;
+  const nodes = doc.sceneVariants["scene-1"].F;
+  delete nodes[1].content[0].marks;
+  nodes.push(
+    ...Array.from({ length: 45 }, (_, index) =>
+      paragraph(
+        "action",
+        `Строка ${index + 1}. Героиня идёт по городу. `.repeat(3),
+        `f-long-${index}`,
+      ),
+    ),
+  );
+  nodes.push(
+    paragraph("action", "ФИНАЛ ВАРИАНТА F.", "f-final", "comment-scene-1-F"),
+  );
+  const comment = doc.comments.find(
+    (comment) => comment.id === "comment-scene-1-F",
+  );
+  comment.blockId = "f-final";
+  comment.quote = "ФИНАЛ ВАРИАНТА F.";
+  await open(page, doc);
+  await page.evaluate(() => document.fonts.ready);
+  await rail(page).click();
+  await card(page, "scene-1-F").locator(".comment-quote").click();
+  await expect(variant(page)).toHaveAttribute("data-value", "F");
+  await expect(page.locator(".comment-open-selected")).toHaveText(
+    "ФИНАЛ ВАРИАНТА F.",
+  );
+  await expect
+    .poll(() =>
+      page.locator(".comment-open-selected").evaluate((node) => {
+        const rect = node.getBoundingClientRect(),
+          scroller = node.closest(".minimal-scroll");
+        const viewport = scroller.getBoundingClientRect(),
+          footer = document
+            .querySelector(".minimal-footer")
+            .getBoundingClientRect();
+        const midpoint = (rect.top + rect.bottom) / 2;
+        return (
+          rect.top > viewport.top + 16 &&
+          rect.bottom < footer.top - 16 &&
+          midpoint < viewport.top + scroller.clientHeight * 0.6 &&
+          rect.left >= viewport.left &&
+          rect.left < viewport.left + scroller.clientWidth
+        );
+      }),
+    )
+    .toBe(true);
+  await page
+    .getByRole("button", { name: "Закрыть комментарии", exact: true })
+    .click();
+  await expect(variant(page)).toHaveAttribute("data-value", "A");
+  await expect
+    .poll(() =>
+      page.locator(".minimal-scroll").evaluate((node) => node.scrollTop),
+    )
+    .toBe(0);
 });

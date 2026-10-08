@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { validateImport } from "../src/data.js";
 import { grantPro } from "./helpers/pro-access.js";
 
 const fixture = {
@@ -119,7 +120,17 @@ test("outline cards create independent scenes and navigate in both directions", 
   const scene = page
     .locator('.screenplay-editor p[data-format="scene"]')
     .last();
-  await expect(scene).toHaveText("");
+  await expect
+    .poll(() =>
+      scene.evaluate((element) => {
+        const content = element.cloneNode(true);
+        content
+          .querySelectorAll('[contenteditable="false"]')
+          .forEach((control) => control.remove());
+        return content.textContent;
+      }),
+    )
+    .toBe("");
   await scene.click();
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+End");
@@ -197,7 +208,8 @@ test("TYT round trip preserves comments, props, components, folders, metadata, o
   const restored = (await stored(page)).find(
     (document) => document.id !== fixture.id,
   );
-  expect(restored.content).toEqual(payload.document.content);
+  // Import fills optional paragraph attributes omitted by newly inserted scenes.
+  expect(restored.content).toEqual(validateImport(payload.document).content);
   expect(restored.outline).toEqual(payload.document.outline);
   expect(restored.comments).toEqual(payload.document.comments);
   expect(restored.componentFolders).toEqual(payload.document.componentFolders);

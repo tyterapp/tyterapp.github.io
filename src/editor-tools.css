@@ -12,8 +12,9 @@
   color: inherit;
 }
 .scene-variant-select {
-  flex: 0 0 44px;
-  width: 44px;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 0;
   height: 28px;
   padding: 3px 4px;
   border: 1px solid var(--line);

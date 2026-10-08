@@ -467,6 +467,18 @@ test("scene menu matches the interface, works with keyboard and keeps the outlin
       left: style.paddingLeft,
       gap: style.gap,
       width: node.offsetWidth,
+      actualLeft:
+        (node.firstElementChild.getBoundingClientRect().left - rect.left) / 2,
+      actualRight:
+        (rect.right - node.lastElementChild.getBoundingClientRect().right) / 2,
+      arrowRight: (() => {
+        const path = node.querySelector("path"),
+          box = path.getBBox();
+        const right = new DOMPoint(box.x + box.width, box.y).matrixTransform(
+          path.getScreenCTM(),
+        ).x;
+        return (rect.right - right) / 2;
+      })(),
       iconGap: icon.left - rect.right,
     };
   });
@@ -476,6 +488,9 @@ test("scene menu matches the interface, works with keyboard and keeps the outlin
     gap: "4px",
     iconGap: 32,
   });
+  expect(geometry.actualRight).toBeCloseTo(geometry.actualLeft, 1);
+  expect(Math.abs(geometry.arrowRight - geometry.actualLeft)).toBeLessThan(1);
+  expect(geometry.width).toBeLessThan(37);
   await trigger.click();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);

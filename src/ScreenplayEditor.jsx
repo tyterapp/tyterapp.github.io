@@ -771,7 +771,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         t("Вариант сцены {0}", number),
                       );
                       select.dataset.value = sceneLetter(node);
-                      select.innerHTML = `<span>${sceneLetter(node)}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+                      select.innerHTML = `<span>${sceneLetter(node)}</span><svg width="8" height="12" viewBox="5 6 14 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
                       const openVariants = () =>
                         propsRef.current.onOpenSceneVariants?.({
                           anchor: select,
@@ -1216,7 +1216,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (position === null) return false;
         editor.commands.setTextSelection(position);
         editor.view.focus();
-        scrollToText(editor.view, position, searchScrollFrame);
+        scrollToText(editor.view, position, searchScrollFrame, true, {
+          ensureRoom: true,
+        });
         return !!range;
       },
       setFormat(format) {
@@ -1466,6 +1468,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       restoreCaret(caret) {
         if (!editor || !caret) return;
+        if (searchScrollFrame.current !== null) {
+          cancelAnimationFrame(searchScrollFrame.current);
+          searchScrollFrame.current = null;
+        }
         editor.commands.command(({ tr }) => {
           tr.setSelection(selectionAtCaret(tr.doc, caret));
           return true;

@@ -1037,14 +1037,7 @@ export default function MinimalApp({ onLogout }) {
       resolveCommentScene(comment),
     ]),
   );
-  const focusComment = (comment) => {
-    const latest =
-      documentsRef.current.find((doc) => doc.id === current.id) || current;
-    const document = {
-      ...latest,
-      content: editorRef.current?.getJSON() || latest.content,
-    };
-    const reference = commentSceneIndex(document)(comment);
+  const showCommentVariant = (document, reference) => {
     const range = reference && sceneRange(document.content, reference.sceneId);
     const original = range && sceneLetter(range.nodes[0]);
     if (range && original !== reference.variant) {
@@ -1053,6 +1046,13 @@ export default function MinimalApp({ onLogout }) {
           documentId: current.id,
           variants: new Map(),
           caret: editorRef.current?.getCaret(),
+          viewport: (() => {
+            const scroller =
+              columnRef.current?.querySelector(".minimal-scroll");
+            return scroller
+              ? { top: scroller.scrollTop, left: scroller.scrollLeft }
+              : null;
+          })(),
         };
       const preview = commentPreview.current;
       if (!preview.variants.has(reference.sceneId))
@@ -1064,7 +1064,19 @@ export default function MinimalApp({ onLogout }) {
       );
       editorRef.current?.restoreContent(next.content);
       update(() => next);
+      return next;
     }
+    return document;
+  };
+  const focusComment = (comment) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const document = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    const reference = commentSceneIndex(document)(comment);
+    showCommentVariant(document, reference);
     pendingCommentFocus.current = {
       documentId: current.id,
       id: comment.id,
@@ -1108,6 +1120,11 @@ export default function MinimalApp({ onLogout }) {
     if (sameDocument) {
       editorRef.current?.restoreContent(next.content);
       editorRef.current?.restoreCaret(preview.caret);
+      const scroller = columnRef.current?.querySelector(".minimal-scroll");
+      if (scroller && preview.viewport) {
+        scroller.scrollTop = preview.viewport.top;
+        scroller.scrollLeft = preview.viewport.left;
+      }
     }
     setDocuments((list) =>
       list.map((doc) =>
@@ -1369,26 +1386,45 @@ export default function MinimalApp({ onLogout }) {
         setCommentQuote(null);
       } else {
         setActiveComment(null);
+        const latest =
+          documentsRef.current.find((doc) => doc.id === current.id) || current;
+        const scope =
+          source?.blockId &&
+          activeSceneForBlock(
+            {
+              ...latest,
+              content: editorRef.current?.getJSON() || latest.content,
+            },
+            source.blockId,
+          );
         setCommentQuote(
-          source && source.from !== source.to && source.text ? source : null,
+          source && source.from !== source.to && source.text
+            ? { ...source, ...scope }
+            : null,
         );
       }
     },
-    [showSidebar],
+    [showSidebar, current.id],
   );
   const addComment = (text, options = {}) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    let document = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    if (commentQuote?.sceneId && commentQuote.sceneVariant) {
+      document = showCommentVariant(document, {
+        sceneId: commentQuote.sceneId,
+        variant: commentQuote.sceneVariant,
+      });
+    }
     const comment = {
       id: uid(),
       text,
       quote: commentQuote?.text || "",
       blockId: commentQuote?.blockId || null,
-      ...activeSceneForBlock(
-        {
-          ...current,
-          content: editorRef.current?.getJSON() || current.content,
-        },
-        commentQuote?.blockId,
-      ),
+      ...activeSceneForBlock(document, commentQuote?.blockId),
       author: "Вы",
       createdAt: new Date().toISOString(),
       ...cleanCommentOptions(options),

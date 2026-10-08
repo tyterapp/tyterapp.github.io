@@ -30,17 +30,37 @@ export function commentSceneIndex(document) {
         variant,
         number: scene.number,
       };
+      const marked = new Map();
       for (const block of nodes) {
         const blockId = block.attrs?.blockId;
-        if (!blocks.has(blockId)) blocks.set(blockId, reference);
+        const candidates = blocks.get(blockId) || [];
+        candidates.push({
+          ...reference,
+          text: (block.content || [])
+            .map((node) => (node.type === "hardBreak" ? "\n" : node.text || ""))
+            .join(""),
+        });
+        blocks.set(blockId, candidates);
         for (const node of block.content || []) {
           for (const mark of node.marks || []) {
             if (mark.type !== "comment" || !mark.attrs?.id) continue;
-            const candidates = marks.get(mark.attrs.id) || [];
-            candidates.push({ ...reference, blockId });
-            marks.set(mark.attrs.id, candidates);
+            const candidate = marked.get(mark.attrs.id) || {
+              ...reference,
+              blockIds: new Set(),
+              text: "",
+            };
+            if (candidate.blockIds.size && !candidate.blockIds.has(blockId))
+              candidate.text += "\n";
+            candidate.blockIds.add(blockId);
+            candidate.text += node.text || "";
+            marked.set(mark.attrs.id, candidate);
           }
         }
+      }
+      for (const [id, candidate] of marked) {
+        const candidates = marks.get(id) || [];
+        candidates.push(candidate);
+        marks.set(id, candidates);
       }
     }
   }
@@ -53,13 +73,33 @@ export function commentSceneIndex(document) {
         number: scene.number,
       };
     }
-    const candidates = marks.get(comment.id) || [];
-    return (
-      candidates.find((item) => item.blockId === comment.blockId) ||
-      candidates[0] ||
-      blocks.get(comment.blockId) ||
-      null
-    );
+    const normalize = (text) => text.replace(/\s+/g, " ").trim();
+    const quote = normalize(comment.quote || "");
+    const marked = marks.get(comment.id) || [],
+      paragraphs = blocks.get(comment.blockId) || [];
+    const matching = (candidates) =>
+      quote
+        ? candidates.filter((item) => normalize(item.text).includes(quote))
+        : [];
+    const matchingMarks = matching(marked),
+      matchingParagraphs = matching(paragraphs);
+    const eligible = matchingMarks.length
+      ? matchingMarks
+      : matchingParagraphs.length
+        ? matchingParagraphs
+        : marked.length
+          ? marked
+          : paragraphs;
+    const reference =
+      eligible.find((item) => item.blockIds?.has(comment.blockId)) ||
+      eligible[0];
+    return reference
+      ? {
+          sceneId: reference.sceneId,
+          variant: reference.variant,
+          number: reference.number,
+        }
+      : null;
   };
 }
 
