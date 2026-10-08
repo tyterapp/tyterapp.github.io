@@ -1,7 +1,39 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useRef, useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import {
+  ImagePlus,
+  X,
+  Sun,
+  Moon,
+  Volume2,
+  SpellCheck,
+  Type,
+  ZoomIn,
+  PanelBottom,
+  UserRound,
+} from "lucide-react";
 import { documentFont, documentFonts } from "./document-fonts.js";
+import AppSelect from "./AppSelect.jsx";
+
+function SettingsSwitch({ label, checked, onChange, icon: Icon, hint }) {
+  return (
+    <label className="settings-switch-row">
+      <span className="settings-option-icon">
+        <Icon size={17} />
+      </span>
+      <span className="settings-switch-copy">
+        <span>{label}</span>
+        {hint && <small>{hint}</small>}
+      </span>
+      <input
+        type="checkbox"
+        aria-label={label}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    </label>
+  );
+}
 export default function DocumentSettings({
   metadata = {},
   spellcheck = false,
@@ -59,67 +91,71 @@ export default function DocumentSettings({
         </button>
       </div>
       <div className="settings-scroll">
-        <section>
-          <label className="spelling-setting">
-            <input
-              type="checkbox"
-              checked={preferences.typewriter}
-              onChange={(event) =>
-                onPreferences({ typewriter: event.target.checked })
-              }
-            />
-            {t("Звук печатной машинки")}
-          </label>
-          <label className="theme-setting">
-            {t("Тема интерфейса")}
-            <select
+        <section className="settings-section">
+          <h3>
+            <Sun size={15} />
+            {t("Оформление")}
+          </h3>
+          <div className="settings-field">
+            <span>{t("Тема интерфейса")}</span>
+            <AppSelect
+              label={t("Тема интерфейса")}
               value={preferences.theme}
-              onChange={(event) => onPreferences({ theme: event.target.value })}
-            >
-              <option value="light">{t("Светлая")}</option>
-              <option value="dark">{t("Тёмная")}</option>
-            </select>
-          </label>
-        </section>
-        <section>
-          <label className="spelling-setting">
-            <input
-              type="checkbox"
-              checked={spellcheck}
-              onChange={(event) => onSpellcheck(event.target.checked)}
+              options={[
+                {
+                  value: "light",
+                  label: t("Светлая"),
+                  icon: <Sun size={16} />,
+                },
+                { value: "dark", label: t("Тёмная"), icon: <Moon size={16} /> },
+              ]}
+              onChange={(theme) => onPreferences({ theme })}
             />
-            {t("Подсветка орфографии")}
-          </label>
-          <p className="settings-hint">
-            {language === "en"
-              ? t("Язык проверки — английский")
-              : t("Язык проверки — русский")}
-          </p>
+          </div>
+          <SettingsSwitch
+            label={t("Звук печатной машинки")}
+            icon={Volume2}
+            checked={preferences.typewriter}
+            onChange={(typewriter) => onPreferences({ typewriter })}
+          />
         </section>
-        <section className="metadata-fields">
-          <label>
-            {t("Шрифт в редакторе")}
-            <select
-              aria-label={t("Шрифт в редакторе")}
+        <section className="settings-section">
+          <h3>
+            <Type size={15} />
+            {t("Редактор")}
+          </h3>
+          <SettingsSwitch
+            label={t("Подсветка орфографии")}
+            icon={SpellCheck}
+            checked={spellcheck}
+            onChange={onSpellcheck}
+            hint={
+              language === "en"
+                ? t("Язык проверки — английский")
+                : t("Язык проверки — русский")
+            }
+          />
+          <div className="settings-field">
+            <span>{t("Шрифт в редакторе")}</span>
+            <AppSelect
+              label={t("Шрифт в редакторе")}
               value={documentFont(metadata.fontFamily, language).id}
-              onChange={(e) =>
-                onChange({
-                  fontFamily: e.target.value,
-                })
-              }
-            >
-              {documentFonts(language).map((font) => (
-                <option key={font.id} value={font.id}>
-                  {font.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={documentFonts(language).map((font) => ({
+                value: font.id,
+                label: font.name,
+              }))}
+              onChange={(fontFamily) => onChange({ fontFamily })}
+            />
+          </div>
           <p className="settings-hint">
             {t("Экспорт PDF, DOCX и FDX всегда использует Courier.")}
           </p>
         </section>
-        <section>
+        <section className="settings-section">
+          <h3>
+            <ZoomIn size={15} />
+            {t("Масштаб документа")}
+          </h3>
           <label className="size-label" htmlFor="document-zoom">
             {t("Масштаб документа ")}
             <output>{documentZoom}%</output>
@@ -132,6 +168,7 @@ export default function DocumentSettings({
             max="200"
             step="10"
             value={documentZoom}
+            style={{ "--range-progress": `${documentZoom - 100}%` }}
             onChange={(e) => onZoom(Number(e.target.value))}
           />
           <div className="range-labels">
@@ -140,8 +177,11 @@ export default function DocumentSettings({
           </div>
           <p className="settings-hint">{t("Ctrl + колесо мыши на листе")}</p>
         </section>
-        <section>
-          <h3>{t("Нижняя панель")}</h3>
+        <section className="settings-section">
+          <h3>
+            <PanelBottom size={15} />
+            {t("Нижняя панель")}
+          </h3>
           <div
             className="format-bar-mode-toggle"
             role="group"
@@ -166,35 +206,49 @@ export default function DocumentSettings({
             ))}
           </div>
         </section>
-        <section>
-          <h3>{t("Обложка")}</h3>
-          <button
-            className={`poster-upload${metadata.poster ? " has-poster" : ""}`}
-            onClick={() => file.current.click()}
-            aria-label={t("Загрузить обложку")}
-          >
-            {metadata.poster ? (
-              <img src={metadata.poster} alt={t("Обложка сценария")} />
-            ) : (
-              <>
-                <ImagePlus size={26} />
-                <span>{t("Добавить постер")}</span>
-                <small>{t("JPG, PNG, WebP · до 5 МБ")}</small>
-              </>
-            )}
-          </button>
-          {metadata.poster && (
+        <section className="settings-section">
+          <h3>
+            <ImagePlus size={15} />
+            {t("Обложка")}
+          </h3>
+          <div className="settings-poster-row">
             <button
-              className="quiet-button"
-              onClick={() =>
-                onChange({
-                  poster: null,
-                })
-              }
+              className={`poster-upload${metadata.poster ? " has-poster" : ""}`}
+              onClick={() => file.current.click()}
+              aria-label={t("Загрузить обложку")}
             >
-              {t("Убрать обложку")}
+              {metadata.poster ? (
+                <img src={metadata.poster} alt={t("Обложка сценария")} />
+              ) : (
+                <>
+                  <ImagePlus size={24} />
+                </>
+              )}
             </button>
-          )}
+            <div className="settings-poster-actions">
+              <span>{t("Обложка сценария")}</span>
+              <small>{t("JPG, PNG, WebP · до 5 МБ")}</small>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => file.current?.click()}
+              >
+                {metadata.poster ? t("Заменить постер") : t("Добавить постер")}
+              </button>
+              {metadata.poster && (
+                <button
+                  className="quiet-button"
+                  onClick={() =>
+                    onChange({
+                      poster: null,
+                    })
+                  }
+                >
+                  {t("Убрать обложку")}
+                </button>
+              )}
+            </div>
+          </div>
           <input
             ref={file}
             type="file"
@@ -208,37 +262,42 @@ export default function DocumentSettings({
             </p>
           )}
         </section>
-        <section className="metadata-fields">
-          <h3>{t("Авторство")}</h3>
-          <label>
-            {t("Автор")}
-            <input
-              aria-label={t("Автор")}
-              value={metadata.author || ""}
-              maxLength={200}
-              onChange={(e) =>
-                onChange({
-                  author: e.target.value,
-                })
-              }
-              placeholder={t("Имя автора")}
-            />
-          </label>
-          <label>
-            {t("Год")}
-            <input
-              aria-label={t("Год")}
-              inputMode="numeric"
-              maxLength={4}
-              value={metadata.year || ""}
-              onChange={(e) =>
-                onChange({
-                  year: e.target.value.replace(/\D/g, "").slice(0, 4),
-                })
-              }
-              placeholder={t(String(new Date().getFullYear()))}
-            />
-          </label>
+        <section className="settings-section metadata-fields">
+          <h3>
+            <UserRound size={15} />
+            {t("Авторство")}
+          </h3>
+          <div className="settings-author-row">
+            <label>
+              {t("Автор")}
+              <input
+                aria-label={t("Автор")}
+                value={metadata.author || ""}
+                maxLength={200}
+                onChange={(e) =>
+                  onChange({
+                    author: e.target.value,
+                  })
+                }
+                placeholder={t("Имя автора")}
+              />
+            </label>
+            <label>
+              {t("Год")}
+              <input
+                aria-label={t("Год")}
+                inputMode="numeric"
+                maxLength={4}
+                value={metadata.year || ""}
+                onChange={(e) =>
+                  onChange({
+                    year: e.target.value.replace(/\D/g, "").slice(0, 4),
+                  })
+                }
+                placeholder={t(String(new Date().getFullYear()))}
+              />
+            </label>
+          </div>
           <label>
             {t("Email автора")}
             <input

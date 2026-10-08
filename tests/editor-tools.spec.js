@@ -11,6 +11,7 @@ import {
   readComponentLibrary,
 } from "../src/component-library.js";
 import { grantPro } from "./helpers/pro-access.js";
+import { selectAppOption } from "./helpers/app-select.js";
 
 const p = (format, text, blockId) => ({
   type: "paragraph",
@@ -126,10 +127,13 @@ test("new settings and tools are translated and dark theme covers the outline an
   await page
     .getByRole("button", { name: "Настройки документа", exact: true })
     .click();
-  await page.getByLabel("Тема интерфейса").selectOption("dark");
+  await selectAppOption(page, page.getByLabel("Тема интерфейса"), "dark");
   await page.getByRole("button", { name: "ENG", exact: true }).click();
   await expect(page.getByLabel("Typewriter sound")).not.toBeChecked();
-  await expect(page.getByLabel("Interface theme")).toHaveValue("dark");
+  await expect(page.getByLabel("Interface theme")).toHaveAttribute(
+    "data-value",
+    "dark",
+  );
   await page.screenshot({ path: info.outputPath("dark-settings.png") });
   await page.keyboard.press("Escape");
   await expect(
@@ -215,6 +219,35 @@ test("six scene versions retain independent text, links and inactive annotations
   expect(next.outline.cards[0].blockId).toBe("scene-1");
   expect(sceneVariantLetters(next, "scene-1", "B")).toEqual(["A", "B"]);
   expect(switchSceneVariant(next, "scene-1", "Z")).toBe(next);
+});
+
+test("editing F before opening other variants does not copy F into their headings or dialogue", () => {
+  let doc = switchSceneVariant(fixture(), "scene-1", "F");
+  doc.content.content[0].content[0].text = "ИНТ. КОМНАТА F — НОЧЬ";
+  doc.content.content[1].content[0].text = "Действие только в F.";
+  doc.content.content[4].content[0].text = "Реплика только в F.";
+  const bodyIds = new Set([doc.content.content[1].attrs.blockId]);
+  for (const letter of ["B", "C", "D", "E", "A"]) {
+    doc = switchSceneVariant(doc, "scene-1", letter);
+    expect(nodeText(doc.content.content[0])).toBe("ИНТ. ДОМ — ДЕНЬ");
+    expect(nodeText(doc.content.content[1])).toBe("Анна открывает окно.");
+    expect(nodeText(doc.content.content[4])).toBe("Здравствуй, утро.");
+    expect(bodyIds.has(doc.content.content[1].attrs.blockId)).toBe(false);
+    bodyIds.add(doc.content.content[1].attrs.blockId);
+    doc.content.content[1].content[0].text = `Действие ${letter}.`;
+  }
+  doc = validateImport(doc);
+  for (const letter of ["F", "D", "A", "E", "B", "C", "F"]) {
+    doc = switchSceneVariant(doc, "scene-1", letter);
+    expect(nodeText(doc.content.content[1])).toBe(
+      letter === "F" ? "Действие только в F." : `Действие ${letter}.`,
+    );
+    expect(nodeText(doc.content.content[0])).toBe(
+      letter === "F" ? "ИНТ. КОМНАТА F — НОЧЬ" : "ИНТ. ДОМ — ДЕНЬ",
+    );
+    expect(doc.outline.cards[0].blockId).toBe("scene-1");
+    expect(nodeText(doc.content.content[7])).toBe("ЭКС. САД");
+  }
 });
 
 test("library refresh updates linked definitions without overwriting same-name local components", () => {
@@ -303,7 +336,7 @@ test("settings persist dark theme and default silent typewriter, sound only runs
   const sound = page.getByLabel("Звук печатной машинки");
   await expect(sound).not.toBeChecked();
   await sound.check();
-  await page.getByLabel("Тема интерфейса").selectOption("dark");
+  await selectAppOption(page, page.getByLabel("Тема интерфейса"), "dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".script-paper")).toHaveCSS(
     "background-color",
@@ -322,7 +355,7 @@ test("settings persist dark theme and default silent typewriter, sound only runs
     .click();
   await expect(sound).toBeChecked();
   await sound.uncheck();
-  await page.getByLabel("Тема интерфейса").selectOption("light");
+  await selectAppOption(page, page.getByLabel("Тема интерфейса"), "light");
   await expect(page.locator(".script-paper")).toHaveCSS(
     "background-color",
     "rgb(255, 255, 255)",
@@ -336,8 +369,8 @@ test("scene versions can be edited, searched and reloaded; number, selector and 
   const variant = scene(page, "scene-1").getByLabel("Вариант сцены 1", {
     exact: true,
   });
-  await variant.selectOption("B");
-  await expect(variant).toHaveValue("B");
+  await selectAppOption(page, variant, "B");
+  await expect(variant).toHaveAttribute("data-value", "B");
   await expect(scene(page, "scene-1")).toHaveAttribute(
     "data-scene-variant",
     "B",
@@ -350,14 +383,14 @@ test("scene versions can be edited, searched and reloaded; number, selector and 
   await page.keyboard.press("Shift+End");
   await page.keyboard.type("Alternative action.");
   await expect(action).toHaveText("Alternative action.");
-  await variant.selectOption("A");
+  await selectAppOption(page, variant, "A");
   await expect(action).toHaveText("Анна открывает окно.");
-  await variant.selectOption("B");
+  await selectAppOption(page, variant, "B");
   await expect(action).toHaveText("Alternative action.");
   const geometry = await scene(page, "scene-1").evaluate((el) => {
     const rect = (s) => el.querySelector(s).getBoundingClientRect();
     const n = rect(".scene-number"),
-      v = rect("select"),
+      v = rect(".scene-variant-select"),
       c = rect(".outline-scene-link"),
       sheet = el.closest(".script-paper").getBoundingClientRect(),
       text = el.getBoundingClientRect();
@@ -395,8 +428,8 @@ test("scene versions can be edited, searched and reloaded; number, selector and 
     )
     .toBeGreaterThan(0);
   await page.reload();
-  await expect(variant).toHaveValue("B");
-  await variant.selectOption("A");
+  await expect(variant).toHaveAttribute("data-value", "B");
+  await selectAppOption(page, variant, "A");
   await expect(action).toHaveText("Анна открывает окно.");
   const transferred = await page.evaluate(async () => {
     const { browserRequest } = await import("/src/browser-files.js");
@@ -418,6 +451,83 @@ test("scene versions can be edited, searched and reloaded; number, selector and 
     link: "scene-1",
     letters: ["A", "B"],
   });
+});
+
+test("F stays independent when other variants are first opened; switching does not flash the scene", async ({
+  page,
+}) => {
+  await open(page, [fixture()], true);
+  await page.evaluate(() => {
+    window.variantNavigationFlashes = 0;
+    new MutationObserver(() => {
+      if (
+        document.querySelector(
+          ".outline-navigation-flash, [data-outline-navigation-target]",
+        )
+      )
+        window.variantNavigationFlashes++;
+    }).observe(document.querySelector(".screenplay-editor"), {
+      subtree: true,
+      childList: true,
+      attributes: true,
+    });
+  });
+  const variant = scene(page, "scene-1").getByLabel("Вариант сцены 1", {
+    exact: true,
+  });
+  const action = page
+    .locator('.screenplay-block[data-format="action"]')
+    .first();
+  const replaceLine = async (line, text) => {
+    await line.click();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+End");
+    await page.keyboard.insertText(text);
+  };
+  const headingText = () =>
+    scene(page, "scene-1").evaluate((node) => {
+      const copy = node.cloneNode(true);
+      copy
+        .querySelectorAll(".ProseMirror-widget")
+        .forEach((widget) => widget.remove());
+      return copy.textContent;
+    });
+  await selectAppOption(page, variant, "F");
+  await replaceLine(scene(page, "scene-1"), "ИНТ. КОМНАТА F — НОЧЬ");
+  await replaceLine(action, "Только вариант F.");
+  for (const letter of ["B", "C", "D", "E", "A"]) {
+    await selectAppOption(page, variant, letter);
+    await expect(action).toHaveText("Анна открывает окно.");
+    expect(await headingText()).toBe("ИНТ. ДОМ — ДЕНЬ");
+    await replaceLine(action, `Вариант ${letter}.`);
+  }
+  for (const letter of ["F", "D", "B", "A", "E", "C", "F"]) {
+    await selectAppOption(page, variant, letter);
+    await expect(action).toHaveText(
+      letter === "F" ? "Только вариант F." : `Вариант ${letter}.`,
+    );
+    expect(await headingText()).toBe(
+      letter === "F" ? "ИНТ. КОМНАТА F — НОЧЬ" : "ИНТ. ДОМ — ДЕНЬ",
+    );
+    await expect(page.locator(".screenplay-editor")).toBeFocused();
+  }
+  expect(await page.evaluate(() => window.variantNavigationFlashes)).toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { browserRequest } = await import("/src/browser-files.js");
+        const doc = (await browserRequest("documents")).documents[0];
+        return Object.keys(doc?.sceneVariants?.["scene-1"] || {}).length;
+      }),
+    )
+    .toBe(6);
+  await page.reload();
+  await expect(variant).toHaveAttribute("data-value", "F");
+  await expect(action).toHaveText("Только вариант F.");
+  await selectAppOption(page, variant, "D");
+  await expect(action).toHaveText("Вариант D.");
+  await selectAppOption(page, variant, "F");
+  await expect(action).toHaveText("Только вариант F.");
 });
 
 test("doctor navigates to findings and full screen hides UI, accepts typing and restores the caret", async ({

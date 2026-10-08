@@ -2,6 +2,14 @@ import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { SHORTCUT_GROUPS } from "./keyboard-shortcuts.js";
 import { commentText, quoteDiff } from "./comment-review.js";
+import AppSelect from "./AppSelect.jsx";
+import {
+  COMMENT_COLORS,
+  COMMENT_STATUSES,
+  commentStatus,
+  commentColor,
+  commentStyle,
+} from "./comment-options.js";
 import {
   Check,
   MessageSquare,
@@ -83,22 +91,45 @@ export function CommentsPanel({
   onClearQuote,
   onAdd,
   onToggle,
+  onUpdate,
   onFocus,
   onFilterChange,
 }) {
   const language = useLanguage();
   const [text, setText] = useState(""),
     [filter, setFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [draftOptions, setDraftOptions] = useState({
+    status: "open",
+    color: "yellow",
+  });
+  const statusOptions = COMMENT_STATUSES.map((status) => ({
+    ...status,
+    label: t(status.label),
+  }));
+  const colorOptions = COMMENT_COLORS.map((color) => ({
+    value: color.value,
+    label: t(color.label),
+    icon: (
+      <span
+        className="comment-color-dot"
+        style={commentStyle({ color: color.value })}
+        aria-hidden="true"
+      />
+    ),
+  }));
   const input = useRef(null),
     active = useRef(null);
   useEffect(() => {
     if (quote) {
       setFilter("open");
+      setStatusFilter("all");
       input.current?.focus();
     }
   }, [quote]);
   useEffect(() => {
     if (activeId) {
+      setStatusFilter("all");
       setFilter(
         comments.find((c) => c.id === activeId)?.resolved ? "resolved" : "open",
       );
@@ -110,7 +141,10 @@ export function CommentsPanel({
     }
   }, [activeId]);
   const visible = comments.filter((c) =>
-    filter === "resolved" ? c.resolved : !c.resolved,
+    filter === "resolved"
+      ? c.resolved
+      : !c.resolved &&
+        (statusFilter === "all" || commentStatus(c) === statusFilter),
   );
   return (
     <aside className="comments-drawer" aria-label={t("Комментарии сценария")}>
@@ -147,12 +181,40 @@ export function CommentsPanel({
           {t("Решённые")}
         </button>
       </div>
+      {filter === "open" && (
+        <div className="comment-status-filter">
+          <AppSelect
+            label={t("Фильтр по статусу комментария")}
+            value={statusFilter}
+            options={[
+              { value: "all", label: t("Все статусы") },
+              ...statusOptions.filter((status) => status.value !== "resolved"),
+            ]}
+            onChange={(value) => {
+              setStatusFilter(value);
+              onFilterChange?.();
+            }}
+          />
+        </div>
+      )}
       <div className="comment-list">
         {visible.map((c) => (
           <article
             key={c.id}
             ref={c.id === activeId ? active : null}
             className={`comment-card${c.id === activeId ? " active" : ""}${c.resolved ? " resolved" : ""}`}
+            data-comment-id={c.id}
+            tabIndex={0}
+            style={commentStyle(c)}
+            onKeyDown={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                onFocus(c);
+              }
+            }}
             onClick={(e) => {
               if (!e.target.closest("button")) onFocus(c);
             }}
@@ -191,6 +253,21 @@ export function CommentsPanel({
               </button>
             )}
             <p>{c.text}</p>
+            <div className="comment-options-row">
+              <AppSelect
+                label={t("Статус комментария")}
+                value={commentStatus(c)}
+                options={statusOptions}
+                onChange={(status) => onUpdate(c.id, { status })}
+              />
+              <AppSelect
+                label={t("Цвет комментария")}
+                value={commentColor(c).value}
+                options={colorOptions}
+                className="comment-color-select"
+                onChange={(color) => onUpdate(c.id, { color })}
+              />
+            </div>
             <button className="comment-resolve" onClick={() => onToggle(c)}>
               <Check size={13} />
               {c.resolved ? t("Открыть снова") : t("Решено")}
@@ -216,8 +293,9 @@ export function CommentsPanel({
         onSubmit={(e) => {
           e.preventDefault();
           if (text.trim()) {
-            onAdd(text.trim());
+            onAdd(text.trim(), draftOptions);
             setText("");
+            setDraftOptions((options) => ({ ...options, status: "open" }));
           }
         }}
       >
@@ -250,11 +328,31 @@ export function CommentsPanel({
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && text.trim()) {
               e.preventDefault();
-              onAdd(text.trim());
+              onAdd(text.trim(), draftOptions);
               setText("");
+              setDraftOptions((options) => ({ ...options, status: "open" }));
             }
           }}
         />
+        <div className="comment-options-row comment-draft-options">
+          <AppSelect
+            label={t("Статус нового комментария")}
+            value={draftOptions.status}
+            options={statusOptions}
+            onChange={(status) =>
+              setDraftOptions((options) => ({ ...options, status }))
+            }
+          />
+          <AppSelect
+            label={t("Цвет нового комментария")}
+            value={draftOptions.color}
+            options={colorOptions}
+            className="comment-color-select"
+            onChange={(color) =>
+              setDraftOptions((options) => ({ ...options, color }))
+            }
+          />
+        </div>
         <div>
           <small>{t("Ctrl+Enter — отправить")}</small>
           <button className="primary-button" disabled={!text.trim()}>

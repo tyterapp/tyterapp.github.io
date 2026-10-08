@@ -57,6 +57,7 @@ import {
   useTypewriterSound,
 } from "./editor-preferences.js";
 import { switchSceneVariant } from "./scene-variants.js";
+import { cleanCommentOptions } from "./comment-options.js";
 import ScriptDoctor from "./ScriptDoctor.jsx";
 import CharacterDialogue from "./CharacterDialogue.jsx";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
@@ -1020,7 +1021,7 @@ export default function MinimalApp({ onLogout }) {
     );
     editorRef.current?.restoreContent(next.content);
     update(() => next);
-    setSceneTarget(id);
+    editorRef.current?.focusBlock(id, { highlight: false });
   };
   const embedLibrary = (library, selected) => {
     const latest =
@@ -1280,7 +1281,7 @@ export default function MinimalApp({ onLogout }) {
     },
     [showSidebar],
   );
-  const addComment = (text) => {
+  const addComment = (text, options = {}) => {
     const comment = {
       id: uid(),
       text,
@@ -1288,7 +1289,7 @@ export default function MinimalApp({ onLogout }) {
       blockId: commentQuote?.blockId || null,
       author: "Вы",
       createdAt: new Date().toISOString(),
-      resolved: false,
+      ...cleanCommentOptions(options),
       anchor: commentQuote?.from ?? null,
     };
     if (
@@ -1361,6 +1362,7 @@ export default function MinimalApp({ onLogout }) {
         return;
       }
       if (event.key === "Escape") {
+        if (document.querySelector("[data-app-select-menu]")) return;
         event.preventDefault();
         setMenu(null);
         setDocumentActions(null);
@@ -2576,6 +2578,7 @@ export default function MinimalApp({ onLogout }) {
               style={{
                 minHeight: pageCount * pageHeight,
                 zoom: documentZoom / 100,
+                "--document-zoom": documentZoom / 100,
                 "--script-font-size": `${fontSize}pt`,
                 "--script-font-family": documentFont(fontFamily).family,
                 "--page-margin": `${sheet.top}px`,
@@ -2896,8 +2899,23 @@ export default function MinimalApp({ onLogout }) {
                     ? {
                         ...c,
                         resolved: !c.resolved,
+                        status: c.resolved ? "open" : "resolved",
                       }
                     : c,
+                ),
+              }));
+            }}
+            onUpdate={(id, changes) => {
+              if (changes.status) setActiveComment(null);
+              update((d) => ({
+                ...d,
+                comments: d.comments.map((comment) =>
+                  comment.id === id
+                    ? {
+                        ...comment,
+                        ...cleanCommentOptions({ ...comment, ...changes }),
+                      }
+                    : comment,
                 ),
               }));
             }}

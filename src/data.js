@@ -1,6 +1,7 @@
 import { dramaValue, clampDocumentZoom } from "./document-layout.js";
 import { documentFont } from "./document-fonts.js";
 import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
+import { cleanCommentOptions } from "./comment-options.js";
 
 const FORMATS = new Set([
   "scene",
@@ -604,7 +605,7 @@ export function validateImport(input) {
           blockId: usedIds.has(item.blockId) ? item.blockId : null,
           author: cleanText(item.author, 100) || "Alex Morgan",
           createdAt: cleanDate(item.createdAt),
-          resolved: item.resolved === true,
+          ...cleanCommentOptions(item),
           anchor:
             Number.isInteger(item.anchor) && item.anchor >= 0
               ? item.anchor

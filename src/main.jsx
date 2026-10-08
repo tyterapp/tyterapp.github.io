@@ -11,6 +11,7 @@ import "./landing.css";
 import "./scrollbars.css";
 import "./editor-tools.css";
 import "./themes.css";
+import "./editor-ui.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";

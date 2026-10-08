@@ -22,18 +22,20 @@ export function switchSceneVariant(document, id, letter) {
     [sceneLetter(range.nodes[0])]: structuredClone(range.nodes),
   };
   const exists = !!variants[letter];
-  const replacement = structuredClone(variants[letter] || range.nodes).map(
-    (node, index) => ({
-      ...node,
-      attrs: {
-        ...node.attrs,
-        blockId:
-          index === 0 ? id : exists ? node.attrs.blockId : crypto.randomUUID(),
-        ...(index === 0 ? { sceneVariant: letter } : {}),
-      },
-    }),
-  );
-  variants[letter] = replacement;
+  // Unopened variants start from A, rather than inheriting edits made in F
+  // (or whichever alternative happens to be active).
+  const replacement = structuredClone(
+    variants[letter] || variants.A || range.nodes,
+  ).map((node, index) => ({
+    ...node,
+    attrs: {
+      ...node.attrs,
+      blockId:
+        index === 0 ? id : exists ? node.attrs.blockId : crypto.randomUUID(),
+      ...(index === 0 ? { sceneVariant: letter } : {}),
+    },
+  }));
+  variants[letter] = structuredClone(replacement);
   return {
     ...document,
     sceneVariants: { ...document.sceneVariants, [id]: variants },

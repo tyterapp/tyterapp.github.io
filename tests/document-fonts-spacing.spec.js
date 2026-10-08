@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { createProject } from "../src/data.js";
 import { grantPro } from "./helpers/pro-access.js";
+import { selectAppOption } from "./helpers/app-select.js";
 
 const paragraph = (format, text, blockId) => ({
   type: "paragraph",
@@ -151,17 +152,27 @@ test("Courier New persists in both languages; ENG-only Courier Prime resets to C
   await page
     .getByRole("button", { name: "Настройки документа", exact: true })
     .click();
-  const font = page.locator(".settings-drawer select[aria-label]");
-  await expect(font.locator('option[value="courier-prime"]')).toHaveCount(0);
-  await font.selectOption("courier-new");
+  const font = page.getByRole("combobox", {
+    name: /^(Шрифт в редакторе|Editor font)$/,
+  });
+  await font.click();
+  await expect(
+    page.getByRole("listbox").locator('[data-value="courier-prime"]'),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await selectAppOption(page, font, "courier-new");
   await expect(page.locator(".screenplay-editor")).toHaveCSS(
     "font-family",
     /Tyter Courier New/,
   );
   await page.getByRole("button", { name: "ENG", exact: true }).click();
-  await expect(font).toHaveValue("courier-new");
-  await expect(font.locator('option[value="courier-prime"]')).toHaveCount(1);
-  await font.selectOption("courier-prime");
+  await expect(font).toHaveAttribute("data-value", "courier-new");
+  await font.click();
+  await expect(
+    page.getByRole("listbox").locator('[data-value="courier-prime"]'),
+  ).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await selectAppOption(page, font, "courier-prime");
   await expect(page.locator(".screenplay-editor")).toHaveCSS(
     "font-family",
     /Tyter Courier Prime/,
@@ -198,9 +209,13 @@ test("Courier New persists in both languages; ENG-only Courier Prime resets to C
   await page
     .getByRole("button", { name: "Настройки документа", exact: true })
     .click();
-  await expect(font).toHaveValue("courier");
-  await expect(font.locator('option[value="courier-prime"]')).toHaveCount(0);
-  await font.selectOption("courier-new");
+  await expect(font).toHaveAttribute("data-value", "courier");
+  await font.click();
+  await expect(
+    page.getByRole("listbox").locator('[data-value="courier-prime"]'),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await selectAppOption(page, font, "courier-new");
   await expect.poll(() => storedFont(page)).toBe("courier-new");
   await page.reload();
   await expect(page.locator(".screenplay-editor")).toHaveCSS(

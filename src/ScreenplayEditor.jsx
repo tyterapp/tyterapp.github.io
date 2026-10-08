@@ -20,6 +20,8 @@ import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
+import { SelectMenu } from "./AppSelect.jsx";
+import { commentColor, commentStyle } from "./comment-options.js";
 import {
   captureCaret,
   selectionAtCaret,
@@ -513,6 +515,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
 ) {
   const language = useLanguage();
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [sceneVariantMenu, setSceneVariantMenu] = useState(null);
   const [caretReady, setCaretReady] = useState(false);
   const caretReadyRef = useRef(false);
   const focusPending = useRef(true);
@@ -544,6 +547,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     outlineCards,
     onEditOutlineCard,
     onSceneVariant,
+    onOpenSceneVariants: setSceneVariantMenu,
     onCharacterDialogues,
     props,
     activeProp,
@@ -690,17 +694,28 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             );
             const selected =
               review && marks.some((mark) => mark.attrs.id === review.id);
+            const openComments = marks
+              .map((mark) => commentById.get(mark.attrs.id))
+              .filter((comment) => comment && !comment.resolved);
             if (
               marks.some((mark) => {
                 const comment = commentById.get(mark.attrs.id);
                 return comment && !comment.resolved;
               })
-            )
+            ) {
+              const colorComment =
+                selected && !review.resolved ? review : openComments[0];
+              const style = Object.entries(commentStyle(colorComment))
+                .map(([key, value]) => `${key}:${value}`)
+                .join(";");
               decorations.push(
                 Decoration.inline(pos, pos + node.nodeSize, {
                   class: `comment-open${selected && !review.resolved ? " comment-open-selected" : ""}`,
+                  "data-comment-color": commentColor(colorComment).value,
+                  style,
                 }),
               );
+            }
             if (review?.resolved && selected) {
               decorations.push(
                 Decoration.inline(pos, pos + node.nodeSize, {
@@ -744,26 +759,36 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       label.setAttribute("data-number", String(number));
                       label.setAttribute("aria-hidden", "true");
                       gutter.append(label);
-                      const select = document.createElement("select");
+                      const select = document.createElement("button");
+                      select.type = "button";
                       select.className = "scene-variant-select";
                       select.contentEditable = "false";
+                      select.setAttribute("role", "combobox");
+                      select.setAttribute("aria-haspopup", "listbox");
+                      select.setAttribute("aria-expanded", "false");
                       select.setAttribute(
                         "aria-label",
                         t("Вариант сцены {0}", number),
                       );
-                      for (const letter of SCENE_VARIANTS) {
-                        const option = document.createElement("option");
-                        option.value = letter;
-                        option.textContent = letter;
-                        select.append(option);
-                      }
-                      select.value = sceneLetter(node);
-                      select.addEventListener("change", () =>
-                        propsRef.current.onSceneVariant?.(
-                          node.attrs.blockId,
-                          select.value,
-                        ),
-                      );
+                      select.dataset.value = sceneLetter(node);
+                      select.innerHTML = `<span>${sceneLetter(node)}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+                      const openVariants = () =>
+                        propsRef.current.onOpenSceneVariants?.({
+                          anchor: select,
+                          blockId: node.attrs.blockId,
+                          number,
+                          value: sceneLetter(node),
+                        });
+                      select.addEventListener("click", openVariants);
+                      select.addEventListener("keydown", (event) => {
+                        if (
+                          event.key === "ArrowDown" ||
+                          event.key === "ArrowUp"
+                        ) {
+                          event.preventDefault();
+                          openVariants();
+                        }
+                      });
                       gutter.append(select);
                       if (!card) return gutter;
                       const button = document.createElement("button");
@@ -1238,7 +1263,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .run();
         return inserted ? editor.getJSON() : null;
       },
-      focusBlock(blockId) {
+      focusBlock(blockId, { highlight = true } = {}) {
         if (
           !editor ||
           editor.isDestroyed ||
@@ -1254,31 +1279,42 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (found === null) return false;
         editor.commands.setTextSelection(found + 1);
         editor.view.focus();
-        scrollToText(editor.view, found + 1, searchScrollFrame, true, {
-          ensureRoom: true,
-          onComplete: () => {
-            clearTimeout(navigationFlashTimer.current);
-            // Remove a previous pulse before adding a fresh one, including
-            // repeated navigation to the same scene within a second.
-            if (navigationFlash.current) {
-              navigationFlash.current = null;
-              editor.view.dispatch(
-                editor.state.tr.setMeta("addToHistory", false),
-              );
-              editor.view.dom.getBoundingClientRect();
-            }
-            navigationFlash.current = blockId;
+        if (!highlight) {
+          clearTimeout(navigationFlashTimer.current);
+          if (navigationFlash.current) {
+            navigationFlash.current = null;
             editor.view.dispatch(
               editor.state.tr.setMeta("addToHistory", false),
             );
-            navigationFlashTimer.current = setTimeout(() => {
-              navigationFlash.current = null;
-              if (!editor.isDestroyed)
+          }
+        }
+        scrollToText(editor.view, found + 1, searchScrollFrame, true, {
+          ensureRoom: true,
+          onComplete: highlight
+            ? () => {
+                clearTimeout(navigationFlashTimer.current);
+                // Remove a previous pulse before adding a fresh one, including
+                // repeated navigation to the same scene within a second.
+                if (navigationFlash.current) {
+                  navigationFlash.current = null;
+                  editor.view.dispatch(
+                    editor.state.tr.setMeta("addToHistory", false),
+                  );
+                  editor.view.dom.getBoundingClientRect();
+                }
+                navigationFlash.current = blockId;
                 editor.view.dispatch(
                   editor.state.tr.setMeta("addToHistory", false),
                 );
-            }, 1000);
-          },
+                navigationFlashTimer.current = setTimeout(() => {
+                  navigationFlash.current = null;
+                  if (!editor.isDestroyed)
+                    editor.view.dispatch(
+                      editor.state.tr.setMeta("addToHistory", false),
+                    );
+                }, 1000);
+              }
+            : undefined,
         });
         return true;
       },
@@ -1447,6 +1483,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
     });
   }, [editor, spellcheck, language]);
+  useEffect(() => {
+    if (!sceneVariantMenu) return;
+    sceneVariantMenu.anchor.setAttribute("aria-expanded", "true");
+    return () => sceneVariantMenu.anchor.setAttribute("aria-expanded", "false");
+  }, [sceneVariantMenu]);
+  useEffect(
+    () => setSceneVariantMenu(null),
+    [documentId, selectionToolbarDisabled],
+  );
   return (
     <>
       <EditorContent
@@ -1456,7 +1501,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       <SelectionToolbar
         editor={editor}
         minimal={minimal}
-        disabled={selectionToolbarDisabled || contextMenuOpen}
+        disabled={
+          selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
+        }
         onCreateComponent={onCreateComponent}
         onCreateProp={onCreateProp}
         onComment={onCommentFromSelection || onComments}
@@ -1472,7 +1519,29 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         <Suggestions
           editor={editor}
           components={components}
-          disabled={selectionToolbarDisabled || contextMenuOpen}
+          disabled={
+            selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
+          }
+        />
+      )}
+      {sceneVariantMenu && (
+        <SelectMenu
+          anchor={sceneVariantMenu.anchor}
+          value={sceneVariantMenu.value}
+          label={t("Вариант сцены {0}", sceneVariantMenu.number)}
+          compact
+          options={SCENE_VARIANTS.map((letter) => ({
+            value: letter,
+            label: letter,
+          }))}
+          onClose={(restoreFocus) => {
+            setSceneVariantMenu(null);
+            if (restoreFocus)
+              sceneVariantMenu.anchor.focus({ preventScroll: true });
+          }}
+          onSelect={(letter) =>
+            propsRef.current.onSceneVariant?.(sceneVariantMenu.blockId, letter)
+          }
         />
       )}
     </>

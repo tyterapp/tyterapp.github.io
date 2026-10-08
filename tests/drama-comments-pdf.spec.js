@@ -562,8 +562,10 @@ test("scene numbers grow with their digits and keep a 16px gap to their outline 
       elements.map((el) => {
         const number = el.querySelector(".scene-number");
         const rect = number.getBoundingClientRect();
-        const icon = el.querySelector("button").getBoundingClientRect();
-        const variant = el.querySelector("select").getBoundingClientRect();
+        const icon = el.querySelector(".outline-scene-link").getBoundingClientRect();
+        const variant = el
+          .querySelector(".scene-variant-select")
+          .getBoundingClientRect();
         const paper = el.closest(".script-paper").getBoundingClientRect();
         return {
           value: number.dataset.number,
