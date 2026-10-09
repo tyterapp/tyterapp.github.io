@@ -14,6 +14,7 @@ const ids = new Set(SCRIPT_VERSIONS.map((version) => version.id));
 // properties of the containing document, so it stays a single local file.
 const fields = [
   "content",
+  "notes",
   "sceneVariants",
   "outline",
   "components",

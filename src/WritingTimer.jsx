@@ -1,11 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Play, X } from "lucide-react";
+import { Play, X, Flame } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
-import {
-  formatTimerTime,
-  TIMER_MINUTES,
-  useWritingTimer,
-} from "./writing-timer.js";
+import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import {
   MoneyIcon,
   PauseIcon,
@@ -13,9 +9,8 @@ import {
   TimerIcon,
 } from "./WritingTimerIcons.jsx";
 
-export default function WritingTimer({ visible, onComplete }) {
+export default function WritingTimer({ visible, timer }) {
   useLanguage();
-  const timer = useWritingTimer(onComplete);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [stacked, setStacked] = useState(false);
   const ref = useRef(null);
@@ -74,6 +69,16 @@ export default function WritingTimer({ visible, onComplete }) {
       aria-label={t("Таймер письма")}
       onMouseDown={(event) => event.preventDefault()}
     >
+      {timer.streak && !timer.session && !pickerOpen && (
+        <span
+          className="writing-streak"
+          data-tooltip={t("Дней подряд: {0}", timer.streak.count)}
+          aria-label={t("Дней подряд: {0}", timer.streak.count)}
+        >
+          <Flame size={13} />
+          {timer.streak.count}
+        </span>
+      )}
       {timer.session ? (
         <>
           <button

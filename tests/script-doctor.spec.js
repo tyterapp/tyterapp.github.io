@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createProject } from "../src/data.js";
+import { createProject, validateImport } from "../src/data.js";
 import {
   inspectScript,
   inspectDocumentScript,
@@ -44,7 +44,9 @@ async function open(page, doc = fixture(), theme = "light", pro = false) {
     { doc, theme },
   );
   await page.goto(pro ? "/beta" : "/free");
-  await expect(page.locator(".screenplay-editor")).toBeFocused();
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  if (page.viewportSize().width >= 832)
+    await expect(page.locator(".screenplay-editor")).toBeFocused();
 }
 async function replace(page, id, text) {
   await page.locator(`p[data-block-id="${id}"]`).evaluate((node) => {
@@ -146,7 +148,7 @@ test("visual severity grows, recedes and bounds particles while retaining the co
   expect(doctorCondition(1)).toEqual({ errors: 1, fill: 1 / 12, flies: 1 });
   expect(doctorCondition(6)).toEqual({ errors: 6, fill: 0.5, flies: 6 });
   expect(doctorCondition(12)).toEqual({ errors: 12, fill: 1, flies: 12 });
-  expect(doctorCondition(1000)).toEqual({ errors: 1000, fill: 1, flies: 24 });
+  expect(doctorCondition(1000)).toEqual({ errors: 1000, fill: 1, flies: 12 });
   expect(doctorCondition(-1)).toEqual(doctorCondition(0));
 });
 
@@ -157,10 +159,16 @@ for (const theme of ["light", "dark"]) {
     await open(page, fixture(6), theme);
     await expect(icon(page)).toHaveAttribute("data-error-count", "12");
     await expect(icon(page)).toHaveAttribute("data-fill", "1");
-    await expect(page.locator(".doctor-fly.is-visible")).toHaveCount(12);
+    await expect(page.locator(".doctor-fly.is-visible, .doctor-interface-fly")).toHaveCount(12);
     await expect(
       page.locator(".doctor-fly.is-visible .doctor-fly-orbit").first(),
     ).toHaveCSS("animation-play-state", "running");
+    // Wait for the initial import migration before comparing stored content.
+    // Navigation must not be mistaken for the first normalized autosave.
+    const normalized = validateImport(await stored(page)).content;
+    await expect
+      .poll(async () => (await stored(page)).content)
+      .toEqual(normalized);
     const before = (await stored(page)).content;
     await button(page).click();
     await expect(page.locator(".doctor-finding")).toHaveCount(12);
@@ -257,7 +265,7 @@ test("fixing errors removes flies and liquid live, and typing errors back increa
       "data-error-count",
       String(6 - i * 2),
     );
-    await expect(page.locator(".doctor-fly.is-visible")).toHaveCount(6 - i * 2);
+    await expect(page.locator(".doctor-fly.is-visible, .doctor-interface-fly")).toHaveCount(6 - i * 2);
   }
   await expect(icon(page)).toHaveAttribute("data-fill", "0");
   await expect(page.locator(".doctor-clear")).toContainText(
@@ -339,6 +347,7 @@ test("reduced motion stops particles, narrow drawer fits and full screen hides t
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
+  await page.getByRole("button", { name: "Открыть инструменты" }).click();
   await expect(
     page.locator(".doctor-fly.is-visible .doctor-fly-orbit").first(),
   ).toHaveCSS("animation-name", "none");

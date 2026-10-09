@@ -10,6 +10,7 @@ export default function EditorContextMenu({
   onCreateProp,
   onPasteImages,
   onOpenChange,
+  plainOnly = false,
 }) {
   const language = useLanguage();
   const languageRef = useRef(language);
@@ -44,6 +45,7 @@ export default function EditorContextMenu({
         editor.state.selection.to,
       );
     const nativeAction = (action) => {
+      if (plainOnly && ["bold", "italic"].includes(action)) return;
       const source = currentSource();
       if (!source) return;
       if (action === "component") handlers.current.onCreateComponent?.(source);
@@ -177,7 +179,7 @@ export default function EditorContextMenu({
       worker.current?.terminate();
       worker.current = null;
     };
-  }, [editor]);
+  }, [editor, plainOnly]);
   const close = () => {
     request.current++;
     setMenu(null);
@@ -277,8 +279,12 @@ export default function EditorContextMenu({
         ["copy", t("Копировать"), selected],
         ["cut", t("Вырезать"), selected],
         ["all", t("Выделить всё"), true],
-        ["bold", t("Жирный"), selected],
-        ["italic", t("Курсив"), selected],
+        ...(!plainOnly
+          ? [
+              ["bold", t("Жирный"), selected],
+              ["italic", t("Курсив"), selected],
+            ]
+          : []),
         ["component", t("Компонент"), selected],
         ["prop", t("Реквизит"), selected],
       ].map(([action, label, enabled], index) => (

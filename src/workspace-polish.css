@@ -1,0 +1,194 @@
+.doctor-interface-flies {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 20050;
+}
+.doctor-interface-flies::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+.doctor-interface-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  fill: oklch(0.39 0.006 285);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.doctor-interface-wing {
+  fill: oklch(0.55 0.008 285 / 0.65);
+}
+.script-doctor-icon {
+  --doctor-neutral: oklch(0.514 0.021 295);
+  color: color-mix(
+    in oklch,
+    var(--doctor-neutral),
+    var(--doctor-brown) calc(var(--doctor-severity) * 100%)
+  );
+}
+:root[data-theme="dark"] .script-doctor-icon {
+  --doctor-neutral: oklch(0.72 0.021 295);
+}
+.doctor-fly,
+.doctor-fly.is-visible {
+  filter: none;
+}
+.doctor-fly-body {
+  fill: oklch(0.39 0.006 285);
+  opacity: 0.5;
+}
+.doctor-fly-wing {
+  fill: oklch(0.55 0.008 285 / 0.65);
+}
+:root[data-theme="dark"]
+  :is(
+    .minimal-app,
+    .mobile-sheet-layer,
+    .minimal-dialog,
+    .web-pro-gate,
+    .notes-tool-panel
+  )
+  :is(input:not([type="checkbox"]):not([type="range"]), textarea, select) {
+  background: oklch(0.26 0.015 285);
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+}
+:root[data-theme="dark"]
+  :is(.outline-search, .sidebar-search, .document-search) {
+  background: var(--ui-soft);
+  border-color: var(--ui-border);
+}
+:root[data-theme="dark"]
+  :is(.minimal-app, .mobile-sheet-layer)
+  :is(.outline-search, .sidebar-search, .document-search)
+  input:not([type="checkbox"]):not([type="range"]) {
+  background: transparent;
+  color: var(--ui-text);
+  border: 0;
+}
+:root[data-theme="dark"] .word-suggestions kbd {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+}
+.writing-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--ui-text);
+  font-variant-numeric: tabular-nums;
+}
+.app-select-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.app-select-row > .app-select-option {
+  min-width: 0;
+  flex: 1;
+}
+.app-select-note {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+.app-select-note:hover,
+.app-select-note:focus-visible {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+}
+.app-select-note:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+.minimal-app .notes-paper {
+  padding: 32px 40px 64px;
+}
+.notes-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.notes-heading > span {
+  flex: 1;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+.notes-heading .quiet-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--ui-text);
+}
+.minimal-app .notes-paper .screenplay-editor {
+  font:
+    400 18px/1.6 Inter,
+    Arial,
+    sans-serif !important;
+  --script-line-height: 1.6;
+  min-height: 70vh;
+}
+.minimal-app .notes-paper .screenplay-editor .screenplay-block {
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  min-height: 1.6em;
+  font-weight: 400;
+  text-transform: none;
+}
+.notes-paper > .paper-label {
+  display: none;
+}
+.notes-tool-panel {
+  position: fixed;
+  right: 0;
+  top: 64px;
+  bottom: 0;
+  z-index: 120;
+  display: flex;
+  box-shadow: -4px 0 20px oklch(0 0 0 / 0.08);
+}
+.notes-tool-panel > aside {
+  height: 100%;
+}
+@media (min-width: 320px) and (max-width: 831px) {
+  .minimal-app[data-mobile] .notes-paper {
+    padding: 16px 20px 40px;
+  }
+  .notes-heading > .quiet-button {
+    flex-basis: 100%;
+  }
+  .notes-heading > .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  .app-select-note {
+    flex-basis: 44px;
+  }
+}
+@media print {
+  .doctor-interface-flies {
+    display: none;
+  }
+}

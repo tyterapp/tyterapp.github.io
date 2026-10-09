@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { FORMATS } from "./FormatBar.jsx";
 export default function DocumentSearch({
+  hideFormat = false,
   matches,
   query,
   onQuery,
@@ -55,7 +56,7 @@ export default function DocumentSearch({
           }}
         />
       </label>
-      <label className="search-format-filter">
+      {!hideFormat && <label className="search-format-filter">
         <span>{t("Формат текста")}</span>
         <select
           value={format}
@@ -68,7 +69,7 @@ export default function DocumentSearch({
             </option>
           ))}
         </select>
-      </label>
+      </label>}
       <div className="search-summary">
         <span className="search-count">
           {matches.length

@@ -10,9 +10,11 @@ function renderedPart(part, index) {
   }
   return <span key={index}>{result}</span>;
 }
-export default function HistoryPreview({ revision, onExit }) {
+export default function HistoryPreview({ revision, onExit, notes = false }) {
   const language = useLanguage();
-  const blocks = revision.snapshot.content?.content || [];
+  const blocks =
+    (notes ? revision.snapshot.notes?.content : revision.snapshot.content)
+      ?.content || [];
   let scene = 0;
   return (
     <div

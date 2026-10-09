@@ -132,6 +132,7 @@ export default function SelectionToolbar({
   onComment,
   disabled = false,
   minimal = false,
+  plainOnly = false,
 }) {
   const language = useLanguage();
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "CTRL";
@@ -263,7 +264,7 @@ export default function SelectionToolbar({
       event.stopPropagation();
       if (event.repeat) return;
       if (boldAlias) {
-        editor.chain().focus().toggleBold().run();
+        if (!plainOnly) editor.chain().focus().toggleBold().run();
         return;
       }
       dismissedRef.current = sourceKey(source);
@@ -275,6 +276,10 @@ export default function SelectionToolbar({
     refreshRef.current = scheduleUpdate;
     const editorEvents = ["selectionUpdate", "transaction", "focus", "blur"];
     editorEvents.forEach((event) => editor.on(event, scheduleUpdate));
+    const resize = new ResizeObserver(scheduleUpdate);
+    resize.observe(editor.view.dom);
+    const scroller = editor.view.dom.closest(".minimal-scroll");
+    if (scroller) resize.observe(scroller);
     window.addEventListener("resize", scheduleUpdate);
     window.addEventListener("scroll", scheduleUpdate, true);
     document.addEventListener("pointerdown", dismiss, true);
@@ -285,6 +290,7 @@ export default function SelectionToolbar({
     return () => {
       if (animationFrame !== null) cancelAnimationFrame(animationFrame);
       refreshRef.current = null;
+      resize.disconnect();
       editorEvents.forEach((event) => editor.off(event, scheduleUpdate));
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("scroll", scheduleUpdate, true);
@@ -293,7 +299,7 @@ export default function SelectionToolbar({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keydown", onComponentShortcut, true);
     };
-  }, [editor, disabled, minimal]);
+  }, [editor, disabled, minimal, plainOnly]);
   const createFromSelection = (callback) => {
     const source = selectedSource(editor);
     if (!source) return;
@@ -327,46 +333,50 @@ export default function SelectionToolbar({
     >
       {
         <>
-          {[
-            {
-              name: minimal ? t("Жирный") : "Bold",
-              mark: "bold",
-              Icon: Bold,
-              key: "B",
-            },
-            {
-              name: minimal ? t("Курсив") : "Italic",
-              mark: "italic",
-              Icon: Italic,
-              key: "I",
-            },
-            {
-              name: minimal ? t("Подчёркнутый") : "Underline",
-              mark: "underline",
-              Icon: Underline,
-              key: "U",
-            },
-          ].map(({ name, mark, Icon, key }) => (
-            <button
-              key={mark}
-              type="button"
-              aria-label={t(name)}
-              aria-describedby={`selection-tip-${mark}`}
-              aria-keyshortcuts={`Control+${key.replace("SHIFT + ", "Shift+")} Meta+${key.replace("SHIFT + ", "Shift+")}`}
-              aria-pressed={position[mark]}
-              onClick={() => toggleFormat(mark)}
-            >
-              <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
-              <span
-                className="selection-shortcut"
-                role="tooltip"
-                id={`selection-tip-${mark}`}
-              >
-                {shortcut} + {key}
-              </span>
-            </button>
-          ))}
-          <span className="selection-toolbar-divider" aria-hidden="true" />
+          {!plainOnly && (
+            <>
+              {[
+                {
+                  name: minimal ? t("Жирный") : "Bold",
+                  mark: "bold",
+                  Icon: Bold,
+                  key: "B",
+                },
+                {
+                  name: minimal ? t("Курсив") : "Italic",
+                  mark: "italic",
+                  Icon: Italic,
+                  key: "I",
+                },
+                {
+                  name: minimal ? t("Подчёркнутый") : "Underline",
+                  mark: "underline",
+                  Icon: Underline,
+                  key: "U",
+                },
+              ].map(({ name, mark, Icon, key }) => (
+                <button
+                  key={mark}
+                  type="button"
+                  aria-label={t(name)}
+                  aria-describedby={`selection-tip-${mark}`}
+                  aria-keyshortcuts={`Control+${key.replace("SHIFT + ", "Shift+")} Meta+${key.replace("SHIFT + ", "Shift+")}`}
+                  aria-pressed={position[mark]}
+                  onClick={() => toggleFormat(mark)}
+                >
+                  <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <span
+                    className="selection-shortcut"
+                    role="tooltip"
+                    id={`selection-tip-${mark}`}
+                  >
+                    {shortcut} + {key}
+                  </span>
+                </button>
+              ))}
+              <span className="selection-toolbar-divider" aria-hidden="true" />
+            </>
+          )}
           {!minimal && (
             <button
               type="button"

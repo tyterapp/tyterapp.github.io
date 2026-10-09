@@ -4,13 +4,16 @@ import { History, RotateCcw, X } from "lucide-react";
 import { listRevisions, revisionArea } from "./history.js";
 import { useEdition } from "./edition.js";
 import { scriptVersionId } from "./script-versions.js";
-const preview = (revision) =>
+const preview = (revision, notes = false) =>
   revisionArea(revision) === "outline"
     ? (revision.snapshot.outline?.cards || [])
         .map((card) => `${card.title || t("Без названия")}: ${card.text || ""}`)
         .join(" · ")
         .slice(0, 180) || t("Пустой аутлайн")
-    : (revision.snapshot.content?.content || [])
+    : (
+        (notes ? revision.snapshot.notes?.content : revision.snapshot.content)
+          ?.content || []
+      )
         .flatMap((block) =>
           (block.content || []).map((part) => part.text || ""),
         )
@@ -20,6 +23,7 @@ const preview = (revision) =>
 export default function HistoryPanel({
   documentId,
   scriptVersion = "white",
+  notes = false,
   version,
   selectedId,
   onSelect,
@@ -33,7 +37,8 @@ export default function HistoryPanel({
   const visibleEntries = entries.filter(
     (entry) =>
       scriptVersionId(entry.snapshot) === scriptVersion &&
-      (IS_PRO || revisionArea(entry) === "screenplay"),
+      (IS_PRO || revisionArea(entry) === "screenplay") &&
+      (!notes || revisionArea(entry) === "screenplay"),
   );
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +106,13 @@ export default function HistoryPanel({
               onClick={() => onSelect(selectedId === entry.id ? null : entry)}
             >
               <span className="history-area-badge">
-                {t(revisionArea(entry) === "outline" ? "Аутлайн" : "Сценарий")}
+                {t(
+                  notes
+                    ? "Заметки"
+                    : revisionArea(entry) === "outline"
+                      ? "Аутлайн"
+                      : "Сценарий",
+                )}
               </span>
               <time dateTime={new Date(entry.createdAt).toISOString()}>
                 {new Date(entry.createdAt).toLocaleString(languageLocale(), {
@@ -122,7 +133,7 @@ export default function HistoryPanel({
                         .join(", "),
                     )}
               </strong>
-              <span>{preview(entry)}</span>
+              <span>{preview(entry, notes)}</span>
             </button>
             {selectedId === entry.id && (
               <div className="history-entry-actions">

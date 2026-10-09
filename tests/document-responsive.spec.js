@@ -125,7 +125,7 @@ for (const theme of ["light", "dark"]) {
       const fitted = await geometry(page);
       expect(fitted.left).toBeCloseTo(40, 0);
       expect(fitted.right).toBeCloseTo(40, 0);
-      await page.setViewportSize({ width: 680, height: 1000 });
+      await page.setViewportSize({ width: 1000, height: 1000 });
       await expect
         .poll(async () => (await geometry(page)).width)
         .toBeCloseTo(580, 0);
@@ -137,22 +137,19 @@ for (const theme of ["light", "dark"]) {
         String(zoom / 100),
       );
     }
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Закрыть настройки" }).click();
     await page.setViewportSize({ width: 1100, height: 1000 });
     await page.screenshot({ path: info.outputPath("responsive-document.png") });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect
       .poll(async () => (await geometry(page)).width)
-      .toBeCloseTo(580, 0);
+      .toBeCloseTo(390, 0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(390);
-    await page.locator(".minimal-scroll").evaluate((scroll) => {
-      scroll.scrollLeft = scroll.scrollWidth;
-    });
-    await expect
-      .poll(async () => (await geometry(page)).right)
-      .toBeCloseTo(40, 0);
+    expect((await geometry(page)).scrollWidth).toBe(
+      (await geometry(page)).viewportWidth,
+    );
     await page.emulateMedia({ media: "print" });
     await expect(page.locator(".script-paper")).toHaveCSS("zoom", "1");
     await expect
@@ -182,7 +179,7 @@ test("resizing at 130% repaginates wrapped text in both directions and preserves
     window.getSelection().addRange(range);
     document.dispatchEvent(new Event("selectionchange"));
   });
-  await page.setViewportSize({ width: 680, height: 1000 });
+  await page.setViewportSize({ width: 832, height: 1000 });
   await expect
     .poll(async () => (await geometry(page)).pages)
     .toBeGreaterThan(originalPages);

@@ -16,6 +16,19 @@ async function open(page, theme = "light", seed = true) {
         localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
         localStorage.setItem("tyter.active", doc.id);
         localStorage.setItem("tyter.language.v1", "ru");
+        // Timer-focused tests start after today's daily visit was already claimed.
+        if (!localStorage.getItem("tyter.writing-timer.v1")) {
+          const date = new Date();
+          const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          localStorage.setItem(
+            "tyter.writing-timer.v1",
+            JSON.stringify({
+              coins: 0,
+              session: null,
+              streak: { day, count: 1, best: 1 },
+            }),
+          );
+        }
         localStorage.setItem(
           "tyter.editor-preferences.v1",
           JSON.stringify({ theme }),
@@ -26,6 +39,7 @@ async function open(page, theme = "light", seed = true) {
   }
   if (seed) await page.clock.install({ time: epoch });
   await page.goto("/beta");
+  await page.bringToFront();
   if (!seed) await page.clock.runFor(250);
   await expect(page.locator(".screenplay-editor")).toBeFocused();
   if (seed) await page.clock.pauseAt(new Date(epoch.getTime() + 10_000));
@@ -96,7 +110,7 @@ test("the timer pauses, survives reload, resumes and awards once; early stops ea
     .getByRole("button", { name: "Завершить таймер", exact: true })
     .click();
   await expect(balance(page)).toHaveText("25");
-  expect(await stored(page)).toEqual({ coins: 25, session: null });
+  expect(await stored(page)).toMatchObject({ coins: 25, session: null });
 });
 
 test("every preset earns one coin per selected minute, including a timer completed while the app was closed", async ({
@@ -115,7 +129,7 @@ test("every preset earns one coin per selected minute, including a timer complet
     }
     coins += minutes;
     await expect(balance(page)).toHaveText(String(coins));
-    expect(await stored(page)).toEqual({ coins, session: null });
+    expect(await stored(page)).toMatchObject({ coins, session: null });
   }
   await page.clock.fastForward(60_000);
   await expect(balance(page)).toHaveText("460");
@@ -152,7 +166,7 @@ test("two tabs share pause and countdown, and claim a completed session only onc
   await page.clock.fastForward(300_000);
   await expect(balance(page)).toHaveText("5");
   await expect(balance(second)).toHaveText("5");
-  expect(await stored(page)).toEqual({ coins: 5, session: null });
+  expect(await stored(page)).toMatchObject({ coins: 5, session: null });
   await second.reload();
   await expect(balance(second)).toHaveText("5");
   await second.close();
@@ -188,8 +202,13 @@ test("the timer keeps running across documents, outline and focus mode", async (
   await page.clock.fastForward(180_000);
   await expect(balance(page)).toHaveText("5");
   await page.clock.runFor(1200);
-  const documents = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("tyter.projects.v1")),
+  const documents = await page.evaluate(
+    async () =>
+      (
+        await (
+          await import("/src/browser-files.js")
+        ).browserRequest("documents")
+      ).documents,
   );
   expect(documents).toHaveLength(2);
   expect(

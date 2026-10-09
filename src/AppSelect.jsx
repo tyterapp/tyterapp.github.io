@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
+import { isMobileWorkspace } from "./mobile-workspace.js";
 
 export function SelectMenu({
   anchor,
@@ -19,27 +20,48 @@ export function SelectMenu({
     const place = () => {
       if (!anchor?.isConnected) return onClose(false);
       const rect = anchor.getBoundingClientRect();
+      const viewport = isMobileWorkspace() ? window.visualViewport : null;
+      const unzoomed = viewport && Math.abs(viewport.scale - 1) < 0.05;
+      const viewportTop = unzoomed ? viewport.offsetTop : 0;
+      const viewportBottom = unzoomed
+        ? viewportTop + viewport.height
+        : innerHeight;
       const width = Math.min(
         innerWidth - 16,
-        compact ? 56 : Math.max(180, rect.width),
+        compact
+          ? 56
+          : Math.max(
+              options.some((option) => option.action) ? 236 : 180,
+              rect.width,
+            ),
       );
       const height = Math.min(menuMaxHeight, options.length * optionHeight + 8);
-      const below = innerHeight - rect.bottom - 8;
-      const above = rect.top - 8;
+      const below = viewportBottom - rect.bottom - 8;
+      const above = rect.top - viewportTop - 8;
       const upwards = below < Math.min(height, 160) && above > below;
       const maxHeight = Math.min(height, Math.max(80, upwards ? above : below));
       setPosition({
         left: Math.max(8, Math.min(rect.left, innerWidth - width - 8)),
-        top: upwards ? Math.max(8, rect.top - maxHeight - 4) : rect.bottom + 4,
+        top: Math.max(
+          viewportTop + 8,
+          Math.min(
+            upwards ? rect.top - maxHeight - 4 : rect.bottom + 4,
+            viewportBottom - maxHeight - 8,
+          ),
+        ),
         width,
         maxHeight,
       });
     };
     place();
     window.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("scroll", place);
     document.addEventListener("scroll", place, true);
     return () => {
       window.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("scroll", place);
       document.removeEventListener("scroll", place, true);
     };
   }, [anchor, compact, options.length, onClose, menuMaxHeight, optionHeight]);
@@ -74,6 +96,14 @@ export function SelectMenu({
       data-app-select-menu="true"
       className={`app-select-menu${compact ? " scene-variant-menu" : ""}`}
       style={position || { visibility: "hidden" }}
+      onBlur={(event) => {
+        if (
+          options.some((option) => option.action) &&
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          onClose(false);
+      }}
       onKeyDown={(event) => {
         const items = [...menu.current.querySelectorAll('[role="option"]')];
         const index = items.indexOf(document.activeElement);
@@ -93,27 +123,48 @@ export function SelectMenu({
           event.stopPropagation();
           onClose(true);
         }
-        if (event.key === "Tab") onClose(false);
+        if (event.key === "Tab" && !options.some((option) => option.action))
+          onClose(false);
       }}
     >
-      {options.map((option) => (
-        <button
-          type="button"
-          role="option"
-          key={option.value}
-          data-value={option.value}
-          aria-selected={option.value === value}
-          className="app-select-option"
-          onClick={() => {
-            onClose(false);
-            onSelect(option.value);
-          }}
-        >
-          {option.icon}
-          <span>{option.label}</span>
-          {option.value === value && <Check size={14} aria-hidden="true" />}
-        </button>
-      ))}
+      {options.map((option) => {
+        const button = (
+          <button
+            type="button"
+            role="option"
+            key={option.value}
+            data-value={option.value}
+            aria-selected={option.value === value}
+            className="app-select-option"
+            onClick={() => {
+              onClose(false);
+              onSelect(option.value);
+            }}
+          >
+            {option.icon}
+            <span>{option.label}</span>
+            {option.value === value && <Check size={14} aria-hidden="true" />}
+          </button>
+        );
+        return option.action ? (
+          <div className="app-select-row" key={option.value}>
+            {button}
+            <button
+              type="button"
+              className="app-select-note"
+              aria-label={option.action.label}
+              onClick={() => {
+                onClose(false);
+                option.action.onClick();
+              }}
+            >
+              {option.action.icon}
+            </button>
+          </div>
+        ) : (
+          button
+        );
+      })}
     </div>,
     document.body,
   );

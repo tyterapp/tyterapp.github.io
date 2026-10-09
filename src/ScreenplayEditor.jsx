@@ -10,11 +10,13 @@ import EditorContextMenu from "./EditorContextMenu.jsx";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import { PlainNotes } from "./plain-notes.js";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
 import { quoteDiff } from "./comment-review.js";
+import { getWordCount } from "./data.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
@@ -481,6 +483,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     documentId,
     autoFocus = false,
     onChange,
+    trackWritingActivity = false,
+    continuous = false,
+    plainOnly = false,
     onSelection,
     onComments,
     onCommentFromSelection,
@@ -533,6 +538,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   };
   const propsRef = useRef({
     onChange,
+    trackWritingActivity,
     onSelection,
     onComments,
     onReady,
@@ -556,6 +562,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onEditProp,
     onEditAnnotations,
     onChange,
+    trackWritingActivity,
     onSelection,
     onComments,
     onReady,
@@ -581,6 +588,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        ...(plainOnly ? { bold: false, italic: false, underline: false, strike: false } : {}),
         paragraph: false,
         heading: false,
         bulletList: false,
@@ -601,6 +609,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         onComments: (selection) => propsRef.current.onComments?.(selection),
         minimal,
       }),
+      ...(plainOnly ? [PlainNotes] : []),
     ],
     content: initialContent.current,
     editorProps: {
@@ -610,7 +619,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       attributes: {
         class: "screenplay-editor",
         role: "textbox",
-        "aria-label": "Screenplay editor",
+        "aria-label": plainOnly ? t("Редактор заметок") : "Screenplay editor",
         "aria-multiline": "true",
         spellcheck: String(spellcheck),
         lang: language,
@@ -994,7 +1003,16 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             -1,
           );
       }
-      propsRef.current.onChange?.(json, anchors);
+      propsRef.current.onChange?.(
+        json,
+        anchors,
+        propsRef.current.trackWritingActivity
+          ? {
+              wordDelta:
+                getWordCount(json) - getWordCount(transaction.before.toJSON()),
+            }
+          : undefined,
+      );
       propsRef.current.onSelection?.(selectionInfo(updatedEditor));
     },
     onSelectionUpdate({ editor: updatedEditor }) {
@@ -1026,7 +1044,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   }, [editor, caretReady, autoFocus]);
   useScreenplayPagination(
     editor,
-    minimal,
+    minimal && !continuous,
     onPageCount,
     fontSize,
     fontFamily,
@@ -1548,6 +1566,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       <SelectionToolbar
         editor={editor}
         minimal={minimal}
+        plainOnly={plainOnly}
         disabled={
           selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
         }
@@ -1557,6 +1576,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       />
       <EditorContextMenu
         editor={editor}
+        plainOnly={plainOnly}
         onCreateComponent={onCreateComponent}
         onPasteImages={onPasteImages}
         onCreateProp={onCreateProp}

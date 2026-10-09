@@ -40,6 +40,11 @@ export default function AppMessage({ notice, onDismiss }) {
           ? t(value.key, ...(value.values || []))
           : t(value)}
       </span>
+      {!action && (
+        <button type="button" className="app-message-action" disabled={closing}>
+          {t("Перейти")}
+        </button>
+      )}
       {action && (
         <a
           className="app-message-action"

@@ -39,6 +39,7 @@ export function snapshotOf(document) {
     title: document.title,
     scriptVersion: scriptVersionId(document),
     content: document.content,
+    notes: document.notes || null,
     sceneVariants: document.sceneVariants || {},
     components: document.components,
     ...(document.componentLibraryId
@@ -59,6 +60,7 @@ export function snapshotOf(document) {
 export function changeLabel(before, after) {
   const names = [
     ["content", "текста"],
+    ["notes", "заметок"],
     ["sceneVariants", "вариантов сцен"],
     ["components", "компонентов"],
     ["componentFolders", "папок"],

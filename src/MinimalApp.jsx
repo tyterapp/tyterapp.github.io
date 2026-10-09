@@ -33,6 +33,8 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  Layers3,
+  Menu,
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
 import { exportTYT } from "./tyt-format.js";
@@ -71,6 +73,13 @@ import CharacterDialogue from "./CharacterDialogue.jsx";
 import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
 import AppMessage, { useAppMessage } from "./AppMessage.jsx";
 import WritingTimer from "./WritingTimer.jsx";
+import MobileSheet from "./MobileSheet.jsx";
+import DoctorFlies from "./DoctorFlies.jsx";
+import NotesWorkspace from "./NotesWorkspace.jsx";
+import { useMobileWorkspace } from "./mobile-workspace.js";
+import { useWritingTimer } from "./writing-timer.js";
+import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
+import { useDailyQuests } from "./pro/quests/index.js";
 import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
 import {
   scriptScopeId,
@@ -110,7 +119,8 @@ import {
   localRequest,
   saveLocalFiles,
   deleteLocalFile,
-  isWebPro,
+  usesBrowserLibrary,
+  sessionExportSnapshot,
 } from "./local-files.js";
 import ScreenplayEditor from "./ScreenplayEditor.jsx";
 import { createProject, uid, validateImport } from "./data.js";
@@ -236,7 +246,7 @@ function loadDocuments(isPro = BUILD_IS_PRO) {
     // Keep the original storage untouched if an older or damaged file cannot be read.
     return {
       documents: [newDocument()],
-      error: !isWebPro(),
+      error: !usesBrowserLibrary(),
     };
   }
 }
@@ -603,6 +613,10 @@ export default function MinimalApp({ onLogout }) {
   const [documentActions, setDocumentActions] = useState(null);
   const [query, setQuery] = useState("");
   const [componentsOpen, setComponentsOpen] = useState(false);
+  const { mobile, keyboard } = useMobileWorkspace();
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notesRef = useRef(null);
   const [view, setView] = useState("screenplay");
   const [outlineCard, setOutlineCard] = useState(null);
   const [sceneTarget, setSceneTarget] = useState(null);
@@ -612,6 +626,8 @@ export default function MinimalApp({ onLogout }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [doctorOpen, setDoctorOpen] = useState(false);
+  const [questsOpen, setQuestsOpen] = useState(false);
+  const [questOverlay, setQuestOverlay] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRevision, setHistoryRevision] = useState(null);
@@ -638,26 +654,36 @@ export default function MinimalApp({ onLogout }) {
   const [characterView, setCharacterView] = useState(null);
   const [libraryDialog, setLibraryDialog] = useState(null);
   const checkedFolderLibraries = useRef(false);
-  const showSidebar = useCallback((kind) => {
-    if (kind) {
-      setFocusMode(false);
-      setCharacterView(null);
-    }
-    setOutlineCard(null);
-    if (kind !== "annotations") setAnnotations(null);
-    setSearchOpen(kind === "search");
-    if (kind !== "search") setSearchCardSelection(null);
-    setComponentsOpen(kind === "components");
-    setPropsOpen(kind === "props");
-    if (kind !== "props") setPropDialog(null);
-    setCommentsOpen(kind === "comments");
-    setStatisticsOpen(kind === "statistics");
-    setDoctorOpen(kind === "doctor");
-    setSettingsOpen(kind === "settings");
-    setHistoryOpen(kind === "history");
-    if (kind !== "history") setHistoryRevision(null);
-    if (kind !== "components") setComponentDialog(null);
-  }, []);
+  const showSidebar = useCallback(
+    (kind) => {
+      setMobileToolsOpen(false);
+      setQuestOverlay(false);
+      if (kind) {
+        setFocusMode(false);
+        setCharacterView(null);
+      }
+      setOutlineCard(null);
+      if (kind !== "annotations") setAnnotations(null);
+      const noteTool =
+        notesOpen && ["search", "comments", "statistics"].includes(kind);
+      if (notesOpen && ["doctor", "quests"].includes(kind)) setNotesOpen(false);
+      notesRef.current?.openTool(noteTool ? kind : null);
+      setSearchOpen(kind === "search" && !noteTool);
+      if (kind !== "search") setSearchCardSelection(null);
+      setComponentsOpen(kind === "components");
+      setPropsOpen(kind === "props");
+      if (kind !== "props") setPropDialog(null);
+      setCommentsOpen(kind === "comments" && !noteTool);
+      setStatisticsOpen(kind === "statistics" && !noteTool);
+      setDoctorOpen(kind === "doctor");
+      setQuestsOpen(kind === "quests");
+      setSettingsOpen(kind === "settings");
+      setHistoryOpen(kind === "history");
+      if (kind !== "history") setHistoryRevision(null);
+      if (kind !== "components") setComponentDialog(null);
+    },
+    [notesOpen],
+  );
   const [tourOpen, setTourOpen] = useState(() => {
     try {
       return !localStorage.getItem("tyter.onboarding.v1");
@@ -669,6 +695,7 @@ export default function MinimalApp({ onLogout }) {
   const [diskAvailable, setDiskAvailable] = useState(false);
   const [diskState, setDiskState] = useState("loading");
   const diskRevision = useRef(0);
+  const folderConnecting = useRef(false);
   const [componentDialog, setComponentDialog] = useState(null);
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [rename, setRename] = useState(null);
@@ -683,22 +710,46 @@ export default function MinimalApp({ onLogout }) {
       ? "Не удалось прочитать сохранённые документы. Исходные данные сохранены; новые изменения можно скачать в файл."
       : "",
   );
+  const writingTimer = useWritingTimer(setMessage);
+  useEffect(() => {
+    let timeout;
+    const visit = () => {
+      if (!document.hidden) writingTimer.claimVisit();
+      clearTimeout(timeout);
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 20);
+      timeout = setTimeout(
+        visit,
+        Math.max(1000, midnight.getTime() - Date.now()),
+      );
+    };
+    visit();
+    window.addEventListener("focus", visit);
+    document.addEventListener("visibilitychange", visit);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("focus", visit);
+      document.removeEventListener("visibilitychange", visit);
+    };
+  }, [writingTimer.claimVisit]);
+  const dailyQuests = useDailyQuests(IS_PRO, writingScope, writingTimer);
   const writeStorage = useCallback(() => {
+    if (folderConnecting.current) return;
     if (initial.error) {
       setSaveState("error");
       return;
     }
     try {
       const desktop = !!window.tyterDesktop?.request;
-      const browserPro = isWebPro();
-      if (!desktop && !browserPro) {
+      const browserPro = usesBrowserLibrary();
+      if (!desktop && (!IS_PRO || !browserPro)) {
         localStorage.setItem(STORAGE, JSON.stringify(documentsRef.current));
         setSaveState("saved");
       }
       if (diskAvailable) {
         const revision = ++diskRevision.current;
         setDiskState("saving");
-        saveLocalFiles(documentsRef.current)
+        return saveLocalFiles(documentsRef.current)
           .then((result) => {
             if (revision === diskRevision.current) {
               setDiskState(result?.needsPermission ? "error" : "saved");
@@ -732,7 +783,7 @@ export default function MinimalApp({ onLogout }) {
       .then(({ documents: stored, deletedIds = [], directoryName }) => {
         if (cancelled) return;
         const disk = stored.map(validateImport);
-        if (isWebPro() && directoryName) {
+        if (usesBrowserLibrary() && directoryName) {
           setDocuments(disk);
           showSidebar(null);
           setActiveId((id) =>
@@ -749,7 +800,11 @@ export default function MinimalApp({ onLogout }) {
               const existing = merged.get(doc.id);
               // IndexedDB is authoritative in web Pro; editor initialization may
               // touch stale migration data before the local library finishes loading.
-              if (isWebPro() || !existing || doc.updatedAt > existing.updatedAt)
+              if (
+                usesBrowserLibrary() ||
+                !existing ||
+                doc.updatedAt > existing.updatedAt
+              )
                 merged.set(doc.id, doc);
             }
             return merged.size
@@ -895,7 +950,9 @@ export default function MinimalApp({ onLogout }) {
       update((document) => {
         const restored = {
           ...document,
-          ...structuredClone(snapshotForArea(entry.snapshot, area)),
+          ...(notesOpen
+            ? { notes: structuredClone(entry.snapshot.notes || null) }
+            : structuredClone(snapshotForArea(entry.snapshot, area))),
         };
         const snapshot = snapshotOf(restored);
         historyTracked.current.set(scriptScopeId(document), {
@@ -926,6 +983,8 @@ export default function MinimalApp({ onLogout }) {
         return;
       }
       showSidebar(null);
+      setNotesOpen(false);
+      componentHistory.current = { undo: [], redo: [] };
       setView(next);
       setFocusMode(false);
       setCharacterView(null);
@@ -937,6 +996,7 @@ export default function MinimalApp({ onLogout }) {
   );
   const openCharacterDialogues = (name = true) => {
     showSidebar(null);
+    setNotesOpen(false);
     setView("screenplay");
     setFocusMode(false);
     setCharacterView(name);
@@ -1028,7 +1088,7 @@ export default function MinimalApp({ onLogout }) {
     [current.id, activeScriptVersion.id],
   );
   const changeContent = useCallback(
-    (content, anchors) =>
+    (content, anchors, activity) => {
       update((d) => ({
         ...d,
         content,
@@ -1038,8 +1098,10 @@ export default function MinimalApp({ onLogout }) {
               anchor: anchors[c.id] ?? c.anchor,
             }))
           : d.comments,
-      })),
-    [update],
+      }));
+      if (activity?.wordDelta) dailyQuests.recordWords(activity.wordDelta);
+    },
+    [update, dailyQuests.recordWords],
   );
   const changeSceneVariant = (id, letter) => {
     const content = editorRef.current?.getJSON();
@@ -1174,7 +1236,13 @@ export default function MinimalApp({ onLogout }) {
       if (previous && previous.name !== component.name)
         editorRef.current?.renameEntity(component.id, component.name);
     }
-    merged.document.content = editorRef.current?.getJSON() || latest.content;
+    const content = editorRef.current?.getJSON();
+    if (notesOpen)
+      merged.document.notes = {
+        ...latest.notes,
+        content: content || latest.notes?.content,
+      };
+    else merged.document.content = content || latest.content;
     update(() => merged.document);
     setMessage({
       key: "Компоненты: добавлено {0}, обновлено {1}, совпадений пропущено {2}.",
@@ -1336,6 +1404,7 @@ export default function MinimalApp({ onLogout }) {
       if (
         !entry ||
         entry.documentId !== activeId ||
+        !!entry.notes !== notesOpen ||
         JSON.stringify(actual) !== JSON.stringify(expected)
       ) {
         if (
@@ -1361,7 +1430,9 @@ export default function MinimalApp({ onLogout }) {
             return {
               ...document,
               ...(undo ? entry.beforeFolderState : entry.afterFolderState),
-              content,
+              ...(notesOpen
+                ? { notes: { ...document.notes, content } }
+                : { content }),
               updatedAt: new Date().toISOString(),
             };
           const collection = entry.collection || "components";
@@ -1372,7 +1443,9 @@ export default function MinimalApp({ onLogout }) {
           return {
             ...document,
             [collection]: components,
-            content,
+            ...(notesOpen
+              ? { notes: { ...document.notes, content } }
+              : { content }),
             updatedAt: new Date().toISOString(),
           };
         }),
@@ -1380,8 +1453,11 @@ export default function MinimalApp({ onLogout }) {
     };
     document.addEventListener("keydown", onUndoRedo, true);
     return () => document.removeEventListener("keydown", onUndoRedo, true);
-  }, [activeId, writingScope]);
+  }, [activeId, writingScope, notesOpen]);
   const switchDocument = (doc) => {
+    setNotesOpen(false);
+    componentHistory.current = { undo: [], redo: [] };
+    setQuestOverlay(false);
     setFocusMode(false);
     setCharacterView(null);
     setLibraryDialog(null);
@@ -1402,13 +1478,21 @@ export default function MinimalApp({ onLogout }) {
     setHistoryRevision(null);
   };
   const changeScriptVersion = (id) => {
+    setNotesOpen(false);
     if (id === activeScriptVersion.id || busy || !filesReady) return;
     flushOutlineHistory(writingScope).catch(() => {});
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
     let outgoing = {
       ...latest,
-      content: editorRef.current?.getJSON() || latest.content,
+      ...(notesOpen
+        ? {
+            notes: {
+              ...latest.notes,
+              content: editorRef.current?.getJSON() || latest.notes?.content,
+            },
+          }
+        : { content: editorRef.current?.getJSON() || latest.content }),
     };
     // Comment navigation can temporarily open another scene letter. Archive
     // the user's working letters rather than that temporary preview.
@@ -1576,6 +1660,7 @@ export default function MinimalApp({ onLogout }) {
   useEffect(() => {
     const keyboard = (event) => {
       if (event.isComposing) return;
+      if (document.querySelector("dialog.daily-quest-overlay[open]")) return;
       if (
         (event.ctrlKey || event.metaKey) &&
         !event.altKey &&
@@ -1639,10 +1724,13 @@ export default function MinimalApp({ onLogout }) {
     return () => document.removeEventListener("keydown", keyboard, true);
   }, [showSidebar, closeTour, changeView, view, tourOpen, deleting]);
   const openLocalFolder = async () => {
-    if (isWebPro()) {
+    if (usesBrowserLibrary()) {
       try {
-        writeStorage();
-        const { documents: disk, name } = await chooseLocalDirectory();
+        const beforeConnect = writeStorage();
+        folderConnecting.current = true;
+        const { documents: disk, name } = await chooseLocalDirectory({
+          beforeConnect,
+        });
         setDocuments(disk);
         documentsRef.current = disk;
         showSidebar(null);
@@ -1660,6 +1748,8 @@ export default function MinimalApp({ onLogout }) {
         if (libraries.length && disk.length) setLibraryDialog(libraries);
       } catch (error) {
         if (error.name !== "AbortError") setMessage(error.message);
+      } finally {
+        folderConnecting.current = false;
       }
       return;
     }
@@ -1686,7 +1776,7 @@ export default function MinimalApp({ onLogout }) {
     if (
       !filesReady ||
       !documents.length ||
-      !isWebPro() ||
+      !usesBrowserLibrary() ||
       checkedFolderLibraries.current
     )
       return;
@@ -1737,7 +1827,7 @@ export default function MinimalApp({ onLogout }) {
     setDeleting(true);
     try {
       if (diskAvailable) {
-        if (!isWebPro()) await saveLocalFiles([deleteTarget]);
+        if (!usesBrowserLibrary()) await saveLocalFiles([deleteTarget]);
         await deleteLocalFile(deleteTarget.id);
       }
       const remaining = documentsRef.current.filter(
@@ -2041,6 +2131,7 @@ export default function MinimalApp({ onLogout }) {
     componentHistory.current.undo.push({
       documentId: current.id,
       collection: "props",
+      notes: notesOpen,
       component: structuredClone(prop),
       index: current.props.findIndex((item) => item.id === id),
       beforeContent,
@@ -2061,6 +2152,7 @@ export default function MinimalApp({ onLogout }) {
     const afterContent = editorRef.current?.getJSON() || current.content;
     componentHistory.current.undo.push({
       documentId: current.id,
+      notes: notesOpen,
       component: structuredClone(component),
       index: current.components.findIndex((item) => item.id === id),
       beforeContent,
@@ -2133,6 +2225,7 @@ export default function MinimalApp({ onLogout }) {
     componentHistory.current.undo.push({
       kind: "folder",
       documentId: current.id,
+      notes: notesOpen,
       beforeContent,
       afterContent,
       beforeFolderState,
@@ -2142,21 +2235,24 @@ export default function MinimalApp({ onLogout }) {
     update((d) => ({
       ...d,
       ...afterFolderState,
-      content: afterContent,
+      ...(notesOpen
+        ? { notes: { ...d.notes, content: afterContent } }
+        : { content: afterContent }),
     }));
     setComponentDialog(null);
     setFolderToDelete(null);
   };
   const download = async (format) => {
+    setMobileToolsOpen(false);
     setMenu(null);
     setBusy(format);
     setMessage("");
     writeStorage();
     try {
       await flushOutlineHistory();
-      const document = structuredClone(
-        documentsRef.current.find((item) => item.id === current.id) || current,
-      );
+      const document =
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        structuredClone(current);
       const blob = await {
         pdf: exportPDF,
         docx: exportDOCX,
@@ -2191,7 +2287,7 @@ export default function MinimalApp({ onLogout }) {
       const imported = await importDocument(file);
       const doc = validateImport(imported);
       const deletedIds =
-        isWebPro() && /\.tyt$/i.test(file.name)
+        usesBrowserLibrary() && /\.tyt$/i.test(file.name)
           ? (await localRequest("documents")).deletedIds || []
           : [];
       if (
@@ -2279,8 +2375,10 @@ export default function MinimalApp({ onLogout }) {
   }, [update]);
   return (
     <div
-      className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}`}
+      className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}${notesOpen ? " notes-mode" : ""}`}
       data-script-version={activeScriptVersion.id}
+      data-mobile={mobile || undefined}
+      data-keyboard={keyboard || undefined}
       style={{
         "--script-version-hue": activeScriptVersion.hue,
         "--script-version-chroma": activeScriptVersion.chroma,
@@ -2485,6 +2583,13 @@ export default function MinimalApp({ onLogout }) {
             document={current}
             disabled={!filesReady || !!busy || deleting}
             onChange={changeScriptVersion}
+            onNotes={(id) => {
+              changeScriptVersion(id);
+              showSidebar(null);
+              componentHistory.current = { undo: [], redo: [] };
+              setView("screenplay");
+              setNotesOpen(true);
+            }}
           />
         )}
         <button
@@ -2550,6 +2655,30 @@ export default function MinimalApp({ onLogout }) {
             </button>
           </div>
         </div>
+        {mobile && (
+          <>
+            <button
+              className="icon-button mobile-components-toggle"
+              aria-label={t("Компоненты")}
+              aria-expanded={componentsOpen}
+              onClick={() => showSidebar("components")}
+            >
+              <Shapes size={21} />
+            </button>
+            <button
+              className="icon-button mobile-tools-toggle"
+              aria-label={t("Открыть инструменты")}
+              aria-expanded={mobileToolsOpen}
+              onClick={() => {
+                showSidebar(null);
+                setMenu(null);
+                setMobileToolsOpen(true);
+              }}
+            >
+              <Menu size={22} />
+            </button>
+          </>
+        )}
       </header>
       {notice && (
         <AppMessage
@@ -2559,184 +2688,231 @@ export default function MinimalApp({ onLogout }) {
         />
       )}
       <div className="minimal-workspace">
-        <nav
-          className="workspace-tools"
-          aria-label={t("Инструменты редактора")}
+        <MobileSheet
+          mobile={mobile}
+          ready={filesReady}
+          open={mobileToolsOpen && !tourOpen}
+          label={t("Инструменты редактора")}
+          onClose={() => setMobileToolsOpen(false)}
         >
-          <div className="workspace-tools-scroll">
-            {view === "screenplay" && !!documents.length && (
-              <div className="workspace-tools-primary">
-                <button
-                  className={`icon-button${searchOpen ? " active" : ""}`}
-                  aria-expanded={searchOpen}
-                  aria-label={t("Поиск по сценарию")}
-                  data-tooltip={t("Поиск · Ctrl+F")}
-                  onClick={() => showSidebar(searchOpen ? null : "search")}
-                >
-                  <Search size={17} />
-                </button>
-                <button
-                  className={`icon-button${statisticsOpen ? " active" : ""}`}
-                  aria-label={t("Статистика документа")}
-                  data-tooltip={t("Статистика документа")}
-                  aria-expanded={statisticsOpen}
-                  onClick={() => {
-                    showSidebar(statisticsOpen ? null : "statistics");
-                  }}
-                >
-                  <ChartNoAxesColumn size={17} />
-                </button>
-                <button
-                  className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
-                  aria-label={t("Доктор сценария")}
-                  data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
-                  aria-expanded={doctorOpen}
-                  aria-describedby="script-doctor-condition"
-                  onClick={() => showSidebar(doctorOpen ? null : "doctor")}
-                >
-                  <ScriptDoctorIcon count={doctorFindings.length} />
-                  <span
-                    className="visually-hidden"
-                    id="script-doctor-condition"
-                  >
-                    {t("Замечаний: {0}", doctorFindings.length)}
-                  </span>
-                </button>
-                <button
-                  className={`icon-button${characterView ? " active" : ""}`}
-                  aria-label={t("Реплики персонажей")}
-                  data-tooltip={t("Реплики персонажей")}
-                  aria-pressed={!!characterView}
-                  onClick={() => {
-                    if (characterView) {
-                      setCharacterView(null);
-                      requestAnimationFrame(() => editorRef.current?.focus());
-                    } else openCharacterDialogues();
-                  }}
-                >
-                  <ChatsCircleIcon size={18} />
-                </button>
-                <button
-                  className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
-                  aria-label={t("Компоненты")}
-                  data-tooltip={t("Компоненты")}
-                  aria-expanded={componentsOpen}
-                  onClick={() => {
-                    showSidebar(componentsOpen ? null : "components");
-                  }}
-                >
-                  <Shapes size={17} />
-                  {current.components.some((c) => c.enabled !== false) && (
-                    <small>
-                      {
-                        current.components.filter((c) => c.enabled !== false)
-                          .length
-                      }
-                    </small>
-                  )}
-                </button>
-                <button
-                  className={`icon-button${propsOpen ? " active" : ""}`}
-                  aria-label={t("Реквизит")}
-                  data-tooltip={t("Реквизит · Pro")}
-                  aria-expanded={propsOpen}
-                  onClick={() =>
-                    IS_PRO
-                      ? showSidebar(propsOpen ? null : "props")
-                      : setSubscriptionOpen(true)
-                  }
-                >
-                  <Box size={17} />
-                </button>
-                <button
-                  className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
-                  aria-label={t("Комментарии")}
-                  data-tooltip={t("Комментарии")}
-                  aria-expanded={commentsOpen}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    if (commentsOpen) {
-                      showSidebar(null);
-                      setCommentQuote(null);
-                    } else openComments(editorRef.current?.getSelection());
-                  }}
-                >
-                  <MessageSquare size={17} />
-                  {current.comments.some((comment) => !comment.resolved) && (
-                    <small>
-                      {
-                        current.comments.filter((comment) => !comment.resolved)
-                          .length
-                      }
-                    </small>
-                  )}
-                </button>
+          <nav
+            className="workspace-tools"
+            aria-label={t("Инструменты редактора")}
+          >
+            {mobile && (
+              <div className="mobile-tools-heading">
+                <h2>{t("Инструменты редактора")}</h2>
+                <p>{t("Сессия этого устройства")}</p>
               </div>
             )}
-            <div className="workspace-tools-secondary">
+            <div className="workspace-tools-scroll">
+              {view === "screenplay" && !!documents.length && (
+                <div className="workspace-tools-primary">
+                  <button
+                    className={`icon-button${searchOpen ? " active" : ""}`}
+                    aria-expanded={searchOpen}
+                    aria-label={t("Поиск по сценарию")}
+                    data-tooltip={t("Поиск · Ctrl+F")}
+                    onClick={() => showSidebar(searchOpen ? null : "search")}
+                  >
+                    <Search size={17} />
+                  </button>
+                  <button
+                    className={`icon-button${statisticsOpen ? " active" : ""}`}
+                    aria-label={t("Статистика документа")}
+                    data-tooltip={t("Статистика документа")}
+                    aria-expanded={statisticsOpen}
+                    onClick={() => {
+                      showSidebar(statisticsOpen ? null : "statistics");
+                    }}
+                  >
+                    <ChartNoAxesColumn size={17} />
+                  </button>
+                  <button
+                    className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
+                    aria-label={t("Доктор сценария")}
+                    data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
+                    aria-expanded={doctorOpen}
+                    aria-describedby="script-doctor-condition"
+                    onClick={() => showSidebar(doctorOpen ? null : "doctor")}
+                  >
+                    <ScriptDoctorIcon count={doctorFindings.length} />
+                    <span
+                      className="visually-hidden"
+                      id="script-doctor-condition"
+                    >
+                      {t("Замечаний: {0}", doctorFindings.length)}
+                    </span>
+                  </button>
+                  <button
+                    className={`icon-button${questsOpen ? " active" : ""}`}
+                    aria-label={t("Задания")}
+                    data-tooltip={t("Задания · Pro")}
+                    aria-expanded={questsOpen}
+                    onClick={() => {
+                      if (!IS_PRO) {
+                        setSubscriptionOpen(true);
+                        return;
+                      }
+                      if (questsOpen) showSidebar(null);
+                      else {
+                        showSidebar("quests");
+                        if (!dailyQuests.record.active) setQuestOverlay(true);
+                      }
+                    }}
+                  >
+                    <Layers3 size={18} />
+                  </button>
+                  <button
+                    className={`icon-button${characterView ? " active" : ""}`}
+                    aria-label={t("Реплики персонажей")}
+                    data-tooltip={t("Реплики персонажей")}
+                    aria-pressed={!!characterView}
+                    onClick={() => {
+                      if (characterView) {
+                        setCharacterView(null);
+                        requestAnimationFrame(() => editorRef.current?.focus());
+                      } else openCharacterDialogues();
+                    }}
+                  >
+                    <ChatsCircleIcon size={18} />
+                  </button>
+                  <button
+                    className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                    aria-label={t("Компоненты")}
+                    data-tooltip={t("Компоненты")}
+                    aria-expanded={componentsOpen}
+                    onClick={() => {
+                      showSidebar(componentsOpen ? null : "components");
+                    }}
+                  >
+                    <Shapes size={17} />
+                    {current.components.some((c) => c.enabled !== false) && (
+                      <small>
+                        {
+                          current.components.filter((c) => c.enabled !== false)
+                            .length
+                        }
+                      </small>
+                    )}
+                  </button>
+                  <button
+                    className={`icon-button${propsOpen ? " active" : ""}`}
+                    aria-label={t("Реквизит")}
+                    data-tooltip={t("Реквизит · Pro")}
+                    aria-expanded={propsOpen}
+                    onClick={() =>
+                      IS_PRO
+                        ? showSidebar(propsOpen ? null : "props")
+                        : setSubscriptionOpen(true)
+                    }
+                  >
+                    <Box size={17} />
+                  </button>
+                  <button
+                    className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
+                    aria-label={t("Комментарии")}
+                    data-tooltip={t("Комментарии")}
+                    aria-expanded={commentsOpen}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      if (commentsOpen) {
+                        showSidebar(null);
+                        setCommentQuote(null);
+                      } else openComments(editorRef.current?.getSelection());
+                    }}
+                  >
+                    <MessageSquare size={17} />
+                    {current.comments.some((comment) => !comment.resolved) && (
+                      <small>
+                        {
+                          current.comments.filter(
+                            (comment) => !comment.resolved,
+                          ).length
+                        }
+                      </small>
+                    )}
+                  </button>
+                </div>
+              )}
+              <div className="workspace-tools-secondary">
+                <button
+                  className={`icon-button${historyOpen ? " active" : ""}`}
+                  aria-label={t("История изменений")}
+                  disabled={!documents.length}
+                  data-tooltip={t("История изменений")}
+                  aria-expanded={historyOpen}
+                  onClick={() => {
+                    showSidebar(historyOpen ? null : "history");
+                    flushOutlineHistory(writingScope).catch(() => {});
+                  }}
+                >
+                  <History size={17} />
+                </button>
+                <div ref={exportRef} className="export-control">
+                  <button
+                    className={`icon-button${menu === "export" ? " active" : ""}`}
+                    disabled={!!busy || !documents.length}
+                    aria-label={t("Скачать сценарий")}
+                    data-tooltip={
+                      busy ? t("Подготовка файла…") : t("Скачать сценарий")
+                    }
+                    aria-expanded={menu === "export"}
+                    onClick={() => setMenu(menu === "export" ? null : "export")}
+                  >
+                    <Download size={17} />
+                  </button>
+                </div>
+                <button
+                  className={`icon-button${settingsOpen ? " active" : ""}`}
+                  aria-label={t("Настройки документа")}
+                  disabled={!documents.length}
+                  data-tooltip={t("Настройки документа")}
+                  aria-expanded={settingsOpen}
+                  onClick={() => showSidebar(settingsOpen ? null : "settings")}
+                >
+                  <Settings2 size={17} />
+                </button>
+              </div>
+            </div>
+            <div className="workspace-tools-footer">
+              {mobile && (
+                <button
+                  className="icon-button"
+                  aria-label={t("Открыть папку сценариев")}
+                  onClick={() => {
+                    setMobileToolsOpen(false);
+                    openLocalFolder();
+                  }}
+                >
+                  <FolderOpen size={17} />
+                </button>
+              )}
               <button
-                className={`icon-button${historyOpen ? " active" : ""}`}
-                aria-label={t("История изменений")}
-                disabled={!documents.length}
-                data-tooltip={t("История изменений")}
-                aria-expanded={historyOpen}
+                className="icon-button"
+                aria-label={t("Обучение")}
+                data-tooltip={t("Онбординг и горячие клавиши")}
                 onClick={() => {
-                  showSidebar(historyOpen ? null : "history");
-                  flushOutlineHistory(writingScope).catch(() => {});
+                  setMobileToolsOpen(false);
+                  setMenu(null);
+                  setTourOpen(true);
                 }}
               >
-                <History size={17} />
+                <CircleHelp size={17} />
               </button>
-              <div ref={exportRef} className="export-control">
+              {onLogout && (
                 <button
-                  className={`icon-button${menu === "export" ? " active" : ""}`}
-                  disabled={!!busy || !documents.length}
-                  aria-label={t("Скачать сценарий")}
-                  data-tooltip={
-                    busy ? t("Подготовка файла…") : t("Скачать сценарий")
-                  }
-                  aria-expanded={menu === "export"}
-                  onClick={() => setMenu(menu === "export" ? null : "export")}
+                  className="icon-button workspace-signout"
+                  aria-label={t("Выйти из аккаунта")}
+                  data-tooltip={t("Выйти из аккаунта")}
+                  onClick={onLogout}
                 >
-                  <Download size={17} />
+                  <LogOut size={17} />
                 </button>
-              </div>
-              <button
-                className={`icon-button${settingsOpen ? " active" : ""}`}
-                aria-label={t("Настройки документа")}
-                disabled={!documents.length}
-                data-tooltip={t("Настройки документа")}
-                aria-expanded={settingsOpen}
-                onClick={() => showSidebar(settingsOpen ? null : "settings")}
-              >
-                <Settings2 size={17} />
-              </button>
+              )}
             </div>
-          </div>
-          <div className="workspace-tools-footer">
-            <button
-              className="icon-button"
-              aria-label={t("Обучение")}
-              data-tooltip={t("Онбординг и горячие клавиши")}
-              onClick={() => {
-                setMenu(null);
-                setTourOpen(true);
-              }}
-            >
-              <CircleHelp size={17} />
-            </button>
-            {onLogout && (
-              <button
-                className="icon-button workspace-signout"
-                aria-label={t("Выйти из аккаунта")}
-                data-tooltip={t("Выйти из аккаунта")}
-                onClick={onLogout}
-              >
-                <LogOut size={17} />
-              </button>
-            )}
-          </div>
-        </nav>
+          </nav>
+        </MobileSheet>
         {view === "outline" &&
           (historyRevision ? (
             <OutlineHistoryPreview
@@ -2785,6 +2961,7 @@ export default function MinimalApp({ onLogout }) {
               !historyRevision &&
               !characterView &&
               !libraryDialog &&
+              !questOverlay &&
               !tourOpen &&
               !subscriptionOpen &&
               !deleteTarget &&
@@ -2829,7 +3006,7 @@ export default function MinimalApp({ onLogout }) {
             }
           >
             <article
-              className={`script-paper${historyRevision ? " history-preview-paper" : ""}`}
+              className={`script-paper${historyRevision ? " history-preview-paper" : ""}${notesOpen ? " notes-paper" : ""}`}
               onMouseDownCapture={(event) => {
                 if (
                   historyRevision ||
@@ -2849,10 +3026,11 @@ export default function MinimalApp({ onLogout }) {
                   event.preventDefault();
               }}
               style={{
-                minHeight: pageCount * pageHeight,
+                minHeight:
+                  mobile || notesOpen ? "100%" : pageCount * pageHeight,
                 zoom: documentZoom / 100,
                 "--document-zoom": documentZoom / 100,
-                "--script-font-size": `${fontSize}pt`,
+                "--script-font-size": `${mobile ? (fontSize * documentZoom) / 100 : fontSize}pt`,
                 "--script-font-family": documentFont(fontFamily).family,
                 "--page-margin": `${sheet.top}px`,
                 "--paper-width": `${sheet.width}px`,
@@ -2867,7 +3045,7 @@ export default function MinimalApp({ onLogout }) {
                 ...BLOCK_LAYOUT_STYLE,
               }}
             >
-              {!historyRevision && (
+              {!historyRevision && !notesOpen && (
                 <div className="page-guides" aria-hidden="true">
                   {Array.from(
                     {
@@ -2892,7 +3070,36 @@ export default function MinimalApp({ onLogout }) {
               {historyRevision ? (
                 <HistoryPreview
                   revision={historyRevision}
+                  notes={notesOpen}
                   onExit={() => setHistoryRevision(null)}
+                />
+              ) : filesReady && documents.length && notesOpen ? (
+                <NotesWorkspace
+                  key={writingScope}
+                  ref={notesRef}
+                  scope={writingScope}
+                  editorRef={editorRef}
+                  document={current}
+                  mobile={mobile}
+                  onChange={(notes) =>
+                    update((document) => ({ ...document, notes }))
+                  }
+                  onClose={() => {
+                    showSidebar(null);
+                    setNotesOpen(false);
+                  }}
+                  onCreateComponent={componentFromSelection}
+                  onCreateProp={propFromSelection}
+                  onEditComponent={(id) => {
+                    const component = current.components.find(
+                      (item) => item.id === id,
+                    );
+                    if (component) editComponent(component);
+                  }}
+                  onEditProp={(id) => {
+                    const prop = current.props.find((item) => item.id === id);
+                    if (prop) editProp(prop);
+                  }}
                 />
               ) : filesReady && documents.length ? (
                 <ScreenplayEditor
@@ -2900,6 +3107,7 @@ export default function MinimalApp({ onLogout }) {
                   ref={editorRef}
                   documentId={writingScope}
                   autoFocus={
+                    !mobile &&
                     filesReady &&
                     view === "screenplay" &&
                     !tourOpen &&
@@ -2913,6 +3121,8 @@ export default function MinimalApp({ onLogout }) {
                     !searchOpen &&
                     !settingsOpen &&
                     !doctorOpen &&
+                    !questsOpen &&
+                    !questOverlay &&
                     !historyOpen &&
                     !commentsOpen &&
                     !componentsOpen &&
@@ -2922,6 +3132,7 @@ export default function MinimalApp({ onLogout }) {
                     !libraryDialog
                   }
                   minimal
+                  continuous={mobile}
                   onSceneVariant={changeSceneVariant}
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
@@ -2965,6 +3176,11 @@ export default function MinimalApp({ onLogout }) {
                   fontFamily={fontFamily}
                   content={current.content}
                   onChange={changeContent}
+                  trackWritingActivity={
+                    IS_PRO &&
+                    writingTimer.session?.status === "running" &&
+                    writingTimer.session.quest?.scope === writingScope
+                  }
                   onSelection={setSelection}
                   showLineHighlight={false}
                   spellcheck={current.settings.spellcheck}
@@ -2990,6 +3206,8 @@ export default function MinimalApp({ onLogout }) {
                     !!deleteTarget ||
                     searchOpen ||
                     doctorOpen ||
+                    questsOpen ||
+                    questOverlay ||
                     focusMode ||
                     !!characterView ||
                     !!libraryDialog
@@ -3013,13 +3231,14 @@ export default function MinimalApp({ onLogout }) {
             </article>
           </main>
           {!!documents.length &&
+            !notesOpen &&
             !historyRevision &&
             !characterView &&
             !libraryDialog &&
             view === "screenplay" && (
               <FormatBar
                 format={selection?.format}
-                displayMode={current.metadata?.formatBarMode}
+                displayMode={mobile ? "icons" : current.metadata?.formatBarMode}
                 onFormat={(key) => editorRef.current?.setFormat(key)}
               />
             )}
@@ -3061,9 +3280,9 @@ export default function MinimalApp({ onLogout }) {
               !libraryDialog &&
               view === "screenplay"
             }
-            onComplete={setMessage}
+            timer={writingTimer}
           />
-          {focusMode && (
+          {focusMode && !notesOpen && (
             <div
               className="focus-format-hint"
               aria-label={t("Форматирование сценария")}
@@ -3079,311 +3298,349 @@ export default function MinimalApp({ onLogout }) {
             </div>
           )}
         </div>
-        {searchOpen && (
-          <DocumentSearch
-            matches={searchMatches}
-            query={searchText}
-            format={searchFormat}
-            onFormat={(value) => {
-              setSearchFormat(value);
-              setSearchIndex(0);
-              setSearchCardSelection(null);
-            }}
-            onQuery={(value) => {
-              setSearchText(value);
-              setSearchIndex(0);
-              setSearchCardSelection(null);
-            }}
-            index={searchIndex}
-            onSelect={(index, source) => {
-              setSearchIndex(index);
-              setSearchCardSelection(
-                source === "card"
-                  ? {
-                      index,
-                      request: ++searchCardRequest.current,
-                    }
-                  : null,
-              );
-            }}
-            onClose={() => {
-              setSearchOpen(false);
-              setSearchCardSelection(null);
-              requestAnimationFrame(() => editorRef.current?.focus());
-            }}
-          />
-        )}
-        {settingsOpen && (
-          <DocumentSettings
-            key={writingScope}
-            preferences={preferences}
-            onPreferences={setPreferences}
-            metadata={current.metadata}
-            spellcheck={current.settings.spellcheck}
-            onSpellcheck={(spellcheck) =>
-              update((document) => ({
-                ...document,
-                settings: { ...document.settings, spellcheck },
-              }))
-            }
-            documentZoom={documentZoom}
-            onZoom={setDocumentZoom}
-            onChange={changeMetadata}
-            onClose={() => setSettingsOpen(false)}
-          />
-        )}
-        {statisticsOpen && (
-          <StatisticsPanel
-            document={current}
-            pageCount={pageCount}
-            onCharacter={openCharacterDialogues}
-            onClose={() => setStatisticsOpen(false)}
-          />
-        )}
-        {doctorOpen && (
-          <ScriptDoctor
-            key={writingScope}
-            findings={doctorFindings}
-            onGo={locateDoctorFinding}
-            onClose={() => showSidebar(null)}
-          />
-        )}
-        {historyOpen && (
-          <HistoryPanel
-            key={writingScope}
-            documentId={current.id}
-            scriptVersion={activeScriptVersion.id}
-            version={historyVersion}
-            selectedId={historyRevision?.id}
-            onSelect={(revision) => {
-              setHistoryRevision(revision);
-              if (revision) setView(revisionArea(revision));
-            }}
-            onRestore={restoreHistory}
-            onClose={() => {
-              setHistoryOpen(false);
-              setHistoryRevision(null);
-            }}
-          />
-        )}
-        {commentsOpen && (
-          <CommentsPanel
-            key={writingScope}
-            comments={current.comments}
-            content={current.content}
-            commentScenes={commentScenes}
-            quote={commentQuote}
-            activeId={activeComment}
-            onClose={() => {
-              setCommentsOpen(false);
-              setCommentQuote(null);
-              pendingCommentFocus.current = null;
-            }}
-            onClearQuote={() => setCommentQuote(null)}
-            onAdd={addComment}
-            onToggle={(comment) => {
-              setActiveComment(null);
-              update((d) => ({
-                ...d,
-                comments: d.comments.map((c) =>
-                  c.id === comment.id
+        <MobileSheet
+          mobile={mobile}
+          ready={filesReady}
+          open={
+            !tourOpen &&
+            !!(
+              searchOpen ||
+              settingsOpen ||
+              statisticsOpen ||
+              doctorOpen ||
+              questsOpen ||
+              historyOpen ||
+              commentsOpen ||
+              componentsOpen ||
+              propsOpen ||
+              annotations
+            )
+          }
+          label={t("Панель сценария")}
+          onClose={() => showSidebar(null)}
+        >
+          {searchOpen && (
+            <DocumentSearch
+              matches={searchMatches}
+              query={searchText}
+              format={searchFormat}
+              onFormat={(value) => {
+                setSearchFormat(value);
+                setSearchIndex(0);
+                setSearchCardSelection(null);
+              }}
+              onQuery={(value) => {
+                setSearchText(value);
+                setSearchIndex(0);
+                setSearchCardSelection(null);
+              }}
+              index={searchIndex}
+              onSelect={(index, source) => {
+                setSearchIndex(index);
+                setSearchCardSelection(
+                  source === "card"
                     ? {
-                        ...c,
-                        resolved: !c.resolved,
-                        status: c.resolved ? "open" : "resolved",
+                        index,
+                        request: ++searchCardRequest.current,
                       }
-                    : c,
-                ),
-              }));
-            }}
-            onUpdate={(id, changes) => {
-              if (changes.status) setActiveComment(null);
-              update((d) => ({
-                ...d,
-                comments: d.comments.map((comment) =>
-                  comment.id === id
-                    ? {
-                        ...comment,
-                        ...cleanCommentOptions({ ...comment, ...changes }),
-                      }
-                    : comment,
-                ),
-              }));
-            }}
-            onFilterChange={() => setActiveComment(null)}
-            onFocus={focusComment}
-          />
-        )}
-        {componentsOpen && (
-          <ComponentsPanel
-            key={writingScope}
-            onExportLibrary={() =>
-              saveBlob(
-                exportComponentLibrary(current),
-                `${current.title} — ${t("Компоненты")}`,
-                "tytl",
-              )
-            }
-            onImportLibrary={async () => {
-              const libraries = await directoryComponentLibraries().catch(
-                () => [],
-              );
-              setLibraryDialog(libraries);
-            }}
-            document={{
-              ...current,
-              components: current.components.filter((c) => c.enabled !== false),
-            }}
-            activeId={componentDialog?.id}
-            onClose={() => {
-              setComponentsOpen(false);
-              setComponentDialog(null);
-            }}
-            onEdit={editComponent}
-            onCloseEdit={() => setComponentDialog(null)}
-            onCreate={beginComponent}
-            onToggleFolder={(id) =>
-              update((d) => {
-                const collapsed = d.collapsedComponentFolders || [];
-                return {
-                  ...d,
-                  collapsedComponentFolders: collapsed.includes(id)
-                    ? collapsed.filter((value) => value !== id)
-                    : [...collapsed, id],
-                };
-              })
-            }
-            onAddFolder={(name) =>
-              update((d) => ({
-                ...d,
-                componentFolders: [
-                  ...(d.componentFolders || []),
-                  {
-                    id: uid(),
-                    name,
-                  },
-                ],
-              }))
-            }
-            onDeleteFolder={(folder) => setFolderToDelete(folder)}
-            renderEditor={(component) => (
-              <ComponentForm
-                key={component.id}
-                inline
-                value={component}
-                components={current.components}
-                folders={current.componentFolders}
-                onSubmit={saveComponent}
-                onDelete={deleteComponent}
-                onClose={() => setComponentDialog(null)}
-              />
-            )}
-          />
-        )}
-        {propsOpen && IS_PRO && (
-          <PropsPanel
-            key={current.id}
-            document={current}
-            activeId={propDialog?.id}
-            onClose={() => {
-              setPropsOpen(false);
-              setPropDialog(null);
-            }}
-            onCreate={beginProp}
-            onEdit={editProp}
-            onToggleFolder={(id) =>
-              update((d) => ({
-                ...d,
-                collapsedPropFolders: (d.collapsedPropFolders || []).includes(
-                  id,
-                )
-                  ? d.collapsedPropFolders.filter((value) => value !== id)
-                  : [...(d.collapsedPropFolders || []), id],
-              }))
-            }
-            onAddFolder={(name) =>
-              update((d) => ({
-                ...d,
-                propFolders: [...(d.propFolders || []), { id: uid(), name }],
-              }))
-            }
-            onDeleteFolder={(folder) =>
-              setFolderToDelete({ ...folder, kind: "props" })
-            }
-            onCloseEdit={() => setPropDialog(null)}
-            onExport={async () => {
-              setBusy("props-pdf");
-              try {
-                saveBlob(
-                  await exportPropsPDF(current),
-                  t("{0} — реквизит", current.title),
-                  "pdf",
+                    : null,
                 );
-              } catch {
-                setMessage("Не удалось сохранить отчёт реквизита.");
-              } finally {
-                setBusy("");
+              }}
+              onClose={() => {
+                setSearchOpen(false);
+                setSearchCardSelection(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }}
+            />
+          )}
+          {settingsOpen && (
+            <DocumentSettings
+              key={writingScope}
+              preferences={preferences}
+              onPreferences={setPreferences}
+              metadata={current.metadata}
+              spellcheck={current.settings.spellcheck}
+              onSpellcheck={(spellcheck) =>
+                update((document) => ({
+                  ...document,
+                  settings: { ...document.settings, spellcheck },
+                }))
               }
-            }}
-            renderEditor={(prop) => (
-              <ComponentForm
-                key={prop.id}
-                inline
-                prop
-                value={prop}
-                components={current.props}
-                folders={current.propFolders}
-                onSubmit={saveProp}
-                onDelete={deleteProp}
-                onClose={() => setPropDialog(null)}
-              />
-            )}
-          />
-        )}
-        {annotations && IS_PRO && (
-          <AnnotationsPanel
-            component={current.components.find(
-              (item) => item.id === annotations.componentId,
-            )}
-            prop={current.props.find((item) => item.id === annotations.propId)}
-            onComponent={editComponent}
-            onProp={editProp}
-            onClose={() => setAnnotations(null)}
-            renderComponent={(component) => (
-              <ComponentForm
-                key={`${component.id}:${component.name}`}
-                inline
-                value={component}
-                components={current.components}
-                folders={current.componentFolders}
-                onSubmit={saveComponent}
-                onDelete={(id) => {
-                  deleteComponent(id);
-                  setAnnotations(null);
-                  showSidebar("props");
-                }}
-                onClose={() => setAnnotations(null)}
-              />
-            )}
-            renderProp={(prop) => (
-              <ComponentForm
-                key={`${prop.id}:${prop.name}`}
-                inline
-                prop
-                value={prop}
-                components={current.props}
-                folders={current.propFolders}
-                onSubmit={saveProp}
-                onDelete={(id) => {
-                  deleteProp(id);
-                  setAnnotations(null);
-                  showSidebar("components");
-                }}
-                onClose={() => setAnnotations(null)}
-              />
-            )}
-          />
-        )}
+              documentZoom={documentZoom}
+              onZoom={setDocumentZoom}
+              onChange={changeMetadata}
+              onClose={() => setSettingsOpen(false)}
+            />
+          )}
+          {statisticsOpen && (
+            <StatisticsPanel
+              document={current}
+              pageCount={mobile ? undefined : pageCount}
+              onCharacter={openCharacterDialogues}
+              onClose={() => setStatisticsOpen(false)}
+            />
+          )}
+          {doctorOpen && (
+            <ScriptDoctor
+              key={writingScope}
+              findings={doctorFindings}
+              onGo={locateDoctorFinding}
+              onClose={() => showSidebar(null)}
+            />
+          )}
+          {questsOpen && IS_PRO && (
+            <DailyQuests
+              key={writingScope}
+              scope={writingScope}
+              quests={dailyQuests}
+              timer={writingTimer}
+              onCards={() => setQuestOverlay(true)}
+              onComplete={setMessage}
+              onClose={() => showSidebar(null)}
+            />
+          )}
+          {historyOpen && (
+            <HistoryPanel
+              key={writingScope}
+              documentId={current.id}
+              scriptVersion={activeScriptVersion.id}
+              notes={notesOpen}
+              version={historyVersion}
+              selectedId={historyRevision?.id}
+              onSelect={(revision) => {
+                setHistoryRevision(revision);
+                if (revision) setView(revisionArea(revision));
+              }}
+              onRestore={restoreHistory}
+              onClose={() => {
+                setHistoryOpen(false);
+                setHistoryRevision(null);
+              }}
+            />
+          )}
+          {commentsOpen && (
+            <CommentsPanel
+              key={writingScope}
+              comments={current.comments}
+              content={current.content}
+              commentScenes={commentScenes}
+              quote={commentQuote}
+              activeId={activeComment}
+              onClose={() => {
+                setCommentsOpen(false);
+                setCommentQuote(null);
+                pendingCommentFocus.current = null;
+              }}
+              onClearQuote={() => setCommentQuote(null)}
+              onAdd={addComment}
+              onToggle={(comment) => {
+                setActiveComment(null);
+                update((d) => ({
+                  ...d,
+                  comments: d.comments.map((c) =>
+                    c.id === comment.id
+                      ? {
+                          ...c,
+                          resolved: !c.resolved,
+                          status: c.resolved ? "open" : "resolved",
+                        }
+                      : c,
+                  ),
+                }));
+              }}
+              onUpdate={(id, changes) => {
+                if (changes.status) setActiveComment(null);
+                update((d) => ({
+                  ...d,
+                  comments: d.comments.map((comment) =>
+                    comment.id === id
+                      ? {
+                          ...comment,
+                          ...cleanCommentOptions({ ...comment, ...changes }),
+                        }
+                      : comment,
+                  ),
+                }));
+              }}
+              onFilterChange={() => setActiveComment(null)}
+              onFocus={focusComment}
+            />
+          )}
+          {componentsOpen && (
+            <ComponentsPanel
+              key={writingScope}
+              onExportLibrary={() =>
+                saveBlob(
+                  exportComponentLibrary(current),
+                  `${current.title} — ${t("Компоненты")}`,
+                  "tytl",
+                )
+              }
+              onImportLibrary={async () => {
+                const libraries = await directoryComponentLibraries().catch(
+                  () => [],
+                );
+                setLibraryDialog(libraries);
+              }}
+              document={{
+                ...current,
+                components: current.components.filter(
+                  (c) => c.enabled !== false,
+                ),
+              }}
+              activeId={componentDialog?.id}
+              onClose={() => {
+                setComponentsOpen(false);
+                setComponentDialog(null);
+              }}
+              onEdit={editComponent}
+              onCloseEdit={() => setComponentDialog(null)}
+              onCreate={beginComponent}
+              onToggleFolder={(id) =>
+                update((d) => {
+                  const collapsed = d.collapsedComponentFolders || [];
+                  return {
+                    ...d,
+                    collapsedComponentFolders: collapsed.includes(id)
+                      ? collapsed.filter((value) => value !== id)
+                      : [...collapsed, id],
+                  };
+                })
+              }
+              onAddFolder={(name) =>
+                update((d) => ({
+                  ...d,
+                  componentFolders: [
+                    ...(d.componentFolders || []),
+                    {
+                      id: uid(),
+                      name,
+                    },
+                  ],
+                }))
+              }
+              onDeleteFolder={(folder) => setFolderToDelete(folder)}
+              renderEditor={(component) => (
+                <ComponentForm
+                  key={component.id}
+                  inline
+                  value={component}
+                  components={current.components}
+                  folders={current.componentFolders}
+                  onSubmit={saveComponent}
+                  onDelete={deleteComponent}
+                  onClose={() => setComponentDialog(null)}
+                />
+              )}
+            />
+          )}
+          {propsOpen && IS_PRO && (
+            <PropsPanel
+              key={current.id}
+              document={current}
+              activeId={propDialog?.id}
+              onClose={() => {
+                setPropsOpen(false);
+                setPropDialog(null);
+              }}
+              onCreate={beginProp}
+              onEdit={editProp}
+              onToggleFolder={(id) =>
+                update((d) => ({
+                  ...d,
+                  collapsedPropFolders: (d.collapsedPropFolders || []).includes(
+                    id,
+                  )
+                    ? d.collapsedPropFolders.filter((value) => value !== id)
+                    : [...(d.collapsedPropFolders || []), id],
+                }))
+              }
+              onAddFolder={(name) =>
+                update((d) => ({
+                  ...d,
+                  propFolders: [...(d.propFolders || []), { id: uid(), name }],
+                }))
+              }
+              onDeleteFolder={(folder) =>
+                setFolderToDelete({ ...folder, kind: "props" })
+              }
+              onCloseEdit={() => setPropDialog(null)}
+              onExport={async () => {
+                setBusy("props-pdf");
+                try {
+                  saveBlob(
+                    await exportPropsPDF(current),
+                    t("{0} — реквизит", current.title),
+                    "pdf",
+                  );
+                } catch {
+                  setMessage("Не удалось сохранить отчёт реквизита.");
+                } finally {
+                  setBusy("");
+                }
+              }}
+              renderEditor={(prop) => (
+                <ComponentForm
+                  key={prop.id}
+                  inline
+                  prop
+                  value={prop}
+                  components={current.props}
+                  folders={current.propFolders}
+                  onSubmit={saveProp}
+                  onDelete={deleteProp}
+                  onClose={() => setPropDialog(null)}
+                />
+              )}
+            />
+          )}
+          {annotations && IS_PRO && (
+            <AnnotationsPanel
+              component={current.components.find(
+                (item) => item.id === annotations.componentId,
+              )}
+              prop={current.props.find(
+                (item) => item.id === annotations.propId,
+              )}
+              onComponent={editComponent}
+              onProp={editProp}
+              onClose={() => setAnnotations(null)}
+              renderComponent={(component) => (
+                <ComponentForm
+                  key={`${component.id}:${component.name}`}
+                  inline
+                  value={component}
+                  components={current.components}
+                  folders={current.componentFolders}
+                  onSubmit={saveComponent}
+                  onDelete={(id) => {
+                    deleteComponent(id);
+                    setAnnotations(null);
+                    showSidebar("props");
+                  }}
+                  onClose={() => setAnnotations(null)}
+                />
+              )}
+              renderProp={(prop) => (
+                <ComponentForm
+                  key={`${prop.id}:${prop.name}`}
+                  inline
+                  prop
+                  value={prop}
+                  components={current.props}
+                  folders={current.propFolders}
+                  onSubmit={saveProp}
+                  onDelete={(id) => {
+                    deleteProp(id);
+                    setAnnotations(null);
+                    showSidebar("components");
+                  }}
+                  onClose={() => setAnnotations(null)}
+                />
+              )}
+            />
+          )}
+        </MobileSheet>
       </div>
       <input
         ref={importRef}
@@ -3515,6 +3772,7 @@ export default function MinimalApp({ onLogout }) {
         )}
       {libraryDialog && (
         <ComponentLibraryDialog
+          mobile={mobile}
           screenplay={current}
           discovered={libraryDialog}
           onDetach={(id) =>
@@ -3531,7 +3789,25 @@ export default function MinimalApp({ onLogout }) {
           onEmbed={embedLibrary}
         />
       )}
+      <DoctorFlies
+        count={doctorFindings.length}
+        iconVisible={!focusMode && (!mobile || mobileToolsOpen)}
+      />
       {tourOpen && <Onboarding onClose={closeTour} />}
+      {questOverlay && IS_PRO && (
+        <QuestOverlay
+          key={`${writingScope}:${dailyQuests.record.day}`}
+          scope={writingScope}
+          document={current}
+          quests={dailyQuests}
+          timer={writingTimer}
+          onAccepted={() => {
+            showSidebar("quests");
+            requestAnimationFrame(() => editorRef.current?.focus());
+          }}
+          onClose={() => setQuestOverlay(false)}
+        />
+      )}
       {subscriptionOpen && (
         <SubscriptionDialog onClose={() => setSubscriptionOpen(false)} />
       )}

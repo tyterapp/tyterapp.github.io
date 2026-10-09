@@ -102,7 +102,14 @@ const choose = (page, id) =>
     id,
   );
 const stored = (page) =>
-  page.evaluate(() => JSON.parse(localStorage.getItem("tyter.projects.v1")));
+  page.evaluate(
+    async () =>
+      (
+        await (
+          await import("/src/browser-files.js")
+        ).browserRequest("documents")
+      ).documents,
+  );
 async function replaceAction(page, text) {
   await page.locator('p[data-block-id="action"]').evaluate((node) => {
     node.closest("[contenteditable]").focus();
@@ -245,7 +252,9 @@ test("editing, search, outline and an imported component library stay in the sel
   const payload = await page.evaluate(async () => {
     const { exportTYT, readTYT } = await import("/src/tyt-format.js");
     const { switchScriptVersion } = await import("/src/script-versions.js");
-    const doc = JSON.parse(localStorage.getItem("tyter.projects.v1"))[0];
+    const { browserRequest } = await import("/src/browser-files.js");
+    const documents = (await browserRequest("documents")).documents;
+    const doc = documents[0];
     const imported = readTYT(await (await exportTYT(doc)).text());
     const white = switchScriptVersion(imported, "white");
     return {
@@ -256,7 +265,7 @@ test("editing, search, outline and an imported component library stay in the sel
       whiteCards: white.outline.cards,
       blueComponents: imported.components,
       whiteComponents: white.components,
-      docs: JSON.parse(localStorage.getItem("tyter.projects.v1")).length,
+      docs: documents.length,
     };
   });
   expect(payload).toMatchObject({

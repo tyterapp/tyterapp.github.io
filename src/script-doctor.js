@@ -192,6 +192,6 @@ export function doctorCondition(count) {
   return {
     errors,
     fill: Math.min(errors / 12, 1),
-    flies: Math.min(errors, 24),
+    flies: Math.min(errors, 12),
   };
 }

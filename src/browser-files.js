@@ -216,7 +216,7 @@ async function saveNamedDocument(folder, mapping, entries, document) {
     if (friendlyTytName(document.title, saved, entries) === saved.name) return;
   }
 }
-export async function chooseLocalDirectory() {
+export async function chooseLocalDirectory({ beforeConnect } = {}) {
   if (!window.showDirectoryPicker)
     throw new Error(
       "В этом браузере документы хранятся локально в браузере. Скачайте копию TYT; для автосохранения в папку откройте Pro в Chrome или Edge.",
@@ -226,6 +226,9 @@ export async function chooseLocalDirectory() {
     mode: "readwrite",
     id: "tyter-projects",
   });
+  // Finish saves queued by this tab before changing its library revision.
+  // The picker still opens synchronously within the user's click.
+  await beforeConnect;
   return withFileWork(async () => {
     const documents = new Map();
     const mapping = await mappingOf(chosen);

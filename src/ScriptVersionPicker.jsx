@@ -1,8 +1,14 @@
 import AppSelect from "./AppSelect.jsx";
+import { StickyNote } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { SCRIPT_VERSIONS, scriptVersionId } from "./script-versions.js";
 
-export default function ScriptVersionPicker({ document, disabled, onChange }) {
+export default function ScriptVersionPicker({
+  document,
+  disabled,
+  onChange,
+  onNotes,
+}) {
   useLanguage();
   return (
     <div className="script-version-picker">
@@ -15,6 +21,13 @@ export default function ScriptVersionPicker({ document, disabled, onChange }) {
         optionHeight={52}
         options={SCRIPT_VERSIONS.map((version) => ({
           value: version.id,
+          action: onNotes
+            ? {
+                label: t("Заметки {0}", version.label),
+                icon: <StickyNote size={17} />,
+                onClick: () => onNotes(version.id),
+              }
+            : null,
           icon: (
             <span
               aria-hidden="true"

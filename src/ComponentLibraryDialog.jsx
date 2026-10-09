@@ -11,6 +11,7 @@ import {
 import { saveBlob } from "./exports.js";
 
 export default function ComponentLibraryDialog({
+  mobile = false,
   screenplay,
   onDetach,
   discovered = [],
@@ -24,9 +25,13 @@ export default function ComponentLibraryDialog({
   useEffect(() => {
     mounted.current = true;
     const previous = document.activeElement;
-    const siblings = [
-      ...dialog.current.closest(".minimal-app").children,
-    ].filter((item) => !item.contains(dialog.current));
+    const element = dialog.current;
+    if (mobile) element.showModal();
+    const siblings = mobile
+      ? []
+      : [...element.closest(".minimal-app").children].filter(
+          (item) => !item.contains(element),
+        );
     const states = siblings.map((item) => item.inert);
     siblings.forEach((item) => {
       item.inert = true;
@@ -52,13 +57,14 @@ export default function ComponentLibraryDialog({
     document.addEventListener("keydown", trap, true);
     return () => {
       mounted.current = false;
+      if (mobile) element.close();
       siblings.forEach((item, index) => {
         item.inert = states[index];
       });
       document.removeEventListener("keydown", trap, true);
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, []);
+  }, [mobile]);
   const local = libraryFromDocument(screenplay);
   const linked = new Map();
   for (const component of screenplay.components) {
@@ -176,6 +182,7 @@ export default function ComponentLibraryDialog({
       screenplay.title || "Library",
       "tytl",
     );
+  const Wrapper = mobile ? "dialog" : "section";
   return (
     <div
       className="modal-backdrop"
@@ -183,12 +190,20 @@ export default function ComponentLibraryDialog({
         if (event.target === event.currentTarget && !busy) onClose();
       }}
     >
-      <section
+      <Wrapper
         ref={dialog}
         className="minimal-dialog library-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={t("Библиотеки компонентов")}
+        onCancel={
+          mobile
+            ? (event) => {
+                event.preventDefault();
+                if (!busy) onClose();
+              }
+            : undefined
+        }
       >
         <div className="dialog-heading">
           <h2>
@@ -365,7 +380,7 @@ export default function ComponentLibraryDialog({
             </button>
           )}
         </div>
-      </section>
+      </Wrapper>
     </div>
   );
 }

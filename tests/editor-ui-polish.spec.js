@@ -400,19 +400,22 @@ test("comment composer chooses a color and status and legacy imports keep resolv
 });
 
 for (const zoom of [100, 200])
-  test(`character button remains reachable while the mouse moves from the name at ${zoom}%`, async ({
+  test(`dialogue is available from the sidebar without icons beside character names at ${zoom}%`, async ({
     page,
   }) => {
     await open(page, { theme: "dark", zoom });
     const character = page.locator('[data-block-id="anna"]');
     await character.scrollIntoViewIfNeeded();
     await character.hover();
-    const button = character.locator(".character-dialogue-link");
+    await expect(character.locator(".character-dialogue-link")).toHaveCount(0);
+    const button = page.getByRole("button", {
+      name: "Реплики персонажей",
+      exact: true,
+    });
     const rect = await button.boundingBox();
     await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2, {
       steps: 12,
     });
-    await expect(button).toHaveCSS("opacity", "1");
     expect(
       await button.evaluate((node) => {
         const rect = node.getBoundingClientRect();
@@ -424,6 +427,13 @@ for (const zoom of [100, 200])
       }),
     ).toBe(true);
     await button.click();
+    await expect(page.locator(".character-dialogue-view")).toContainText(
+      "До вечера.",
+    );
+    await page
+      .locator(".character-dialogue-characters")
+      .getByRole("button", { name: /АННА/ })
+      .click();
     await expect(page.locator(".character-dialogue-view")).toContainText(
       "Доброе утро.",
     );
@@ -486,7 +496,7 @@ test("scene menu matches the interface, works with keyboard and keeps the outlin
     right: "8px",
     left: "8px",
     gap: "4px",
-    iconGap: 32,
+    iconGap: 16,
   });
   expect(geometry.actualRight).toBeCloseTo(geometry.actualLeft, 1);
   expect(Math.abs(geometry.arrowRight - geometry.actualLeft)).toBeLessThan(1);

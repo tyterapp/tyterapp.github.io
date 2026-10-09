@@ -63,7 +63,9 @@ for (const theme of ["light", "dark"]) {
     await expect(notice).toHaveCSS("background-color", "oklch(1 0 0)");
     await expect(notice).toHaveCSS("transition-duration", "0.2s, 0.2s");
     await notice.getByRole("button", { name: "Закрыть уведомление" }).hover();
-    await expect(notice.locator("button")).toHaveCSS("color", "oklch(0 0 0)");
+    await expect(
+      notice.getByRole("button", { name: "Закрыть уведомление" }),
+    ).toHaveCSS("color", "oklch(0 0 0)");
     await page.screenshot({ path: info.outputPath("warning.png") });
     await page.clock.runFor(4999);
     await expect(notice).toBeVisible();

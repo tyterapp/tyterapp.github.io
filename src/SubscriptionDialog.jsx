@@ -31,6 +31,7 @@ export default function SubscriptionDialog({ onClose }) {
         t("Реквизит с количеством и отчётами PDF"),
         t("Аутлайн с карточками истории и переходами к сценам"),
         t("Файлы TYT со сценарием, комментариями и деталями"),
+        t("Карта дня, задания и идеи продолжения за монеты"),
       ].map((text) => (
         <p className="subscription-benefit" key={text}>
           <Check size={16} />

@@ -32,6 +32,9 @@ export default function FormatBar({ format, displayMode = "text", onFormat }) {
               iconMode ? `${t(label)} · ${shortcut} + ${i + 1}` : undefined
             }
             onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={(event) => {
+              if (event.pointerType !== "mouse") event.preventDefault();
+            }}
             onClick={() => onFormat(key)}
           >
             {iconMode ? (

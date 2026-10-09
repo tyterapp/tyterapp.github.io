@@ -51,6 +51,9 @@
   gap: 6px;
   min-height: 40px;
   padding: 0 10px;
+  border: 0;
+  box-shadow: none;
+  font: inherit;
   border-radius: 6px;
   background: oklch(0.972 0.008 300);
   color: oklch(0 0 0);

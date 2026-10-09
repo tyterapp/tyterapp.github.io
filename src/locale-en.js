@@ -1,5 +1,24 @@
 // UI messages only. Document text and user names are never translated.
+import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Редактор заметок": "Notes editor",
+  "Дней подряд: {0}": "Consecutive days: {0}",
+  Перейти: "Go",
+  Заметки: "Notes",
+  "Заметки {0}": "Notes for {0}",
+  "Вернуться к сценарию": "Back to screenplay",
+  "Поиск в заметках": "Search notes",
+  "Комментарии к заметкам": "Notes comments",
+  "С возвращением! Монета за вход сегодня: +1.":
+    "Welcome back! Today's visit: +1 coin.",
+  "Стрик: {0} дней. Начислено монет: {1}.":
+    "Streak: {0} days. Coins awarded: {1}.",
+  "Стрик: {0} дней": "Streak: {0} days",
+  "Открыть инструменты": "Open tools",
+  "Закрыть шторку": "Close sheet",
+  "Панель сценария": "Screenplay panel",
+  "Сессия этого устройства": "Session on this device",
+  ...questMessages,
   "Для сценария лучше всего использовать Courier — это стандарт индустрии.":
     "Courier is recommended for screenplays — it is the industry standard.",
   Подробнее: "Learn more",

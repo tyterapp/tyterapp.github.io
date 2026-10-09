@@ -7,7 +7,8 @@ const CROSS = "M10.5 10.5h3V13h2.5v3h-2.5v2.5h-3V16H8v-3h2.5Z";
 
 export default function ScriptDoctorIcon({ count }) {
   const mask = useId(),
-    { errors, fill, flies } = doctorCondition(count);
+    { errors, fill, flies: total } = doctorCondition(count),
+    flies = Math.min(3, Math.floor(total / 3));
   return (
     <span
       className="script-doctor-icon"
@@ -63,7 +64,7 @@ export default function ScriptDoctorIcon({ count }) {
         <path d="M8.5 7.5V5A1.5 1.5 0 0 1 10 3.5h4A1.5 1.5 0 0 1 15.5 5v2.5" />
         <path d={CROSS} />
       </svg>
-      {Array.from({ length: 24 }, (_, index) => (
+      {Array.from({ length: flies }, (_, index) => (
         <span
           key={index}
           className={`doctor-fly${index < flies ? " is-visible" : ""}`}
