@@ -2,6 +2,7 @@ import { createProject, uid } from "./data.js";
 import { textMatches, propOccurrences } from "./prop-matches.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 import { documentFileStem } from "./local-file-names.js";
+import { sceneLetter } from "./scene-variants.js";
 
 export const hasTitlePage = (document) =>
   ["author", "email", "year", "poster"].some((key) =>
@@ -477,13 +478,15 @@ export async function exportPDF(document) {
   }
   pdf.setFontSize(fontSize);
   let y = topMargin,
-    previousAfter = 0;
+    previousAfter = 0,
+    sceneNumber = 0;
   const newPage = () => {
     pdf.addPage();
     y = topMargin;
   };
   document.content.content.forEach((block, index) => {
     const format = block.attrs?.format || "action";
+    const number = format === "scene" ? ++sceneNumber : null;
     const spec = FORMAT[format] || FORMAT.action;
     const nextBlock = document.content.content[index + 1];
     const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
@@ -525,8 +528,19 @@ export async function exportPDF(document) {
     const baseline =
       (lineHeight - (ascent - descent) * fontSize) / 2 + ascent * fontSize;
     let cursor = 0;
-    for (const line of lines) {
+    for (const [lineIndex, line] of lines.entries()) {
       if (y + lineHeight > bottomEdge) newPage();
+      if (number !== null && lineIndex === 0) {
+        pdf.setFont("ScreenplayCourier", "normal");
+        pdf.setFontSize(9);
+        pdf.text(
+          `${number} ${sceneLetter(block)}`,
+          leftMargin - 18,
+          y + baseline - (fontSize - 9) / 2,
+          { align: "right" },
+        );
+        pdf.setFontSize(fontSize);
+      }
       const start = Math.max(cursor, text.indexOf(line, cursor));
       const end = start + line.length;
       cursor = end + (text[end] === "\n" ? 1 : 0);

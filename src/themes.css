@@ -218,8 +218,7 @@
     .comment-quote,
     .outline-drama-scroll,
     .help-tabs,
-    .comment-filters,
-    .app-message
+    .comment-filters
   ) {
   background: var(--dark-surface);
   color: var(--dark-text);

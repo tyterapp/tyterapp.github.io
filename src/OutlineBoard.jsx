@@ -726,11 +726,15 @@ export default function OutlineBoard({
               </span>
               <input
                 type="range"
+                className="app-range"
                 min="0"
                 max="10"
                 step="1"
                 aria-label={t("Драматичность карточки")}
                 value={dramaValue(selected.drama)}
+                style={{
+                  "--range-progress": `${dramaValue(selected.drama) * 10}%`,
+                }}
                 onChange={(event) =>
                   changeCard(selected.id, {
                     drama: dramaValue(event.target.value),

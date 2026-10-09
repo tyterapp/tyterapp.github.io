@@ -66,6 +66,7 @@ import { cleanCommentOptions } from "./comment-options.js";
 import { documentSearchMatches } from "./document-search.js";
 import CharacterDialogue from "./CharacterDialogue.jsx";
 import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
+import AppMessage, { useAppMessage } from "./AppMessage.jsx";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
   exportComponentLibrary,
@@ -662,7 +663,7 @@ export default function MinimalApp({ onLogout }) {
   const [pageCount, setPageCount] = useState(1);
   const [saveState, setSaveState] = useState("saving");
   const [busy, setBusy] = useState("");
-  const [message, setMessage] = useState(
+  const { notice, setMessage, dismissMessage } = useAppMessage(
     initial.error
       ? "Не удалось прочитать сохранённые документы. Исходные данные сохранены; новые изменения можно скачать в файл."
       : "",
@@ -2461,21 +2462,12 @@ export default function MinimalApp({ onLogout }) {
           </div>
         </div>
       </header>
-      {message && (
-        <div className="app-message" role="alert">
-          <span>
-            {typeof message === "object"
-              ? t(message.key, ...message.values)
-              : t(message)}
-          </span>
-          <button
-            className="icon-button"
-            aria-label={t("Закрыть уведомление")}
-            onClick={() => setMessage("")}
-          >
-            <X size={16} />
-          </button>
-        </div>
+      {notice && (
+        <AppMessage
+          key={notice.id}
+          notice={notice}
+          onDismiss={dismissMessage}
+        />
       )}
       <div className="minimal-workspace">
         <nav
@@ -2760,6 +2752,8 @@ export default function MinimalApp({ onLogout }) {
                 "--paper-width": `${sheet.width}px`,
                 "--paper-left": `${sheet.left}px`,
                 "--paper-right": `${sheet.right}px`,
+                "--paper-left-ratio": sheet.left / sheet.width,
+                "--paper-right-ratio": sheet.right / sheet.width,
                 "--block-gap": `${sheet.gap}px`,
                 "--scene-action-gap": `${sheet.sceneActionGap}px`,
                 "--action-gap": `${sheet.actionGap}px`,

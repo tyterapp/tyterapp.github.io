@@ -162,6 +162,7 @@ export default function DocumentSettings({
           </label>
           <input
             id="document-zoom"
+            className="app-range"
             aria-label={t("Масштаб документа")}
             type="range"
             min="100"
