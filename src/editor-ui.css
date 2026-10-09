@@ -36,6 +36,31 @@
   color: oklch(0 0 0);
   background: oklch(0.972 0.008 300);
 }
+.app-message > span {
+  min-width: 0;
+  line-height: 1.5;
+}
+:root[data-theme] .minimal-app .app-message-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: oklch(0.972 0.008 300);
+  color: oklch(0 0 0);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 140ms ease;
+}
+:root[data-theme] .minimal-app .app-message-action:hover {
+  background: oklch(0.916 0.021 300);
+}
+:root[data-theme] .minimal-app .app-message-action:focus-visible {
+  outline: 2px solid oklch(0.49 0.054 300);
+  outline-offset: 2px;
+}
 .editor-column .minimal-scroll {
   padding-bottom: 0;
 }

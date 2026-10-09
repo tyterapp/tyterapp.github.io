@@ -1,5 +1,8 @@
 // UI messages only. Document text and user names are never translated.
 export default {
+  "Для сценария лучше всего использовать Courier — это стандарт индустрии.":
+    "Courier is recommended for screenplays — it is the industry standard.",
+  Подробнее: "Learn more",
   "Звук печатной машинки": "Typewriter sound",
   "Тема интерфейса": "Interface theme",
   Светлая: "Light",

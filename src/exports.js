@@ -12,12 +12,17 @@ const posterData = (document) =>
   /^data:image\/(jpeg|png);base64,/.test(document.metadata?.poster || "")
     ? document.metadata.poster
     : null;
+const POSTER_MAX_PT = { width: 540, height: 720 };
 async function posterImage(document) {
   const data = posterData(document);
   if (!data) return null;
   const blob = await (await fetch(data)).blob();
   const bitmap = await createImageBitmap(blob);
-  const scale = Math.min(180 / bitmap.width, 240 / bitmap.height);
+  // DOCX image dimensions use CSS pixels; PDF dimensions use points.
+  const scale = Math.min(
+    POSTER_MAX_PT.width / 0.75 / bitmap.width,
+    POSTER_MAX_PT.height / 0.75 / bitmap.height,
+  );
   const dimensions = {
     width: bitmap.width * scale,
     height: bitmap.height * scale,
@@ -194,12 +199,20 @@ export async function exportDOCX(document) {
     AlignmentType,
     LineRuleType,
     ImageRun,
+    TabStopType,
+    Tab,
   } = await import("docx");
   const image = hasTitlePage(document) ? await posterImage(document) : null;
   const titleParagraph = (text, options = {}) =>
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 240, ...options.spacing },
+      keepNext: options.keepNext ?? true,
+      spacing: {
+        after: 280,
+        line: 280,
+        lineRule: LineRuleType.EXACT,
+        ...options.spacing,
+      },
       children: [
         new TextRun({
           text,
@@ -209,25 +222,62 @@ export async function exportDOCX(document) {
         }),
       ],
     });
+  const credits = [
+    "Сценарий",
+    document.metadata?.author,
+    document.metadata?.year,
+    document.metadata?.email,
+  ]
+    .filter((text) => String(text || "").trim())
+    .map(String);
+  const coverWidth = screenplayLayout().width * 0.75;
+  const coverLineCount = (text) =>
+    String(text)
+      .split("\n")
+      .reduce(
+        (sum, line) =>
+          sum +
+          Math.max(
+            1,
+            Math.ceil(line.length / Math.floor((coverWidth - 144) / 7.2)),
+          ) +
+          1,
+        0,
+      );
+  const coverHeight = Math.max(
+    792,
+    144 +
+      coverLineCount(document.title || "Сценарий") * 14 +
+      36 +
+      (image ? image.height * 0.75 + 14 + 32 : 0) +
+      credits.reduce((sum, text) => sum + coverLineCount(text) * 14 + 14, 0) +
+      72,
+  );
   const cover = hasTitlePage(document)
     ? [
         {
           properties: {
             page: {
-              size: { width: 12240, height: 15840 },
-              margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 },
+              size: {
+                width: Math.round(coverWidth * 20),
+                height: Math.ceil(coverHeight * 20),
+              },
+              margin: { top: 2880, bottom: 1440, left: 1440, right: 1440 },
             },
           },
           children: [
-            titleParagraph(document.title, {
+            titleParagraph(document.title || "Сценарий", {
               bold: true,
-              spacing: { before: 960 },
+              spacing: { after: 720 },
             }),
             ...(image
               ? [
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { after: 400 },
+                    keepNext: true,
+                    spacing: {
+                      after: 640,
+                    },
                     children: [
                       new ImageRun({
                         data: image.data,
@@ -246,15 +296,16 @@ export async function exportDOCX(document) {
                   }),
                 ]
               : []),
-            titleParagraph("Сценарий"),
-            titleParagraph(document.metadata.author),
-            titleParagraph(document.metadata.year),
-            titleParagraph(document.metadata.email),
+            ...credits.map((text, index) =>
+              titleParagraph(text, { keepNext: index < credits.length - 1 }),
+            ),
           ],
         },
       ]
     : [];
+  let sceneNumber = 0;
   const paragraphs = document.content.content.map((block, index, blocks) => {
+    const isScene = block.attrs?.format === "scene";
     const spec = FORMAT[block.attrs?.format] || FORMAT.action;
     const nextBlock = blocks[index + 1];
     const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
@@ -265,7 +316,16 @@ export async function exportDOCX(document) {
       indent: {
         left: Math.round(spec.left * 20),
         right: Math.round(spec.right * 20),
+        ...(isScene ? { hanging: 720 } : {}),
       },
+      ...(isScene
+        ? {
+            tabStops: [
+              { type: TabStopType.RIGHT, position: -360 },
+              { type: TabStopType.LEFT, position: 0 },
+            ],
+          }
+        : {}),
       spacing: {
         after: ["scene", "action"].includes(block.attrs?.format || "action")
           ? screenplayBlockLayout(block.attrs?.format || "action", nextFormat)
@@ -276,21 +336,39 @@ export async function exportDOCX(document) {
         lineRule: LineRuleType.EXACT,
       },
       keepNext: !!spec.keep,
+      keepLines: true,
       widowControl: true,
-      children: styledRuns(block).flatMap((run) =>
-        run.text.split("\n").map(
-          (text, i) =>
-            new TextRun({
-              text,
-              ...(i ? { break: 1 } : {}),
-              bold: run.bold,
-              italics: run.italic,
-              ...(run.underline ? { underline: {} } : {}),
-              font: "Courier New",
-              size: 24,
-            }),
+      children: [
+        ...(isScene
+          ? [
+              new TextRun({
+                children: [
+                  new Tab(),
+                  `${++sceneNumber} ${sceneLetter(block)}`,
+                  new Tab(),
+                ],
+                font: "Courier New",
+                size: 18,
+                position: 3,
+                bold: false,
+              }),
+            ]
+          : []),
+        ...styledRuns(block).flatMap((run) =>
+          run.text.split("\n").map(
+            (text, i) =>
+              new TextRun({
+                text,
+                ...(i ? { break: 1 } : {}),
+                bold: run.bold,
+                italics: run.italic,
+                ...(run.underline ? { underline: {} } : {}),
+                font: "Courier New",
+                size: 24,
+              }),
+          ),
         ),
-      ),
+      ],
     });
   });
   return Packer.toBlob(
@@ -432,7 +510,12 @@ export async function exportPDF(document) {
     let coverY = 180 + titleLines.length * 14;
     const poster = posterData(document);
     const image = poster ? pdf.getImageProperties(poster) : null;
-    const scale = image ? Math.min(540 / image.width, 720 / image.height) : 0;
+    const scale = image
+      ? Math.min(
+          POSTER_MAX_PT.width / image.width,
+          POSTER_MAX_PT.height / image.height,
+        )
+      : 0;
     const credits = [
       "Сценарий",
       document.metadata.author,

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import { libraryFromDocument } from "../src/component-library.js";
 import { grantPro } from "./helpers/pro-access.js";
+import { selectAppOption } from "./helpers/app-select.js";
 
 async function freezeTime(page) {
   await page.clock.install({ time: new Date("2026-10-09T12:00:00Z") });
@@ -36,15 +37,13 @@ async function imageWarning(page) {
     data.items.add(
       new File(["not an image"], "invalid.png", { type: "image/png" }),
     );
-    document
-      .querySelector(".screenplay-editor")
-      .dispatchEvent(
-        new ClipboardEvent("paste", {
-          clipboardData: data,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+    document.querySelector(".screenplay-editor").dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
   await expect(page.locator(".app-message")).toContainText(
     "Выберите JPG, PNG или WebP размером до 10 МБ.",
@@ -126,4 +125,87 @@ test("library import notifications translate and dismiss with reduced motion", a
   await expect(notice).toHaveClass(/is-closing/);
   await page.clock.runFor(201);
   await expect(notice).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"]) {
+  test(`${theme}: font changes show the Courier advice and open the article without leaving the editor`, async ({
+    page,
+  }, info) => {
+    await open(page, theme);
+    await expect(page.locator(".app-message")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Настройки документа", exact: true })
+      .click();
+    await freezeTime(page);
+    const font = page.getByRole("combobox", {
+      name: /^(Шрифт в редакторе|Editor font)$/,
+    });
+    await selectAppOption(page, font, "georgia");
+    const notice = page.locator(".app-message");
+    await expect(notice).toContainText(
+      "Для сценария лучше всего использовать Courier — это стандарт индустрии.",
+    );
+    await expect(notice.locator("span")).toHaveCSS("color", "oklch(0 0 0)");
+    const link = notice.getByRole("link", { name: "Подробнее", exact: true });
+    const url = "https://tyterapp.github.io/blog/standarty-v-kino";
+    await expect(link).toHaveAttribute("href", url);
+    await link.hover();
+    await expect(link).toHaveCSS("color", "oklch(0 0 0)");
+    await page.screenshot({ path: info.outputPath("font-advice.png") });
+    await page.context().route(url, (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<p>Стандарты в кино</p>",
+      }),
+    );
+    const popupPromise = page.waitForEvent("popup");
+    await link.click();
+    const article = await popupPromise;
+    await expect(article).toHaveURL(url);
+    await article.close();
+    await expect(page).toHaveURL(/\/beta$/);
+    await expect(font).toHaveAttribute("data-value", "georgia");
+    await page.getByRole("button", { name: "ENG", exact: true }).click();
+    await expect(notice).toContainText(
+      "Courier is recommended for screenplays — it is the industry standard.",
+    );
+    await expect(
+      notice.getByRole("link", { name: "Learn more", exact: true }),
+    ).toBeVisible();
+    await page.clock.runFor(4000);
+    await selectAppOption(page, font, "arial");
+    await page.clock.runFor(4999);
+    await expect(notice).not.toHaveClass(/is-closing/);
+    await page.clock.runFor(1);
+    await expect(notice).toHaveClass(/is-closing/);
+    await page.clock.runFor(201);
+    await expect(notice).toHaveCount(0);
+    await selectAppOption(page, font, "arial");
+    await expect(notice).toHaveCount(0);
+  });
+}
+
+test("the font advice uses the desktop browser bridge", async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    window.supportLinks = [];
+    window.tyterDesktop = {
+      openSupport: (kind) => {
+        window.supportLinks.push(kind);
+      },
+    };
+  });
+  await page
+    .getByRole("button", { name: "Настройки документа", exact: true })
+    .click();
+  await selectAppOption(
+    page,
+    page.getByRole("combobox", { name: "Шрифт в редакторе", exact: true }),
+    "consolas",
+  );
+  await page.getByRole("link", { name: "Подробнее", exact: true }).click();
+  expect(await page.evaluate(() => window.supportLinks)).toEqual([
+    "screenplay-standards",
+  ]);
+  await expect(page).toHaveURL(/\/beta$/);
 });

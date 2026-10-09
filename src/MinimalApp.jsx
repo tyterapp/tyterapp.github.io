@@ -2158,7 +2158,7 @@ export default function MinimalApp({ onLogout }) {
   const documentZoom = clampDocumentZoom(current.metadata?.documentZoom);
   const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
-  const changeMetadata = (fields) =>
+  const changeMetadata = (fields) => {
     update((d) => ({
       ...d,
       metadata: {
@@ -2166,6 +2166,16 @@ export default function MinimalApp({ onLogout }) {
         ...fields,
       },
     }));
+    if (fields.fontFamily && fields.fontFamily !== fontFamily)
+      setMessage({
+        key: "Для сценария лучше всего использовать Courier — это стандарт индустрии.",
+        action: {
+          label: "Подробнее",
+          href: "https://tyterapp.github.io/blog/standarty-v-kino",
+          desktopSupport: "screenplay-standards",
+        },
+      });
+  };
   const columnRef = useRef(null);
   useTypewriterSound(preferences.typewriter, columnRef);
   const setDocumentZoom = useCallback(
