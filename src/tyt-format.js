@@ -1,5 +1,6 @@
 import { validateImport } from "./data.js";
-import { listRevisions, revisionArea } from "./history.js";
+import { listRevisions, revisionArea, snapshotOf } from "./history.js";
+import { scriptVersionId } from "./script-versions.js";
 
 export const tytPayload = (document, history = []) => ({
   format: "tyter",
@@ -32,7 +33,14 @@ export function readTYT(text) {
       area: revisionArea(item),
       label:
         typeof item.label === "string" ? item.label.slice(0, 300) : "Импорт",
-      snapshot: validateImport({ ...document, ...item.snapshot }),
+      snapshot: snapshotOf(
+        validateImport({
+          ...document,
+          ...item.snapshot,
+          scriptVersion: scriptVersionId(item.snapshot),
+          scriptVersions: {},
+        }),
+      ),
     }));
   return { ...document, importedHistory: history };
 }

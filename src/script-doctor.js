@@ -1,9 +1,16 @@
 import { nodeText } from "./data.js";
+import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 
-export function inspectScript(content) {
+const SCENE_TYPE = /^(?:ИНТ|ЭКС|НАТ|ПАВ|INT|EXT|EST|I\/E)[.\s/]/iu;
+const SCENE_TIME =
+  /(?:[—–-]\s*|\s)(?:ДЕНЬ|НОЧЬ|УТРО|ВЕЧЕР|РАССВЕТ|ЗАКАТ|ПОЗЖЕ|ПРОДОЛЖЕНИЕ|DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|LATER|CONTINUOUS)\s*[.]*$/iu;
+
+export function inspectScript(
+  content,
+  { scenes = new Map(), offset = 0 } = {},
+) {
   const nodes = content?.content || [],
-    findings = [],
-    scenes = new Map();
+    findings = [];
   const add = (kind, node, title, detail) =>
     findings.push({
       id: `${kind}-${node.attrs.blockId}-${findings.length}`,
@@ -13,7 +20,7 @@ export function inspectScript(content) {
       detail,
       quote: nodeText(node),
     });
-  let sceneNumber = 0;
+  let sceneNumber = offset;
   let speaker = false;
   for (let index = 0; index < nodes.length; index++) {
     const node = nodes[index],
@@ -24,18 +31,14 @@ export function inspectScript(content) {
     if (format === "scene") sceneNumber++;
     if (!text) continue;
     if (format === "scene") {
-      if (!/^(?:ИНТ|ЭКС|НАТ|INT|EXT)[.\s/]/iu.test(text))
+      if (!SCENE_TYPE.test(text))
         add(
           "headings",
           node,
           "Не указан тип сцены",
           "Начните заголовок с ИНТ./ЭКС. или INT./EXT.",
         );
-      if (
-        !/(?:[—–-]\s*|\s)(?:ДЕНЬ|НОЧЬ|УТРО|ВЕЧЕР|РАССВЕТ|ЗАКАТ|ПОЗЖЕ|ПРОДОЛЖЕНИЕ|DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|LATER|CONTINUOUS)\s*[.]*$/iu.test(
-          text,
-        )
-      )
+      if (!SCENE_TIME.test(text))
         add(
           "headings",
           node,
@@ -63,15 +66,28 @@ export function inspectScript(content) {
             `${block.attrs.format}:${nodeText(block).trim().toLocaleLowerCase().replace(/\s+/g, " ")}`,
         )
         .join("\n");
-      if (body && scenes.has(signature))
+      const previous = scenes.get(signature);
+      if (body && previous && previous.id !== node.attrs.blockId)
         add(
           "duplicates",
           node,
           "Возможный дубликат сцены",
-          `Повтор сцены {0}|${scenes.get(signature)}`,
+          `Повтор сцены {0}|${previous.number}`,
         );
-      else scenes.set(signature, sceneNumber);
+      else if (!previous)
+        scenes.set(signature, { id: node.attrs.blockId, number: sceneNumber });
     }
+    if (
+      (format === "action" || format === "plain") &&
+      SCENE_TYPE.test(text) &&
+      SCENE_TIME.test(text)
+    )
+      add(
+        "headings",
+        node,
+        "Неверный формат заголовка",
+        "Оформите эту строку как заголовок сцены · Ctrl+1.",
+      );
     if (
       format === "action" &&
       text.length > 20 &&
@@ -109,6 +125,73 @@ export function inspectScript(content) {
           "Перед репликой укажите имя в формате «Персонаж».",
         );
     }
+    if (format === "parenthetical") {
+      if (!speaker)
+        add(
+          "dialogue",
+          node,
+          "Ремарка без персонажа",
+          "Перед ремаркой укажите имя в формате «Персонаж».",
+        );
+      if (!text.startsWith("(") || !text.endsWith(")"))
+        add(
+          "dialogue",
+          node,
+          "Ремарка без скобок",
+          "Заключите ремарку в круглые скобки.",
+        );
+    }
   }
   return findings;
+}
+
+// Inspect only the selected screenplay version. Read live A–F text instead of
+// stale snapshots, and don't treat copies of the same scene as duplicate scenes.
+export function inspectDocumentScript(document) {
+  const blocks = document.content?.content || [],
+    findings = [],
+    scenes = new Map();
+  let number = 0;
+  const add = (nodes, sceneId = null, variant = null) => {
+    findings.push(
+      ...inspectScript({ content: nodes }, { scenes, offset: number - 1 }).map(
+        (finding) => ({
+          ...finding,
+          id: `${variant || "prelude"}-${finding.id}`,
+          sceneId,
+          variant,
+          sceneNumber: sceneId ? number : null,
+        }),
+      ),
+    );
+  };
+  for (let start = 0; start < blocks.length;) {
+    let end = start + 1;
+    const heading = blocks[start];
+    while (end < blocks.length && blocks[end].attrs?.format !== "scene") end++;
+    if (heading.attrs?.format !== "scene") add(blocks.slice(start, end));
+    else {
+      number++;
+      const id = heading.attrs.blockId,
+        active = sceneLetter(heading);
+      for (const letter of SCENE_VARIANTS) {
+        const nodes =
+          letter === active
+            ? blocks.slice(start, end)
+            : document.sceneVariants?.[id]?.[letter];
+        if (nodes) add(nodes, id, letter);
+      }
+    }
+    start = end;
+  }
+  return findings;
+}
+
+export function doctorCondition(count) {
+  const errors = Math.max(0, Math.floor(Number(count) || 0));
+  return {
+    errors,
+    fill: Math.min(errors / 12, 1),
+    flies: Math.min(errors, 24),
+  };
 }

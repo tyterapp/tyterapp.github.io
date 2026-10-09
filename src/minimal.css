@@ -1320,9 +1320,8 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 600px;
   width: max-content;
-  max-width: min(600px, calc(100vw - 30px));
+  max-width: calc(100vw - 30px);
   background: oklch(1 0 0);
   padding: 6px 8px 6px 16px;
   border-radius: 8px;

@@ -1,4 +1,5 @@
 import { HISTORY_DAYS } from "./edition.js";
+import { scriptVersionId } from "./script-versions.js";
 
 const DATABASE = "tyter.history.v1";
 const STORE = "revisions";
@@ -10,7 +11,10 @@ export const revisionArea = (revision) =>
     : "screenplay";
 export const snapshotForArea = (snapshot, area) => {
   if (area === "outline")
-    return { outline: snapshot.outline || { columns: [], cards: [] } };
+    return {
+      outline: snapshot.outline || { columns: [], cards: [] },
+      scriptVersion: scriptVersionId(snapshot),
+    };
   const { outline, ...screenplay } = snapshot;
   return screenplay;
 };
@@ -33,9 +37,13 @@ function openDatabase() {
 export function snapshotOf(document) {
   return {
     title: document.title,
+    scriptVersion: scriptVersionId(document),
     content: document.content,
     sceneVariants: document.sceneVariants || {},
     components: document.components,
+    ...(document.componentLibraryId
+      ? { componentLibraryId: document.componentLibraryId }
+      : {}),
     componentFolders: document.componentFolders || [],
     collapsedComponentFolders: document.collapsedComponentFolders || [],
     comments: document.comments,

@@ -147,6 +147,25 @@ for (const theme of ["light", "dark"]) {
     );
     await expect(notice.locator("span")).toHaveCSS("color", "oklch(0 0 0)");
     const link = notice.getByRole("link", { name: "Подробнее", exact: true });
+    const lines = () =>
+      notice.locator("span").evaluate((span) => {
+        const range = document.createRange();
+        range.selectNodeContents(span);
+        return new Set(
+          [...range.getClientRects()].map((rect) => Math.round(rect.top)),
+        ).size;
+      });
+    expect(await lines()).toBe(1);
+    await page.setViewportSize({ width: 390, height: 850 });
+    expect(await lines()).toBeGreaterThan(1);
+    const box = await notice.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(10);
+    expect(box.x + box.width).toBeLessThanOrEqual(380);
+    await expect(link).toBeVisible();
+    await expect(
+      notice.getByRole("button", { name: "Закрыть уведомление" }),
+    ).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 1000 });
     const url = "https://tyterapp.github.io/blog/standarty-v-kino";
     await expect(link).toHaveAttribute("href", url);
     await link.hover();

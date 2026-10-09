@@ -141,7 +141,7 @@ test("new settings and tools are translated and dark theme covers the outline an
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Script doctor", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page.getByRole("button", { name: "Outline", exact: true }).click();
   await expect(page.locator(".outline-column")).toHaveCSS(
     "background-color",
@@ -541,7 +541,7 @@ test("full screen hides UI, keeps readable hints, accepts typing and restores th
   await open(page);
   await expect(
     page.getByRole("button", { name: "Доктор сценария", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await scene(page, "scene-2").click();
   await page.getByRole("button", { name: "Открыть во весь экран" }).click();
   await expect(page.locator(".minimal-header")).not.toBeVisible();

@@ -50,6 +50,9 @@ import SubscriptionDialog from "./SubscriptionDialog.jsx";
 import { IS_PRO as BUILD_IS_PRO, useEdition } from "./edition.js";
 import { importDocument } from "./imports.js";
 import StatisticsPanel from "./StatisticsPanel.jsx";
+import ScriptDoctor from "./ScriptDoctor.jsx";
+import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
+import { inspectDocumentScript } from "./script-doctor.js";
 import ComponentsPanel from "./ComponentsPanel.jsx";
 import FormatBar, { FORMATS } from "./FormatBar.jsx";
 import {
@@ -67,6 +70,14 @@ import { documentSearchMatches } from "./document-search.js";
 import CharacterDialogue from "./CharacterDialogue.jsx";
 import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
 import AppMessage, { useAppMessage } from "./AppMessage.jsx";
+import WritingTimer from "./WritingTimer.jsx";
+import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
+import {
+  scriptScopeId,
+  scriptVersion,
+  scriptVersionId,
+  switchScriptVersion,
+} from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
   exportComponentLibrary,
@@ -573,6 +584,8 @@ export default function MinimalApp({ onLogout }) {
   const [emptyDocument] = useState(newDocument);
   const current =
     documents.find((d) => d.id === activeId) || documents[0] || emptyDocument;
+  const activeScriptVersion = scriptVersion(current);
+  const writingScope = scriptScopeId(current);
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
   const editorRef = useRef(null),
@@ -598,6 +611,7 @@ export default function MinimalApp({ onLogout }) {
   const [propDialog, setPropDialog] = useState(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
+  const [doctorOpen, setDoctorOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRevision, setHistoryRevision] = useState(null);
@@ -638,6 +652,7 @@ export default function MinimalApp({ onLogout }) {
     if (kind !== "props") setPropDialog(null);
     setCommentsOpen(kind === "comments");
     setStatisticsOpen(kind === "statistics");
+    setDoctorOpen(kind === "doctor");
     setSettingsOpen(kind === "settings");
     setHistoryOpen(kind === "history");
     if (kind !== "history") setHistoryRevision(null);
@@ -763,7 +778,7 @@ export default function MinimalApp({ onLogout }) {
         pendingOutlineHistory.current.delete(id);
         writes.push(
           recordRevision(
-            id,
+            pending.documentId || id,
             pending.snapshot,
             pending.label,
             historyDays,
@@ -816,10 +831,10 @@ export default function MinimalApp({ onLogout }) {
     if (!filesReady || !documents.length) return;
     const snapshot = snapshotOf(current);
     const signature = JSON.stringify(snapshot);
-    const previous = historyTracked.current.get(current.id);
+    const previous = historyTracked.current.get(writingScope);
     if (previous && previous.signature !== signature) {
       const now = Date.now();
-      const screenplayKey = `${current.id}:screenplay`;
+      const screenplayKey = `${writingScope}:screenplay`;
       if (
         JSON.stringify(snapshotForArea(previous.snapshot, "screenplay")) !==
           JSON.stringify(snapshotForArea(snapshot, "screenplay")) &&
@@ -843,8 +858,9 @@ export default function MinimalApp({ onLogout }) {
         JSON.stringify(previous.snapshot.outline) !==
         JSON.stringify(snapshot.outline)
       ) {
-        const pending = pendingOutlineHistory.current.get(current.id) || {
+        const pending = pendingOutlineHistory.current.get(writingScope) || {
           snapshot: previous.snapshot,
+          documentId: current.id,
         };
         clearTimeout(pending.timer);
         pending.label =
@@ -853,13 +869,13 @@ export default function MinimalApp({ onLogout }) {
             ? "актов аутлайна"
             : "карточек аутлайна";
         pending.timer = setTimeout(
-          () => flushOutlineHistory(current.id).catch(() => {}),
+          () => flushOutlineHistory(writingScope).catch(() => {}),
           650,
         );
-        pendingOutlineHistory.current.set(current.id, pending);
+        pendingOutlineHistory.current.set(writingScope, pending);
       }
     }
-    historyTracked.current.set(current.id, {
+    historyTracked.current.set(writingScope, {
       snapshot,
       signature,
     });
@@ -867,8 +883,8 @@ export default function MinimalApp({ onLogout }) {
   const restoreHistory = async (entry) => {
     const area = revisionArea(entry);
     try {
-      await flushOutlineHistory(current.id);
-      historyWritten.current.set(`${current.id}:${area}`, Date.now());
+      await flushOutlineHistory(writingScope);
+      historyWritten.current.set(`${writingScope}:${area}`, Date.now());
       await recordRevision(
         current.id,
         snapshotOf(current),
@@ -882,7 +898,7 @@ export default function MinimalApp({ onLogout }) {
           ...structuredClone(snapshotForArea(entry.snapshot, area)),
         };
         const snapshot = snapshotOf(restored);
-        historyTracked.current.set(document.id, {
+        historyTracked.current.set(scriptScopeId(document), {
           snapshot,
           signature: JSON.stringify(snapshot),
         });
@@ -1001,7 +1017,7 @@ export default function MinimalApp({ onLogout }) {
     (fn) =>
       setDocuments((list) =>
         list.map((d) =>
-          d.id === current.id
+          d.id === current.id && scriptVersionId(d) === activeScriptVersion.id
             ? {
                 ...fn(d),
                 updatedAt: new Date().toISOString(),
@@ -1009,7 +1025,7 @@ export default function MinimalApp({ onLogout }) {
             : d,
         ),
       ),
-    [current.id],
+    [current.id, activeScriptVersion.id],
   );
   const changeContent = useCallback(
     (content, anchors) =>
@@ -1364,7 +1380,7 @@ export default function MinimalApp({ onLogout }) {
     };
     document.addEventListener("keydown", onUndoRedo, true);
     return () => document.removeEventListener("keydown", onUndoRedo, true);
-  }, [activeId]);
+  }, [activeId, writingScope]);
   const switchDocument = (doc) => {
     setFocusMode(false);
     setCharacterView(null);
@@ -1384,6 +1400,37 @@ export default function MinimalApp({ onLogout }) {
     setSearchCardSelection(null);
     setPageCount(1);
     setHistoryRevision(null);
+  };
+  const changeScriptVersion = (id) => {
+    if (id === activeScriptVersion.id || busy || !filesReady) return;
+    flushOutlineHistory(writingScope).catch(() => {});
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    let outgoing = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    // Comment navigation can temporarily open another scene letter. Archive
+    // the user's working letters rather than that temporary preview.
+    const preview = commentPreview.current;
+    if (preview?.documentId === current.id) {
+      for (const [sceneId, letter] of preview.variants)
+        outgoing = switchSceneVariant(outgoing, sceneId, letter);
+      editorRef.current?.restoreContent(outgoing.content);
+      editorRef.current?.restoreCaret(preview.caret);
+    }
+    commentPreview.current = null;
+    pendingCommentFocus.current = null;
+    const next = switchScriptVersion(outgoing, id);
+    componentHistory.current = { undo: [], redo: [] };
+    showSidebar(null);
+    switchDocument(current);
+    setView(view);
+    setSceneTarget(null);
+    setSearchFormat("all");
+    setSearchCount(0);
+    setSelection({ format: "scene" });
+    update(() => next);
   };
   const openComments = useCallback(
     (source) => {
@@ -1455,6 +1502,26 @@ export default function MinimalApp({ onLogout }) {
     () => documentSearchMatches(current, searchText, searchFormat),
     [current.content, current.sceneVariants, searchText, searchFormat],
   );
+  const doctorFindings = useMemo(
+    () => inspectDocumentScript(current),
+    [current.content, current.sceneVariants],
+  );
+  const locateDoctorFinding = (finding) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const live = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    const next = finding.sceneId
+      ? switchSceneVariant(live, finding.sceneId, finding.variant)
+      : live;
+    if (next !== live) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+    setSceneTarget(finding.blockId);
+  };
   const activeSearchMatch = searchMatches[searchIndex];
   const visibleSearchIndex = documentSearchMatches(
     { ...current, sceneVariants: {} },
@@ -2086,7 +2153,7 @@ export default function MinimalApp({ onLogout }) {
     setMessage("");
     writeStorage();
     try {
-      await flushOutlineHistory(current.id);
+      await flushOutlineHistory();
       const document = structuredClone(
         documentsRef.current.find((item) => item.id === current.id) || current,
       );
@@ -2213,6 +2280,11 @@ export default function MinimalApp({ onLogout }) {
   return (
     <div
       className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}`}
+      data-script-version={activeScriptVersion.id}
+      style={{
+        "--script-version-hue": activeScriptVersion.hue,
+        "--script-version-chroma": activeScriptVersion.chroma,
+      }}
     >
       <TooltipLayer />
       {!focusMode && (
@@ -2408,6 +2480,13 @@ export default function MinimalApp({ onLogout }) {
             </div>
           )}
         </div>
+        {!!documents.length && (
+          <ScriptVersionPicker
+            document={current}
+            disabled={!filesReady || !!busy || deleting}
+            onChange={changeScriptVersion}
+          />
+        )}
         <button
           className={`save-status ${saveState === "error" || diskState === "error" ? "save-error" : ""}`}
           aria-label={t("Открыть папку сценариев")}
@@ -2508,6 +2587,22 @@ export default function MinimalApp({ onLogout }) {
                   <ChartNoAxesColumn size={17} />
                 </button>
                 <button
+                  className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
+                  aria-label={t("Доктор сценария")}
+                  data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
+                  aria-expanded={doctorOpen}
+                  aria-describedby="script-doctor-condition"
+                  onClick={() => showSidebar(doctorOpen ? null : "doctor")}
+                >
+                  <ScriptDoctorIcon count={doctorFindings.length} />
+                  <span
+                    className="visually-hidden"
+                    id="script-doctor-condition"
+                  >
+                    {t("Замечаний: {0}", doctorFindings.length)}
+                  </span>
+                </button>
+                <button
                   className={`icon-button${characterView ? " active" : ""}`}
                   aria-label={t("Реплики персонажей")}
                   data-tooltip={t("Реплики персонажей")}
@@ -2587,7 +2682,7 @@ export default function MinimalApp({ onLogout }) {
                 aria-expanded={historyOpen}
                 onClick={() => {
                   showSidebar(historyOpen ? null : "history");
-                  flushOutlineHistory(current.id).catch(() => {});
+                  flushOutlineHistory(writingScope).catch(() => {});
                 }}
               >
                 <History size={17} />
@@ -2650,6 +2745,7 @@ export default function MinimalApp({ onLogout }) {
             />
           ) : (
             <OutlineBoard
+              key={writingScope}
               outline={outlineWithLinks}
               selectedId={outlineCard}
               onSelect={(id) => {
@@ -2681,7 +2777,7 @@ export default function MinimalApp({ onLogout }) {
           <ImageComponentPaste
             ref={imagePasteRef}
             containerRef={columnRef}
-            documentId={current.id}
+            documentId={writingScope}
             enabled={
               filesReady &&
               !!documents.length &&
@@ -2800,9 +2896,9 @@ export default function MinimalApp({ onLogout }) {
                 />
               ) : filesReady && documents.length ? (
                 <ScreenplayEditor
-                  key={current.id}
+                  key={writingScope}
                   ref={editorRef}
-                  documentId={current.id}
+                  documentId={writingScope}
                   autoFocus={
                     filesReady &&
                     view === "screenplay" &&
@@ -2816,6 +2912,7 @@ export default function MinimalApp({ onLogout }) {
                     !propDialog &&
                     !searchOpen &&
                     !settingsOpen &&
+                    !doctorOpen &&
                     !historyOpen &&
                     !commentsOpen &&
                     !componentsOpen &&
@@ -2892,6 +2989,7 @@ export default function MinimalApp({ onLogout }) {
                     subscriptionOpen ||
                     !!deleteTarget ||
                     searchOpen ||
+                    doctorOpen ||
                     focusMode ||
                     !!characterView ||
                     !!libraryDialog
@@ -2954,6 +3052,17 @@ export default function MinimalApp({ onLogout }) {
                 {focusMode ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
               </button>
             )}
+          <WritingTimer
+            visible={
+              !!documents.length &&
+              !focusMode &&
+              !historyRevision &&
+              !characterView &&
+              !libraryDialog &&
+              view === "screenplay"
+            }
+            onComplete={setMessage}
+          />
           {focusMode && (
             <div
               className="focus-format-hint"
@@ -3006,7 +3115,7 @@ export default function MinimalApp({ onLogout }) {
         )}
         {settingsOpen && (
           <DocumentSettings
-            key={current.id}
+            key={writingScope}
             preferences={preferences}
             onPreferences={setPreferences}
             metadata={current.metadata}
@@ -3031,10 +3140,19 @@ export default function MinimalApp({ onLogout }) {
             onClose={() => setStatisticsOpen(false)}
           />
         )}
+        {doctorOpen && (
+          <ScriptDoctor
+            key={writingScope}
+            findings={doctorFindings}
+            onGo={locateDoctorFinding}
+            onClose={() => showSidebar(null)}
+          />
+        )}
         {historyOpen && (
           <HistoryPanel
-            key={current.id}
+            key={writingScope}
             documentId={current.id}
+            scriptVersion={activeScriptVersion.id}
             version={historyVersion}
             selectedId={historyRevision?.id}
             onSelect={(revision) => {
@@ -3050,7 +3168,7 @@ export default function MinimalApp({ onLogout }) {
         )}
         {commentsOpen && (
           <CommentsPanel
-            key={current.id}
+            key={writingScope}
             comments={current.comments}
             content={current.content}
             commentScenes={commentScenes}
@@ -3098,7 +3216,7 @@ export default function MinimalApp({ onLogout }) {
         )}
         {componentsOpen && (
           <ComponentsPanel
-            key={current.id}
+            key={writingScope}
             onExportLibrary={() =>
               saveBlob(
                 exportComponentLibrary(current),

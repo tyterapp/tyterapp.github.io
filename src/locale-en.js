@@ -3,6 +3,22 @@ export default {
   "Для сценария лучше всего использовать Courier — это стандарт индустрии.":
     "Courier is recommended for screenplays — it is the industry standard.",
   Подробнее: "Learn more",
+  "Версии сценария": "Screenplay versions",
+  "Создать копию": "Create a copy",
+  "Таймер письма": "Writing timer",
+  "Открыть таймер": "Open timer",
+  "Время таймера": "Timer duration",
+  "{0} мин": "{0} min",
+  "За полный отсчёт: {0} монет": "Complete the timer to earn {0} coins",
+  "Закрыть выбор времени": "Close duration picker",
+  "Завершить таймер": "End timer",
+  "Завершить без награды": "End without a reward",
+  "Приостановить таймер": "Pause timer",
+  "Продолжить таймер": "Resume timer",
+  "Осталось {0}": "{0} remaining",
+  "Монеты: {0}": "Coins: {0}",
+  "Таймер завершён. Начислено монет: {0}.":
+    "Timer complete. Coins earned: {0}.",
   "Звук печатной машинки": "Typewriter sound",
   "Тема интерфейса": "Interface theme",
   Светлая: "Light",
@@ -24,6 +40,17 @@ export default {
   Повторы: "Duplicates",
   Диалоги: "Dialogue",
   "Замечаний не найдено": "No issues found",
+  "Замечаний: {0}": "Findings: {0}",
+  "В этой категории замечаний нет": "No findings in this category",
+  "Неверный формат заголовка": "Incorrect scene heading format",
+  "Оформите эту строку как заголовок сцены · Ctrl+1.":
+    "Set this line to Scene heading · Ctrl+1.",
+  "Ремарка без персонажа": "Parenthetical without a character",
+  "Перед ремаркой укажите имя в формате «Персонаж».":
+    "Add a name in Character format before the parenthetical.",
+  "Ремарка без скобок": "Parenthetical without brackets",
+  "Заключите ремарку в круглые скобки.":
+    "Enclose the parenthetical in parentheses.",
   "Не указан тип сцены": "Missing scene type",
   "Начните заголовок с ИНТ./ЭКС. или INT./EXT.":
     "Start the heading with INT. or EXT.",

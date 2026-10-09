@@ -26,6 +26,21 @@ const editor = (page) =>
 const line = (page, id = "one") =>
   page.locator(`p[data-block-id="${id}-text"]`);
 
+async function expectScriptText(paragraph, text) {
+  // Scene controls are decorations inside the paragraph, outside its document text.
+  await expect
+    .poll(() =>
+      paragraph.evaluate((node) => {
+        const copy = node.cloneNode(true);
+        copy
+          .querySelectorAll(".scene-gutter")
+          .forEach((gutter) => gutter.remove());
+        return copy.textContent;
+      }),
+    )
+    .toBe(text);
+}
+
 async function seed(page, documents, pro = false) {
   if (pro) await grantPro(page);
   else
@@ -82,7 +97,8 @@ test("caret: a new document accepts typing immediately, including after leaving 
   await page.keyboard.insertText("ИНТ. КАФЕ — НОЧЬ");
   await page.keyboard.press("Enter");
   await page.keyboard.insertText("Кошка вошла.");
-  await expect(editor(page).locator('p[data-format="scene"]')).toHaveText(
+  await expectScriptText(
+    editor(page).locator('p[data-format="scene"]'),
     "ИНТ. КАФЕ — НОЧЬ",
   );
   await expect(editor(page).locator('p[data-format="action"]')).toHaveText(
@@ -142,9 +158,7 @@ test("caret: adding an outline scene preserves the original writing position", a
     .click();
   await expect(editor(page)).toBeFocused();
   await page.keyboard.insertText("X");
-  await expect(editor(page).locator('p[data-format="scene"]')).toHaveText(
-    "X",
-  );
+  await expectScriptText(editor(page).locator('p[data-format="scene"]'), "X");
 });
 
 test("caret: settings keep input focus and formatting returns to the last writing position", async ({

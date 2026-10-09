@@ -12,6 +12,9 @@ import "./scrollbars.css";
 import "./editor-tools.css";
 import "./themes.css";
 import "./editor-ui.css";
+import "./writing-timer.css";
+import "./script-versions.css";
+import "./script-doctor.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";

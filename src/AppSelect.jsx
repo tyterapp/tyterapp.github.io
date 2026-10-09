@@ -10,6 +10,8 @@ export function SelectMenu({
   onSelect,
   onClose,
   compact = false,
+  menuMaxHeight = 320,
+  optionHeight = 40,
 }) {
   const menu = useRef(null);
   const [position, setPosition] = useState(null);
@@ -21,7 +23,7 @@ export function SelectMenu({
         innerWidth - 16,
         compact ? 56 : Math.max(180, rect.width),
       );
-      const height = Math.min(320, options.length * 40 + 8);
+      const height = Math.min(menuMaxHeight, options.length * optionHeight + 8);
       const below = innerHeight - rect.bottom - 8;
       const above = rect.top - 8;
       const upwards = below < Math.min(height, 160) && above > below;
@@ -40,7 +42,7 @@ export function SelectMenu({
       window.removeEventListener("resize", place);
       document.removeEventListener("scroll", place, true);
     };
-  }, [anchor, compact, options.length, onClose]);
+  }, [anchor, compact, options.length, onClose, menuMaxHeight, optionHeight]);
   useEffect(() => {
     const outside = (event) => {
       if (
@@ -124,10 +126,16 @@ export default function AppSelect({
   onChange,
   className = "",
   compact = false,
+  disabled = false,
+  menuMaxHeight = 320,
+  optionHeight = 40,
 }) {
   const anchor = useRef(null);
   const id = useId();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
   const current =
     options.find((option) => option.value === value) || options[0];
   const close = (restoreFocus) => {
@@ -141,6 +149,7 @@ export default function AppSelect({
         id={id}
         type="button"
         role="combobox"
+        disabled={disabled}
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -165,6 +174,8 @@ export default function AppSelect({
           options={options}
           label={label}
           compact={compact}
+          menuMaxHeight={menuMaxHeight}
+          optionHeight={optionHeight}
           onClose={close}
           onSelect={(next) => {
             onChange(next);

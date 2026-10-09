@@ -3,6 +3,7 @@ import { documentFont } from "./document-fonts.js";
 import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
 import { cleanCommentOptions } from "./comment-options.js";
 import { commentSceneIndex } from "./comment-scenes.js";
+import { cleanScriptVersions } from "./script-versions.js";
 
 const FORMATS = new Set([
   "scene",
@@ -341,7 +342,7 @@ const cleanThumbnail = (value) =>
     ? value
     : null;
 
-export function validateImport(input) {
+export function validateImport(input, options = {}) {
   let source = input;
   if (typeof input === "string") {
     try {
@@ -470,6 +471,9 @@ export function validateImport(input) {
       ? source.cover
       : null,
     content: { type: "doc", content },
+    ...(typeof source.componentLibraryId === "string"
+      ? { componentLibraryId: cleanId(source.componentLibraryId) }
+      : {}),
     sceneVariants,
     metadata: {
       fontFamily: documentFont(source.metadata?.fontFamily).id,
@@ -650,6 +654,21 @@ export function validateImport(input) {
         : comment;
     });
   }
+  if (!options.scriptSnapshot)
+    Object.assign(
+      document,
+      cleanScriptVersions(source, (snapshot) =>
+        validateImport(
+          {
+            ...snapshot,
+            id: document.id,
+            title: document.title,
+            scriptVersions: {},
+          },
+          { scriptSnapshot: true },
+        ),
+      ),
+    );
   return document;
 }
 

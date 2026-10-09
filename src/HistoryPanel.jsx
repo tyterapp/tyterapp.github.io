@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { History, RotateCcw, X } from "lucide-react";
 import { listRevisions, revisionArea } from "./history.js";
 import { useEdition } from "./edition.js";
+import { scriptVersionId } from "./script-versions.js";
 const preview = (revision) =>
   revisionArea(revision) === "outline"
     ? (revision.snapshot.outline?.cards || [])
@@ -18,6 +19,7 @@ const preview = (revision) =>
         .slice(0, 180) || t("Пустой сценарий");
 export default function HistoryPanel({
   documentId,
+  scriptVersion = "white",
   version,
   selectedId,
   onSelect,
@@ -29,7 +31,9 @@ export default function HistoryPanel({
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
   const visibleEntries = entries.filter(
-    (entry) => IS_PRO || revisionArea(entry) === "screenplay",
+    (entry) =>
+      scriptVersionId(entry.snapshot) === scriptVersion &&
+      (IS_PRO || revisionArea(entry) === "screenplay"),
   );
   useEffect(() => {
     let cancelled = false;
