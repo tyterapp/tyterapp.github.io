@@ -16,8 +16,9 @@ import "./editor-ui.css";
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";
 const pathname = location.pathname.replace(/\/+$/, "") || "/";
-if (!desktop && pathname === "/pay") location.replace("/pro");
-const editor = desktop || ["/free", "/app", "/pro"].includes(pathname);
+if (!desktop && pathname === "/pay") location.replace("/beta");
+const webPro = ["/pro", "/beta"].includes(pathname);
+const editor = desktop || ["/free", "/app"].includes(pathname) || webPro;
 document.documentElement.dataset.theme = editor
   ? readEditorPreferences().theme
   : "light";
@@ -35,7 +36,7 @@ if (!editor) {
 
 createRoot(document.getElementById("root")).render(
   <EditionContext.Provider value={desktop}>
-    {!desktop && pathname === "/pro" ? (
+    {!desktop && webPro ? (
       <WebProApp />
     ) : editor ? (
       <App />

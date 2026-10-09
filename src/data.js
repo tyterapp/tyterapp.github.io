@@ -553,6 +553,7 @@ export function validateImport(input) {
           description: cleanText(item.description, 5000),
           color: cleanColor(item.color),
           thumbnail: cleanThumbnail(item.thumbnail),
+          ...(item.enabled === false ? { enabled: false } : {}),
           ...(item.librarySource &&
           typeof item.librarySource.libraryId === "string" &&
           typeof item.librarySource.componentId === "string"

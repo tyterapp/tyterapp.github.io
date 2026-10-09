@@ -428,12 +428,36 @@ export async function exportPDF(document) {
       document.title || "Сценарий",
       contentWidth,
     );
-    pdf.text(titleLines, width / 2, 160, { align: "center" });
     let coverY = 180 + titleLines.length * 14;
     const poster = posterData(document);
+    const image = poster ? pdf.getImageProperties(poster) : null;
+    const scale = image ? Math.min(540 / image.width, 720 / image.height) : 0;
+    const credits = [
+      "Сценарий",
+      document.metadata.author,
+      document.metadata.year,
+      document.metadata.email,
+    ]
+      .filter((text) => String(text || "").trim())
+      .map((text) => pdf.splitTextToSize(String(text), contentWidth));
+    const creditsHeight = credits.reduce(
+      (sum, lines) => sum + lines.length * 14 + 14,
+      0,
+    );
+    const coverHeight = Math.max(
+      height,
+      coverY +
+        (image ? image.height * scale + 32 : 0) +
+        creditsHeight +
+        topMargin,
+    );
+    // Keep the larger poster and all credits on one cover; screenplay pages keep their size.
+    if (coverHeight > height) {
+      pdf.addPage([width, coverHeight]);
+      pdf.deletePage(1);
+    }
+    pdf.text(titleLines, width / 2, 160, { align: "center" });
     if (poster) {
-      const image = pdf.getImageProperties(poster);
-      const scale = Math.min(135 / image.width, 180 / image.height);
       pdf.addImage(
         poster,
         image.fileType,
@@ -445,18 +469,11 @@ export async function exportPDF(document) {
       coverY += image.height * scale + 32;
     }
     pdf.setFont("ScreenplayCourier", "normal");
-    for (const text of [
-      "Сценарий",
-      document.metadata.author,
-      document.metadata.year,
-      document.metadata.email,
-    ]) {
-      if (!String(text || "").trim()) continue;
-      const lines = pdf.splitTextToSize(String(text), contentWidth);
+    for (const lines of credits) {
       pdf.text(lines, width / 2, coverY, { align: "center" });
       coverY += lines.length * 14 + 14;
     }
-    pdf.addPage();
+    pdf.addPage([width, height]);
   }
   pdf.setFontSize(fontSize);
   let y = topMargin,

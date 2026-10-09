@@ -1,14 +1,16 @@
 import { uid, validateImport } from "./data.js";
 
 const FORMAT = "tyter-component-library";
-export function libraryFromDocument(document) {
+export function libraryFromDocument(document, selected) {
   return readComponentLibrary(
     JSON.stringify({
       format: FORMAT,
       version: 1,
       id: document.componentLibraryId || document.id,
       name: document.title,
-      components: document.components,
+      components: selected
+        ? document.components.filter((c) => selected.includes(c.id))
+        : document.components,
       folders: document.componentFolders || [],
       updatedAt: new Date().toISOString(),
     }),
@@ -57,19 +59,29 @@ export function readComponentLibrary(text) {
     id: validated.id,
     name: validated.title,
     components: validated.components.map(
-      ({ librarySource, ...component }) => component,
+      ({ librarySource, enabled, ...component }) => component,
     ),
     folders: validated.componentFolders,
     updatedAt: new Date().toISOString(),
   };
 }
-export function exportComponentLibrary(document) {
-  return new Blob([JSON.stringify(libraryFromDocument(document), null, 2)], {
-    type: "application/vnd.tyter-library+json",
-  });
+export function exportComponentLibrary(document, selected) {
+  return new Blob(
+    [JSON.stringify(libraryFromDocument(document, selected), null, 2)],
+    {
+      type: "application/vnd.tyter-library+json",
+    },
+  );
 }
 export function mergeComponentLibrary(document, library, selected) {
-  const components = [...document.components],
+  const components = document.components.map((component) =>
+      component.librarySource?.libraryId === library.id
+        ? {
+            ...component,
+            enabled: selected.includes(component.librarySource.componentId),
+          }
+        : component,
+    ),
     folders = [...(document.componentFolders || [])];
   const normalize = (name) => name.trim().toLocaleLowerCase();
   let added = 0,
@@ -103,6 +115,7 @@ export function mergeComponentLibrary(document, library, selected) {
       ...original,
       id: existing >= 0 ? components[existing].id : uid(),
       folderId: folderMap.get(original.folderId) || null,
+      enabled: true,
       librarySource: {
         libraryId: library.id,
         componentId: original.id,

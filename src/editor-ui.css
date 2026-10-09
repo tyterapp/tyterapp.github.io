@@ -117,7 +117,6 @@
 }
 .app-select-trigger:focus-visible,
 .scene-variant-select:focus-visible,
-.character-dialogue-link:focus-visible,
 .settings-drawer button:focus-visible,
 .settings-drawer input:focus-visible {
   outline: 2px solid var(--ui-accent);
@@ -296,26 +295,6 @@
 .scene-variant-select[aria-expanded="true"] {
   background: var(--ui-accent-soft);
   color: var(--ui-text);
-}
-.character-dialogue-link {
-  left: -40px;
-  width: 40px;
-  height: 40px;
-  pointer-events: auto;
-  color: var(--ui-muted);
-  transition:
-    opacity 120ms ease,
-    background-color 120ms ease;
-}
-.screenplay-block:hover > .character-dialogue-link,
-.character-dialogue-link:hover,
-.character-dialogue-link:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-.character-dialogue-link:hover {
-  background: var(--ui-soft);
-  color: var(--ui-accent);
 }
 .settings-drawer .settings-scroll {
   margin-left: -12px;
@@ -670,7 +649,6 @@
   .app-select-trigger,
   .app-select-trigger > svg:last-child,
   .scene-variant-select > svg,
-  .character-dialogue-link,
   .settings-switch-row input,
   .settings-switch-row input::before {
     transition: none;

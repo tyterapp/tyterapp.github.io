@@ -97,12 +97,14 @@ export function documentStatistics(document) {
     characters: [...characters.values()].sort(
       (a, b) => b.words - a.words || a.name.localeCompare(b.name, "ru"),
     ),
-    components: (document.components || []).length,
-    characterComponents: (document.components || []).filter(
-      (c) => c.type === "character",
-    ).length,
-    places: (document.components || []).filter((c) => c.type === "place")
+    components: (document.components || []).filter((c) => c.enabled !== false)
       .length,
+    characterComponents: (document.components || []).filter(
+      (c) => c.enabled !== false && c.type === "character",
+    ).length,
+    places: (document.components || []).filter(
+      (c) => c.enabled !== false && c.type === "place",
+    ).length,
     comments: comments.length,
     openComments: comments.filter((c) => !c.resolved).length,
     resolvedComments: comments.filter((c) => c.resolved).length,

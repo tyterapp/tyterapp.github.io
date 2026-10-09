@@ -1,6 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
-import { useMemo } from "react";
-import { X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { X, ChevronDown } from "lucide-react";
 import { documentStatistics } from "./statistics.js";
 const number = (value) => value.toLocaleString(languageLocale());
 function Rows({ values }) {
@@ -16,9 +16,15 @@ function Rows({ values }) {
     </dl>
   );
 }
-export default function StatisticsPanel({ document, pageCount, onClose }) {
+export default function StatisticsPanel({
+  document,
+  pageCount,
+  onClose,
+  onCharacter,
+}) {
   const language = useLanguage();
   const stats = useMemo(() => documentStatistics(document), [document]);
+  const [charactersOpen, setCharactersOpen] = useState(true);
   return (
     <aside className="statistics-drawer" aria-label={t("Статистика документа")}>
       <div className="drawer-heading">
@@ -79,39 +85,61 @@ export default function StatisticsPanel({ document, pageCount, onClose }) {
           <Rows values={stats.formats.map((f) => [f.label, f.count])} />
         </section>
         <section>
-          <h3>{t("Персонажи и диалоги")}</h3>
-          {stats.characters.length ? (
-            <ul className="statistics-characters">
-              {stats.characters.map((character) => (
-                <li key={character.name}>
-                  <div>
-                    <span>{character.name}</span>
-                    <strong>
-                      {number(character.words)}
-                      {t(" слов")}
-                    </strong>
-                  </div>
-                  <span className="statistics-character-meta">
-                    {t("Реплик: ")}
-                    {number(character.speeches)}
-                    {t(" · упоминаний в заголовках: ")}
-                    {number(character.cues)}
-                  </span>
-                  <div className="statistics-meter" aria-hidden="true">
-                    <span
-                      style={{
-                        width: `${stats.dialogueWords ? (character.words / stats.dialogueWords) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="statistics-note">
-              {t("Персонажи появятся после ввода их имён в формате Character.")}
-            </p>
-          )}
+          <h3>
+            <button
+              className="statistics-section-toggle"
+              aria-expanded={charactersOpen}
+              aria-controls="statistics-characters"
+              onClick={() => setCharactersOpen((open) => !open)}
+            >
+              {t("Персонажи и диалоги")}
+              <ChevronDown
+                size={16}
+                className={charactersOpen ? "expanded" : ""}
+              />
+            </button>
+          </h3>
+          <div id="statistics-characters" hidden={!charactersOpen}>
+            {stats.characters.length ? (
+              <ul className="statistics-characters">
+                {stats.characters.map((character) => (
+                  <li key={character.name}>
+                    <button
+                      className="statistics-character-button"
+                      onClick={() => onCharacter(character.name)}
+                    >
+                      <div>
+                        <span>{character.name}</span>
+                        <strong>
+                          {number(character.words)}
+                          {t(" слов")}
+                        </strong>
+                      </div>
+                      <span className="statistics-character-meta">
+                        {t("Реплик: ")}
+                        {number(character.speeches)}
+                        {t(" · упоминаний в заголовках: ")}
+                        {number(character.cues)}
+                      </span>
+                      <div className="statistics-meter" aria-hidden="true">
+                        <span
+                          style={{
+                            width: `${stats.dialogueWords ? (character.words / stats.dialogueWords) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="statistics-note">
+                {t(
+                  "Персонажи появятся после ввода их имён в формате Character.",
+                )}
+              </p>
+            )}
+          </div>
         </section>
         <section>
           <h3>{t("Компоненты и заметки")}</h3>

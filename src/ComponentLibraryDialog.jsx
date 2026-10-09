@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { LibraryBig, Upload, X, Link2 } from "lucide-react";
+import { LibraryBig, Upload, X, Link2, Unlink, Download } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import {
   localComponentLibraries,
+  libraryFromDocument,
+  exportComponentLibrary,
   readComponentLibrary,
 } from "./component-library.js";
 
+import { saveBlob } from "./exports.js";
+
 export default function ComponentLibraryDialog({
+  screenplay,
+  onDetach,
   discovered = [],
   onClose,
   onEmbed,
@@ -53,27 +59,70 @@ export default function ComponentLibraryDialog({
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
-  const [libraries, setLibraries] = useState(discovered),
-    [chosen, setChosen] = useState(discovered[0] || null);
+  const local = libraryFromDocument(screenplay);
+  const linked = new Map();
+  for (const component of screenplay.components) {
+    const source = component.librarySource;
+    if (!source) continue;
+    if (!linked.has(source.libraryId))
+      linked.set(source.libraryId, {
+        ...local,
+        id: source.libraryId,
+        name: source.name,
+        components: [],
+      });
+    linked
+      .get(source.libraryId)
+      .components.push({ ...component, id: source.componentId });
+  }
+  const [libraries, setLibraries] = useState(discovered);
+  const [chosenId, setChosenId] = useState(
+    discovered[0]?.id || "current-local",
+  );
+  const initialSelection = (library) => {
+    const connected = screenplay.components.filter(
+      (c) => c.librarySource?.libraryId === library?.id,
+    );
+    return connected.length
+      ? connected
+          .filter((c) => c.enabled !== false)
+          .map((c) => c.librarySource.componentId)
+      : library?.components.map((c) => c.id) || [];
+  };
   const [selected, setSelected] = useState(
-    discovered[0]?.components.map((c) => c.id) || [],
+    discovered[0]
+      ? initialSelection(discovered[0])
+      : local.components.map((c) => c.id),
   );
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const all = [
+    ...libraries,
+    ...[...linked.values()].filter(
+      (lib) => !libraries.some((item) => item.id === lib.id),
+    ),
+  ];
+  const isLocal = chosenId === "current-local";
+  const chosen = isLocal ? local : all.find((lib) => lib.id === chosenId);
+  const connected = !isLocal && linked.has(chosenId);
+  const choose = (id) => {
+    setChosenId(id);
+    setSelected(
+      id === "current-local"
+        ? local.components.map((c) => c.id)
+        : initialSelection(all.find((lib) => lib.id === id)),
+    );
+    setError("");
+  };
   useEffect(() => {
     let cancelled = false;
     localComponentLibraries()
       .then((stored) => {
-        if (cancelled) return;
-        const all = [
-          ...discovered,
-          ...stored.filter((lib) => !discovered.some((d) => d.id === lib.id)),
-        ];
-        setLibraries(all);
-        if (!chosen && all[0]) {
-          setChosen(all[0]);
-          setSelected(all[0].components.map((c) => c.id));
-        }
+        if (!cancelled)
+          setLibraries((list) => [
+            ...list,
+            ...stored.filter((lib) => !list.some((item) => item.id === lib.id)),
+          ]);
       })
       .catch(() => {
         if (!cancelled) setError("Не удалось открыть локальные библиотеки.");
@@ -100,8 +149,8 @@ export default function ComponentLibraryDialog({
         ...loaded,
         ...existing.filter((lib) => !loaded.some((d) => d.id === lib.id)),
       ]);
-      setChosen(last);
-      setSelected(last.components.map((c) => c.id));
+      setChosenId(last.id);
+      setSelected(initialSelection(last));
     } catch (error) {
       setError(error.message);
     } finally {
@@ -114,15 +163,19 @@ export default function ComponentLibraryDialog({
     try {
       await localComponentLibraries(chosen);
       if (!mounted.current) return;
-      const success = onEmbed(chosen, selected);
-      if (success === false) return;
-      onClose();
+      if (onEmbed(chosen, selected) !== false) onClose();
     } catch {
       setError("Не удалось сохранить библиотеку на устройстве.");
     } finally {
       setBusy(false);
     }
   };
+  const download = () =>
+    saveBlob(
+      exportComponentLibrary(screenplay, selected),
+      screenplay.title || "Library",
+      "tytl",
+    );
   return (
     <div
       className="modal-backdrop"
@@ -151,13 +204,11 @@ export default function ComponentLibraryDialog({
           </button>
         </div>
         <p className="settings-hint">
-          {discovered.length
-            ? t(
-                "В выбранной папке найдены библиотеки. Выберите компоненты для этого сценария.",
-              )
-            : t(
-                "Загрузите библиотеку с компьютера или выберите сохранённую на этом устройстве.",
-              )}
+          {t(
+            discovered.length
+              ? "В выбранной папке найдены библиотеки. Выберите компоненты для этого сценария."
+              : "Загрузите библиотеку с компьютера или выберите сохранённую на этом устройстве.",
+          )}
         </p>
         <button
           className="quiet-button"
@@ -177,46 +228,112 @@ export default function ComponentLibraryDialog({
         />
         <div className="library-browser">
           <div className="library-list">
-            {libraries.map((library) => (
+            <button
+              className={isLocal ? "selected" : ""}
+              aria-pressed={isLocal}
+              aria-label={t("Библиотека текущего документа")}
+              onClick={() => choose("current-local")}
+            >
+              <LibraryBig size={16} />
+              <span>
+                {t("Текущий документ")}
+                <small>
+                  {screenplay.title} · {local.components.length}
+                </small>
+              </span>
+            </button>
+            {all.map((library) => (
               <button
-                className={chosen?.id === library.id ? "selected" : ""}
+                className={chosenId === library.id ? "selected" : ""}
+                aria-pressed={chosenId === library.id}
                 key={library.id}
-                onClick={() => {
-                  setChosen(library);
-                  setSelected(library.components.map((c) => c.id));
-                }}
+                onClick={() => choose(library.id)}
               >
                 <LibraryBig size={16} />
                 <span>
                   {library.name}
-                  <small>{library.components.length}</small>
+                  <small>
+                    {library.components.length}
+                    {linked.has(library.id) ? " · " + t("Подключена") : ""}
+                  </small>
                 </span>
               </button>
             ))}
           </div>
           <div className="library-components">
-            {chosen?.components.map((component) => (
-              <label key={component.id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(component.id)}
-                  onChange={(event) =>
-                    setSelected((ids) =>
-                      event.target.checked
-                        ? [...ids, component.id]
-                        : ids.filter((id) => id !== component.id),
-                    )
-                  }
-                />
-                <Link2 size={14} />
-                <span>
-                  {component.name}
-                  <small>{component.description}</small>
-                </span>
-              </label>
-            ))}
-            {!chosen && (
-              <p className="sidebar-empty">{t("Пока нет библиотек")}</p>
+            {chosen && (
+              <>
+                <div className="library-component-controls">
+                  <label>
+                    <input
+                      type="checkbox"
+                      aria-label={t(
+                        isLocal
+                          ? "Выбрать все для экспорта"
+                          : "Включить все компоненты",
+                      )}
+                      ref={(input) => {
+                        if (input)
+                          input.indeterminate =
+                            selected.length > 0 &&
+                            selected.length < chosen.components.length;
+                      }}
+                      checked={
+                        !!chosen.components.length &&
+                        chosen.components.every((c) => selected.includes(c.id))
+                      }
+                      onChange={(event) =>
+                        setSelected(
+                          event.target.checked
+                            ? chosen.components.map((c) => c.id)
+                            : [],
+                        )
+                      }
+                    />
+                    <span>{t(isLocal ? "Для экспорта" : "В сценарии")}</span>
+                  </label>
+                  {connected && (
+                    <button
+                      className="quiet-button"
+                      data-tooltip={t(
+                        "Компоненты станут локальными и будут доступны в сценарии.",
+                      )}
+                      onClick={() => {
+                        onDetach(chosenId);
+                        choose("current-local");
+                      }}
+                    >
+                      <Unlink size={15} />
+                      {t("Отвязать библиотеку")}
+                    </button>
+                  )}
+                </div>
+                {chosen.components.map((component) => (
+                  <label key={component.id}>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(component.id)}
+                      onChange={(event) =>
+                        setSelected((ids) =>
+                          event.target.checked
+                            ? [...ids, component.id]
+                            : ids.filter((id) => id !== component.id),
+                        )
+                      }
+                    />
+                    {(!isLocal ||
+                      screenplay.components.find((c) => c.id === component.id)
+                        ?.librarySource) && <Link2 size={14} />}
+                    <span>
+                      {component.name}
+                      <small>{component.description}</small>
+                    </span>
+                  </label>
+                ))}
+                {!chosen.components.length && (
+                  <p className="sidebar-empty">{t("Пока нет компонентов")}</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -227,15 +344,26 @@ export default function ComponentLibraryDialog({
         )}
         <div className="dialog-actions">
           <button className="quiet-button" onClick={onClose}>
-            {t("Отмена")}
+            {t("Закрыть")}
           </button>
-          <button
-            className="primary-button"
-            disabled={busy || !chosen || !selected.length}
-            onClick={embed}
-          >
-            {t("Внедрить в сценарий")}
-          </button>
+          {isLocal ? (
+            <button
+              className="primary-button"
+              disabled={!selected.length}
+              onClick={download}
+            >
+              <Download size={16} />
+              {t("Скачать библиотеку")}
+            </button>
+          ) : (
+            <button
+              className="primary-button"
+              disabled={busy || !chosen || (!connected && !selected.length)}
+              onClick={embed}
+            >
+              {t(connected ? "Применить" : "Внедрить в сценарий")}
+            </button>
+          )}
         </div>
       </section>
     </div>

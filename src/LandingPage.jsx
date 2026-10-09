@@ -355,7 +355,7 @@ export default function LandingPage() {
                 {t("Купить PRO ")}
                 <ArrowRight size={15} />
               </a>
-              <a className="landing-donate" href="/pro">
+              <a className="landing-donate" href="/beta">
                 {t("У меня есть ключ →")}
               </a>
             </article>
@@ -387,7 +387,7 @@ export default function LandingPage() {
               {t("Купить PRO ")}
               <ArrowRight size={16} />
             </a>
-            <a className="landing-button black" href="/pro">
+            <a className="landing-button black" href="/beta">
               {t("У меня есть ключ ")}
               <ArrowRight size={16} />
             </a>

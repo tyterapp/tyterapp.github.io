@@ -35,7 +35,7 @@ createServer(async (req, res) => {
       if (["/free", "/pay"].includes(pathname)) {
         res
           .writeHead(301, {
-            Location: pathname === "/pay" ? "/pro" : "/app",
+            Location: pathname === "/pay" ? "/beta" : "/app",
           })
           .end();
         return;
@@ -43,7 +43,7 @@ createServer(async (req, res) => {
       const relative =
         pathname === "/"
           ? "index.html"
-          : ["/app", "/pro"].includes(pathname)
+          : ["/app", "/pro", "/beta"].includes(pathname)
             ? pathname.slice(1) + "/index.html"
             : pathname.slice(1);
       const target = path.resolve(site, relative);

@@ -6,7 +6,7 @@
 | ----------------- | -------------------------------- |
 | Лендинг           | https://tyterapp.github.io/      |
 | Бесплатная версия | https://tyterapp.github.io/free/ |
-| PRO               | https://tyterapp.github.io/pro/  |
+| PRO               | https://tyterapp.github.io/beta/ |
 | Страница 404      | https://tyterapp.github.io/404/  |
 
 Для вашей распакованной папки **D:/Tyter/publication/tyterapp.github.io** используйте [пошаговую инструкцию повторной публикации через Git Bash](GITHUB_PAGES_UPDATE.md). Она сохраняет историю существующего репозитория и объясняет копирование исходников, отправку изменений и запуск публикации.

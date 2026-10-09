@@ -5,7 +5,7 @@ import { build } from "vite";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "site-dist");
 await build({ root, mode: "production", build: { outDir: output } });
-for (const page of ["app", "free", "pay", "pro", "404"]) {
+for (const page of ["app", "free", "pay", "pro", "beta", "404"]) {
   await mkdir(path.join(output, page), { recursive: true });
   await copyFile(
     path.join(output, "index.html"),

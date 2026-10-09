@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -30,7 +31,6 @@ import {
   AlignLeft,
   MessageSquare,
   LogOut,
-  Stethoscope,
   Maximize2,
   Minimize2,
 } from "lucide-react";
@@ -63,8 +63,9 @@ import {
 } from "./scene-variants.js";
 import { activeSceneForBlock, commentSceneIndex } from "./comment-scenes.js";
 import { cleanCommentOptions } from "./comment-options.js";
-import ScriptDoctor from "./ScriptDoctor.jsx";
+import { documentSearchMatches } from "./document-search.js";
 import CharacterDialogue from "./CharacterDialogue.jsx";
+import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
   exportComponentLibrary,
@@ -84,6 +85,7 @@ import {
   importRevisions,
   snapshotOf,
   snapshotForArea,
+  revisionArea,
 } from "./history.js";
 import { pageHeightFor } from "./pagination.js";
 import {
@@ -598,7 +600,6 @@ export default function MinimalApp({ onLogout }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRevision, setHistoryRevision] = useState(null);
-  const [historyArea, setHistoryArea] = useState("screenplay");
   const [historyVersion, setHistoryVersion] = useState(0);
   const historyTracked = useRef(new Map());
   const historyWritten = useRef(new Map());
@@ -618,13 +619,11 @@ export default function MinimalApp({ onLogout }) {
   const searchCardRequest = useRef(0);
   const handledSearchCardRequest = useRef(0);
   const [searchCount, setSearchCount] = useState(0);
-  const [doctorOpen, setDoctorOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [characterView, setCharacterView] = useState(null);
   const [libraryDialog, setLibraryDialog] = useState(null);
   const checkedFolderLibraries = useRef(false);
   const showSidebar = useCallback((kind) => {
-    setDoctorOpen(kind === "doctor");
     if (kind) {
       setFocusMode(false);
       setCharacterView(null);
@@ -865,20 +864,21 @@ export default function MinimalApp({ onLogout }) {
     });
   }, [current, filesReady, historyDays, flushOutlineHistory, documents.length]);
   const restoreHistory = async (entry) => {
+    const area = revisionArea(entry);
     try {
       await flushOutlineHistory(current.id);
-      historyWritten.current.set(`${current.id}:${historyArea}`, Date.now());
+      historyWritten.current.set(`${current.id}:${area}`, Date.now());
       await recordRevision(
         current.id,
         snapshotOf(current),
         "восстановления",
         historyDays,
-        historyArea,
+        area,
       );
       update((document) => {
         const restored = {
           ...document,
-          ...structuredClone(snapshotForArea(entry.snapshot, historyArea)),
+          ...structuredClone(snapshotForArea(entry.snapshot, area)),
         };
         const snapshot = snapshotOf(restored);
         historyTracked.current.set(document.id, {
@@ -918,6 +918,13 @@ export default function MinimalApp({ onLogout }) {
     },
     [IS_PRO, showSidebar, documents.length],
   );
+  const openCharacterDialogues = (name = true) => {
+    showSidebar(null);
+    setView("screenplay");
+    setFocusMode(false);
+    setCharacterView(name);
+    setMenu(null);
+  };
   useLayoutEffect(() => {
     if (menu !== "export") {
       setExportPosition(null);
@@ -1361,7 +1368,6 @@ export default function MinimalApp({ onLogout }) {
     setFocusMode(false);
     setCharacterView(null);
     setLibraryDialog(null);
-    setDoctorOpen(false);
     setActiveId(doc.id);
     setView("screenplay");
     setMenu(null);
@@ -1444,34 +1450,55 @@ export default function MinimalApp({ onLogout }) {
     setCommentQuote(null);
     setActiveComment(comment.id);
   };
-  useEffect(() => {
-    if (!searchOpen) {
-      setSearchCount(0);
-      return;
-    }
-    const fromCard = searchCardSelection?.index === searchIndex;
-    const scroll =
-      !fromCard ||
-      handledSearchCardRequest.current !== searchCardSelection.request;
-    if (fromCard)
-      handledSearchCardRequest.current = searchCardSelection.request;
-    const count =
-      editorRef.current?.findText(searchText, searchIndex, {
-        format: searchFormat,
-        fromCard,
-        scroll,
-      }) || 0;
-    setSearchCount(count);
-    if (count && searchIndex >= count) setSearchIndex(0);
-  }, [
-    searchOpen,
+  const searchMatches = useMemo(
+    () => documentSearchMatches(current, searchText, searchFormat),
+    [current.content, current.sceneVariants, searchText, searchFormat],
+  );
+  const activeSearchMatch = searchMatches[searchIndex];
+  const visibleSearchIndex = documentSearchMatches(
+    { ...current, sceneVariants: {} },
     searchText,
     searchFormat,
-    searchIndex,
-    searchCardSelection,
-    current.content,
-    current.id,
-  ]);
+  ).findIndex(
+    (match) =>
+      match.blockId === activeSearchMatch?.blockId &&
+      match.at === activeSearchMatch?.at,
+  );
+  useEffect(() => {
+    setSearchCount(searchOpen ? searchMatches.length : 0);
+    if (!searchOpen || !searchMatches.length) return;
+    if (searchIndex >= searchMatches.length) {
+      setSearchIndex(0);
+      return;
+    }
+    const match = searchMatches[searchIndex];
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const next = match.sceneId
+      ? switchSceneVariant(latest, match.sceneId, match.variant)
+      : latest;
+    if (next !== latest) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+    const fromCard = searchCardSelection?.index === searchIndex;
+    const request = JSON.stringify([
+      current.id,
+      searchText,
+      searchFormat,
+      match.sceneId,
+      match.variant,
+      match.blockId,
+      match.at,
+      searchCardSelection?.request,
+    ]);
+    const scroll = handledSearchCardRequest.current !== request;
+    const frame = requestAnimationFrame(() => {
+      handledSearchCardRequest.current = request;
+      editorRef.current?.focusSearchMatch(match, { fromCard, scroll });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [searchOpen, searchMatches, searchIndex, searchCardSelection, current.id]);
   const closeTour = useCallback(() => {
     setTourOpen(false);
     try {
@@ -2179,7 +2206,7 @@ export default function MinimalApp({ onLogout }) {
       <TooltipLayer />
       {!focusMode && (
         <ThumbnailPreviewLayer
-          components={current.components}
+          components={current.components.filter((c) => c.enabled !== false)}
           props={current.props || EMPTY_PROPS}
         />
       )}
@@ -2479,13 +2506,18 @@ export default function MinimalApp({ onLogout }) {
                   <ChartNoAxesColumn size={17} />
                 </button>
                 <button
-                  className={`icon-button${doctorOpen ? " active" : ""}`}
-                  aria-label={t("Доктор сценария")}
-                  data-tooltip={t("Доктор сценария")}
-                  aria-expanded={doctorOpen}
-                  onClick={() => showSidebar(doctorOpen ? null : "doctor")}
+                  className={`icon-button${characterView ? " active" : ""}`}
+                  aria-label={t("Реплики персонажей")}
+                  data-tooltip={t("Реплики персонажей")}
+                  aria-pressed={!!characterView}
+                  onClick={() => {
+                    if (characterView) {
+                      setCharacterView(null);
+                      requestAnimationFrame(() => editorRef.current?.focus());
+                    } else openCharacterDialogues();
+                  }}
                 >
-                  <Stethoscope size={17} />
+                  <ChatsCircleIcon size={18} />
                 </button>
                 <button
                   className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
@@ -2497,8 +2529,13 @@ export default function MinimalApp({ onLogout }) {
                   }}
                 >
                   <Shapes size={17} />
-                  {current.components.length > 0 && (
-                    <small>{current.components.length}</small>
+                  {current.components.some((c) => c.enabled !== false) && (
+                    <small>
+                      {
+                        current.components.filter((c) => c.enabled !== false)
+                          .length
+                      }
+                    </small>
                   )}
                 </button>
                 <button
@@ -2547,7 +2584,6 @@ export default function MinimalApp({ onLogout }) {
                 data-tooltip={t("История изменений")}
                 aria-expanded={historyOpen}
                 onClick={() => {
-                  setHistoryArea(view);
                   showSidebar(historyOpen ? null : "history");
                   flushOutlineHistory(current.id).catch(() => {});
                 }}
@@ -2676,6 +2712,7 @@ export default function MinimalApp({ onLogout }) {
             <CharacterDialogue
               content={current.content}
               name={characterView}
+              onCharacter={setCharacterView}
               onClose={() => {
                 setCharacterView(null);
                 requestAnimationFrame(() => editorRef.current?.focus());
@@ -2781,17 +2818,10 @@ export default function MinimalApp({ onLogout }) {
                     !propsOpen &&
                     !annotations &&
                     !characterView &&
-                    !libraryDialog &&
-                    !doctorOpen
+                    !libraryDialog
                   }
                   minimal
                   onSceneVariant={changeSceneVariant}
-                  onCharacterDialogues={(name) => {
-                    showSidebar(null);
-                    setFocusMode(false);
-                    setCharacterView(name);
-                    setMenu(null);
-                  }}
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
                     if (IS_PRO) {
@@ -2840,9 +2870,11 @@ export default function MinimalApp({ onLogout }) {
                   showComponents={componentsOpen}
                   searchQuery={searchOpen ? searchText : ""}
                   searchFormat={searchFormat}
-                  searchIndex={searchIndex}
+                  searchIndex={visibleSearchIndex}
                   searchCardIndex={
-                    searchOpen ? searchCardSelection?.index : null
+                    searchOpen && searchCardSelection
+                      ? visibleSearchIndex
+                      : null
                   }
                   onComments={openComments}
                   onCommentFromSelection={openComments}
@@ -2881,6 +2913,7 @@ export default function MinimalApp({ onLogout }) {
           {!!documents.length &&
             !historyRevision &&
             !characterView &&
+            !libraryDialog &&
             view === "screenplay" && (
               <FormatBar
                 format={selection?.format}
@@ -2891,6 +2924,7 @@ export default function MinimalApp({ onLogout }) {
           {!!documents.length &&
             !historyRevision &&
             !characterView &&
+            !libraryDialog &&
             view === "screenplay" && (
               <button
                 className="icon-button focus-mode-toggle"
@@ -2932,17 +2966,9 @@ export default function MinimalApp({ onLogout }) {
             </div>
           )}
         </div>
-        {doctorOpen && (
-          <ScriptDoctor
-            content={current.content}
-            onClose={() => setDoctorOpen(false)}
-            onGo={(id) => setSceneTarget(id)}
-          />
-        )}
         {searchOpen && (
           <DocumentSearch
-            content={current.content}
-            sceneVariants={current.sceneVariants}
+            matches={searchMatches}
             query={searchText}
             format={searchFormat}
             onFormat={(value) => {
@@ -2997,6 +3023,7 @@ export default function MinimalApp({ onLogout }) {
           <StatisticsPanel
             document={current}
             pageCount={pageCount}
+            onCharacter={openCharacterDialogues}
             onClose={() => setStatisticsOpen(false)}
           />
         )}
@@ -3005,17 +3032,10 @@ export default function MinimalApp({ onLogout }) {
             key={current.id}
             documentId={current.id}
             version={historyVersion}
-            area={historyArea}
-            onArea={(area) => {
-              setHistoryArea(area);
-              setHistoryRevision(null);
-              setView(area);
-              setOutlineCard(null);
-            }}
             selectedId={historyRevision?.id}
             onSelect={(revision) => {
               setHistoryRevision(revision);
-              setView(historyArea);
+              if (revision) setView(revisionArea(revision));
             }}
             onRestore={restoreHistory}
             onClose={() => {
@@ -3088,7 +3108,10 @@ export default function MinimalApp({ onLogout }) {
               );
               setLibraryDialog(libraries);
             }}
-            document={current}
+            document={{
+              ...current,
+              components: current.components.filter((c) => c.enabled !== false),
+            }}
             activeId={componentDialog?.id}
             onClose={() => {
               setComponentsOpen(false);
@@ -3370,7 +3393,18 @@ export default function MinimalApp({ onLogout }) {
         )}
       {libraryDialog && (
         <ComponentLibraryDialog
+          screenplay={current}
           discovered={libraryDialog}
+          onDetach={(id) =>
+            update((doc) => ({
+              ...doc,
+              components: doc.components.map((component) => {
+                if (component.librarySource?.libraryId !== id) return component;
+                const { librarySource, ...local } = component;
+                return { ...local, enabled: true };
+              }),
+            }))
+          }
           onClose={() => setLibraryDialog(null)}
           onEmbed={embedLibrary}
         />

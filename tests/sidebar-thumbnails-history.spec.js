@@ -313,11 +313,20 @@ test("outline history includes card edits, previews old cards and restores witho
     name: "История изменений",
     exact: true,
   });
-  await expect(
-    history.getByRole("tab", { name: "Аутлайн", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
-  await expect(history.locator(".history-card")).toHaveCount(1);
-  await history.locator(".history-card").first().click();
+  await expect(history.getByRole("tab")).toHaveCount(0);
+  const outlineVersions = history
+    .locator(".history-card")
+    .filter({
+      has: page.locator(".history-area-badge", { hasText: "Аутлайн" }),
+    });
+  const screenplayVersions = history
+    .locator(".history-card")
+    .filter({
+      has: page.locator(".history-area-badge", { hasText: "Сценарий" }),
+    });
+  await expect(outlineVersions).toHaveCount(1);
+  await expect(screenplayVersions).toHaveCount(1);
+  await outlineVersions.first().click();
   const preview = page.getByLabel("Аутлайн выбранной версии");
   await expect(preview).toContainText("Знакомство");
   await expect(preview).toContainText("Мир героя");
@@ -341,9 +350,8 @@ test("outline history includes card edits, previews old cards and restores witho
       .map((part) => part.text)
       .join(""),
   ).toContain("Новая версия.");
-  await history.getByRole("tab", { name: "Сценарий", exact: true }).click();
-  await expect(history.locator(".history-card")).toHaveCount(1);
-  await history.locator(".history-card").first().click();
+  await expect(screenplayVersions).toHaveCount(1);
+  await screenplayVersions.first().click();
   await expect(page.getByLabel("Текст выбранной версии")).not.toContainText(
     "Новая версия.",
   );
@@ -375,6 +383,6 @@ test("outline history includes card edits, previews old cards and restores witho
   await page
     .getByRole("button", { name: "История изменений", exact: true })
     .click();
-  await history.getByRole("tab", { name: "Аутлайн", exact: true }).click();
-  await expect(history.locator(".history-card")).toHaveCount(2);
+  await expect(outlineVersions).toHaveCount(2);
+  await expect(screenplayVersions).toHaveCount(2);
 });

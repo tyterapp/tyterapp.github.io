@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { sourceForRange, nativeSelectedSource } from "./SelectionToolbar.jsx";
 import { IMAGE_TYPES } from "./image-thumbnail.js";
+import { copyScreenplaySelection } from "./screenplay-clipboard.js";
 export default function EditorContextMenu({
   editor,
   onCreateComponent,
@@ -14,7 +15,7 @@ export default function EditorContextMenu({
   const languageRef = useRef(language);
   languageRef.current = language;
   const [menu, setMenu] = useState(null),
-    [clipboard, setClipboard] = useState(""),
+    [clipboard, setClipboard] = useState({ text: "", html: "" }),
     [clipboardImages, setClipboardImages] = useState([]),
     [spelling, setSpelling] = useState(null),
     [error, setError] = useState("");
@@ -103,7 +104,7 @@ export default function EditorContextMenu({
         id,
       });
       setSpelling(null);
-      setClipboard("");
+      setClipboard({ text: "", html: "" });
       setClipboardImages([]);
       setError("");
       handlers.current.onOpenChange?.(true);
@@ -111,7 +112,13 @@ export default function EditorContextMenu({
         try {
           const items = await navigator.clipboard?.read?.();
           const files = [];
+          let text = "",
+            html = "";
           for (const item of items || []) {
+            if (item.types.includes("text/html"))
+              html = await (await item.getType("text/html")).text();
+            if (item.types.includes("text/plain"))
+              text = await (await item.getType("text/plain")).text();
             const type =
               item.types.find((type) => IMAGE_TYPES.includes(type)) ||
               item.types.find((type) => type.startsWith("image/"));
@@ -124,20 +131,22 @@ export default function EditorContextMenu({
                 ),
               );
           }
-          if (files.length) return { files, text: "" };
+          if (files.length) return { files, text: "", html: "" };
+          if (html || text) return { files: [], text, html };
         } catch {
           /* Text-only browsers can still paste text. */
         }
         return {
           files: [],
           text: (await navigator.clipboard?.readText()) || "",
+          html: "",
         };
       };
       readClipboard()
-        .then(({ files, text }) => {
+        .then(({ files, text, html }) => {
           if (request.current !== id) return;
           setClipboardImages(files);
-          setClipboard(text);
+          setClipboard({ text, html });
         })
         .catch(() => {});
       if (word.length > 1) {
@@ -213,7 +222,7 @@ export default function EditorContextMenu({
     const source = menu.source;
     try {
       if (action === "copy" || action === "cut") {
-        await navigator.clipboard.writeText(source.text);
+        await copyScreenplaySelection(editor, source);
         if (action === "cut") editor.chain().focus().deleteRange(source).run();
       } else if (action === "paste") {
         if (clipboardImages.length) {
@@ -221,35 +230,13 @@ export default function EditorContextMenu({
           close();
           return;
         }
-        const lines = clipboard.replace(/\r/g, "").split("\n");
-        const content =
-          lines.length === 1
-            ? {
-                type: "text",
-                text: lines[0],
-              }
-            : lines.map((text) => ({
-                type: "paragraph",
-                attrs: {
-                  format: "action",
-                },
-                ...(text
-                  ? {
-                      content: [
-                        {
-                          type: "text",
-                          text,
-                        },
-                      ],
-                    }
-                  : {}),
-              }));
         editor
           .chain()
           .focus()
           .setTextSelection(source || menu.pos)
-          .insertContent(content)
           .run();
+        if (clipboard.html) editor.view.pasteHTML(clipboard.html);
+        else editor.view.pasteText(clipboard.text);
       } else if (action === "all") editor.chain().focus().selectAll().run();
       else if (action === "component")
         handlers.current.onCreateComponent?.(source);
@@ -284,7 +271,8 @@ export default function EditorContextMenu({
         [
           "paste",
           t("Вставить"),
-          !!clipboard || (!!clipboardImages.length && !!onPasteImages),
+          !!(clipboard.text || clipboard.html) ||
+            (!!clipboardImages.length && !!onPasteImages),
         ],
         ["copy", t("Копировать"), selected],
         ["cut", t("Вырезать"), selected],

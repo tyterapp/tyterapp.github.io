@@ -1798,7 +1798,7 @@ test("document limit opens Pro information and deleting a document allows a new 
   ).toHaveCount(0);
   await expect(
     subscription.getByRole("link", { name: "Открыть Tyter Pro" }),
-  ).toHaveAttribute("href", "/pro");
+  ).toHaveAttribute("href", "/beta");
   await subscription.getByRole("button", { name: "Закрыть подписку" }).click();
   await page.getByRole("button", { name: "Документы", exact: true }).click();
   await page

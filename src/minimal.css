@@ -2862,12 +2862,13 @@ kbd {
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   width: max-content;
   user-select: none;
 }
 .scene-number {
   flex: 0 0 auto;
+  margin-right: 8px;
   width: max-content;
   font:
     400 10px/1 Inter,

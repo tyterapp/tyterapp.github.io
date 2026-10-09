@@ -139,13 +139,9 @@ test("new settings and tools are translated and dark theme covers the outline an
   await expect(
     scene(page, "scene-1").getByLabel("Scene 1 variant"),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Script doctor", exact: true })
-    .click();
   await expect(
-    page.getByRole("button", { name: /Missing time of day/ }),
-  ).toBeVisible();
-  await page.screenshot({ path: info.outputPath("dark-doctor.png") });
+    page.getByRole("button", { name: "Script doctor", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Outline", exact: true }).click();
   await expect(page.locator(".outline-column")).toHaveCSS(
     "background-color",
@@ -405,7 +401,7 @@ test("scene versions can be edited, searched and reloaded; number, selector and 
   expect(geometry).toMatchObject({
     left: 16,
     numGap: 16,
-    cardGap: 16,
+    cardGap: 8,
     sheet: 936,
   });
   expect(geometry.space).toBeGreaterThan(10);
@@ -521,6 +517,15 @@ test("F stays independent when other variants are first opened; switching does n
       }),
     )
     .toBe(6);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { browserRequest } = await import("/src/browser-files.js");
+        const doc = (await browserRequest("documents")).documents[0];
+        return doc.content.content[0].attrs.sceneVariant;
+      }),
+    )
+    .toBe("F");
   await page.reload();
   await expect(variant).toHaveAttribute("data-value", "F");
   await expect(action).toHaveText("Только вариант F.");
@@ -530,23 +535,20 @@ test("F stays independent when other variants are first opened; switching does n
   await expect(action).toHaveText("Только вариант F.");
 });
 
-test("doctor navigates to findings and full screen hides UI, accepts typing and restores the caret", async ({
+test("full screen hides UI, keeps readable hints, accepts typing and restores the caret", async ({
   page,
 }, info) => {
   await open(page);
-  await page
-    .getByRole("button", { name: "Доктор сценария", exact: true })
-    .click();
-  await page.getByRole("button", { name: /Не указано время суток/ }).click();
-  await expect(scene(page, "scene-2")).toHaveAttribute(
-    "data-outline-navigation-target",
-    "true",
-  );
+  await expect(
+    page.getByRole("button", { name: "Доктор сценария", exact: true }),
+  ).toHaveCount(0);
+  await scene(page, "scene-2").click();
   await page.getByRole("button", { name: "Открыть во весь экран" }).click();
   await expect(page.locator(".minimal-header")).not.toBeVisible();
   await expect(page.locator(".workspace-tools")).not.toBeVisible();
   await expect(page.locator(".doctor-drawer")).toHaveCount(0);
   await expect(page.locator(".focus-format-hint")).toContainText("Ctrl+1");
+  await expect(page.locator(".focus-format-hint")).toHaveCSS("opacity", "1");
   await page.keyboard.press("End");
   await page.keyboard.type(" — NIGHT");
   await expect(scene(page, "scene-2")).toContainText("NIGHT");
@@ -560,15 +562,26 @@ test("doctor navigates to findings and full screen hides UI, accepts typing and 
   await expect(page.locator(".workspace-tools")).toBeVisible();
 });
 
-test("hovering a character opens only their speeches and parentheticals and can return to a scene", async ({
+test("sidebar opens all dialogue, filters a character and can return to a scene", async ({
   page,
 }, info) => {
   await open(page);
   await scene(page, "anna-1").hover();
-  await scene(page, "anna-1")
-    .getByRole("button", { name: "Посмотреть реплики: АННА", exact: true })
+  await expect(page.locator(".character-dialogue-link")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Реплики персонажей", exact: true })
     .click();
   const reading = page.getByRole("main", { name: "Реплики персонажа" });
+  await expect(reading.locator("article")).toHaveCount(3);
+  await expect(reading.locator("article h3")).toHaveText([
+    "АННА",
+    "БОРИС",
+    "АННА (З.К.)",
+  ]);
+  await reading
+    .getByRole("navigation", { name: "Персонажи сценария" })
+    .getByRole("button", { name: /^АННА/ })
+    .click();
   await expect(reading.locator("article")).toHaveCount(2);
   await expect(reading).toContainText("(тихо)");
   await expect(reading).toContainText("Здравствуй, утро.");
@@ -582,8 +595,9 @@ test("hovering a character opens only their speeches and parentheticals and can 
     "true",
   );
   await expect(page.locator(".minimal-scroll")).toBeVisible();
-  await scene(page, "anna-2").hover();
-  await scene(page, "anna-2").getByRole("button").click();
+  await page
+    .getByRole("button", { name: "Реплики персонажей", exact: true })
+    .click();
   await page.keyboard.press("Escape");
   await expect(reading).toHaveCount(0);
 });
@@ -627,7 +641,11 @@ test("library export imports into another document and is offered again from loc
     "Новые инструменты",
   );
   await libraryDialog(page)
-    .getByRole("button", { name: "Внедрить в сценарий" })
+    .locator(".library-list button")
+    .filter({ hasText: "Новые инструменты" })
+    .click();
+  await libraryDialog(page)
+    .getByRole("button", { name: "Применить", exact: true })
     .click();
   await expect(page.locator(".component-library-link")).toHaveCount(1);
   await page

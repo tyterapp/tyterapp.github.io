@@ -134,7 +134,7 @@ export default function PaymentPage() {
         </div>
         <a
           className="site-button site-button-outline site-web-pro-link"
-          href="/pro"
+          href="/beta"
         >
           Открыть Pro в браузере <ArrowRight size={17} />
         </a>

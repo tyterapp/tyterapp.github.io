@@ -42,6 +42,9 @@ export default {
   "Перед репликой укажите имя в формате «Персонаж».":
     "Add a name in Character format before the dialogue.",
   "Реплики персонажа": "Character dialogue",
+  "Реплики персонажей": "Character dialogues",
+  "Все персонажи": "All characters",
+  "В сценарии пока нет реплик": "This screenplay has no dialogue yet",
   "Посмотреть реплики: {0}": "View dialogue: {0}",
   "Вернуться к сценарию": "Back to screenplay",
   "У персонажа пока нет реплик": "This character has no dialogue yet",
@@ -819,4 +822,16 @@ export default {
   "Статус нового комментария": "New comment status",
   "Цвет нового комментария": "New comment color",
   "Фильтр по статусу комментария": "Filter comments by status",
+  "Персонажи сценария": "Screenplay characters",
+  "Библиотека текущего документа": "Current document library",
+  "Текущий документ": "Current document",
+  Подключена: "Connected",
+  "Выбрать все для экспорта": "Select all for export",
+  "Включить все компоненты": "Enable all components",
+  "Для экспорта": "For export",
+  "В сценарии": "In screenplay",
+  "Отвязать библиотеку": "Detach library",
+  "Скачать библиотеку": "Download library",
+  "Компоненты станут локальными и будут доступны в сценарии.":
+    "Components will become local and available in this screenplay.",
 };

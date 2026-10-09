@@ -19,8 +19,6 @@ const preview = (revision) =>
 export default function HistoryPanel({
   documentId,
   version,
-  area = "screenplay",
-  onArea,
   selectedId,
   onSelect,
   onRestore,
@@ -31,7 +29,7 @@ export default function HistoryPanel({
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
   const visibleEntries = entries.filter(
-    (entry) => revisionArea(entry) === area,
+    (entry) => IS_PRO || revisionArea(entry) === "screenplay",
   );
   useEffect(() => {
     let cancelled = false;
@@ -61,29 +59,6 @@ export default function HistoryPanel({
           <X size={18} />
         </button>
       </div>
-      <div
-        className="history-tabs"
-        role="tablist"
-        aria-label={t("Раздел истории")}
-      >
-        <button
-          role="tab"
-          aria-selected={area === "screenplay"}
-          aria-controls="history-revisions"
-          onClick={() => onArea("screenplay")}
-        >
-          {t("Сценарий")}
-        </button>
-        <button
-          role="tab"
-          aria-selected={area === "outline"}
-          aria-controls="history-revisions"
-          disabled={!IS_PRO}
-          onClick={() => onArea("outline")}
-        >
-          {t("Аутлайн")}
-        </button>
-      </div>
       <p className="history-intro">
         {IS_PRO
           ? t(
@@ -97,10 +72,7 @@ export default function HistoryPanel({
       <div
         className="history-scroll"
         id="history-revisions"
-        role="tabpanel"
-        aria-label={
-          area === "outline" ? t("История аутлайна") : t("История сценария")
-        }
+        aria-label={t("История изменений")}
       >
         <div className="history-current">
           <History size={16} />
@@ -114,7 +86,7 @@ export default function HistoryPanel({
         {!error && !visibleEntries.length && (
           <p className="sidebar-empty">
             {t("После первого изменения здесь появится предыдущая версия")}{" "}
-            {area === "outline" ? t("аутлайна") : t("сценария")}.
+            {t("документа")}.
           </p>
         )}
         {visibleEntries.map((entry) => (
@@ -124,6 +96,9 @@ export default function HistoryPanel({
               aria-expanded={selectedId === entry.id}
               onClick={() => onSelect(selectedId === entry.id ? null : entry)}
             >
+              <span className="history-area-badge">
+                {t(revisionArea(entry) === "outline" ? "Аутлайн" : "Сценарий")}
+              </span>
               <time dateTime={new Date(entry.createdAt).toISOString()}>
                 {new Date(entry.createdAt).toLocaleString(languageLocale(), {
                   day: "numeric",

@@ -25,8 +25,17 @@ test("Pages serves the landing and direct editor routes without an API", async (
       page.getByRole("textbox", { name: "Screenplay editor" }),
     ).toBeVisible();
   }
-  await page.goto("/pro/");
-  await expect(page.getByRole("heading", { name: "Вход в Pro" })).toBeVisible();
+  for (const route of ["/beta", "/beta/", "/pro/"]) {
+    const response = await page.goto(route);
+    expect(response.status()).toBe(200);
+    await expect(
+      page.getByRole("heading", { name: "Вход в Pro" }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Вход в Pro" }),
+    ).toBeVisible();
+  }
   const codes = await request.get("/codes-for-pro.txt");
   expect(codes.status()).toBe(200);
   expect(codes.headers()["content-type"]).toContain("text/plain");

@@ -22,7 +22,7 @@ if (!codes?.trim()) {
 // Never publish the raw secret: the browser needs only one-way pair proofs.
 const accessList = await createProAccessList(codes);
 await build({ root, mode: "production", base: "/", build: { outDir: output } });
-for (const page of ["app", "free", "pay", "pro", "404"]) {
+for (const page of ["app", "free", "pay", "pro", "beta", "404"]) {
   await mkdir(path.join(output, page), { recursive: true });
   await copyFile(
     path.join(output, "index.html"),

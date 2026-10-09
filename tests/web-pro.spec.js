@@ -9,11 +9,14 @@ import {
   localDocumentCount,
 } from "./helpers/pro-access.js";
 
-test("email and key must match the public file; a successful login persists", async ({
+test("beta requires email and key; a successful login persists across beta and pro", async ({
   page,
   context,
 }) => {
   expect(PRO_CODES_URL).toBe("https://tyterapp.github.io/codes-for-pro.txt");
+  await page.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
   const requests = [];
   page.on("request", (request) =>
     requests.push({ url: request.url(), method: request.method() }),
@@ -24,7 +27,7 @@ test("email and key must match the public file; a successful login persists", as
   await page.addInitScript(() =>
     localStorage.setItem("tyter.onboarding.v1", "done"),
   );
-  await page.goto("/pro");
+  await page.goto("/beta");
   await expect(page.getByRole("heading", { name: "Вход в Pro" })).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill("wrong@example.test");
   await page.getByLabel("Ключ доступа").fill(login.code);
@@ -33,6 +36,8 @@ test("email and key must match the public file; a successful login persists", as
   await page.getByLabel("Email", { exact: true }).fill("PRO@EXAMPLE.TEST");
   await page.getByLabel("Ключ доступа").fill(login.code.toLowerCase());
   await page.getByRole("button", { name: "Открыть Pro" }).click();
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  await page.reload();
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   const proof = await storedProof(page);
   expect(proof).toMatch(/^[a-f0-9]{64}$/);
@@ -55,6 +60,9 @@ test("email and key must match the public file; a successful login persists", as
   );
   await page.close();
   const reopened = await context.newPage();
+  await reopened.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
   await reopened.route(codesRoute, async (route) =>
     route.fulfill(await listResponse()),
   );

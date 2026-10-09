@@ -23,6 +23,10 @@ import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
 import {
+  copiedScreenplaySlice,
+  pastedScreenplaySlice,
+} from "./screenplay-clipboard.js";
+import {
   captureCaret,
   selectionAtCaret,
   readCaret,
@@ -489,7 +493,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     outlineCards = [],
     onEditOutlineCard,
     onSceneVariant,
-    onCharacterDialogues,
     props = [],
     activeProp = null,
     selectionToolbarDisabled = false,
@@ -548,7 +551,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onEditOutlineCard,
     onSceneVariant,
     onOpenSceneVariants: setSceneVariantMenu,
-    onCharacterDialogues,
     props,
     activeProp,
     onEditProp,
@@ -602,6 +604,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     ],
     content: initialContent.current,
     editorProps: {
+      transformCopied: copiedScreenplaySlice,
+      transformPasted: (slice, view, plain) =>
+        pastedScreenplaySlice(slice, propsRef.current.components, view, plain),
       attributes: {
         class: "screenplay-editor",
         role: "textbox",
@@ -616,7 +621,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           const component =
             event.target.closest?.("[data-entity-id]") ||
             prop?.querySelector("[data-entity-id]");
-          if (prop && component) {
+          if (
+            prop &&
+            component &&
+            propsRef.current.components.some(
+              (c) =>
+                c.id === component.getAttribute("data-entity-id") &&
+                c.enabled !== false,
+            )
+          ) {
             event.preventDefault();
             propsRef.current.onEditAnnotations?.({
               componentId: component.getAttribute("data-entity-id"),
@@ -630,7 +643,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             return true;
           }
           const entity = event.target.closest?.("[data-entity-id]");
-          if (entity && view.dom.contains(entity)) {
+          if (
+            entity &&
+            view.dom.contains(entity) &&
+            propsRef.current.components.some(
+              (c) =>
+                c.id === entity.getAttribute("data-entity-id") &&
+                c.enabled !== false,
+            )
+          ) {
             event.preventDefault();
             propsRef.current.onEditComponent?.(
               entity.getAttribute("data-entity-id"),
@@ -688,6 +709,21 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         const review = commentById.get(propsRef.current.activeComment);
         const reviewRanges = [];
         state.doc.descendants((node, pos) => {
+          if (
+            node.isText &&
+            node.marks.some(
+              (mark) =>
+                mark.type.name === "entity" &&
+                propsRef.current.components.some(
+                  (c) => c.id === mark.attrs.id && c.enabled === false,
+                ),
+            )
+          )
+            decorations.push(
+              Decoration.inline(pos, pos + node.nodeSize, {
+                class: "script-entity-disabled",
+              }),
+            );
           if (minimal && node.isText) {
             const marks = node.marks.filter(
               (mark) => mark.type.name === "comment",
@@ -823,41 +859,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                   ),
                 );
             }
-            if (
-              minimal &&
-              node.attrs.format === "character" &&
-              node.textContent.trim()
-            )
-              decorations.push(
-                Decoration.widget(
-                  pos + 1,
-                  () => {
-                    const button = document.createElement("button");
-                    button.type = "button";
-                    button.contentEditable = "false";
-                    button.className = "character-dialogue-link";
-                    button.setAttribute(
-                      "aria-label",
-                      t("Посмотреть реплики: {0}", node.textContent),
-                    );
-                    button.setAttribute("data-tooltip", t("Реплики персонажа"));
-                    button.innerHTML =
-                      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5z"/></svg>';
-                    button.addEventListener("mousedown", (event) =>
-                      event.preventDefault(),
-                    );
-                    button.addEventListener("click", () =>
-                      propsRef.current.onCharacterDialogues?.(node.textContent),
-                    );
-                    return button;
-                  },
-                  {
-                    key: `character-dialogue-${node.attrs.blockId}-${node.textContent}-${language}`,
-                    side: -1,
-                    stopEvent: () => true,
-                  },
-                ),
-              );
             if (propsRef.current.showLineHighlight && current?.pos === pos)
               attrs.class = "is-current-block";
             if (minimal && documentEmpty && pos === 0)
@@ -1172,6 +1173,25 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (scroll)
           scrollToText(editor.view, match.from, searchScrollFrame, fromCard);
         return matches.length;
+      },
+      focusSearchMatch(match, { fromCard = false, scroll = true } = {}) {
+        if (!editor || !match) return false;
+        let range = null;
+        editor.state.doc.descendants((node, pos) => {
+          if (
+            node.type.name === "paragraph" &&
+            node.attrs.blockId === match.blockId
+          )
+            range = {
+              from: pos + 1 + match.at,
+              to: pos + 1 + match.at + match.length,
+            };
+        });
+        if (!range || range.to > editor.state.doc.content.size) return false;
+        if (!fromCard) editor.commands.setTextSelection(range);
+        if (scroll)
+          scrollToText(editor.view, range.from, searchScrollFrame, fromCard);
+        return true;
       },
       focusComment(id, blockId, sceneId) {
         if (!editor) return false;
@@ -1545,7 +1565,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       {minimal && (
         <Suggestions
           editor={editor}
-          components={components}
+          components={components.filter((c) => c.enabled !== false)}
           disabled={
             selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
           }

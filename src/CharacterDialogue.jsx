@@ -1,6 +1,7 @@
 import { X, ArrowUpRight } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { nodeText } from "./data.js";
+import { useMemo } from "react";
 
 export const characterName = (text) =>
   text
@@ -11,9 +12,9 @@ export const characterName = (text) =>
     )
     .trim()
     .toLocaleUpperCase();
-export function characterDialogues(content, name) {
+function dialogueIndex(content) {
   const blocks = content?.content || [],
-    rows = [];
+    characters = new Map();
   let scene = "",
     number = 0;
   for (let i = 0; i < blocks.length; i++) {
@@ -22,11 +23,10 @@ export function characterDialogues(content, name) {
       scene = nodeText(block);
       number++;
     }
-    if (
-      block.attrs?.format !== "character" ||
-      characterName(nodeText(block)) !== characterName(name)
-    )
-      continue;
+    if (block.attrs?.format !== "character") continue;
+    const name = characterName(nodeText(block));
+    if (!name) continue;
+    if (!characters.has(name)) characters.set(name, []);
     const dialogue = [];
     for (
       let j = i + 1;
@@ -40,59 +40,108 @@ export function characterDialogues(content, name) {
         (line) => line.attrs.format === "speech" && nodeText(line).trim(),
       )
     )
-      rows.push({
+      characters.get(name).push({
         blockId: block.attrs.blockId,
+        order: i,
         name: nodeText(block),
         scene,
         number,
         dialogue,
       });
   }
-  return rows;
+  return characters;
 }
-export default function CharacterDialogue({ content, name, onClose, onGo }) {
+export function characterDialogues(content, name) {
+  return dialogueIndex(content).get(characterName(name)) || [];
+}
+export default function CharacterDialogue({
+  content,
+  name,
+  onCharacter,
+  onClose,
+  onGo,
+}) {
   useLanguage();
-  const rows = characterDialogues(content, name);
+  const index = useMemo(() => dialogueIndex(content), [content]);
+  const all = name === true;
+  const rows = all
+    ? [...index.values()].flat().sort((a, b) => a.order - b.order)
+    : index.get(characterName(name)) || [];
+  const characters = [...index.keys()];
   return (
     <main
       className="character-dialogue-view"
       aria-label={t("Реплики персонажа")}
     >
-      <div className="character-dialogue-heading">
-        <div>
-          <h2>{name}</h2>
-          <span>
-            {t("Реплики персонажа")} · {rows.length}
-          </span>
-        </div>
-        <button className="quiet-button" onClick={onClose}>
-          <X size={16} />
-          {t("Вернуться к сценарию")}
+      <nav
+        className="character-dialogue-characters"
+        aria-label={t("Персонажи сценария")}
+      >
+        <h3>{t("Персонажи")}</h3>
+        <button aria-pressed={all} onClick={() => onCharacter(true)}>
+          <span>{t("Все персонажи")}</span>
+          <small>
+            {[...index.values()].reduce(
+              (count, rows) => count + rows.length,
+              0,
+            )}
+          </small>
         </button>
-      </div>
-      <div className="character-dialogue-list">
-        {rows.map((row) => (
-          <article key={row.blockId} className="character-dialogue-card">
-            <button
-              className="character-dialogue-scene"
-              onClick={() => onGo(row.blockId)}
-            >
-              <span>
-                {row.number}. {row.scene}
-              </span>
-              <ArrowUpRight size={16} />
-            </button>
-            <h3>{row.name}</h3>
-            {row.dialogue.map((block) => (
-              <p className={block.attrs.format} key={block.attrs.blockId}>
-                {nodeText(block)}
-              </p>
-            ))}
-          </article>
+        {characters.map((character) => (
+          <button
+            key={character}
+            aria-pressed={!all && character === characterName(name)}
+            onClick={() => onCharacter(character)}
+          >
+            <span>{character}</span>
+            <small>{index.get(character).length}</small>
+          </button>
         ))}
-        {!rows.length && (
-          <p className="sidebar-empty">{t("У персонажа пока нет реплик")}</p>
-        )}
+      </nav>
+      <div className="character-dialogue-content" key={name}>
+        <div className="character-dialogue-heading">
+          <div>
+            <h2>{all ? t("Все персонажи") : name}</h2>
+            <span>
+              {all ? t("Реплики персонажей") : t("Реплики персонажа")} ·{" "}
+              {rows.length}
+            </span>
+          </div>
+          <button className="quiet-button" onClick={onClose}>
+            <X size={16} />
+            {t("Вернуться к сценарию")}
+          </button>
+        </div>
+        <div className="character-dialogue-list">
+          {rows.map((row) => (
+            <article key={row.blockId} className="character-dialogue-card">
+              <button
+                className="character-dialogue-scene"
+                onClick={() => onGo(row.blockId)}
+              >
+                <span>
+                  {row.number}. {row.scene}
+                </span>
+                <ArrowUpRight size={16} />
+              </button>
+              <h3>{row.name}</h3>
+              {row.dialogue.map((block) => (
+                <p className={block.attrs.format} key={block.attrs.blockId}>
+                  {nodeText(block)}
+                </p>
+              ))}
+            </article>
+          ))}
+          {!rows.length && (
+            <p className="sidebar-empty">
+              {t(
+                all
+                  ? "В сценарии пока нет реплик"
+                  : "У персонажа пока нет реплик",
+              )}
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

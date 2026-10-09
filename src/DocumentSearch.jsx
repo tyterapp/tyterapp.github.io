@@ -1,16 +1,9 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  matchesSearchFormat,
-  searchBlockText,
-  textSearchRanges,
-} from "./document-search.js";
 import { FORMATS } from "./FormatBar.jsx";
-import { sceneLetter, sceneVariantLetters } from "./scene-variants.js";
 export default function DocumentSearch({
-  content,
-  sceneVariants = {},
+  matches,
   query,
   onQuery,
   format,
@@ -22,32 +15,6 @@ export default function DocumentSearch({
   const language = useLanguage();
   const input = useRef(null),
     active = useRef(null);
-  const matches = useMemo(() => {
-    const results = [];
-    let scene = null;
-    for (const [blockIndex, block] of (content?.content || []).entries()) {
-      if (block.attrs?.format === "scene") scene = block;
-      if (!matchesSearchFormat(block.attrs?.format, format)) continue;
-      const text = searchBlockText(block);
-      for (const range of textSearchRanges(text, query)) {
-        results.push({
-          text,
-          ...range,
-          blockIndex,
-          format: block.attrs?.format || "action",
-          variant: scene ? sceneLetter(scene) : null,
-          variants: scene
-            ? sceneVariantLetters(
-                { sceneVariants },
-                scene.attrs.blockId,
-                sceneLetter(scene),
-              )
-            : [],
-        });
-      }
-    }
-    return results;
-  }, [content, query, format, sceneVariants]);
   useEffect(() => {
     input.current?.focus();
   }, []);
@@ -135,7 +102,7 @@ export default function DocumentSearch({
             end = Math.min(match.text.length, match.at + match.length + 80);
           return (
             <button
-              key={`${match.blockIndex}-${match.at}`}
+              key={`${match.sceneId}-${match.variant}-${match.blockId}-${match.at}`}
               ref={i === index ? active : null}
               className={`search-result-card${i === index ? " active" : ""}`}
               aria-pressed={i === index}

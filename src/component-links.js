@@ -22,7 +22,9 @@ export function componentLinkTransaction(state, components) {
   const actual = [],
     desired = [];
   const names = components
-    .filter((component) => component.name?.trim())
+    .filter(
+      (component) => component.enabled !== false && component.name?.trim(),
+    )
     .sort((a, b) => b.name.trim().length - a.name.trim().length)
     .map((component) => ({
       component,

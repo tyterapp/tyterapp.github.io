@@ -20,7 +20,7 @@ export default function NotFoundPage() {
           <a className="landing-button black" href="/">
             {t("На главную")}
           </a>
-          <a className="landing-button purple" href="/pro">
+          <a className="landing-button purple" href="/beta">
             {t("Открыть PRO")}
           </a>
         </div>

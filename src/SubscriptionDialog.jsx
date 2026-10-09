@@ -42,7 +42,7 @@ export default function SubscriptionDialog({ onClose }) {
           "Pro работает в браузере и сохраняет документы на вашем устройстве. Для входа нужны email и уникальный ключ, который можно получить у автора после доната на Boosty.",
         )}
       </p>
-      <a className="primary-button subscription-web-pro" href="/pro">
+      <a className="primary-button subscription-web-pro" href="/beta">
         {t("Открыть Tyter Pro ")}
         <ExternalLink size={15} />
       </a>
