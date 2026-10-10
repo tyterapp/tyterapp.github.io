@@ -15,7 +15,7 @@ import {
 import { documentFont, documentFonts } from "./document-fonts.js";
 import AppSelect from "./AppSelect.jsx";
 
-function SettingsSwitch({ label, checked, onChange, icon: Icon, hint }) {
+export function SettingsSwitch({ label, checked, onChange, icon: Icon, hint }) {
   return (
     <label className="settings-switch-row">
       <span className="settings-option-icon">

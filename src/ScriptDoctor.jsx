@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { Stethoscope, X, CheckCircle2, ChevronRight } from "lucide-react";
+import { Stethoscope, X, CheckCircle2, ChevronRight, Bug } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import AppSelect from "./AppSelect.jsx";
+import { SettingsSwitch } from "./DocumentSettings.jsx";
 
-export default function ScriptDoctor({ findings, onGo, onClose }) {
+export default function ScriptDoctor({
+  findings,
+  onGo,
+  onClose,
+  fliesEnabled = true,
+  onFliesChange,
+}) {
   useLanguage();
   const [filter, setFilter] = useState("all");
   const visible = findings.filter(
@@ -30,6 +37,13 @@ export default function ScriptDoctor({ findings, onGo, onClose }) {
         )}
       </p>
       <p className="doctor-summary">{t("Замечаний: {0}", findings.length)}</p>
+      <SettingsSwitch
+        icon={Bug}
+        label={t("Показывать мух")}
+        hint={t("В значке доктора и поверх интерфейса")}
+        checked={fliesEnabled}
+        onChange={onFliesChange}
+      />
       <div className="search-format-filter">
         <span>{t("Проверка")}</span>
         <AppSelect

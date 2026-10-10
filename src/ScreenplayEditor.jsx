@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -522,6 +523,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   ref,
 ) {
   const language = useLanguage();
+  const enabledSuggestions = useMemo(
+    () => components.filter((component) => component.enabled !== false),
+    [components],
+  );
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [sceneVariantMenu, setSceneVariantMenu] = useState(null);
   const [caretReady, setCaretReady] = useState(false);
@@ -588,7 +593,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        ...(plainOnly ? { bold: false, italic: false, underline: false, strike: false } : {}),
+        ...(plainOnly
+          ? { bold: false, italic: false, underline: false, strike: false }
+          : {}),
         paragraph: false,
         heading: false,
         bulletList: false,
@@ -1585,7 +1592,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       {minimal && (
         <Suggestions
           editor={editor}
-          components={components.filter((c) => c.enabled !== false)}
+          components={enabledSuggestions}
           disabled={
             selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
           }

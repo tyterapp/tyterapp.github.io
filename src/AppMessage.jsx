@@ -22,10 +22,14 @@ export function useAppMessage(initialValue = "") {
 export default function AppMessage({ notice, onDismiss }) {
   useLanguage();
   const [closing, setClosing] = useState(false);
+  const duration =
+    Number.isFinite(notice.value?.duration) && notice.value.duration > 0
+      ? notice.value.duration
+      : DISPLAY_MS;
   useEffect(() => {
-    const timer = setTimeout(() => setClosing(true), DISPLAY_MS);
+    const timer = setTimeout(() => setClosing(true), duration);
     return () => clearTimeout(timer);
-  }, []);
+  }, [duration]);
   useEffect(() => {
     if (!closing) return;
     const timer = setTimeout(() => onDismiss(notice.id), EXIT_MS);

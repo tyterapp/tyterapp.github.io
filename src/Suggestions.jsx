@@ -180,7 +180,19 @@ export default function Suggestions({
       active = null,
       dismissed = null,
       acceptedAt = null;
-    const key = (c) => `${c.from}:${c.to}:${c.prefix}`;
+    const key = (c) => `${c.from}:${c.to}:${c.format}:${c.prefix}`;
+    const signature = (c) =>
+      JSON.stringify([
+        key(c),
+        c.components.map((item) => [
+          item.from,
+          item.text,
+          item.typedPrefix,
+          item.insertLeadingSpace,
+          item.component?.id,
+          item.component?.color,
+        ]),
+      ]);
     const position = (items, c) => {
       if (
         !items.length ||
@@ -204,24 +216,37 @@ export default function Suggestions({
       }
       const width = Math.min(242, window.innerWidth - 24),
         height = items.length * 34 + 28;
-      setPopup({
-        items,
-        context: c,
-        index: 0,
-        left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
-        top:
-          rect.bottom + height + 8 > window.innerHeight - 42
-            ? Math.max(60, rect.top - height - 6)
-            : rect.bottom + 5,
-        width,
+      setPopup((previous) => {
+        const sameContext =
+          previous && signature(previous.context) === signature(c);
+        const next = {
+          items,
+          context: c,
+          index: sameContext ? previous.index : 0,
+          left: Math.max(
+            12,
+            Math.min(rect.left, window.innerWidth - width - 12),
+          ),
+          top:
+            rect.bottom + height + 8 > window.innerHeight - 42
+              ? Math.max(60, rect.top - height - 6)
+              : rect.bottom + 5,
+          width,
+        };
+        return sameContext &&
+          previous.left === next.left &&
+          previous.top === next.top &&
+          previous.width === next.width
+          ? previous
+          : next;
       });
     };
     const refresh = () => {
-      clearTimeout(timer);
       const c = config.current.disabled
         ? null
         : context(editor, config.current.components);
       if (!c) {
+        clearTimeout(timer);
         active = null;
         dismissed = null;
         acceptedAt = null;
@@ -229,9 +254,18 @@ export default function Suggestions({
         return;
       }
       if (key(c) === dismissed || c.to === acceptedAt) {
+        clearTimeout(timer);
+        active = null;
         setPopup(null);
         return;
       }
+      // Parent renders and decoration transactions do not change the suggestions.
+      // Keep the mounted popup and its highlighted row instead of hiding it.
+      if (active && signature(active) === signature(c)) {
+        if (popupRef.current) position(c.components, c);
+        return;
+      }
+      clearTimeout(timer);
       active = c;
       setPopup(null);
       timer = setTimeout(() => {

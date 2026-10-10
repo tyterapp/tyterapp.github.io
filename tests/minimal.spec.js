@@ -59,6 +59,21 @@ const editor = (page) =>
 const block = (page, id = "action") =>
   page.locator(`.screenplay-editor p[data-block-id="${id}"]`);
 const popup = (page) => page.getByRole("listbox", { name: "Подсказки" });
+const editableText = (locator) =>
+  locator.evaluate((el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.parentElement.closest('[contenteditable="false"]')
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    let text = "",
+      node;
+    while ((node = walker.nextNode())) text += node.textContent;
+    return text;
+  });
+const expectEditableText = (locator, text) =>
+  expect.poll(() => editableText(locator)).toBe(text);
 async function seed(page, docs = [fixture()]) {
   await page.addInitScript((docs) => {
     if (!sessionStorage.getItem("seeded")) {
@@ -74,11 +89,20 @@ async function caret(page, locator, from, to = from) {
   await locator.evaluate(
     (el, { from, to }) => {
       el.closest("[contenteditable]").focus();
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT),
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+          acceptNode: (node) =>
+            node.parentElement.closest('[contenteditable="false"]')
+              ? NodeFilter.FILTER_REJECT
+              : NodeFilter.FILTER_ACCEPT,
+        }),
         nodes = [];
       let node;
       while ((node = walker.nextNode())) nodes.push(node);
       const point = (offset) => {
+        offset = Math.min(
+          offset,
+          nodes.reduce((total, node) => total + node.length, 0),
+        );
         for (const n of nodes) {
           if (offset <= n.length) return [n, offset];
           offset -= n.length;
@@ -96,7 +120,7 @@ async function caret(page, locator, from, to = from) {
   );
   await expect
     .poll(() => page.evaluate(() => window.getSelection()?.toString() || ""))
-    .toBe(to > from ? (await locator.textContent()).slice(from, to) : "");
+    .toBe(to > from ? (await editableText(locator)).slice(from, to) : "");
   // A key event makes the browser flush selectionchange before the next edit.
   await page.keyboard.press("Shift");
 }
@@ -930,13 +954,13 @@ test("scene prefixes are offered at the start and Ctrl+Enter inserts the chosen 
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Control+Enter");
-  await expect(block(page, "scene")).toHaveText("ИНТ. / ЭКС. ");
+  await expectEditableText(block(page, "scene"), "ИНТ. / ЭКС. ");
   await page.keyboard.insertText("ДОМ — ");
   await expect(popup(page).getByRole("option")).toHaveCount(4);
   await expect(popup(page).getByRole("option").first()).toContainText("ДЕНЬ");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Control+Enter");
-  await expect(block(page, "scene")).toHaveText("ИНТ. / ЭКС. ДОМ — НОЧЬ ");
+  await expectEditableText(block(page, "scene"), "ИНТ. / ЭКС. ДОМ — НОЧЬ ");
   await expect(popup(page)).toHaveCount(0);
   await page.keyboard.press("Enter");
   await expect(editor(page).locator("p").last()).toHaveAttribute(
@@ -968,7 +992,7 @@ test("scene heading components appear alongside built-in prefixes and Ctrl+Enter
     popup(page).getByText("ИНТ. / ЭКС.", { exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Control+Enter");
-  await expect(scene).toHaveText("ИНТЕРЬЕР МУЗЕЯ ");
+  await expectEditableText(scene, "ИНТЕРЬЕР МУЗЕЯ ");
   await expect(scene.locator('[data-entity-id="interior"]')).toHaveText(
     "ИНТЕРЬЕР МУЗЕЯ",
   );
@@ -998,7 +1022,7 @@ for (const prefix of ["д", "дом у м"])
     await expect(first).toContainText("Дом у моря");
     await expect(first.locator('svg[aria-label="Компонент"]')).toBeVisible();
     await page.keyboard.press("Control+Enter");
-    await expect(scene).toHaveText("ИНТ. ДОМ У МОРЯ ");
+    await expectEditableText(scene, "ИНТ. ДОМ У МОРЯ ");
     await expect(scene.locator('[data-entity-id="home"]')).toHaveText(
       "ДОМ У МОРЯ",
     );
@@ -1030,7 +1054,7 @@ for (const dash of ["-", "— "])
       popup(page).getByText("Ночная смена", { exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Control+Enter");
-    await expect(scene).toHaveText(`ИНТ. ДОМ ${dash.trim()} НОЧЬ `);
+    await expectEditableText(scene, `ИНТ. ДОМ ${dash.trim()} НОЧЬ `);
     await expect(scene.locator('[data-entity-id="night"]')).toHaveText("НОЧЬ");
   });
 
@@ -1044,13 +1068,13 @@ test("scene ending suggestion adds a space only when the dash has none", async (
   await caret(page, scene, (await scene.textContent()).length);
   await expect(popup(page).getByRole("option").first()).toContainText("ДЕНЬ");
   await page.keyboard.press("Control+Enter");
-  await expect(scene).toHaveText("ИНТ. ДОМ - ДЕНЬ ");
+  await expectEditableText(scene, "ИНТ. ДОМ - ДЕНЬ ");
 
   await caret(page, scene, 0, (await scene.textContent()).length);
   await page.keyboard.insertText("ИНТ. ДОМ - Д");
   await expect(popup(page).getByRole("option").first()).toContainText("ДЕНЬ");
   await page.keyboard.press("Control+Enter");
-  await expect(scene).toHaveText("ИНТ. ДОМ - ДЕНЬ ");
+  await expectEditableText(scene, "ИНТ. ДОМ - ДЕНЬ ");
 });
 
 test("bold italic and underline work from selection toolbar and survive reload", async ({

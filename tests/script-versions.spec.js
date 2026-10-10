@@ -243,8 +243,11 @@ test("editing, search, outline and an imported component library stay in the sel
   await expect(page.locator(".component-item")).toContainText("АННА");
   await choose(page, "blue");
   await expect
-    .poll(async () => (await stored(page))[0].scriptVersion)
-    .toBe("blue");
+    .poll(async () => {
+      const doc = (await stored(page))[0];
+      return { version: doc.scriptVersion, components: doc.components.length };
+    })
+    .toEqual({ version: "blue", components: 2 });
   await page.reload();
   await expect(page.locator('p[data-block-id="action"]')).toHaveText(
     "Только синий сюжет.",
@@ -396,7 +399,7 @@ for (const theme of ["light", "dark"]) {
     await picker.focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("listbox")).toBeVisible();
-    await expect(page.getByRole("option")).toHaveCount(9);
+    await expect(page.getByRole("option")).toHaveCount(10);
     await expect(
       page.locator(".script-version-trigger > .script-version-swatch"),
     ).toHaveCSS("width", "16px");

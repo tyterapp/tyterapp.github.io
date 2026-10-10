@@ -5,10 +5,10 @@ const CASE =
   "M5 7.5h14a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 19v-9A2.5 2.5 0 0 1 5 7.5Z";
 const CROSS = "M10.5 10.5h3V13h2.5v3h-2.5v2.5h-3V16H8v-3h2.5Z";
 
-export default function ScriptDoctorIcon({ count }) {
+export default function ScriptDoctorIcon({ count, fliesEnabled = true }) {
   const mask = useId(),
     { errors, fill, flies: total } = doctorCondition(count),
-    flies = Math.min(3, Math.floor(total / 3));
+    flies = fliesEnabled ? Math.min(3, Math.floor(total / 3)) : 0;
   return (
     <span
       className="script-doctor-icon"

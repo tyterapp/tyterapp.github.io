@@ -1,6 +1,11 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Показывать мух": "Show flies",
+  "В значке доктора и поверх интерфейса":
+    "In the doctor icon and over the interface",
+  "Показать стрик": "Show streak",
+  "Дней подряд: {0}. Рекорд: {1}.": "Consecutive days: {0}. Best streak: {1}.",
   "Редактор заметок": "Notes editor",
   "Дней подряд: {0}": "Consecutive days: {0}",
   Перейти: "Go",

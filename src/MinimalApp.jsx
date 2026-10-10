@@ -2581,6 +2581,7 @@ export default function MinimalApp({ onLogout }) {
         {!!documents.length && (
           <ScriptVersionPicker
             document={current}
+            notesOpen={notesOpen}
             disabled={!filesReady || !!busy || deleting}
             onChange={changeScriptVersion}
             onNotes={(id) => {
@@ -2736,7 +2737,10 @@ export default function MinimalApp({ onLogout }) {
                     aria-describedby="script-doctor-condition"
                     onClick={() => showSidebar(doctorOpen ? null : "doctor")}
                   >
-                    <ScriptDoctorIcon count={doctorFindings.length} />
+                    <ScriptDoctorIcon
+                      count={doctorFindings.length}
+                      fliesEnabled={preferences.doctorFlies}
+                    />
                     <span
                       className="visually-hidden"
                       id="script-doctor-condition"
@@ -3281,6 +3285,13 @@ export default function MinimalApp({ onLogout }) {
               view === "screenplay"
             }
             timer={writingTimer}
+            onStreak={(streak) =>
+              setMessage({
+                key: "Дней подряд: {0}. Рекорд: {1}.",
+                values: [streak.count, streak.best],
+                duration: 10000,
+              })
+            }
           />
           {focusMode && !notesOpen && (
             <div
@@ -3384,6 +3395,8 @@ export default function MinimalApp({ onLogout }) {
             <ScriptDoctor
               key={writingScope}
               findings={doctorFindings}
+              fliesEnabled={preferences.doctorFlies}
+              onFliesChange={(doctorFlies) => setPreferences({ doctorFlies })}
               onGo={locateDoctorFinding}
               onClose={() => showSidebar(null)}
             />
@@ -3789,10 +3802,12 @@ export default function MinimalApp({ onLogout }) {
           onEmbed={embedLibrary}
         />
       )}
-      <DoctorFlies
-        count={doctorFindings.length}
-        iconVisible={!focusMode && (!mobile || mobileToolsOpen)}
-      />
+      {preferences.doctorFlies && (
+        <DoctorFlies
+          count={doctorFindings.length}
+          iconVisible={!focusMode && (!mobile || mobileToolsOpen)}
+        />
+      )}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {questOverlay && IS_PRO && (
         <QuestOverlay

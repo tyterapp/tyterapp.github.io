@@ -79,13 +79,8 @@
   color: var(--ui-text);
   border-color: var(--ui-border);
 }
-.writing-streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  font-size: 11px;
-  color: var(--ui-text);
+.minimal-app .writing-streak {
+  gap: 6px;
   font-variant-numeric: tabular-nums;
 }
 .app-select-row {

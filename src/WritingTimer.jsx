@@ -9,7 +9,7 @@ import {
   TimerIcon,
 } from "./WritingTimerIcons.jsx";
 
-export default function WritingTimer({ visible, timer }) {
+export default function WritingTimer({ visible, timer, onStreak }) {
   useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [stacked, setStacked] = useState(false);
@@ -70,14 +70,16 @@ export default function WritingTimer({ visible, timer }) {
       onMouseDown={(event) => event.preventDefault()}
     >
       {timer.streak && !timer.session && !pickerOpen && (
-        <span
-          className="writing-streak"
+        <button
+          type="button"
+          className="writing-timer-button is-idle writing-streak"
           data-tooltip={t("Дней подряд: {0}", timer.streak.count)}
-          aria-label={t("Дней подряд: {0}", timer.streak.count)}
+          aria-label={t("Показать стрик")}
+          onClick={() => onStreak?.(timer.streak)}
         >
-          <Flame size={13} />
+          <Flame size={20} aria-hidden="true" />
           {timer.streak.count}
-        </span>
+        </button>
       )}
       {timer.session ? (
         <>
