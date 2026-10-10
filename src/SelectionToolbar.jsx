@@ -377,7 +377,7 @@ export default function SelectionToolbar({
               <span className="selection-toolbar-divider" aria-hidden="true" />
             </>
           )}
-          {!minimal && (
+          {!minimal && !plainOnly && (
             <button
               type="button"
               aria-label="Add selection to props"
@@ -396,27 +396,29 @@ export default function SelectionToolbar({
           )}
         </>
       }
-      <button
-        type="button"
-        aria-label={
-          minimal
-            ? t("Создать компонент из выделения")
-            : "Create component from selection"
-        }
-        aria-describedby="selection-tip-component"
-        aria-keyshortcuts={minimal ? "Control+D Meta+D" : undefined}
-        onClick={() => createFromSelection(onCreateComponent)}
-      >
-        <Shapes size={21} strokeWidth={1.65} aria-hidden="true" />
-        <span
-          className="selection-shortcut"
-          role="tooltip"
-          id="selection-tip-component"
+      {!plainOnly && (
+        <button
+          type="button"
+          aria-label={
+            minimal
+              ? t("Создать компонент из выделения")
+              : "Create component from selection"
+          }
+          aria-describedby="selection-tip-component"
+          aria-keyshortcuts={minimal ? "Control+D Meta+D" : undefined}
+          onClick={() => createFromSelection(onCreateComponent)}
         >
-          {minimal ? `${shortcut} + D` : "Create component"}
-        </span>
-      </button>
-      {minimal && (
+          <Shapes size={21} strokeWidth={1.65} aria-hidden="true" />
+          <span
+            className="selection-shortcut"
+            role="tooltip"
+            id="selection-tip-component"
+          >
+            {minimal ? `${shortcut} + D` : "Create component"}
+          </span>
+        </button>
+      )}
+      {minimal && !plainOnly && (
         <button
           type="button"
           aria-label={t("Создать реквизит из выделения")}

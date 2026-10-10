@@ -21,24 +21,8 @@ export default function ScriptVersionPicker({
         menuMaxHeight={540}
         optionHeight={52}
         options={[
-          ...(onNotes
-            ? [
-                {
-                  value: "note",
-                  label: "Note",
-                  icon: <StickyNote size={17} aria-hidden="true" />,
-                },
-              ]
-            : []),
           ...SCRIPT_VERSIONS.map((version) => ({
             value: version.id,
-            action: onNotes
-              ? {
-                  label: t("Заметки {0}", version.label),
-                  icon: <StickyNote size={17} />,
-                  onClick: () => onNotes(version.id),
-                }
-              : null,
             icon: (
               <span
                 aria-hidden="true"
@@ -65,12 +49,17 @@ export default function ScriptVersionPicker({
               </span>
             ),
           })),
+          ...(onNotes
+            ? [
+                {
+                  value: "note",
+                  label: "Note",
+                  icon: <StickyNote size={17} aria-hidden="true" />,
+                },
+              ]
+            : []),
         ]}
-        onChange={(value) =>
-          value === "note"
-            ? onNotes?.(scriptVersionId(document))
-            : onChange(value)
-        }
+        onChange={(value) => (value === "note" ? onNotes?.() : onChange(value))}
       />
     </div>
   );

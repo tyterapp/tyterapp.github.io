@@ -1,6 +1,10 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Визуализация мух": "Fly visualization",
+  Включена: "On",
+  Выключена: "Off",
+  "Прокрутить наверх": "Scroll to top",
   "Показывать мух": "Show flies",
   "В значке доктора и поверх интерфейса":
     "In the doctor icon and over the interface",

@@ -34,11 +34,13 @@ export default function HistoryPanel({
   const { isPro: IS_PRO, historyDays: HISTORY_DAYS } = useEdition();
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
-  const visibleEntries = entries.filter(
-    (entry) =>
-      scriptVersionId(entry.snapshot) === scriptVersion &&
-      (IS_PRO || revisionArea(entry) === "screenplay") &&
-      (!notes || revisionArea(entry) === "screenplay"),
+  const visibleEntries = entries.filter((entry) =>
+    notes
+      ? revisionArea(entry) === "notes" ||
+        (revisionArea(entry) === "screenplay" && entry.label?.includes("замет"))
+      : scriptVersionId(entry.snapshot) === scriptVersion &&
+        revisionArea(entry) !== "notes" &&
+        (IS_PRO || revisionArea(entry) === "screenplay"),
   );
   useEffect(() => {
     let cancelled = false;

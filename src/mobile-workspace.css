@@ -215,15 +215,18 @@
     left: 8px;
     z-index: 39;
   }
-  .minimal-app[data-mobile] .focus-mode-toggle {
+  .minimal-app[data-mobile] :is(.focus-mode-toggle, .scroll-top-button) {
     bottom: calc(66px + env(safe-area-inset-bottom, 0px));
     right: 8px;
     z-index: 39;
     width: 44px;
     height: 44px;
   }
+  .minimal-app[data-mobile] .scroll-top-button {
+    right: 60px;
+  }
   .minimal-app[data-mobile][data-keyboard]
-    :is(.writing-timer, .focus-mode-toggle) {
+    :is(.writing-timer, .focus-mode-toggle, .scroll-top-button) {
     visibility: hidden;
   }
   .minimal-app[data-mobile].focus-mode .focus-format-hint {

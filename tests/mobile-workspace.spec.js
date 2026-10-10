@@ -63,12 +63,17 @@ function fixture() {
   ];
   return validateImport(doc);
 }
-async function open(page, { width = 390, theme = "light", pro = false } = {}) {
+async function open(
+  page,
+  { width = 390, theme = "light", pro = false, doctorErrors = false } = {},
+) {
   await page.setViewportSize({ width, height: 844 });
   if (pro) await grantPro(page);
   await page.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
   );
+  const doc = fixture();
+  if (doctorErrors) doc.content.content[0].content[0].text = "МЕСТО";
   await page.addInitScript(
     ({ doc, theme }) => {
       localStorage.setItem("tyter.onboarding.v1", "done");
@@ -82,7 +87,7 @@ async function open(page, { width = 390, theme = "light", pro = false } = {}) {
       );
       sessionStorage.setItem("mobile-seeded", "yes");
     },
-    { doc: fixture(), theme },
+    { doc, theme },
   );
   await page.goto(pro ? "/beta" : "/free");
   await page.bringToFront();
@@ -119,6 +124,43 @@ test("keyboard viewport geometry is independent of pinch zoom and editor mode", 
     keyboard: false,
   });
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`320px ${theme}: fly visualization switch is visible in the doctor sheet and remembers off`, async ({
+    page,
+  }, info) => {
+    await open(page, { width: 320, theme, pro: true, doctorErrors: true });
+    const flies = page.locator(".doctor-interface-fly, .doctor-fly.is-visible");
+    await expect(flies.first()).toBeAttached();
+    await tools(page);
+    await page
+      .getByRole("button", { name: "Доктор сценария", exact: true })
+      .click();
+    const toggle = page.getByRole("switch", {
+      name: "Визуализация мух",
+      exact: true,
+    });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toBeChecked();
+    await page.locator(".doctor-visualization .settings-switch-copy").click();
+    await expect(toggle).not.toBeChecked();
+    await expect(flies).toHaveCount(0);
+    await expect(page.locator(".doctor-finding").first()).toBeVisible();
+    await page.screenshot({
+      path: info.outputPath("doctor-switch-mobile.png"),
+    });
+    await page.reload();
+    await tools(page);
+    await page
+      .getByRole("button", { name: "Доктор сценария", exact: true })
+      .click();
+    await expect(toggle).not.toBeChecked();
+    await expect(flies).toHaveCount(0);
+    await page.locator(".doctor-visualization .settings-switch-copy").click();
+    await expect(toggle).toBeChecked();
+    await expect(flies.first()).toBeAttached();
+  });
+}
 
 for (const [width, theme] of [
   [320, "light"],

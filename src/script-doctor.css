@@ -83,6 +83,28 @@
   font-size: 12px;
   color: var(--ui-text);
 }
+.doctor-visualization {
+  flex: 0 0 auto;
+  padding: 4px 10px 8px;
+  margin: 4px 0 12px;
+  border-radius: 8px;
+  background: var(--ui-soft);
+}
+.doctor-visualization .settings-switch-row {
+  margin: 0;
+  padding: 8px 0;
+}
+.doctor-visualization
+  .settings-switch-row
+  input[type="checkbox"]:not(:checked) {
+  background: var(--ui-muted);
+}
+.doctor-visualization-state {
+  margin: 0 0 0 28px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ui-text);
+}
 .doctor-drawer .search-format-filter {
   flex-shrink: 0;
 }
@@ -115,7 +137,12 @@
 }
 @media (max-width: 760px) {
   .minimal-app:has(.doctor-drawer)
-    :is(.minimal-footer, .writing-timer, .focus-mode-toggle) {
+    :is(
+      .minimal-footer,
+      .writing-timer,
+      .focus-mode-toggle,
+      .scroll-top-button
+    ) {
     visibility: hidden;
   }
 }

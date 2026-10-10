@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Search, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import ScreenplayEditor from "./ScreenplayEditor.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import DocumentSearch from "./DocumentSearch.jsx";
@@ -174,20 +174,11 @@ export default forwardRef(function NotesWorkspace(
     <>
       <div className="notes-heading">
         <button type="button" className="quiet-button" onClick={onClose}>
-          <ArrowLeft size={16} />
           {t("Вернуться к сценарию")}
         </button>
         <span>
           {t("Заметки")} · {document.title}
         </span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t("Поиск в заметках")}
-          onClick={() => setPanel("search")}
-        >
-          <Search size={18} />
-        </button>
         <button
           type="button"
           className="icon-button"

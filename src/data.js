@@ -3,7 +3,7 @@ import { documentFont } from "./document-fonts.js";
 import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
 import { cleanCommentOptions } from "./comment-options.js";
 import { commentSceneIndex } from "./comment-scenes.js";
-import { cleanNotes } from "./notes.js";
+import { cleanNotes, sharedNotes } from "./notes.js";
 import { cleanScriptVersions } from "./script-versions.js";
 
 const FORMATS = new Set([
@@ -641,7 +641,12 @@ export function validateImport(input, options = {}) {
     ),
   };
   // Older files have only a block ID, shared by all versions of a heading.
-  if (source.notes) document.notes = cleanNotes(source.notes);
+  const notes = options.scriptSnapshot
+    ? source.notes
+      ? cleanNotes(source.notes)
+      : undefined
+    : sharedNotes(source);
+  if (notes) document.notes = notes;
   // Recover the variant from its marked text or quote before the user switches it.
   if (document.comments.length) {
     const resolve = commentSceneIndex(document);

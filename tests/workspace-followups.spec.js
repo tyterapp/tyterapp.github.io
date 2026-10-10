@@ -10,7 +10,7 @@ const p = (format, text, blockId) => ({
 });
 async function open(
   page,
-  { theme = "light", width = 1440, empty = false } = {},
+  { theme = "light", width = 1440, empty = false, long = false } = {},
 ) {
   await page.setViewportSize({ width, height: width < 832 ? 844 : 1000 });
   await grantPro(page);
@@ -21,7 +21,7 @@ async function open(
   doc.id = "workspace-followups";
   doc.content.content = empty
     ? [p("scene", "", "empty-scene")]
-    : Array.from({ length: 8 }, (_, i) => [
+    : Array.from({ length: long ? 60 : 8 }, (_, i) => [
         p("scene", `МЕСТО ${i}`, `scene-${i}`),
         p("action", `Действие ${i}.`, `action-${i}`),
       ]).flat();
@@ -32,6 +32,10 @@ async function open(
     },
     comments: [],
   };
+  if (long)
+    doc.notes.content.content = Array.from({ length: 65 }, (_, i) =>
+      p("plain", `Запись ${i}.`, `note-${i}`),
+    );
   await page.addInitScript(
     ({ doc, theme }) => {
       if (sessionStorage.getItem("followups-seeded")) return;
@@ -70,6 +74,61 @@ async function open(
     )
     .toBe(true);
 }
+
+for (const width of [320, 1440])
+  for (const theme of ["light", "dark"]) {
+    test(`${width}px ${theme}: scroll-to-top appears beside fullscreen and reaches the first line`, async ({
+      page,
+    }, info) => {
+      await open(page, { width, theme, long: true });
+      const scroller = page.locator(".minimal-scroll"),
+        top = page.getByRole("button", {
+          name: "Прокрутить наверх",
+          exact: true,
+        }),
+        fullscreen = page.locator(".focus-mode-toggle");
+      await expect(page.locator(".scroll-top-button")).toBeHidden();
+      await scroller.evaluate((node) => node.scrollTo(0, 900));
+      await expect(top).toBeVisible();
+      await expect(top).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+      const topRect = await top.boundingBox(),
+        fullRect = await fullscreen.boundingBox();
+      expect(fullRect.x - topRect.x - topRect.width).toBeCloseTo(8);
+      expect(fullRect.y).toBeCloseTo(topRect.y);
+      const colours = await page.evaluate(() =>
+        [".scroll-top-button", ".focus-mode-toggle"].map((selector) => {
+          const css = getComputedStyle(document.querySelector(selector));
+          return { color: css.color, background: css.backgroundColor };
+        }),
+      );
+      expect(colours[0]).toEqual(colours[1]);
+      await page.screenshot({ path: info.outputPath("scroll-top.png") });
+      await top.click();
+      await expect
+        .poll(() => scroller.evaluate((node) => node.scrollTop))
+        .toBe(0);
+      await expect(page.locator(".scroll-top-button")).toBeHidden();
+      await fullscreen.click();
+      await scroller.evaluate((node) => node.scrollTo(0, 900));
+      await expect(top).toBeVisible();
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await top.click();
+      await expect
+        .poll(() => scroller.evaluate((node) => node.scrollTop))
+        .toBe(0);
+      await fullscreen.click();
+      await version(page).click();
+      const note = page.getByRole("option", { name: "Note", exact: true });
+      await note.scrollIntoViewIfNeeded();
+      await note.click();
+      await scroller.evaluate((node) => node.scrollTo(0, 900));
+      await expect(top).toBeVisible();
+      await top.click();
+      await expect
+        .poll(() => scroller.evaluate((node) => node.scrollTop))
+        .toBe(0);
+    });
+  }
 const version = (page) =>
   page.getByRole("combobox", { name: "Версии сценария", exact: true });
 const doctor = (page) =>
@@ -96,12 +155,22 @@ for (const theme of ["light", "dark"]) {
       .locator(".script-doctor-icon")
       .getAttribute("data-error-count");
     await doctor(page).click();
-    const toggle = page.getByRole("checkbox", {
-      name: "Показывать мух",
+    const toggle = page.getByRole("switch", {
+      name: "Визуализация мух",
       exact: true,
     });
     await expect(toggle).toBeChecked();
+    await expect(page.locator(".doctor-visualization-state")).toHaveText(
+      "Включена",
+    );
+    await page
+      .locator(".doctor-results")
+      .evaluate((node) => node.scrollTo(0, node.scrollHeight));
+    await expect(toggle).toBeVisible();
     await toggle.uncheck();
+    await expect(page.locator(".doctor-visualization-state")).toHaveText(
+      "Выключена",
+    );
     await expect(allFlies(page)).toHaveCount(0);
     await expect(page.locator(".doctor-interface-flies")).toHaveCount(0);
     await expect(page.locator(".script-doctor-icon")).toHaveAttribute(
@@ -115,6 +184,9 @@ for (const theme of ["light", "dark"]) {
     await page.reload();
     await doctor(page).click();
     await expect(toggle).not.toBeChecked();
+    await expect(page.locator(".doctor-visualization-state")).toHaveText(
+      "Выключена",
+    );
     await expect(allFlies(page)).toHaveCount(0);
     await toggle.check();
     await expect(allFlies(page)).toHaveCount(12);
@@ -240,6 +312,8 @@ for (const width of [320, 1440]) {
       exact: true,
     });
     await expect(menu.getByRole("option")).toHaveCount(10);
+    await expect(menu.getByRole("option").last()).toHaveText("Note");
+    await expect(menu.getByRole("button")).toHaveCount(0);
     const note = menu.getByRole("option", { name: "Note", exact: true });
     await note.scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("note-option.png") });
@@ -252,7 +326,17 @@ for (const width of [320, 1440]) {
     await expect(editor).toHaveCSS("font-family", /Inter/);
     await expect(editor).toHaveCSS("font-size", "18px");
     await expect(editor).toContainText("Сохранённая заметка.");
+    await expect(page.locator(".notes-heading .icon-button")).toHaveCount(1);
+    await expect(page.locator(".notes-heading .quiet-button svg")).toHaveCount(
+      0,
+    );
     await selectBlock(page, "note");
+    await expect(
+      page.locator(".selection-toolbar").getByRole("button"),
+    ).toHaveCount(1);
+    await expect(
+      page.locator(".selection-toolbar").getByRole("button"),
+    ).toHaveAttribute("aria-label", "Комментировать выделение");
     await page.keyboard.press("Control+b");
     await page.keyboard.press("Control+3");
     await page.keyboard.insertText("Обычная заметка без оформления.");
@@ -266,8 +350,16 @@ for (const width of [320, 1440]) {
     );
     await expect(version(page)).toContainText("v1 White");
     await version(page).click();
+    await page.getByRole("option", { name: "v2 Blue" }).click();
+    await version(page).click();
     await page.getByRole("option", { name: "Note", exact: true }).click();
     await expect(editor).toContainText("Обычная заметка без оформления.");
+    await page
+      .getByRole("button", { name: "Вернуться к сценарию", exact: true })
+      .click();
+    await expect(version(page)).toContainText("v2 Blue");
+    await version(page).click();
+    await page.getByRole("option", { name: "Note", exact: true }).click();
     await expect
       .poll(() =>
         page.evaluate(

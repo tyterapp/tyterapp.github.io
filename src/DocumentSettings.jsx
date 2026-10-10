@@ -15,7 +15,14 @@ import {
 import { documentFont, documentFonts } from "./document-fonts.js";
 import AppSelect from "./AppSelect.jsx";
 
-export function SettingsSwitch({ label, checked, onChange, icon: Icon, hint }) {
+export function SettingsSwitch({
+  label,
+  checked,
+  onChange,
+  icon: Icon,
+  hint,
+  role,
+}) {
   return (
     <label className="settings-switch-row">
       <span className="settings-option-icon">
@@ -27,6 +34,7 @@ export function SettingsSwitch({ label, checked, onChange, icon: Icon, hint }) {
       </span>
       <input
         type="checkbox"
+        role={role}
         aria-label={label}
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}

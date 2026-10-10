@@ -83,9 +83,11 @@ const picker = (page) =>
   page.getByRole("combobox", { name: "Версии сценария", exact: true });
 async function notes(page, label = "v1 White") {
   await picker(page).click();
-  await page
-    .getByRole("button", { name: `Заметки ${label}`, exact: true })
-    .click();
+  if (label !== "v1 White") {
+    await page.getByRole("option", { name: label }).click();
+    await picker(page).click();
+  }
+  await page.getByRole("option", { name: "Note", exact: true }).click();
   await expect(page.locator(".notes-paper")).toBeVisible();
 }
 async function selectParagraph(page, selector) {
@@ -267,7 +269,7 @@ test("enabled typewriter decodes recorded audio and uses different samples for d
     .poll(() => page.evaluate(() => window.audioStarts.length))
     .toBe(3);
 });
-test("notes import/export strip text formatting and stay isolated per screenplay version", () => {
+test("notes import/export strip text formatting and remain shared across screenplay versions", () => {
   const white = fixture();
   white.notes.content.content[0].content[0].marks = [{ type: "bold" }];
   const clean = validateImport(white);
@@ -275,12 +277,8 @@ test("notes import/export strip text formatting and stay isolated per screenplay
   let blue = switchScriptVersion(clean, "blue");
   blue.notes.content.content[0].content[0].text = "Синяя заметка";
   const back = validateImport(switchScriptVersion(blue, "white"));
-  expect(back.notes.content.content[0].content[0].text).toContain(
-    "Белые заметки",
-  );
-  expect(
-    back.scriptVersions.blue.notes.content.content[0].content[0].text,
-  ).toBe("Синяя заметка");
+  expect(back.notes.content.content[0].content[0].text).toBe("Синяя заметка");
+  expect(back.scriptVersions.blue.notes).toBeUndefined();
 });
 test("notes editor uses Inter 18px, disables formatting, supports search/comments, saves and exports all versions", async ({
   page,
@@ -297,7 +295,7 @@ test("notes editor uses Inter 18px, disables formatting, supports search/comment
   await expect(editor.locator("b,strong,i,em,u")).toHaveCount(0);
   await expect(editor.locator("p")).toHaveAttribute("data-format", "plain");
   await page
-    .getByRole("button", { name: "Поиск в заметках", exact: true })
+    .getByRole("button", { name: "Поиск по сценарию", exact: true })
     .click();
   await page.getByLabel("Поиск по тексту").fill("кошке");
   await expect(page.locator(".search-result-card")).toHaveCount(1);
@@ -320,17 +318,18 @@ test("notes editor uses Inter 18px, disables formatting, supports search/comment
     .poll(async () => (await stored(page)).notes.comments.length)
     .toBe(1);
   await notes(page, "v2 Blue");
+  await expect(editor).toContainText("Белая идея о кошке.");
   await selectParagraph(page, '[data-block-id="note"]');
   await page.keyboard.insertText("Синяя заметка.");
   await notes(page);
-  await expect(editor).toContainText("Белая идея о кошке.");
+  await expect(editor).toContainText("Синяя заметка.");
   await page
     .getByRole("button", { name: "Вернуться к сценарию", exact: true })
     .click();
   await expect(editor).toContainText("Исходный сценарий сохранён.");
   await page.reload();
   await notes(page);
-  await expect(editor).toContainText("Белая идея о кошке.");
+  await expect(editor).toContainText("Синяя заметка.");
   await page.screenshot({ path: info.outputPath("notes-desktop.png") });
   await page
     .getByRole("button", { name: "Скачать сценарий", exact: true })
@@ -342,9 +341,10 @@ test("notes editor uses Inter 18px, disables formatting, supports search/comment
   for await (const chunk of stream) bytes += chunk;
   const exported = validateImport(JSON.parse(bytes).document);
   expect(exported.notes.comments).toHaveLength(1);
-  expect(
-    exported.scriptVersions.blue.notes.content.content[0].content[0].text,
-  ).toBe("Синяя заметка.");
+  expect(exported.notes.content.content[0].content[0].text).toBe(
+    "Синяя заметка.",
+  );
+  expect(exported.scriptVersions.white.notes).toBeUndefined();
   expect(exported.content.content[1].content[0].text).toBe(
     "Исходный сценарий сохранён.",
   );
@@ -362,7 +362,10 @@ test("notes fit 320px, search opens a sheet, and components remain available", a
     "18px",
   );
   await page
-    .getByRole("button", { name: "Поиск в заметках", exact: true })
+    .getByRole("button", { name: "Открыть инструменты", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Поиск по сценарию", exact: true })
     .click();
   await expect(
     page.getByRole("dialog", { name: "Заметки", exact: true }),
@@ -453,7 +456,7 @@ test("restoring notes history preserves the current screenplay and outline", asy
       "screenplay",
     );
   });
-  await notes(page);
+  await notes(page, "v2 Blue");
   await selectParagraph(page, '[data-block-id="note"]');
   await page.keyboard.insertText("Новые заметки.");
   await page

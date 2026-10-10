@@ -5,17 +5,20 @@ const DATABASE = "tyter.history.v1";
 const STORE = "revisions";
 export const FREE_HISTORY_DAYS = 14;
 export const revisionArea = (revision) =>
-  revision.area === "outline" ||
-  (!revision.area && revision.label?.includes("аутлайна"))
-    ? "outline"
-    : "screenplay";
+  revision.area === "notes"
+    ? "notes"
+    : revision.area === "outline" ||
+        (!revision.area && revision.label?.includes("аутлайна"))
+      ? "outline"
+      : "screenplay";
 export const snapshotForArea = (snapshot, area) => {
+  if (area === "notes") return { notes: snapshot.notes || null };
   if (area === "outline")
     return {
       outline: snapshot.outline || { columns: [], cards: [] },
       scriptVersion: scriptVersionId(snapshot),
     };
-  const { outline, ...screenplay } = snapshot;
+  const { outline, notes, ...screenplay } = snapshot;
   return screenplay;
 };
 

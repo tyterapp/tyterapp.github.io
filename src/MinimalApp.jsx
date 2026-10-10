@@ -76,6 +76,7 @@ import WritingTimer from "./WritingTimer.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import DoctorFlies from "./DoctorFlies.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
+import ScrollToTop from "./ScrollToTop.jsx";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
 import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
@@ -633,6 +634,7 @@ export default function MinimalApp({ onLogout }) {
   const [historyRevision, setHistoryRevision] = useState(null);
   const [historyVersion, setHistoryVersion] = useState(0);
   const historyTracked = useRef(new Map());
+  const notesHistoryTracked = useRef(new Map());
   const historyWritten = useRef(new Map());
   const pendingOutlineHistory = useRef(new Map());
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
@@ -935,11 +937,38 @@ export default function MinimalApp({ onLogout }) {
       signature,
     });
   }, [current, filesReady, historyDays, flushOutlineHistory, documents.length]);
+  useEffect(() => {
+    if (!filesReady || !documents.length) return;
+    const notes = current.notes || null;
+    const signature = JSON.stringify(notes);
+    const previous = notesHistoryTracked.current.get(current.id);
+    const key = `${current.id}:notes`;
+    if (
+      previous &&
+      previous.signature !== signature &&
+      Date.now() - (historyWritten.current.get(key) || 0) > 30000
+    ) {
+      historyWritten.current.set(key, Date.now());
+      recordRevision(
+        current.id,
+        { ...snapshotOf(current), notes: previous.notes },
+        "заметок",
+        historyDays,
+        "notes",
+      )
+        .then(() => setHistoryVersion((version) => version + 1))
+        .catch(() => {});
+    }
+    notesHistoryTracked.current.set(current.id, { notes, signature });
+  }, [current, filesReady, documents.length, historyDays]);
   const restoreHistory = async (entry) => {
-    const area = revisionArea(entry);
+    const area = notesOpen ? "notes" : revisionArea(entry);
     try {
       await flushOutlineHistory(writingScope);
-      historyWritten.current.set(`${writingScope}:${area}`, Date.now());
+      historyWritten.current.set(
+        `${area === "notes" ? current.id : writingScope}:${area}`,
+        Date.now(),
+      );
       await recordRevision(
         current.id,
         snapshotOf(current),
@@ -955,6 +984,10 @@ export default function MinimalApp({ onLogout }) {
             : structuredClone(snapshotForArea(entry.snapshot, area))),
         };
         const snapshot = snapshotOf(restored);
+        notesHistoryTracked.current.set(document.id, {
+          notes: restored.notes || null,
+          signature: JSON.stringify(restored.notes || null),
+        });
         historyTracked.current.set(scriptScopeId(document), {
           snapshot,
           signature: JSON.stringify(snapshot),
@@ -2584,8 +2617,7 @@ export default function MinimalApp({ onLogout }) {
             notesOpen={notesOpen}
             disabled={!filesReady || !!busy || deleting}
             onChange={changeScriptVersion}
-            onNotes={(id) => {
-              changeScriptVersion(id);
+            onNotes={() => {
               showSidebar(null);
               componentHistory.current = { undo: [], redo: [] };
               setView("screenplay");
@@ -3079,9 +3111,9 @@ export default function MinimalApp({ onLogout }) {
                 />
               ) : filesReady && documents.length && notesOpen ? (
                 <NotesWorkspace
-                  key={writingScope}
+                  key={current.id}
                   ref={notesRef}
-                  scope={writingScope}
+                  scope={current.id}
                   editorRef={editorRef}
                   document={current}
                   mobile={mobile}
@@ -3251,29 +3283,36 @@ export default function MinimalApp({ onLogout }) {
             !characterView &&
             !libraryDialog &&
             view === "screenplay" && (
-              <button
-                className="icon-button focus-mode-toggle"
-                aria-label={t(
-                  focusMode
-                    ? "Выйти из полноэкранного режима"
-                    : "Открыть во весь экран",
-                )}
-                data-tooltip={t(
-                  focusMode
-                    ? "Выйти из полноэкранного режима"
-                    : "Открыть во весь экран",
-                )}
-                aria-pressed={focusMode}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  showSidebar(null);
-                  setMenu(null);
-                  setFocusMode((value) => !value);
-                  requestAnimationFrame(() => editorRef.current?.focus());
-                }}
-              >
-                {focusMode ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-              </button>
+              <>
+                <ScrollToTop containerRef={columnRef} />
+                <button
+                  className="icon-button focus-mode-toggle"
+                  aria-label={t(
+                    focusMode
+                      ? "Выйти из полноэкранного режима"
+                      : "Открыть во весь экран",
+                  )}
+                  data-tooltip={t(
+                    focusMode
+                      ? "Выйти из полноэкранного режима"
+                      : "Открыть во весь экран",
+                  )}
+                  aria-pressed={focusMode}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    showSidebar(null);
+                    setMenu(null);
+                    setFocusMode((value) => !value);
+                    requestAnimationFrame(() => editorRef.current?.focus());
+                  }}
+                >
+                  {focusMode ? (
+                    <Minimize2 size={20} />
+                  ) : (
+                    <Maximize2 size={20} />
+                  )}
+                </button>
+              </>
             )}
           <WritingTimer
             visible={
@@ -3422,7 +3461,8 @@ export default function MinimalApp({ onLogout }) {
               selectedId={historyRevision?.id}
               onSelect={(revision) => {
                 setHistoryRevision(revision);
-                if (revision) setView(revisionArea(revision));
+                if (revision)
+                  setView(notesOpen ? "screenplay" : revisionArea(revision));
               }}
               onRestore={restoreHistory}
               onClose={() => {

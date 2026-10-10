@@ -594,7 +594,12 @@
     width: min(306px, calc(100vw - 56px));
   }
   .minimal-app:has(.daily-quests-drawer)
-    :is(.minimal-footer, .writing-timer, .focus-mode-toggle) {
+    :is(
+      .minimal-footer,
+      .writing-timer,
+      .focus-mode-toggle,
+      .scroll-top-button
+    ) {
     visibility: hidden;
   }
   .quest-overlay-shell {

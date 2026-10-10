@@ -175,9 +175,7 @@ export default function Suggestions({
   popupRef.current = popup;
   useEffect(() => {
     if (!editor) return;
-    let timer,
-      frame,
-      active = null,
+    let frame,
       dismissed = null,
       acceptedAt = null;
     const key = (c) => `${c.from}:${c.to}:${c.format}:${c.prefix}`;
@@ -246,43 +244,29 @@ export default function Suggestions({
         ? null
         : context(editor, config.current.components);
       if (!c) {
-        clearTimeout(timer);
-        active = null;
         dismissed = null;
         acceptedAt = null;
         setPopup(null);
         return;
       }
       if (key(c) === dismissed || c.to === acceptedAt) {
-        clearTimeout(timer);
-        active = null;
         setPopup(null);
         return;
       }
-      // Parent renders and decoration transactions do not change the suggestions.
-      // Keep the mounted popup and its highlighted row instead of hiding it.
-      if (active && signature(active) === signature(c)) {
-        if (popupRef.current) position(c.components, c);
-        return;
-      }
-      clearTimeout(timer);
-      active = c;
-      setPopup(null);
-      timer = setTimeout(() => {
-        if (active !== c) return;
-        position(c.components, c);
-      }, 110);
+      // Update valid suggestions in place; hiding between contexts causes flicker.
+      position(c.components, c);
     };
-    scheduleRef.current = refresh;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      // Read the final selection and layout after a transaction/focus burst.
+      frame = requestAnimationFrame(refresh);
+    };
+    scheduleRef.current = schedule;
     const accept = (item) => {
       const current = popupRef.current;
       if (!current || editor.view.composing) return false;
       const c = context(editor, config.current.components);
-      if (
-        !c ||
-        c.to !== current.context.to ||
-        c.prefix !== current.context.prefix
-      ) {
+      if (!c || signature(c) !== signature(current.context)) {
         setPopup(null);
         return false;
       }
@@ -388,8 +372,7 @@ export default function Suggestions({
         const c =
           current?.context || context(editor, config.current.components);
         if (c) dismissed = key(c);
-        active = null;
-        clearTimeout(timer);
+        cancelAnimationFrame(frame);
         setPopup(null);
         return;
       }
@@ -410,28 +393,17 @@ export default function Suggestions({
     };
     document.addEventListener("keydown", captureShortcut, true);
     acceptRef.current = accept;
-    const move = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const p = popupRef.current;
-        if (p && active) position(p.items, active);
-      });
-    };
-    ["selectionUpdate", "update", "focus", "blur"].forEach((event) =>
-      editor.on(event, refresh),
-    );
-    window.addEventListener("scroll", move, true);
-    window.addEventListener("resize", move);
+    const events = ["transaction", "focus", "blur"];
+    events.forEach((event) => editor.on(event, schedule));
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
     return () => {
-      clearTimeout(timer);
       cancelAnimationFrame(frame);
       acceptRef.current = null;
       scheduleRef.current = null;
-      ["selectionUpdate", "update", "focus", "blur"].forEach((event) =>
-        editor.off(event, refresh),
-      );
-      window.removeEventListener("scroll", move, true);
-      window.removeEventListener("resize", move);
+      events.forEach((event) => editor.off(event, schedule));
+      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
       document.removeEventListener("keydown", captureShortcut, true);
       if (!editor.isDestroyed)
         editor.setOptions({

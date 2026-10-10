@@ -31,19 +31,25 @@ export default function ScriptDoctor({
           <X size={18} />
         </button>
       </div>
+      <div className="doctor-visualization">
+        <SettingsSwitch
+          role="switch"
+          icon={Bug}
+          label={t("Визуализация мух")}
+          hint={t("В значке доктора и поверх интерфейса")}
+          checked={fliesEnabled}
+          onChange={onFliesChange}
+        />
+        <p className="doctor-visualization-state" role="status">
+          {t(fliesEnabled ? "Включена" : "Выключена")}
+        </p>
+      </div>
       <p className="settings-hint">
         {t(
           "Заголовки, повторы и диалоги. Нажмите на замечание, чтобы перейти к тексту.",
         )}
       </p>
       <p className="doctor-summary">{t("Замечаний: {0}", findings.length)}</p>
-      <SettingsSwitch
-        icon={Bug}
-        label={t("Показывать мух")}
-        hint={t("В значке доктора и поверх интерфейса")}
-        checked={fliesEnabled}
-        onChange={onFliesChange}
-      />
       <div className="search-format-filter">
         <span>{t("Проверка")}</span>
         <AppSelect

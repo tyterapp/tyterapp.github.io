@@ -43,14 +43,14 @@
 }
 @media screen {
   .minimal-app[data-script-version]:not([data-script-version="white"])
-    .script-paper {
+    .script-paper:not(.notes-paper) {
     background: oklch(
       0.99 var(--script-version-chroma) var(--script-version-hue)
     );
   }
   :root[data-theme="dark"]
     .minimal-app[data-script-version]:not([data-script-version="white"])
-    .script-paper {
+    .script-paper:not(.notes-paper) {
     background: oklch(
       from var(--dark-sheet) l var(--script-version-chroma)
         var(--script-version-hue)
