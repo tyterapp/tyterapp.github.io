@@ -47,6 +47,7 @@
   background: var(--ui-soft);
 }
 .doctor-visualization .settings-switch-row {
+  grid-template-columns: minmax(0, 1fr) 36px;
   margin: 0;
   padding: 8px 0;
 }
@@ -54,12 +55,6 @@
   .settings-switch-row
   input[type="checkbox"]:not(:checked) {
   background: var(--ui-muted);
-}
-.doctor-visualization-state {
-  margin: 0 0 0 28px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--ui-text);
 }
 .doctor-drawer .search-format-filter {
   flex-shrink: 0;

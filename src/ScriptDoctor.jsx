@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Stethoscope, X, CheckCircle2, ChevronRight, Bug } from "lucide-react";
+import { Stethoscope, X, CheckCircle2, ChevronRight } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import AppSelect from "./AppSelect.jsx";
 import { SettingsSwitch } from "./DocumentSettings.jsx";
@@ -8,7 +8,7 @@ export default function ScriptDoctor({
   findings,
   onGo,
   onClose,
-  fliesEnabled = true,
+  fliesEnabled = false,
   onFliesChange,
 }) {
   useLanguage();
@@ -34,15 +34,10 @@ export default function ScriptDoctor({
       <div className="doctor-visualization">
         <SettingsSwitch
           role="switch"
-          icon={Bug}
           label={t("Визуализация мух")}
-          hint={t("Поверх интерфейса")}
           checked={fliesEnabled}
           onChange={onFliesChange}
         />
-        <p className="doctor-visualization-state" role="status">
-          {t(fliesEnabled ? "Включена" : "Выключена")}
-        </p>
       </div>
       <p className="settings-hint">
         {t(

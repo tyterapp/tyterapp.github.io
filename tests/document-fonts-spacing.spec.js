@@ -77,7 +77,7 @@ test("scene to action gets a 10px gap, including live format changes and zoom", 
   await expect.poll(() => gapAfter(page, "scene-scene")).toBeCloseTo(40, 1);
 });
 
-test("consecutive actions have 10px spacing; other formats retain 20px in the editor, PDF and DOCX", async ({
+test("consecutive actions have 10px spacing; mixed formats retain 20px in the editor, PDF and DOCX", async ({
   page,
 }) => {
   const project = createProject("Интервалы действий");

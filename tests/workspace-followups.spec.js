@@ -136,11 +136,11 @@ async function selectBlock(page, id) {
 }
 
 for (const theme of ["light", "dark"]) {
-  test(`${theme}: doctor can disable every fly, remembers the choice and keeps diagnostics`, async ({
+  test(`${theme}: doctor defaults to no flies, remembers explicit choices and keeps diagnostics`, async ({
     page,
   }, info) => {
     await open(page, { theme });
-    await expect(allFlies(page)).toHaveCount(12);
+    await expect(allFlies(page)).toHaveCount(0);
     const errorCount = await page
       .locator(".script-doctor-icon")
       .getAttribute("data-error-count");
@@ -149,18 +149,14 @@ for (const theme of ["light", "dark"]) {
       name: "Визуализация мух",
       exact: true,
     });
-    await expect(toggle).toBeChecked();
-    await expect(page.locator(".doctor-visualization-state")).toHaveText(
-      "Включена",
-    );
+    await expect(toggle).not.toBeChecked();
+    await toggle.check();
+    await expect(allFlies(page)).toHaveCount(12);
     await page
       .locator(".doctor-results")
       .evaluate((node) => node.scrollTo(0, node.scrollHeight));
     await expect(toggle).toBeVisible();
     await toggle.uncheck();
-    await expect(page.locator(".doctor-visualization-state")).toHaveText(
-      "Выключена",
-    );
     await expect(allFlies(page)).toHaveCount(0);
     await expect(page.locator(".doctor-interface-flies")).toHaveCount(0);
     await expect(page.locator(".script-doctor-icon")).toHaveAttribute(
@@ -174,11 +170,12 @@ for (const theme of ["light", "dark"]) {
     await page.reload();
     await doctor(page).click();
     await expect(toggle).not.toBeChecked();
-    await expect(page.locator(".doctor-visualization-state")).toHaveText(
-      "Выключена",
-    );
     await expect(allFlies(page)).toHaveCount(0);
     await toggle.check();
+    await expect(allFlies(page)).toHaveCount(12);
+    await page.reload();
+    await doctor(page).click();
+    await expect(toggle).toBeChecked();
     await expect(allFlies(page)).toHaveCount(12);
   });
 

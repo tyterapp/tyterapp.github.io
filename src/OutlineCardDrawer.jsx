@@ -10,7 +10,6 @@ import {
 import { t, useLanguage } from "./i18n.js";
 import { uid } from "./data.js";
 import { dramaValue } from "./document-layout.js";
-import { CardIcon } from "./StoryIcons.jsx";
 import "./outline.css";
 const COLORS = [
   "#33313b",
@@ -124,10 +123,7 @@ export default function OutlineCardDrawer({
         >
           <GripVertical size={16} />
         </button>
-        <h2>
-          <CardIcon size={17} />
-          {t("Карточка истории")}
-        </h2>
+        <h2>{t("Карточка истории")}</h2>
         <button
           className="icon-button"
           aria-label={t(

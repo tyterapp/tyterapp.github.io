@@ -25,9 +25,11 @@ export function SettingsSwitch({
 }) {
   return (
     <label className="settings-switch-row">
-      <span className="settings-option-icon">
-        <Icon size={17} />
-      </span>
+      {Icon && (
+        <span className="settings-option-icon">
+          <Icon size={17} />
+        </span>
+      )}
       <span className="settings-switch-copy">
         <span>{label}</span>
         {hint && <small>{hint}</small>}

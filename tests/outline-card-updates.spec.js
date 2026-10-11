@@ -77,7 +77,7 @@ async function open(
       localStorage.setItem("tyter.language.v1", "ru");
       localStorage.setItem(
         "tyter.editor-preferences.v1",
-        JSON.stringify({ theme }),
+        JSON.stringify({ theme, doctorFlies: true }),
       );
     },
     { doc, theme },

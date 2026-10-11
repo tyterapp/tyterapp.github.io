@@ -620,6 +620,13 @@ kbd {
   ) {
   margin-bottom: var(--action-gap, 10px);
 }
+.minimal-app
+  .screenplay-editor
+  .screenplay-block[data-format="plain"]:has(
+    + .screenplay-block[data-format="plain"]
+  ) {
+  margin-bottom: var(--plain-gap, 10px);
+}
 .spelling-setting {
   display: flex;
   align-items: center;

@@ -3046,6 +3046,7 @@ export default function MinimalApp({ onLogout }) {
                 "--paper-left-ratio": sheet.left / sheet.width,
                 "--paper-right-ratio": sheet.right / sheet.width,
                 "--block-gap": `${sheet.gap}px`,
+                "--plain-gap": `${sheet.plainGap}px`,
                 "--scene-action-gap": `${sheet.sceneActionGap}px`,
                 "--action-gap": `${sheet.actionGap}px`,
                 "--sheet-line-height": sheet.lineHeight,
