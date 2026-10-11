@@ -36,7 +36,7 @@ export default function ScriptDoctor({
           role="switch"
           icon={Bug}
           label={t("Визуализация мух")}
-          hint={t("В значке доктора и поверх интерфейса")}
+          hint={t("Поверх интерфейса")}
           checked={fliesEnabled}
           onChange={onFliesChange}
         />

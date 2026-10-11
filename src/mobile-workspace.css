@@ -288,6 +288,18 @@
     width: 100%;
     max-width: none;
   }
+  .minimal-app[data-mobile] .outline-card-resize {
+    display: none;
+  }
+  .mobile-sheet-content .outline-card-drawer {
+    position: static;
+    width: 100%;
+    flex: 1;
+    border-left: 0;
+  }
+  .mobile-sheet-content .outline-card-resize {
+    display: none;
+  }
   .minimal-app[data-mobile]
     :is(input:not([type="checkbox"]):not([type="range"]), textarea, select),
   .mobile-sheet-layer

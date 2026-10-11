@@ -8,6 +8,14 @@ const paragraph = (id, text, format = "action") => ({
   content: text ? [{ type: "text", text }] : undefined,
 });
 const editor = (page) => page.locator(".screenplay-editor");
+const paragraphText = (node) => {
+  const copy = node.cloneNode(true);
+  copy
+    .querySelectorAll('[contenteditable="false"]')
+    .forEach((control) => control.remove());
+  return copy.textContent;
+};
+const sceneText = (scene) => scene.evaluate(paragraphText);
 const stored = (page) =>
   page.evaluate(async () => {
     const { browserRequest } = await import("/src/browser-files.js");
@@ -95,10 +103,20 @@ for (const zoom of [100, 200])
     await locate.click();
     const scene = editor(page).locator('p[data-format="scene"]');
     await expect(editor(page)).toBeFocused();
-    await expect(scene).toHaveText("ИНТ. КУХНЯ — ДЕНЬ");
+    await expect.poll(() => sceneText(scene)).toBe("ИНТ. КУХНЯ — ДЕНЬ");
     await expect
       .poll(async () => {
-        const texts = await editor(page).locator("p").allTextContents();
+        const texts = await editor(page)
+          .locator("p")
+          .evaluateAll((nodes) =>
+            nodes.map((node) => {
+              const copy = node.cloneNode(true);
+              copy
+                .querySelectorAll('[contenteditable="false"]')
+                .forEach((control) => control.remove());
+              return copy.textContent;
+            }),
+          );
         const at = texts.indexOf("ИНТ. КУХНЯ — ДЕНЬ");
         return texts.slice(at - 1, at + 3);
       })
@@ -120,7 +138,7 @@ for (const zoom of [100, 200])
       )
       .toBe(true);
     await page.keyboard.insertText("X");
-    await expect(scene).toHaveText("XИНТ. КУХНЯ — ДЕНЬ");
+    await expect.poll(() => sceneText(scene)).toBe("XИНТ. КУХНЯ — ДЕНЬ");
     const id = await scene.getAttribute("data-block-id");
     await expect
       .poll(async () => (await stored(page))?.outline.cards[0].blockId)
@@ -135,7 +153,7 @@ for (const zoom of [100, 200])
     await locate.click();
     await expect(editor(page)).toBeFocused();
     await page.keyboard.insertText("Y");
-    await expect(scene).toHaveText("YXИНТ. КУХНЯ — ДЕНЬ");
+    await expect.poll(() => sceneText(scene)).toBe("YXИНТ. КУХНЯ — ДЕНЬ");
     await expect(editor(page).locator('p[data-format="scene"]')).toHaveCount(1);
   });
 

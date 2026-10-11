@@ -2,6 +2,7 @@ import { X, ArrowUpRight } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { nodeText } from "./data.js";
 import { useMemo } from "react";
+import { sceneLetter } from "./scene-variants.js";
 
 export const characterName = (text) =>
   text
@@ -16,12 +17,14 @@ function dialogueIndex(content) {
   const blocks = content?.content || [],
     characters = new Map();
   let scene = "",
-    number = 0;
+    number = 0,
+    variant = "A";
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     if (block.attrs?.format === "scene") {
       scene = nodeText(block);
       number++;
+      variant = sceneLetter(block);
     }
     if (block.attrs?.format !== "character") continue;
     const name = characterName(nodeText(block));
@@ -46,6 +49,7 @@ function dialogueIndex(content) {
         name: nodeText(block),
         scene,
         number,
+        variant,
         dialogue,
       });
   }
@@ -121,6 +125,9 @@ export default function CharacterDialogue({
               >
                 <span>
                   {row.number}. {row.scene}
+                  <small className="character-dialogue-variant">
+                    {t("Вариант {0}", row.variant)}
+                  </small>
                 </span>
                 <ArrowUpRight size={16} />
               </button>

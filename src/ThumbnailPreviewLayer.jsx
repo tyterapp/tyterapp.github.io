@@ -133,7 +133,7 @@ export default function ThumbnailPreviewLayer({ components, props }) {
   return createPortal(
     <div
       ref={bubble}
-      className="thumbnail-preview"
+      className={`thumbnail-preview${active.target.closest(".screenplay-editor") ? " document-preview" : ""}`}
       role="tooltip"
       aria-label={t("Миниатюра")}
       style={{

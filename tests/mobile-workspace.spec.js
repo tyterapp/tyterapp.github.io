@@ -349,7 +349,6 @@ test("tools retain search, outline, libraries, settings, timer and full project 
     "Поиск по сценарию",
     "Статистика документа",
     "Доктор сценария",
-    "Задания",
     "Реплики персонажей",
     "Реквизит",
     "Комментарии",
@@ -359,6 +358,9 @@ test("tools retain search, outline, libraries, settings, timer and full project 
     "Выйти из аккаунта",
   ])
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Задания", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Настройки документа", exact: true })
     .click();

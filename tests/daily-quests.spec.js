@@ -199,14 +199,13 @@ test("progress excludes pauses, expired timers and undo farming, and manual comp
   expect(tomorrow.active).toBeNull();
 });
 
-test("free edition offers Pro access without enabling the quest library", async ({
+test("free edition temporarily hides the quests entry without enabling the quest library", async ({
   page,
 }) => {
   await open(page, { pro: false });
-  await page.getByRole("button", { name: "Задания", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "Полная версия Tyter" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Задания", exact: true }),
+  ).toHaveCount(0);
   await expect(overlay(page)).toHaveCount(0);
   expect(
     await page.evaluate((key) => localStorage.getItem(key), PRO_QUEST_STORAGE),
@@ -214,7 +213,8 @@ test("free edition offers Pro access without enabling the quest library", async 
 });
 
 for (const theme of ["light", "dark"]) {
-  test(`collectible carousel covers the entire ${theme} UI and supports keyboard, wheel and touch`, async ({
+  // The quests entry is temporarily removed. Keep these UI checks for its return.
+  test.skip(`collectible carousel covers the entire ${theme} UI and supports keyboard, wheel and touch`, async ({
     page,
   }, info) => {
     await open(page, { theme });
@@ -268,7 +268,7 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
-test("writing unlocks cards and a timely manual finish persists without changing timer coin rewards", async ({
+test.skip("writing unlocks cards and a timely manual finish persists without changing timer coin rewards", async ({
   page,
 }, info) => {
   await open(page, { clock: true });
@@ -301,7 +301,7 @@ test("writing unlocks cards and a timely manual finish persists without changing
   expect((await progress(page)).completed).toEqual([cardId]);
 });
 
-test("paused writing earns no quest progress and missing the timer deadline cannot complete a quest", async ({
+test.skip("paused writing earns no quest progress and missing the timer deadline cannot complete a quest", async ({
   page,
 }) => {
   await open(page, { clock: true });
@@ -334,7 +334,7 @@ test("paused writing earns no quest progress and missing the timer deadline cann
   );
 });
 
-test("quests and paid continuation cards belong to the selected screenplay version", async ({
+test.skip("quests and paid continuation cards belong to the selected screenplay version", async ({
   page,
 }) => {
   await open(page, { clock: true, coins: 10 });
@@ -380,7 +380,7 @@ test("quests and paid continuation cards belong to the selected screenplay versi
   expect((await wallet(page)).ideas).toHaveLength(1);
 });
 
-test("idea purchases are synchronized across tabs and cannot spend an unavailable balance", async ({
+test.skip("idea purchases are synchronized across tabs and cannot spend an unavailable balance", async ({
   page,
   context,
 }) => {
@@ -415,7 +415,7 @@ test("idea purchases are synchronized across tabs and cannot spend an unavailabl
   expect((await wallet(page)).ideas).toHaveLength(1);
 });
 
-test("a failed purchase does not charge coins or lose the screenplay", async ({
+test.skip("a failed purchase does not charge coins or lose the screenplay", async ({
   page,
 }) => {
   await open(page, { coins: 5 });
@@ -440,7 +440,7 @@ test("a failed purchase does not charge coins or lose the screenplay", async ({
   );
 });
 
-test("reduced motion disables carousel transitions", async ({ page }) => {
+test.skip("reduced motion disables carousel transitions", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page);
   await showCards(page);

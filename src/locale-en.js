@@ -1,6 +1,10 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Ширина карточки": "Card width",
+  "Потяните, чтобы изменить ширину": "Drag to resize",
+  "Перейти к карточке в аутлайне": "Go to card in outline",
+  "Поверх интерфейса": "Across the interface",
   "Визуализация мух": "Fly visualization",
   Включена: "On",
   Выключена: "Off",

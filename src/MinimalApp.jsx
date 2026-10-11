@@ -27,16 +27,16 @@ import {
   RefreshCw,
   History,
   Box,
-  ListTree,
   AlignLeft,
   MessageSquare,
   LogOut,
   Maximize2,
   Minimize2,
-  Layers3,
   Menu,
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
+import OutlineCardDrawer from "./OutlineCardDrawer.jsx";
+import { OutlineIcon } from "./StoryIcons.jsx";
 import { exportTYT } from "./tyt-format.js";
 import {
   chooseLocalDirectory,
@@ -2614,15 +2614,8 @@ export default function MinimalApp({ onLogout }) {
         {!!documents.length && (
           <ScriptVersionPicker
             document={current}
-            notesOpen={notesOpen}
             disabled={!filesReady || !!busy || deleting}
             onChange={changeScriptVersion}
-            onNotes={() => {
-              showSidebar(null);
-              componentHistory.current = { undo: [], redo: [] };
-              setView("screenplay");
-              setNotesOpen(true);
-            }}
           />
         )}
         <button
@@ -2683,7 +2676,7 @@ export default function MinimalApp({ onLogout }) {
               data-tooltip={IS_PRO ? t("Карточки истории") : t("Аутлайн · Pro")}
               onClick={() => changeView("outline")}
             >
-              <ListTree size={18} />
+              <OutlineIcon size={18} />
               {t("Аутлайн")}
             </button>
           </div>
@@ -2769,35 +2762,13 @@ export default function MinimalApp({ onLogout }) {
                     aria-describedby="script-doctor-condition"
                     onClick={() => showSidebar(doctorOpen ? null : "doctor")}
                   >
-                    <ScriptDoctorIcon
-                      count={doctorFindings.length}
-                      fliesEnabled={preferences.doctorFlies}
-                    />
+                    <ScriptDoctorIcon count={doctorFindings.length} />
                     <span
                       className="visually-hidden"
                       id="script-doctor-condition"
                     >
                       {t("Замечаний: {0}", doctorFindings.length)}
                     </span>
-                  </button>
-                  <button
-                    className={`icon-button${questsOpen ? " active" : ""}`}
-                    aria-label={t("Задания")}
-                    data-tooltip={t("Задания · Pro")}
-                    aria-expanded={questsOpen}
-                    onClick={() => {
-                      if (!IS_PRO) {
-                        setSubscriptionOpen(true);
-                        return;
-                      }
-                      if (questsOpen) showSidebar(null);
-                      else {
-                        showSidebar("quests");
-                        if (!dailyQuests.record.active) setQuestOverlay(true);
-                      }
-                    }}
-                  >
-                    <Layers3 size={18} />
                   </button>
                   <button
                     className={`icon-button${characterView ? " active" : ""}`}
@@ -3160,6 +3131,7 @@ export default function MinimalApp({ onLogout }) {
                     !questsOpen &&
                     !questOverlay &&
                     !historyOpen &&
+                    !outlineCard &&
                     !commentsOpen &&
                     !componentsOpen &&
                     !propsOpen &&
@@ -3173,7 +3145,7 @@ export default function MinimalApp({ onLogout }) {
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
                     if (IS_PRO) {
-                      changeView("outline");
+                      showSidebar(null);
                       setOutlineCard(id);
                     }
                   }}
@@ -3246,7 +3218,8 @@ export default function MinimalApp({ onLogout }) {
                     questOverlay ||
                     focusMode ||
                     !!characterView ||
-                    !!libraryDialog
+                    !!libraryDialog ||
+                    !!outlineCard
                   }
                   onCreateComponent={componentFromSelection}
                   onPasteImages={(files) =>
@@ -3363,12 +3336,41 @@ export default function MinimalApp({ onLogout }) {
               commentsOpen ||
               componentsOpen ||
               propsOpen ||
-              annotations
+              annotations ||
+              (view === "screenplay" && outlineCard)
             )
           }
           label={t("Панель сценария")}
           onClose={() => showSidebar(null)}
         >
+          {view === "screenplay" && outlineCard && (
+            <OutlineCardDrawer
+              key={writingScope}
+              outline={outlineWithLinks}
+              selectedId={outlineCard}
+              outlineTarget
+              onSelect={setOutlineCard}
+              onChange={(value) =>
+                update((document) => ({ ...document, outline: value }))
+              }
+              onLocate={(card) => {
+                changeView("outline", { focus: false });
+                update((document) => ({
+                  ...document,
+                  outline: {
+                    ...document.outline,
+                    columns: document.outline.columns.map((column) =>
+                      column.id === card.columnId
+                        ? { ...column, collapsed: false }
+                        : column,
+                    ),
+                  },
+                }));
+                setOutlineCard(card.id);
+              }}
+              onRelink={relinkOutlineCard}
+            />
+          )}
           {searchOpen && (
             <DocumentSearch
               matches={searchMatches}
@@ -3842,12 +3844,7 @@ export default function MinimalApp({ onLogout }) {
           onEmbed={embedLibrary}
         />
       )}
-      {preferences.doctorFlies && (
-        <DoctorFlies
-          count={doctorFindings.length}
-          iconVisible={!focusMode && (!mobile || mobileToolsOpen)}
-        />
-      )}
+      {preferences.doctorFlies && <DoctorFlies count={doctorFindings.length} />}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {questOverlay && IS_PRO && (
         <QuestOverlay

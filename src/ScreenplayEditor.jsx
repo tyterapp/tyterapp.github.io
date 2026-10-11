@@ -16,6 +16,7 @@ import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
+import { cardIconSvg } from "./StoryIcons.jsx";
 import { quoteDiff } from "./comment-review.js";
 import { getWordCount } from "./data.js";
 import { useScreenplayPagination } from "./pagination.js";
@@ -855,8 +856,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         t("Открыть карточку аутлайна"),
                       );
                       button.contentEditable = "false";
-                      button.innerHTML =
-                        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4h12v12M4 8h12v12H4z"/></svg>';
+                      button.innerHTML = cardIconSvg(18);
                       button.addEventListener("mousedown", (event) =>
                         event.preventDefault(),
                       );

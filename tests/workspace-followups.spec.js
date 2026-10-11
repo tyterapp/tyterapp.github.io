@@ -117,16 +117,6 @@ for (const width of [320, 1440])
         .poll(() => scroller.evaluate((node) => node.scrollTop))
         .toBe(0);
       await fullscreen.click();
-      await version(page).click();
-      const note = page.getByRole("option", { name: "Note", exact: true });
-      await note.scrollIntoViewIfNeeded();
-      await note.click();
-      await scroller.evaluate((node) => node.scrollTo(0, 900));
-      await expect(top).toBeVisible();
-      await top.click();
-      await expect
-        .poll(() => scroller.evaluate((node) => node.scrollTop))
-        .toBe(0);
     });
   }
 const version = (page) =>
@@ -302,7 +292,8 @@ test("empty scene suggestions remain mounted during timer ticks and preserve sel
 });
 
 for (const width of [320, 1440]) {
-  test(`${width}px: explicit Note option opens existing plain notes and returns to the current script`, async ({
+  // The Note entry is temporarily hidden at the user's request; its data is preserved.
+  test.skip(`${width}px: explicit Note option opens existing plain notes and returns to the current script`, async ({
     page,
   }, info) => {
     await open(page, { width, theme: width === 1440 ? "dark" : "light" });

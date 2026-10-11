@@ -17,15 +17,9 @@ import {
 import { uid } from "./data.js";
 import { dramaValue } from "./document-layout.js";
 import OutlineDramaChart from "./OutlineDramaChart.jsx";
+import OutlineCardDrawer from "./OutlineCardDrawer.jsx";
+import { CardIcon } from "./StoryIcons.jsx";
 import "./outline.css";
-const COLORS = [
-  "#33313b",
-  "#d89b17",
-  "#aa45ef",
-  "#e86847",
-  "#609923",
-  "#1b2eff",
-];
 function RemoveDialog({ removing, onClose, onConfirm }) {
   const language = useLanguage();
   const dialog = useRef(null);
@@ -89,15 +83,12 @@ export default function OutlineBoard({
   const [menu, setMenu] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [removing, setRemoving] = useState(null);
-  const [comment, setComment] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const draggedCard = useRef(null);
   const dramaButton = useRef(null);
-  const detailBody = useRef(null);
   const root = useRef(null);
   const { columns = [], cards = [] } = outline || {};
-  const selected = cards.find((card) => card.id === selectedId);
   const closeDrama = () => {
     setShowDrama(false);
     requestAnimationFrame(() => dramaButton.current?.focus());
@@ -136,10 +127,10 @@ export default function OutlineBoard({
     };
   }, [onSelect]);
   useEffect(() => {
-    setComment("");
-    detailBody.current?.scrollTo({
-      top: 0,
-    });
+    const target = [
+      ...(root.current?.querySelectorAll(".outline-card") || []),
+    ].find((node) => node.dataset.cardId === selectedId);
+    target?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selectedId]);
   const changeCard = (id, fields) =>
     onChange({
@@ -572,7 +563,7 @@ export default function OutlineBoard({
                               className="outline-card-title"
                               onClick={() => onSelect(card.id)}
                             >
-                              <Copy size={17} />
+                              <CardIcon size={17} />
                               <strong>{card.title || t("Без названия")}</strong>
                             </button>
                             <button
@@ -638,205 +629,14 @@ export default function OutlineBoard({
             )}
         </section>
       </div>
-      {selected && (
-        <aside
-          className="component-drawer outline-card-drawer"
-          aria-label={t("Редактирование карточки")}
-        >
-          <div className="drawer-header">
-            <h2>
-              <Copy size={17} />
-              {t("Карточка истории")}
-            </h2>
-            <button
-              className="icon-button"
-              aria-label={t("Перейти к сцене карточки")}
-              data-tooltip={t("Перейти к сцене")}
-              onClick={() =>
-                selected.blockId ? onLocate(selected) : onRelink(selected)
-              }
-            >
-              <Crosshair size={18} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t("Закрыть карточку")}
-              data-tooltip={t("Закрыть")}
-              onClick={() => onSelect(null)}
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <div className="outline-detail-body" ref={detailBody}>
-            <label>
-              {t("Название")}
-              <textarea
-                key={selected.id}
-                className="outline-card-name"
-                rows={2}
-                aria-label={t("Название карточки")}
-                value={selected.title}
-                maxLength={200}
-                onChange={(event) =>
-                  changeCard(selected.id, {
-                    title: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              {t("Текст карточки")}
-              <textarea
-                aria-label={t("Текст карточки")}
-                value={selected.text}
-                maxLength={20000}
-                placeholder={t("Что происходит в истории?")}
-                onChange={(event) =>
-                  changeCard(selected.id, {
-                    text: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <p className="outline-detail-note">
-              {t("Изменения здесь не заменяют текст сцены в сценарии.")}
-            </p>
-            <label>
-              {t("Акт")}
-              <select
-                aria-label={t("Акт карточки")}
-                value={selected.columnId}
-                onChange={(event) =>
-                  changeCard(selected.id, {
-                    columnId: event.target.value,
-                  })
-                }
-              >
-                {columns.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="outline-drama-control">
-              <span>
-                {t("Драматичность ")}
-                <output>{dramaValue(selected.drama)}/10</output>
-              </span>
-              <input
-                type="range"
-                className="app-range"
-                min="0"
-                max="10"
-                step="1"
-                aria-label={t("Драматичность карточки")}
-                value={dramaValue(selected.drama)}
-                style={{
-                  "--range-progress": `${dramaValue(selected.drama) * 10}%`,
-                }}
-                onChange={(event) =>
-                  changeCard(selected.id, {
-                    drama: dramaValue(event.target.value),
-                  })
-                }
-              />
-              <span className="outline-drama-scale">
-                <span>0</span>
-                <span>10</span>
-              </span>
-            </label>
-            <fieldset className="outline-colors">
-              <legend>{t("Цвет карточки")}</legend>
-              <div>
-                {COLORS.map((color, index) => (
-                  <button
-                    key={color}
-                    aria-label={t(
-                      [
-                        "Графитовый",
-                        "Жёлтый",
-                        "Фиолетовый",
-                        "Оранжевый",
-                        "Зелёный",
-                        "Синий",
-                      ][index],
-                    )}
-                    aria-pressed={selected.color === color}
-                    style={{
-                      "--card-color": color,
-                    }}
-                    onClick={() =>
-                      changeCard(selected.id, {
-                        color,
-                      })
-                    }
-                  >
-                    <span />
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <section className="outline-comments">
-              <h3>
-                <MessageSquare size={17} />
-                {t("Комментарии")}
-              </h3>
-              {(selected.comments || []).map((item) => (
-                <div className="outline-comment" key={item.id}>
-                  <p>{item.text}</p>
-                  <button
-                    className="icon-button"
-                    aria-label={t("Удалить комментарий карточки")}
-                    data-tooltip={t("Удалить комментарий")}
-                    onClick={() =>
-                      changeCard(selected.id, {
-                        comments: selected.comments.filter(
-                          (row) => row.id !== item.id,
-                        ),
-                      })
-                    }
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!comment.trim()) return;
-                  changeCard(selected.id, {
-                    comments: [
-                      ...(selected.comments || []),
-                      {
-                        id: uid(),
-                        text: comment.trim(),
-                        createdAt: new Date().toISOString(),
-                      },
-                    ],
-                  });
-                  setComment("");
-                }}
-              >
-                <textarea
-                  aria-label={t("Комментарий карточки")}
-                  placeholder={t("Добавить комментарий…")}
-                  value={comment}
-                  maxLength={10000}
-                  onChange={(event) => setComment(event.target.value)}
-                />
-                <button
-                  className="icon-button"
-                  aria-label={t("Добавить комментарий карточки")}
-                  disabled={!comment.trim()}
-                >
-                  <Plus size={20} />
-                </button>
-              </form>
-            </section>
-          </div>
-        </aside>
-      )}
+      <OutlineCardDrawer
+        outline={outline}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onChange={onChange}
+        onLocate={onLocate}
+        onRelink={onRelink}
+      />
       {removing && (
         <RemoveDialog
           removing={removing}

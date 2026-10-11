@@ -30,50 +30,6 @@
   stroke: oklch(1 0 0 / 0.3);
   animation: doctor-ripple 1.8s ease-in-out infinite alternate;
 }
-.doctor-fly {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  scale: 0.25;
-  filter: blur(4px);
-  rotate: var(--fly-angle);
-  transition:
-    opacity 300ms,
-    scale 300ms,
-    filter 300ms;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-.doctor-fly.is-visible {
-  opacity: 1;
-  scale: 1;
-  filter: blur(0);
-}
-.doctor-fly-orbit {
-  position: absolute;
-  width: 0;
-  height: 0;
-  animation: doctor-fly-orbit var(--fly-duration) linear infinite;
-  animation-delay: var(--fly-delay);
-  animation-play-state: paused;
-}
-.doctor-fly.is-visible .doctor-fly-orbit {
-  animation-play-state: running;
-}
-.doctor-fly:nth-child(even) .doctor-fly-orbit {
-  animation-direction: reverse;
-}
-.doctor-fly-body {
-  position: absolute;
-  left: var(--fly-radius);
-  top: -3.5px;
-  fill: var(--ui-text);
-}
-.doctor-fly-wing {
-  fill: color-mix(in oklch, var(--ui-muted) 70%, var(--ui-surface));
-}
 .doctor-drawer {
   background: var(--ui-field);
   color: var(--ui-text);
@@ -146,22 +102,15 @@
     visibility: hidden;
   }
 }
-@keyframes doctor-fly-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @keyframes doctor-ripple {
   to {
     transform: translateY(0.6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .doctor-fly-orbit,
   .doctor-water-surface {
     animation: none;
   }
-  .doctor-fly,
   .doctor-liquid,
   .script-doctor-icon {
     transition: none;

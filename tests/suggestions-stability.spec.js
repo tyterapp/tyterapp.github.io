@@ -119,12 +119,8 @@ for (const width of [320, 1440])
     }, info) => {
       await open(page, { width, theme });
       await observe(page);
-      const other = page.locator('[data-block-id="other"]');
-      const rect = await other.boundingBox();
-      // The popup may cover the middle of the next line on a narrow screen.
-      await other.click({
-        position: { x: rect.width - 4, y: rect.height / 2 },
-      });
+      // Keyboard navigation reaches the last empty scene even when the wider popup covers it.
+      await page.keyboard.press("Control+End");
       await page.waitForTimeout(250);
       await expect(popup(page).getByRole("option")).toHaveCount(4);
       expect(

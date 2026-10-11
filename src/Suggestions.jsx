@@ -212,8 +212,8 @@ export default function Suggestions({
         setPopup(null);
         return;
       }
-      const width = Math.min(242, window.innerWidth - 24),
-        height = items.length * 34 + 28;
+      const width = Math.min(296, window.innerWidth - 24),
+        height = items.length * 34 + 30;
       setPopup((previous) => {
         const sameContext =
           previous && signature(previous.context) === signature(c);

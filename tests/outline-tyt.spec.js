@@ -145,6 +145,10 @@ test("outline cards create independent scenes and navigate in both directions", 
   await expect(page.locator(".outline-comment")).toContainText(
     "Важная часть истории",
   );
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Перейти к карточке в аутлайне", exact: true })
+    .click();
   await page.keyboard.press("Control+f");
   await expect(
     page.getByLabel("Поиск карточек", { exact: true }),

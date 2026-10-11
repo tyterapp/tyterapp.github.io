@@ -159,10 +159,20 @@ for (const theme of ["light", "dark"]) {
     await open(page, fixture(6), theme);
     await expect(icon(page)).toHaveAttribute("data-error-count", "12");
     await expect(icon(page)).toHaveAttribute("data-fill", "1");
-    await expect(page.locator(".doctor-fly.is-visible, .doctor-interface-fly")).toHaveCount(12);
     await expect(
-      page.locator(".doctor-fly.is-visible .doctor-fly-orbit").first(),
-    ).toHaveCSS("animation-play-state", "running");
+      page.locator(".doctor-fly.is-visible, .doctor-interface-fly"),
+    ).toHaveCount(12);
+    await expect(page.locator(".script-doctor-icon .doctor-fly")).toHaveCount(
+      0,
+    );
+    await expect
+      .poll(() =>
+        page
+          .locator(".doctor-interface-fly")
+          .first()
+          .evaluate((node) => node.getAnimations().length),
+      )
+      .toBeGreaterThan(0);
     // Wait for the initial import migration before comparing stored content.
     // Navigation must not be mistaken for the first normalized autosave.
     const normalized = validateImport(await stored(page)).content;
@@ -265,7 +275,9 @@ test("fixing errors removes flies and liquid live, and typing errors back increa
       "data-error-count",
       String(6 - i * 2),
     );
-    await expect(page.locator(".doctor-fly.is-visible, .doctor-interface-fly")).toHaveCount(6 - i * 2);
+    await expect(
+      page.locator(".doctor-fly.is-visible, .doctor-interface-fly"),
+    ).toHaveCount(6 - i * 2);
   }
   await expect(icon(page)).toHaveAttribute("data-fill", "0");
   await expect(page.locator(".doctor-clear")).toContainText(
@@ -348,9 +360,19 @@ test("reduced motion stops particles, narrow drawer fits and full screen hides t
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   await page.getByRole("button", { name: "Открыть инструменты" }).click();
-  await expect(
-    page.locator(".doctor-fly.is-visible .doctor-fly-orbit").first(),
-  ).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".script-doctor-icon .doctor-fly")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page
+        .locator(".doctor-interface-flies")
+        .evaluate(
+          (node) =>
+            node
+              .getAnimations({ subtree: true })
+              .filter((animation) => animation.playState === "running").length,
+        ),
+    )
+    .toBe(0);
   await expect(page.locator(".doctor-water-surface")).toHaveCSS(
     "animation-name",
     "none",

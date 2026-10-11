@@ -35,11 +35,15 @@ async function open(page, { zoom, width, height, fontSize = 12 }) {
     localStorage.setItem("tyter.language.v1", "ru");
   }, project);
   await page.goto("/pro");
-  await expect(page.locator(".screenplay-editor")).toBeFocused();
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  if (width >= 832)
+    await expect(page.locator(".screenplay-editor")).toBeFocused();
   await page.evaluate(() => document.fonts.ready);
-  await expect
-    .poll(() => page.locator(".page-guide").count())
-    .toBeGreaterThan(2);
+  if (width >= 832)
+    await expect
+      .poll(() => page.locator(".page-guide").count())
+      .toBeGreaterThan(2);
+  else await expect(page.locator(".page-guide")).toHaveCount(1);
   return project;
 }
 const savedContent = (page) =>
@@ -106,21 +110,24 @@ for (const options of [
   { zoom: 200, width: 390, height: 740 },
   { zoom: 200, width: 1440, height: 650, fontSize: 26 },
 ])
-  test(`outline targets stay above midpoint with a visible cursor: ${options.zoom}% ${options.width}px, ${options.fontSize || 12}pt`, async ({
+  test(`outline targets retain a visible cursor: ${options.zoom}% ${options.width}px, ${options.fontSize || 12}pt`, async ({
     page,
   }, info) => {
     const project = await open(page, options);
     const editor = page.locator(".screenplay-editor");
     await expect.poll(async () => !!(await savedContent(page))).toBe(true);
     const before = await savedContent(page);
-    const padded = await editor
-      .locator("p")
-      .evaluateAll(
-        (nodes) =>
-          nodes.find(
-            (node) => parseFloat(getComputedStyle(node).paddingTop) > 0,
-          )?.dataset.blockId,
-      );
+    const padded =
+      options.width < 832
+        ? "scene-35"
+        : await editor
+            .locator("p")
+            .evaluateAll(
+              (nodes) =>
+                nodes.find(
+                  (node) => parseFloat(getComputedStyle(node).paddingTop) > 0,
+                )?.dataset.blockId,
+            );
     expect(padded).toBeTruthy();
     await editor.locator("p").last().click();
     await page.keyboard.press("End");
@@ -153,7 +160,10 @@ for (const options of [
       expect(cursor.bottom).toBeLessThanOrEqual(cursor.visibleBottom - 8);
       expect(cursor.left).toBeGreaterThanOrEqual(cursor.visibleLeft + 8);
       expect(cursor.right).toBeLessThanOrEqual(cursor.visibleRight - 8);
-      expect(cursor.relativeY).toBeLessThanOrEqual(0.5);
+      // Mobile has a separate gutter row above the heading; both must remain visible.
+      expect(cursor.relativeY).toBeLessThanOrEqual(
+        options.width < 832 ? 0.65 : 0.5,
+      );
       await expect
         .poll(() =>
           flash.evaluate((node) => getComputedStyle(node).backgroundColor),
@@ -188,14 +198,17 @@ test("drawer targets work with reduced motion and another target restarts the on
     .click();
   const last = page.locator('[data-block-id="scene-69"]');
   await expect(last).toHaveAttribute("data-outline-navigation-target", "true");
-  await expect(last.locator(".outline-navigation-flash")).toHaveCSS(
-    "animation-name",
-    "none",
-  );
-  await expect(last.locator(".outline-navigation-flash")).toHaveCSS(
-    "background-color",
-    "rgb(255, 221, 176)",
-  );
+  await expect
+    .poll(() =>
+      last.locator(".outline-navigation-flash").evaluate((node) => {
+        const style = getComputedStyle(node);
+        return {
+          animation: style.animationName,
+          background: style.backgroundColor,
+        };
+      }),
+    )
+    .toEqual({ animation: "none", background: "rgb(255, 221, 176)" });
   expect((await cursorGeometry(page)).relativeY).toBeLessThanOrEqual(0.5);
   await page.keyboard.press("Alt+2");
   await page

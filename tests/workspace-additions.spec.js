@@ -280,7 +280,8 @@ test("notes import/export strip text formatting and remain shared across screenp
   expect(back.notes.content.content[0].content[0].text).toBe("Синяя заметка");
   expect(back.scriptVersions.blue.notes).toBeUndefined();
 });
-test("notes editor uses Inter 18px, disables formatting, supports search/comments, saves and exports all versions", async ({
+// Note UI is temporarily hidden; the import/export data checks above stay active.
+test.skip("notes editor uses Inter 18px, disables formatting, supports search/comments, saves and exports all versions", async ({
   page,
 }, info) => {
   await open(page);
@@ -349,7 +350,7 @@ test("notes editor uses Inter 18px, disables formatting, supports search/comment
     "Исходный сценарий сохранён.",
   );
 });
-test("notes fit 320px, search opens a sheet, and components remain available", async ({
+test.skip("notes fit 320px, search opens a sheet, and components remain available", async ({
   page,
 }, info) => {
   await open(page, { width: 320, theme: "dark" });
@@ -382,7 +383,7 @@ test("notes fit 320px, search opens a sheet, and components remain available", a
   await page.screenshot({ path: info.outputPath("notes-mobile.png") });
 });
 
-test("rich paste into notes stays plain and creating a component does not change the screenplay", async ({
+test.skip("rich paste into notes stays plain and creating a component does not change the screenplay", async ({
   page,
 }) => {
   await open(page, { errors: 1 });
@@ -436,7 +437,7 @@ test("rich paste into notes stays plain and creating a component does not change
   await expect(page.locator(".screenplay-editor")).toContainText("Новая идея");
 });
 
-test("restoring notes history preserves the current screenplay and outline", async ({
+test.skip("restoring notes history preserves the current screenplay and outline", async ({
   page,
 }) => {
   await open(page);

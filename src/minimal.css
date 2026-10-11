@@ -462,6 +462,9 @@ kbd {
   font-size: 12px;
   line-height: 1.45;
 }
+.thumbnail-preview.document-preview :is(figcaption, .preview-description) {
+  font-size: 14px;
+}
 .local-library-empty {
   margin: auto;
   padding: 40px;
@@ -1361,7 +1364,7 @@ kbd {
     "Segoe UI",
     sans-serif;
   color: #81788c;
-  font-size: 12px;
+  font-size: 14px;
 }
 .word-suggestions button {
   height: 34px;
@@ -1397,7 +1400,7 @@ kbd {
 .word-suggestions kbd {
   flex-shrink: 0;
   margin-left: 0;
-  font-size: 10px;
+  font-size: 12px;
   background: #fff8;
   color: #a198ae;
   border-color: #e8e3ec;
@@ -1405,9 +1408,10 @@ kbd {
 .suggestion-hint {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   padding: 6px var(--suggestion-inset) 3px;
   color: #b9b2c1;
-  font-size: 9px;
+  font-size: 11px;
 }
 .minimal-selection {
   background: #fff;

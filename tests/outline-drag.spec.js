@@ -253,7 +253,7 @@ test("scene numbers and enlarged links center on the heading, including paginate
             item.numberError < 2 * scale &&
             Math.abs(item.left - 16 * scale) < 1 &&
             Math.abs(item.variantGap - 16 * scale) < 1 &&
-            Math.abs(item.gap - 16 * scale) < 1 &&
+            Math.abs(item.gap - 8 * scale) < 1 &&
             item.linkError < 2 * scale &&
             item.width === 34 * scale &&
             item.height === 34 * scale &&
@@ -282,7 +282,25 @@ test("scene numbers and enlarged links center on the heading, including paginate
   await page.getByRole("button", { name: "Закрыть настройки" }).click();
   await assertAligned(2);
   await page.setViewportSize({ width: 390, height: 844 });
-  await assertAligned(2);
+  // The mobile gutter uses a separate row and 44px touch targets.
+  await expect(scenes.first().locator(".scene-gutter")).toHaveCSS(
+    "position",
+    "relative",
+  );
+  await expect
+    .poll(() =>
+      scenes.evaluateAll((nodes) =>
+        nodes.every((node) => {
+          const icon = node
+            .querySelector(".outline-scene-link")
+            .getBoundingClientRect();
+          return (
+            icon.height >= 44 && icon.left >= 0 && icon.right <= innerWidth
+          );
+        }),
+      ),
+    )
+    .toBe(true);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await assertAligned(2);
   const button = page.getByRole("button", {
