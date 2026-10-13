@@ -1,16 +1,44 @@
-import { useEffect, useRef, useState } from "react";
-import { Download, ImagePlus, RotateCcw, X } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronsUpDown,
+  Download,
+  ImagePlus,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import AppSelect from "./AppSelect.jsx";
 import { imageThumbnail } from "./image-thumbnail.js";
 import { getLanguage, t, useLanguage } from "./i18n.js";
 import {
   SHOT_FIELDS,
-  SHOT_REFERENCES,
   FORMAT_NAMES,
   durationLabel,
   shotText,
 } from "./shot-info.js";
+import { shotAspectRatio } from "./shot-image.js";
 const text = (pair) => pair[getLanguage() === "en" ? 1 : 0];
+
+function ShotProperty({ name, property, open, onToggle, children }) {
+  const id = useId();
+  return (
+    <div className="shot-property" data-property={property}>
+      <button
+        className="shot-property-heading"
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={onToggle}
+      >
+        <span>{name}</span>
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      <div id={id} className="shot-property-body" hidden={!open}>
+        {open ? children : null}
+      </div>
+    </div>
+  );
+}
 
 export default function ShotInfoDrawer({
   scene,
@@ -28,16 +56,42 @@ export default function ShotInfoDrawer({
   target.current = sceneKey;
   const [error, setError] = useState(""),
     [imageError, setImageError] = useState(false);
+  const [expansion, setExpansion] = useState({ scope: sceneKey, values: {} });
+  const overrides = expansion.scope === sceneKey ? expansion.values : {};
   const settings = scene.settings;
-  const reference =
-    SHOT_REFERENCES.find((ref) => ref.id === settings.reference) ||
-    SHOT_REFERENCES[0];
-  const image = settings.image || reference.image;
+  const ratio = shotAspectRatio(settings.aspectRatio);
+  const assigned = {
+    name: !!settings.name?.trim(),
+    duration: scene.blocks.some((block) => shotText(block).trim()),
+    ...Object.fromEntries(
+      SHOT_FIELDS.map((field) => [
+        field.key,
+        !!settings[field.key] ||
+          (field.key === "timeOfDay" && !!scene.timeOfDay),
+      ]),
+    ),
+    excludeNudity: settings.excludeNudity !== undefined,
+    excludeViolence: settings.excludeViolence !== undefined,
+  };
+  const isOpen = (key) => overrides[key] ?? !!assigned[key];
+  const allOpen = Object.keys(assigned).every(isOpen);
+  const toggle = (key) =>
+    setExpansion({
+      scope: sceneKey,
+      values: { ...overrides, [key]: !isOpen(key) },
+    });
+  const toggleAll = () =>
+    setExpansion({
+      scope: sceneKey,
+      values: Object.fromEntries(
+        Object.keys(assigned).map((key) => [key, !allOpen]),
+      ),
+    });
   useEffect(() => {
     body.current?.scrollTo({ top: 0 });
     setError("");
   }, [sceneKey]);
-  useEffect(() => setImageError(false), [image]);
+  useEffect(() => setImageError(false), [settings.image]);
   const upload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -53,6 +107,56 @@ export default function ShotInfoDrawer({
       if (target.current === key) setError(error.message);
     }
   };
+  const property = (key, name, children) => (
+    <ShotProperty
+      key={`${sceneKey}:${key}`}
+      name={name}
+      property={key}
+      open={isOpen(key)}
+      onToggle={() => toggle(key)}
+    >
+      {children}
+    </ShotProperty>
+  );
+  const selectProperty = (field) => {
+    const inferred =
+      field.key === "timeOfDay"
+        ? field.options.find(([value]) => value === scene.timeOfDay)
+        : null;
+    return property(
+      field.key,
+      text(field.label),
+      <>
+        <AppSelect
+          label={text(field.label)}
+          value={settings[field.key] || ""}
+          options={[
+            {
+              value: "",
+              label: inferred
+                ? `${text([inferred[1], inferred[2]])} · ${t("из заголовка")}`
+                : field.key === "timeOfDay"
+                  ? t("Из заголовка сцены")
+                  : t("Не задано"),
+            },
+            ...field.options.map(([value, ru, en]) => ({
+              value,
+              label: text([ru, en]),
+            })),
+          ]}
+          onChange={(value) => onChange({ [field.key]: value })}
+        />
+        <small className="shot-help">
+          {t("Например: {0}", text(field.example))}
+        </small>
+        {field.key === "aspectRatio" && (
+          <small className="shot-help">
+            {t("Кадрирование по центру. Оригинал сохраняется.")}
+          </small>
+        )}
+      </>,
+    );
+  };
   return (
     <aside className="shot-info-drawer" aria-label={t("Информация о кадре")}>
       <header className="shot-info-header">
@@ -62,13 +166,27 @@ export default function ShotInfoDrawer({
             {t("Сцена {0}", scene.number)} · {t("Вариант {0}", scene.letter)}
           </span>
         </div>
-        <button
-          className="icon-button"
-          onClick={onClose}
-          aria-label={t("Закрыть информацию о кадре")}
-        >
-          <X size={18} />
-        </button>
+        <div className="shot-header-actions">
+          <button
+            className="icon-button"
+            onClick={toggleAll}
+            aria-label={t(
+              allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
+            )}
+            data-tooltip={t(
+              allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
+            )}
+          >
+            <ChevronsUpDown size={17} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={onClose}
+            aria-label={t("Закрыть информацию о кадре")}
+          >
+            <X size={18} />
+          </button>
+        </div>
       </header>
       <div className="shot-info-scroll" ref={body}>
         <button
@@ -78,36 +196,17 @@ export default function ShotInfoDrawer({
         >
           {scene.title || t("Без названия")}
         </button>
-        <section className="shot-section" aria-label={t("Пример кадра")}>
-          <figure className="shot-reference">
-            {!imageError ? (
-              <img
-                src={image}
-                alt={
-                  settings.image
-                    ? t("Прикреплённый пример кадра")
-                    : reference.title
-                }
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="shot-reference-unavailable">
-                {t(
-                  "Пример кадра недоступен. Добавьте изображение с устройства.",
-                )}
-              </div>
-            )}
-            <figcaption>
-              {settings.image ? t("Ваш пример кадра") : reference.title}
-            </figcaption>
-          </figure>
+        <section
+          className="shot-section shot-image-section"
+          aria-label={t("Пример кадра")}
+        >
           <div className="shot-image-actions">
             <button
               className="quiet-button"
               onClick={() => input.current?.click()}
             >
               <ImagePlus size={16} />
-              {settings.image ? t("Заменить картинку") : t("Добавить пример")}
+              {settings.image ? t("Заменить картинку") : t("Загрузить кадр")}
             </button>
             {settings.image && (
               <button
@@ -119,6 +218,9 @@ export default function ShotInfoDrawer({
               </button>
             )}
           </div>
+          {selectProperty(
+            SHOT_FIELDS.find((field) => field.key === "aspectRatio"),
+          )}
           <input
             ref={input}
             type="file"
@@ -131,103 +233,93 @@ export default function ShotInfoDrawer({
               {t(error)}
             </p>
           )}
-          {!settings.image && (
-            <AppSelect
-              label={t("Пример кадра")}
-              value={reference.id}
-              options={SHOT_REFERENCES.map((ref) => ({
-                value: ref.id,
-                label: ref.title,
-              }))}
-              onChange={(reference) => onChange({ reference })}
-            />
+          {settings.image && (
+            <figure className="shot-reference">
+              {!imageError ? (
+                <div
+                  className={`shot-image-frame${ratio ? " is-cropped" : ""}`}
+                  style={
+                    ratio
+                      ? {
+                          aspectRatio: ratio,
+                          width: `min(100%, ${320 * ratio}px)`,
+                        }
+                      : undefined
+                  }
+                >
+                  <img
+                    src={settings.image}
+                    alt={t("Прикреплённый пример кадра")}
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              ) : (
+                <div className="shot-reference-unavailable">
+                  {t(
+                    "Пример кадра недоступен. Добавьте изображение с устройства.",
+                  )}
+                </div>
+              )}
+              <figcaption>{t("Ваш пример кадра")}</figcaption>
+            </figure>
           )}
         </section>
         <section className="shot-section shot-main-settings">
-          <label className="shot-field">
-            <span>{t("Название шота")}</span>
+          {property(
+            "name",
+            t("Название шота"),
             <input
+              className="shot-name-input"
+              aria-label={t("Название шота")}
               value={settings.name || ""}
               maxLength={180}
               placeholder={t("Например, встреча у окна")}
               onChange={(event) => onChange({ name: event.target.value })}
-            />
-          </label>
-          <div className="shot-duration">
-            <div>
-              <span>{t("Хронометраж сцены")}</span>
-              <small>{t("Автоматически · 1 страница = 1 минута")}</small>
-            </div>
-            <output aria-label={t("Хронометраж сцены")}>
-              {durationLabel(scene.seconds)}
-            </output>
-          </div>
-          <p className="shot-help">
-            {t("Оценка по сценарию Courier, без учёта масштаба экрана.")}
-          </p>
-          {SHOT_FIELDS.map((field) => {
-            const inferred =
-              field.key === "timeOfDay"
-                ? field.options.find(([value]) => value === scene.timeOfDay)
-                : null;
-            return (
-              <div className="shot-field" key={field.key}>
-                <span>{text(field.label)}</span>
-                <AppSelect
-                  label={text(field.label)}
-                  value={settings[field.key] || ""}
-                  options={[
-                    {
-                      value: "",
-                      label: inferred
-                        ? `${text([inferred[1], inferred[2]])} · ${t("из заголовка")}`
-                        : field.key === "timeOfDay"
-                          ? t("Из заголовка сцены")
-                          : t("Не задано"),
-                    },
-                    ...field.options.map(([value, ru, en]) => ({
-                      value,
-                      label: text([ru, en]),
-                    })),
-                  ]}
-                  onChange={(value) => onChange({ [field.key]: value })}
-                />
-                <small className="shot-help">
-                  {t("Например: {0}", text(field.example))}
-                </small>
+            />,
+          )}
+          {property(
+            "duration",
+            t("Хронометраж сцены"),
+            <>
+              <div className="shot-duration">
+                <small>{t("Автоматически · 1 страница = 1 минута")}</small>
+                <output aria-label={t("Хронометраж сцены")}>
+                  {durationLabel(scene.seconds)}
+                </output>
               </div>
-            );
-          })}
-          <div className="shot-content-flags">
-            <label>
-              <input
-                type="checkbox"
-                checked={settings.excludeNudity !== false}
-                onChange={(event) =>
-                  onChange({ excludeNudity: event.target.checked })
-                }
-              />
-              {t("Исключить наготу")}
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={settings.excludeViolence !== false}
-                onChange={(event) =>
-                  onChange({ excludeViolence: event.target.checked })
-                }
-              />
-              {t("Исключить насилие")}
-            </label>
-            <small className="shot-help">
-              {t(
-                "Требования к кадру. Содержимое референсов автоматически не фильтруется.",
-              )}
-            </small>
-          </div>
+              <p className="shot-help">
+                {t("Оценка по сценарию Courier, без учёта масштаба экрана.")}
+              </p>
+            </>,
+          )}
+          {SHOT_FIELDS.filter((field) => field.key !== "aspectRatio").map(
+            selectProperty,
+          )}
+          {[
+            ["excludeNudity", "Исключить наготу"],
+            ["excludeViolence", "Исключить насилие"],
+          ].map(([key, name]) =>
+            property(
+              key,
+              t(name),
+              <label className="shot-flag-control">
+                <input
+                  type="checkbox"
+                  checked={settings[key] !== false}
+                  onChange={(event) =>
+                    onChange({ [key]: event.target.checked })
+                  }
+                />
+                {t(name)}
+              </label>,
+            ),
+          )}
           <button
             className="quiet-button shot-reset"
-            onClick={() => onChange(null)}
+            onClick={() => {
+              setExpansion({ scope: sceneKey, values: {} });
+              onChange(null);
+            }}
           >
             <RotateCcw size={15} />
             {t("Сбросить настройки кадра")}
@@ -253,15 +345,6 @@ export default function ShotInfoDrawer({
             ))}
           </ol>
         </section>
-        <footer className="shot-source">
-          {t("Примеры кадров взяты с сайта")}{" "}
-          <a href="https://shotdeck.com/" target="_blank" rel="noreferrer">
-            ShotDeck
-          </a>
-          .{" "}
-          {settings.image &&
-            t("Прикреплённое изображение добавлено пользователем.")}
-        </footer>
       </div>
       <div className="shot-export">
         <button className="primary-button" disabled={busy} onClick={onExport}>

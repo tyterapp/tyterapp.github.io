@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { fileURLToPath } from "node:url";
 import { createProject, validateImport } from "../src/data.js";
 import { switchSceneVariant } from "../src/scene-variants.js";
 import { switchScriptVersion } from "../src/script-versions.js";
@@ -93,6 +92,27 @@ async function stored(page) {
   );
 }
 
+async function uploadedImage(page) {
+  return Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 300;
+      const ctx = canvas.getContext("2d");
+      for (const [color, x, width] of [
+        ["#1645e8", 0, 150],
+        ["#16a34a", 150, 300],
+        ["#e83016", 450, 150],
+      ]) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, 0, width, 300);
+      }
+      return canvas.toDataURL("image/png").split(",")[1];
+    }),
+    "base64",
+  );
+}
+
 test("shot settings survive import, remain isolated by variant and script version, and duration uses full screenplay pages", () => {
   let doc = updateShotSettings(fixture(), "scene", "A", {
     name: "Встреча у окна",
@@ -162,6 +182,7 @@ for (const theme of ["light", "dark"])
   test(`${theme}: shot drawer saves per-variant settings, keeps the screenplay view and links to blocks`, async ({
     page,
   }, info) => {
+    test.setTimeout(45000);
     await open(page, { theme });
     await page.mouse.move(100, 800);
     await expect(shotButton(page)).toHaveCSS("opacity", "0.2");
@@ -170,24 +191,80 @@ for (const theme of ["light", "dark"])
     await shotButton(page).click();
     const panel = drawer(page);
     await expect(panel).toBeVisible();
-    await expect.poll(() => panel.locator(".shot-reference img").evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
+    await expect(panel.locator(".shot-reference img")).toHaveCount(0);
+    await expect(
+      panel.getByRole("button", { name: "Загрузить кадр", exact: true }),
+    ).toBeVisible();
     await expect(page.locator(".screenplay-editor")).toBeVisible();
     await expect(
       panel.getByRole("combobox", { name: "Время суток", exact: true }),
     ).toContainText("ДЕНЬ · из заголовка");
-    await expect(panel.getByRole("combobox")).toHaveCount(
-      SHOT_FIELDS.length + 1,
-    );
+    await expect(panel.getByRole("combobox")).toHaveCount(1);
+    for (const field of SHOT_FIELDS.filter(
+      (field) => field.key !== "timeOfDay",
+    ))
+      await expect(
+        panel.locator(`[data-property="${field.key}"] .shot-property-heading`),
+      ).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      panel.getByRole("button", { name: "Название шота", exact: true }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await panel
+      .getByRole("button", { name: "Развернуть все свойства", exact: true })
+      .click();
+    await expect(panel.getByRole("combobox")).toHaveCount(SHOT_FIELDS.length);
+    await panel
+      .getByRole("button", { name: "Свернуть все свойства", exact: true })
+      .click();
+    await expect(panel.getByRole("combobox")).toHaveCount(0);
+    await panel
+      .getByRole("button", { name: "Название шота", exact: true })
+      .click();
     await panel
       .getByRole("textbox", { name: "Название шота", exact: true })
       .fill("Встреча у окна");
+    await panel
+      .getByRole("button", { name: "Формат кадра", exact: true })
+      .click();
     await selectAppOption(
       page,
-      panel.getByRole("combobox", { name: "Соотношение сторон", exact: true }),
+      panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
       "2.39",
     );
-    await panel.locator('input[type="file"]').setInputFiles(fileURLToPath(new URL("../public/shot-references/odyssey.jpg", import.meta.url)));
-    await expect(panel.getByAltText("Прикреплённый пример кадра")).toBeVisible();
+    await panel
+      .locator('input[type="file"]')
+      .setInputFiles({
+        name: "my-shot.png",
+        mimeType: "image/png",
+        buffer: await uploadedImage(page),
+      });
+    await expect(
+      panel.getByAltText("Прикреплённый пример кадра"),
+    ).toBeVisible();
+    const original = await panel
+      .getByAltText("Прикреплённый пример кадра")
+      .getAttribute("src");
+    for (const [format, ratio] of [
+      ["2.39", 2.39],
+      ["1:1", 1],
+      ["9:16", 9 / 16],
+    ]) {
+      await selectAppOption(
+        page,
+        panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
+        format,
+      );
+      const rect = await panel.locator(".shot-image-frame").boundingBox();
+      expect(rect.width / rect.height).toBeCloseTo(ratio, 2);
+      await expect(
+        panel.getByAltText("Прикреплённый пример кадра"),
+      ).toHaveAttribute("src", original);
+    }
+    await selectAppOption(
+      page,
+      panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
+      "2.39",
+    );
     await panel.getByRole("button", { name: /Диалог Мы увидимся/ }).click();
     await expect
       .poll(() =>
@@ -208,11 +285,17 @@ for (const theme of ["light", "dark"])
       .click();
     await page.getByRole("option", { name: "F", exact: true }).click();
     await expect(
-      panel.getByRole("textbox", { name: "Название шота" }),
-    ).toHaveValue("");
+      panel.getByRole("button", { name: "Название шота", exact: true }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      panel.getByRole("button", { name: "Формат кадра", exact: true }),
+    ).toHaveAttribute("aria-expanded", "false");
     await expect(
       panel.getByRole("combobox", { name: "Время суток", exact: true }),
     ).toContainText("СУМЕРКИ · из заголовка");
+    await panel
+      .getByRole("button", { name: "Название шота", exact: true })
+      .click();
     await panel
       .getByRole("textbox", { name: "Название шота" })
       .fill("Вечерняя встреча");
@@ -231,7 +314,12 @@ for (const theme of ["light", "dark"])
     await expect(
       drawer(page).getByRole("textbox", { name: "Название шота" }),
     ).toHaveValue("Встреча у окна");
-    await expect(drawer(page).getByAltText("Прикреплённый пример кадра")).toBeVisible();
+    await expect(
+      drawer(page).getByRole("button", { name: "Формат кадра", exact: true }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      drawer(page).getByAltText("Прикреплённый пример кадра"),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Закрыть информацию о кадре", exact: true })
       .click();
@@ -251,6 +339,9 @@ test("320px: shot settings use the mobile sheet and block navigation returns to 
   const rect = await drawer(page).boundingBox();
   expect(rect.x).toBeGreaterThanOrEqual(0);
   expect(rect.x + rect.width).toBeLessThanOrEqual(320);
+  await drawer(page)
+    .getByRole("button", { name: "Людей в кадре", exact: true })
+    .click();
   await selectAppOption(
     page,
     drawer(page).getByRole("combobox", { name: "Людей в кадре", exact: true }),
@@ -312,6 +403,16 @@ test("PDF shot report includes every scene and stored variant, all settings and 
   });
   await open(page, { doc });
   await shotButton(page).click();
+  await drawer(page)
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name: "my-shot.png",
+      mimeType: "image/png",
+      buffer: await uploadedImage(page),
+    });
+  await expect(
+    drawer(page).getByAltText("Прикреплённый пример кадра"),
+  ).toBeVisible();
   const pending = page.waitForEvent("download");
   await drawer(page)
     .getByRole("button", { name: "PDF-отчёт по всем сценам" })
@@ -329,11 +430,19 @@ test("PDF shot report includes every scene and stored variant, all settings and 
     const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes) })
       .promise;
     let text = "";
-    for (let i = 1; i <= pdf.numPages; i++)
-      text += (await (await pdf.getPage(i)).getTextContent()).items
+    const images = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      text += (await page.getTextContent()).items
         .map((item) => item.str)
         .join(" ");
-    return { text: text.replace(/\s+/g, " "), pages: pdf.numPages };
+      const operators = await page.getOperatorList();
+      operators.fnArray.forEach((op, index) => {
+        if (op === pdfjs.OPS.paintImageXObject)
+          images.push(operators.argsArray[index].slice(1));
+      });
+    }
+    return { text: text.replace(/\s+/g, " "), pages: pdf.numPages, images };
   }, bytes);
   for (const text of [
     "Вариант A",
@@ -349,9 +458,52 @@ test("PDF shot report includes every scene and stored variant, all settings and 
     "Диалог",
     "Переход",
     "Заметки",
-    "shotdeck.com",
     "Мы увидимся на рассвете.",
   ])
     expect(result.text).toContain(text);
+  expect(result.text).not.toMatch(/ShotDeck|shotdeck\.com/);
+  expect(result.images).toHaveLength(1);
+  expect(result.images[0][0] / result.images[0][1]).toBeCloseTo(2.39, 2);
   expect(result.pages).toBeGreaterThan(2);
+});
+
+test("cropping preserves the source and keeps the centre for square, portrait and wide formats", async ({
+  page,
+}) => {
+  await open(page);
+  const buffer = await uploadedImage(page);
+  const source = `data:image/png;base64,${buffer.toString("base64")}`;
+  const results = await page.evaluate(async (source) => {
+    const { croppedShotImage } = await import("/src/shot-image.js");
+    const samples = [];
+    for (const format of ["1:1", "9:16", "2.39", ""]) {
+      const result = await croppedShotImage(source, format);
+      const bitmap = await createImageBitmap(
+        await (await fetch(result)).blob(),
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0);
+      samples.push({
+        format,
+        width: bitmap.width,
+        height: bitmap.height,
+        left: [
+          ...ctx.getImageData(4, Math.floor(bitmap.height / 2), 1, 1).data,
+        ],
+        unchanged: result === source,
+      });
+      bitmap.close();
+    }
+    return samples;
+  }, source);
+  expect(results[0].width).toBe(results[0].height);
+  expect(results[1].width / results[1].height).toBeCloseTo(9 / 16, 2);
+  expect(results[2].width / results[2].height).toBeCloseTo(2.39, 2);
+  for (const sample of results.slice(0, 2))
+    expect(sample.left[1]).toBeGreaterThan(sample.left[2] * 2);
+  expect(results[3].unchanged).toBe(true);
+  expect(results[3].left[2]).toBeGreaterThan(results[3].left[1] * 2);
 });

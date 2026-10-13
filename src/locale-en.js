@@ -1,6 +1,12 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Загрузить кадр": "Upload shot",
+  "Кадр не загружен": "No shot image uploaded",
+  "Кадрирование по центру. Оригинал сохраняется.":
+    "Centered cropping. The original is preserved.",
+  "Развернуть все свойства": "Expand all properties",
+  "Свернуть все свойства": "Collapse all properties",
   "В начале сцены выбирайте ИНТ., ЭКС. или смешанный заголовок. После места и тире — время суток: ДЕНЬ, НОЧЬ, УТРО, ВЕЧЕР, СУМЕРКИ, РАССВЕТ, ВОСХОД, ЗАКАТ, ПОЛДЕНЬ или ПОЛНОЧЬ. Для продолжения сцены доступны ПОЗЖЕ и ПРОДОЛЖЕНИЕ. В тексте предлагаются только ваши компоненты с иконкой.":
     "Start scenes with INT., EXT. or a combined heading. After the location and dash, choose DAY, NIGHT, MORNING, EVENING, DUSK, DAWN, SUNRISE, SUNSET, NOON or MIDNIGHT. LATER and CONTINUOUS are also available. Text suggestions use your own components with an icon.",
   "Информация о кадре": "Shot information",

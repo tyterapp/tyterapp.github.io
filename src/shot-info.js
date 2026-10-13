@@ -11,7 +11,7 @@ const field = (key, ru, en, example, options) => ({
 export const SHOT_FIELDS = [
   field(
     "aspectRatio",
-    "Соотношение сторон",
+    "Формат кадра",
     "Aspect ratio",
     ["2.39 — широкий киноэкран", "2.39 — widescreen"],
     [
@@ -192,27 +192,6 @@ export const SHOT_FIELDS = [
   ),
 ];
 
-// Public examples displayed on ShotDeck's landing page; keep the original source.
-export const SHOT_REFERENCES = [
-  {
-    id: "beef",
-    title: "BEEF · S1 E3",
-    image: "/shot-references/beef.jpg",
-    url: "https://shotdeck.com/assets/images/stills/thumb/small_ZBF37KQK.jpg",
-  },
-  {
-    id: "odyssey",
-    title: "2001: A Space Odyssey",
-    image: "/shot-references/odyssey.jpg",
-    url: "https://shotdeck.com/assets/images/stills/thumb/small_AS3P2ZND.jpg",
-  },
-  {
-    id: "jesse",
-    title: "The Assassination of Jesse James by the Coward Robert Ford",
-    image: "/shot-references/jesse.jpg",
-    url: "https://shotdeck.com/assets/images/landing_bottom.jpg",
-  },
-];
 export const shotText = (node) =>
   (node.content || [])
     .map((part) => part.text || (part.type === "hardBreak" ? "\n" : ""))
@@ -220,7 +199,7 @@ export const shotText = (node) =>
 export const shotSettings = (document, id, letter) =>
   document.sceneShots?.[id]?.[letter] || {};
 export const hasShotSettings = (settings) =>
-  Object.keys(settings || {}).length > 0;
+  Object.keys(settings || {}).some((key) => key !== "reference");
 export const FORMAT_NAMES = {
   scene: ["Заголовок", "Scene heading"],
   action: ["Действие", "Action"],
@@ -240,8 +219,6 @@ export function cleanShotSettings(source) {
       clean[key] = source[key];
   for (const key of ["excludeNudity", "excludeViolence"])
     if (source[key] === false) clean[key] = false;
-  if (SHOT_REFERENCES.some((ref) => ref.id === source.reference))
-    clean.reference = source.reference;
   if (
     typeof source.image === "string" &&
     source.image.length < 2 * 1024 * 1024 &&

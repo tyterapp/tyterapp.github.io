@@ -69,6 +69,10 @@
   font-weight: 600;
   margin: 0;
 }
+.shot-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
 .shot-info-header span {
   display: block;
   color: var(--ui-muted);
@@ -113,19 +117,31 @@
   margin: 0 0 8px;
 }
 .shot-reference {
-  margin: 0;
+  margin: 16px 0 0;
+}
+.shot-image-frame {
+  overflow: hidden;
+  margin-inline: auto;
+  border-radius: 8px;
+  background: #111;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
 }
 .shot-reference img {
   display: block;
   width: 100%;
-  height: 176px;
+  height: auto;
+  max-height: 320px;
   object-fit: contain;
   background: #111;
-  border-radius: 8px;
-  outline: 1px solid oklch(0 0 0 / 0.1);
-  outline-offset: -1px;
 }
-:root[data-theme="dark"] .shot-reference img {
+.shot-image-frame.is-cropped img {
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+}
+:root[data-theme="dark"] .shot-image-frame {
   outline-color: oklch(1 0 0 / 0.1);
 }
 .shot-reference figcaption {
@@ -171,15 +187,43 @@
   outline: 2px solid var(--ui-accent);
   outline-offset: 2px;
 }
-.shot-field {
-  display: block;
-  margin-top: 18px;
+.shot-property {
+  margin-top: 4px;
 }
-.shot-field > span {
-  display: block;
-  margin-bottom: 6px;
+.shot-property-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--ui-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
 }
-.shot-field input {
+.shot-property-heading:hover {
+  color: var(--ui-accent);
+}
+.shot-property-heading > svg {
+  flex: 0 0 auto;
+  color: var(--ui-muted);
+  transform: rotate(-90deg);
+  transition: transform 140ms ease;
+}
+.shot-property-heading[aria-expanded="true"] > svg {
+  transform: rotate(0);
+}
+.shot-property-body {
+  padding: 2px 0 12px;
+}
+.shot-property-body[hidden] {
+  display: none;
+}
+.shot-name-input {
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -191,10 +235,10 @@
   box-shadow: 0 0 0 1px var(--ui-border);
   font: inherit;
 }
-.shot-field input::placeholder {
+.shot-name-input::placeholder {
   color: var(--ui-muted);
 }
-.shot-field .app-select-trigger {
+.shot-property .app-select-trigger {
   font-size: 13px;
 }
 .shot-help {
@@ -209,7 +253,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 0;
 }
 .shot-duration small {
   display: block;
@@ -221,17 +265,14 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
-.shot-content-flags {
-  margin-top: 20px;
-}
-.shot-content-flags label {
+.shot-flag-control {
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 40px;
   cursor: pointer;
 }
-.shot-content-flags input {
+.shot-flag-control input {
   width: 16px;
   height: 16px;
   accent-color: var(--ui-accent);
@@ -274,14 +315,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.shot-source {
-  color: var(--ui-muted);
-  font-size: 11px;
-}
-.shot-source a {
-  color: var(--ui-accent);
-  text-underline-offset: 3px;
-}
 .shot-upload-error {
   color: var(--ui-text);
   font-size: 12px;
@@ -321,8 +354,14 @@
     box-shadow: none;
   }
   .shot-info-drawer
-    :is(.quiet-button, .icon-button, .app-select-trigger, .primary-button),
-  .shot-content-flags label {
+    :is(
+      .quiet-button,
+      .icon-button,
+      .app-select-trigger,
+      .primary-button,
+      .shot-property-heading
+    ),
+  .shot-flag-control {
     min-height: 44px;
   }
   .shot-info-drawer input {
@@ -331,6 +370,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .scene-shot-button,
+  .shot-property-heading > svg,
   .shot-block-list button {
     transition: none;
   }

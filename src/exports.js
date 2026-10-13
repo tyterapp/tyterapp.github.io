@@ -5,7 +5,6 @@ import { documentFileStem } from "./local-file-names.js";
 import { sceneLetter } from "./scene-variants.js";
 import {
   SHOT_FIELDS,
-  SHOT_REFERENCES,
   FORMAT_NAMES,
   shotScenes,
   shotText,
@@ -13,6 +12,7 @@ import {
 } from "./shot-info.js";
 import { getLanguage, t } from "./i18n.js";
 import { scriptVersion } from "./script-versions.js";
+import { croppedShotImage } from "./shot-image.js";
 
 export const hasTitlePage = (document) =>
   ["author", "email", "year", "poster"].some((key) =>
@@ -830,20 +830,6 @@ export async function exportShotReportPDF(document) {
     color: [107, 100, 118],
   });
   const scenes = shotScenes(document, { allVariants: true });
-  const referenceImages = new Map();
-  const referenceImage = async (reference) => {
-    if (!referenceImages.has(reference.id))
-      referenceImages.set(
-        reference.id,
-        fetch(reference.image)
-          .then(async (response) => {
-            if (!response.ok) return null;
-            return new Uint8Array(await response.arrayBuffer());
-          })
-          .catch(() => null),
-      );
-    return referenceImages.get(reference.id);
-  };
   const activeSeconds = shotScenes(document).reduce(
     (sum, scene) => sum + scene.seconds,
     0,
@@ -884,10 +870,7 @@ export async function exportShotReportPDF(document) {
       write(
         `${t(name)}: ${settings[key] === false ? (language ? "No" : "Нет") : language ? "Yes" : "Да"}`,
       );
-    const reference =
-      SHOT_REFERENCES.find((ref) => ref.id === settings.reference) ||
-      SHOT_REFERENCES[0];
-    const image = settings.image || (await referenceImage(reference));
+    const image = await croppedShotImage(settings.image, settings.aspectRatio);
     if (image) {
       reserve(125);
       const info = pdf.getImageProperties(image);
@@ -901,18 +884,7 @@ export async function exportShotReportPDF(document) {
       );
       y += info.height * scale + 14;
     }
-    write(
-      settings.image
-        ? t("Ваш пример кадра")
-        : `${t("Пример кадра")}: ${reference.title}`,
-      { size: 9 },
-    );
-    if (!settings.image) {
-      reserve(16);
-      pdf.setFontSize(9);
-      pdf.textWithLink("ShotDeck", margin, y + 9, { url: reference.url });
-      y += 18;
-    }
+    write(image ? t("Ваш пример кадра") : t("Кадр не загружен"), { size: 9 });
     y += 8;
     reserve(35);
     write(t("Текст сцены"), { bold: true, size: 11 });
@@ -928,12 +900,6 @@ export async function exportShotReportPDF(document) {
   }
   if (!scenes.length)
     write(language ? "No scenes yet." : "Сцены пока не добавлены.");
-  reserve(42);
-  write(t("Примеры кадров взяты с сайта"), { size: 9 });
-  pdf.setFontSize(9);
-  pdf.textWithLink("https://shotdeck.com/", margin, y + 9, {
-    url: "https://shotdeck.com/",
-  });
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page);
     pdf.setFont("ShotReport", "normal");
