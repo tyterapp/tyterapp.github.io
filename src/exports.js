@@ -3,6 +3,16 @@ import { textMatches, propOccurrences } from "./prop-matches.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 import { documentFileStem } from "./local-file-names.js";
 import { sceneLetter } from "./scene-variants.js";
+import {
+  SHOT_FIELDS,
+  SHOT_REFERENCES,
+  FORMAT_NAMES,
+  shotScenes,
+  shotText,
+  durationLabel,
+} from "./shot-info.js";
+import { getLanguage, t } from "./i18n.js";
+import { scriptVersion } from "./script-versions.js";
 
 export const hasTitlePage = (document) =>
   ["author", "email", "year", "poster"].some((key) =>
@@ -755,6 +765,181 @@ export async function exportPropsPDF(document) {
     pdf.setPage(i);
     pdf.setFontSize(9);
     pdf.text(String(i), width - 40, 815, { align: "right" });
+  }
+  return pdf.output("blob");
+}
+export async function exportShotReportPDF(document) {
+  const [{ jsPDF }, fonts] = await Promise.all([import("jspdf"), getFonts()]);
+  const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true });
+  for (const { style, base64 } of fonts) {
+    pdf.addFileToVFS(`ShotReport-${style}.ttf`, base64);
+    pdf.addFont(
+      `ShotReport-${style}.ttf`,
+      "ShotReport",
+      {
+        Regular: "normal",
+        Bold: "bold",
+        Italic: "italic",
+        BoldItalic: "bolditalic",
+      }[style],
+    );
+  }
+  const language = getLanguage() === "en" ? 1 : 0;
+  const label = (pair) => pair[language];
+  const width = pdf.internal.pageSize.getWidth(),
+    height = pdf.internal.pageSize.getHeight();
+  const margin = 40,
+    usableWidth = width - 2 * margin,
+    bottom = height - 46;
+  const title = t("Отчёт по кадрам");
+  pdf.setProperties({
+    title: `${document.title} — ${title}`,
+    creator: "Tyter",
+  });
+  let y = margin;
+  const newPage = () => {
+    pdf.addPage();
+    y = margin;
+  };
+  const reserve = (amount) => {
+    if (y + amount > bottom) newPage();
+  };
+  const write = (
+    text,
+    { bold = false, size = 10, indent = 0, color = [51, 47, 59] } = {},
+  ) => {
+    pdf.setFont("ShotReport", bold ? "bold" : "normal");
+    pdf.setFontSize(size);
+    pdf.setTextColor(...color);
+    const lines = pdf.splitTextToSize(
+      String(text || " "),
+      usableWidth - indent,
+    );
+    for (const line of lines) {
+      reserve(size * 1.5);
+      pdf.text(line, margin + indent, y + size);
+      y += size * 1.5;
+    }
+  };
+  write(title, { bold: true, size: 18 });
+  y += 8;
+  write(document.title || t("Без названия"), { bold: true, size: 12 });
+  write(scriptVersion(document).label, { size: 9 });
+  write(t("Автоматически · 1 страница = 1 минута"), {
+    size: 9,
+    color: [107, 100, 118],
+  });
+  const scenes = shotScenes(document, { allVariants: true });
+  const referenceImages = new Map();
+  const referenceImage = async (reference) => {
+    if (!referenceImages.has(reference.id))
+      referenceImages.set(
+        reference.id,
+        fetch(reference.image)
+          .then(async (response) => {
+            if (!response.ok) return null;
+            return new Uint8Array(await response.arrayBuffer());
+          })
+          .catch(() => null),
+      );
+    return referenceImages.get(reference.id);
+  };
+  const activeSeconds = shotScenes(document).reduce(
+    (sum, scene) => sum + scene.seconds,
+    0,
+  );
+  write(
+    `${language ? "Active variants duration" : "Хронометраж выбранных вариантов"}: ${durationLabel(activeSeconds)}`,
+    { size: 10 },
+  );
+  y += 18;
+  for (const scene of scenes) {
+    // Keep the heading and all its settings together, even after a long scene.
+    reserve(340);
+    pdf.setDrawColor(219, 214, 226);
+    pdf.line(margin, y, width - margin, y);
+    y += 12;
+    write(
+      `${t("Сцена {0}", scene.number)} · ${t("Вариант {0}", scene.letter)}`,
+      { bold: true, size: 12 },
+    );
+    write(scene.title || t("Без названия"), { bold: true });
+    const settings = scene.settings;
+    write(`${t("Название шота")}: ${settings.name || t("Не задано")}`);
+    write(
+      `${t("Хронометраж сцены")}: ${durationLabel(scene.seconds)} (${scene.pages.toFixed(2)} ${language ? "pages" : "стр."})`,
+    );
+    for (const field of SHOT_FIELDS) {
+      const automatic = field.key === "timeOfDay" && !settings.timeOfDay;
+      const value = automatic ? scene.timeOfDay : settings[field.key];
+      const option = field.options.find(([id]) => id === value);
+      write(
+        `${label(field.label)}: ${option ? option[language + 1] + (automatic ? ` · ${t("из заголовка")}` : "") : t("Не задано")}`,
+      );
+    }
+    for (const [key, name] of [
+      ["excludeNudity", "Исключить наготу"],
+      ["excludeViolence", "Исключить насилие"],
+    ])
+      write(
+        `${t(name)}: ${settings[key] === false ? (language ? "No" : "Нет") : language ? "Yes" : "Да"}`,
+      );
+    const reference =
+      SHOT_REFERENCES.find((ref) => ref.id === settings.reference) ||
+      SHOT_REFERENCES[0];
+    const image = settings.image || (await referenceImage(reference));
+    if (image) {
+      reserve(125);
+      const info = pdf.getImageProperties(image);
+      const scale = Math.min(usableWidth / info.width, 90 / info.height);
+      pdf.addImage(
+        image,
+        margin,
+        y + 6,
+        info.width * scale,
+        info.height * scale,
+      );
+      y += info.height * scale + 14;
+    }
+    write(
+      settings.image
+        ? t("Ваш пример кадра")
+        : `${t("Пример кадра")}: ${reference.title}`,
+      { size: 9 },
+    );
+    if (!settings.image) {
+      reserve(16);
+      pdf.setFontSize(9);
+      pdf.textWithLink("ShotDeck", margin, y + 9, { url: reference.url });
+      y += 18;
+    }
+    y += 8;
+    reserve(35);
+    write(t("Текст сцены"), { bold: true, size: 11 });
+    for (const [index, block] of scene.blocks.entries()) {
+      reserve(30);
+      write(
+        `${index + 1}. ${label(FORMAT_NAMES[block.attrs?.format] || FORMAT_NAMES.action)}: ${shotText(block) || t("Пустой блок")}`,
+        { size: 9 },
+      );
+      y += 5;
+    }
+    y += 14;
+  }
+  if (!scenes.length)
+    write(language ? "No scenes yet." : "Сцены пока не добавлены.");
+  reserve(42);
+  write(t("Примеры кадров взяты с сайта"), { size: 9 });
+  pdf.setFontSize(9);
+  pdf.textWithLink("https://shotdeck.com/", margin, y + 9, {
+    url: "https://shotdeck.com/",
+  });
+  for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
+    pdf.setPage(page);
+    pdf.setFont("ShotReport", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(107, 100, 118);
+    pdf.text(String(page), width - margin, height - 24, { align: "right" });
   }
   return pdf.output("blob");
 }

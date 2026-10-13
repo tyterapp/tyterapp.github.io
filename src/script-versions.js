@@ -15,6 +15,7 @@ const ids = new Set(SCRIPT_VERSIONS.map((version) => version.id));
 const fields = [
   "content",
   "sceneVariants",
+  "sceneShots",
   "outline",
   "components",
   "componentLibraryId",

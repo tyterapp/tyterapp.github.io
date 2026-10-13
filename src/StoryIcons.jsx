@@ -33,5 +33,7 @@ function Icon({ paths, size = 18, ...props }) {
 }
 export const CardIcon = (props) => <Icon paths={CARD} {...props} />;
 export const OutlineIcon = (props) => <Icon paths={OUTLINE} {...props} />;
+export const cropIconSvg = (size = 18) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5V12H14.5"/><path d="M1.5 4H4"/><path d="M6 4H12V10"/><path d="M12 12V14.5"/></svg>`;
 export const cardIconSvg = (size = 16) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="${8 / 3}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CARD.map((d) => `<path d="${d}"/>`).join("")}</svg>`;

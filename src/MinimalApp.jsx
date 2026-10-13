@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import OutlineBoard from "./OutlineBoard.jsx";
 import OutlineCardDrawer from "./OutlineCardDrawer.jsx";
+import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
+import { shotScenes, updateShotSettings } from "./shot-info.js";
 import { OutlineIcon } from "./StoryIcons.jsx";
 import { exportTYT } from "./tyt-format.js";
 import {
@@ -130,6 +132,7 @@ import {
   exportDOCX,
   exportFDX,
   exportPropsPDF,
+  exportShotReportPDF,
   saveBlob,
 } from "./exports.js";
 const STORAGE = "tyter.projects.v1";
@@ -620,6 +623,12 @@ export default function MinimalApp({ onLogout }) {
   const notesRef = useRef(null);
   const [view, setView] = useState("screenplay");
   const [outlineCard, setOutlineCard] = useState(null);
+  const [shotTarget, setShotTarget] = useState(null);
+  const shots = useMemo(
+    () => shotScenes(current),
+    [current.content, current.sceneShots, current.metadata?.fontSize],
+  );
+  const selectedShot = shots.find((scene) => scene.id === shotTarget);
   const [sceneTarget, setSceneTarget] = useState(null);
   const [propsOpen, setPropsOpen] = useState(false);
   const [annotations, setAnnotations] = useState(null);
@@ -665,6 +674,7 @@ export default function MinimalApp({ onLogout }) {
         setCharacterView(null);
       }
       setOutlineCard(null);
+      setShotTarget(null);
       if (kind !== "annotations") setAnnotations(null);
       const noteTool =
         notesOpen && ["search", "comments", "statistics"].includes(kind);
@@ -1414,7 +1424,8 @@ export default function MinimalApp({ onLogout }) {
   useEffect(() => {
     setOutlineCard(null);
     setSceneTarget(null);
-  }, [current.id]);
+    setShotTarget(null);
+  }, [writingScope]);
   useEffect(() => {
     const onUndoRedo = (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
@@ -2300,6 +2311,23 @@ export default function MinimalApp({ onLogout }) {
       setBusy("");
     }
   };
+  const downloadShotReport = async () => {
+    setBusy("shot-report");
+    setMessage("");
+    writeStorage();
+    try {
+      const document =
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        structuredClone(current);
+      const blob = await exportShotReportPDF(document);
+      saveBlob(blob, `${document.title} — ${t("Отчёт по кадрам")}`, "pdf");
+    } catch (error) {
+      console.error(error);
+      setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+    } finally {
+      setBusy("");
+    }
+  };
   const openFile = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -3133,6 +3161,7 @@ export default function MinimalApp({ onLogout }) {
                     !questOverlay &&
                     !historyOpen &&
                     !outlineCard &&
+                    !selectedShot &&
                     !commentsOpen &&
                     !componentsOpen &&
                     !propsOpen &&
@@ -3143,6 +3172,12 @@ export default function MinimalApp({ onLogout }) {
                   minimal
                   continuous={mobile}
                   onSceneVariant={changeSceneVariant}
+                  sceneShots={current.sceneShots}
+                  activeShot={shotTarget}
+                  onEditShot={(id) => {
+                    showSidebar(null);
+                    setShotTarget(id);
+                  }}
                   outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
                   onEditOutlineCard={(id) => {
                     if (IS_PRO) {
@@ -3220,7 +3255,8 @@ export default function MinimalApp({ onLogout }) {
                     focusMode ||
                     !!characterView ||
                     !!libraryDialog ||
-                    !!outlineCard
+                    !!outlineCard ||
+                    !!selectedShot
                   }
                   onCreateComponent={componentFromSelection}
                   onPasteImages={(files) =>
@@ -3338,12 +3374,37 @@ export default function MinimalApp({ onLogout }) {
               componentsOpen ||
               propsOpen ||
               annotations ||
-              (view === "screenplay" && outlineCard)
+              (view === "screenplay" && (outlineCard || selectedShot))
             )
           }
           label={t("Панель сценария")}
           onClose={() => showSidebar(null)}
         >
+          {view === "screenplay" && selectedShot && (
+            <ShotInfoDrawer
+              key={writingScope}
+              scene={selectedShot}
+              onClose={() => showSidebar(null)}
+              onChange={(patch) =>
+                update((document) =>
+                  updateShotSettings(
+                    document,
+                    selectedShot.id,
+                    selectedShot.letter,
+                    patch,
+                  ),
+                )
+              }
+              onGo={(blockId) => {
+                if (mobile) {
+                  showSidebar(null);
+                  setSceneTarget(blockId);
+                } else editorRef.current?.focusBlock(blockId);
+              }}
+              onExport={downloadShotReport}
+              busy={!!busy}
+            />
+          )}
           {view === "screenplay" && outlineCard && (
             <OutlineCardDrawer
               key={writingScope}

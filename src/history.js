@@ -44,6 +44,7 @@ export function snapshotOf(document) {
     content: document.content,
     notes: document.notes || null,
     sceneVariants: document.sceneVariants || {},
+    sceneShots: document.sceneShots || {},
     components: document.components,
     ...(document.componentLibraryId
       ? { componentLibraryId: document.componentLibraryId }
@@ -65,6 +66,7 @@ export function changeLabel(before, after) {
     ["content", "текста"],
     ["notes", "заметок"],
     ["sceneVariants", "вариантов сцен"],
+    ["sceneShots", "настроек кадров"],
     ["components", "компонентов"],
     ["componentFolders", "папок"],
     ["comments", "комментариев"],

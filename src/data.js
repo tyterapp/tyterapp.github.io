@@ -5,6 +5,7 @@ import { cleanCommentOptions } from "./comment-options.js";
 import { commentSceneIndex } from "./comment-scenes.js";
 import { cleanNotes, sharedNotes } from "./notes.js";
 import { cleanScriptVersions } from "./script-versions.js";
+import { cleanSceneShots } from "./shot-info.js";
 
 const FORMATS = new Set([
   "scene",
@@ -62,6 +63,7 @@ export function createProject(title = "Untitled") {
     comments: [],
     outline: { columns: [], cards: [] },
     sceneVariants: {},
+    sceneShots: {},
     settings: { ...DEFAULT_SETTINGS },
     metadata: {
       fontSize: 12,
@@ -476,6 +478,7 @@ export function validateImport(input, options = {}) {
       ? { componentLibraryId: cleanId(source.componentLibraryId) }
       : {}),
     sceneVariants,
+    sceneShots: cleanSceneShots(source.sceneShots, content),
     metadata: {
       fontFamily: documentFont(source.metadata?.fontFamily).id,
       fontSize: Number.isFinite(Number(source.metadata?.fontSize))

@@ -24,6 +24,8 @@ import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
+import { hasShotSettings, shotSettings } from "./shot-info.js";
+import { cropIconSvg } from "./StoryIcons.jsx";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
 import {
@@ -500,6 +502,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     outlineCards = [],
     onEditOutlineCard,
     onSceneVariant,
+    sceneShots = null,
+    onEditShot,
+    activeShot = null,
     props = [],
     activeProp = null,
     selectionToolbarDisabled = false,
@@ -562,6 +567,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     outlineCards,
     onEditOutlineCard,
     onSceneVariant,
+    sceneShots,
+    onEditShot,
+    activeShot,
     onOpenSceneVariants: setSceneVariantMenu,
     props,
     activeProp,
@@ -801,6 +809,51 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               );
               if (minimal)
                 decorations.push(
+                  Decoration.widget(
+                    pos + 1,
+                    () => {
+                      const button = document.createElement("button");
+                      button.type = "button";
+                      button.className = "scene-shot-button";
+                      button.contentEditable = "false";
+                      const configured = hasShotSettings(
+                        shotSettings(
+                          { sceneShots: propsRef.current.sceneShots },
+                          node.attrs.blockId,
+                          sceneLetter(node),
+                        ),
+                      );
+                      button.dataset.configured = String(configured);
+                      button.setAttribute(
+                        "aria-label",
+                        t("Информация о кадре сцены {0}", number),
+                      );
+                      button.setAttribute(
+                        "data-tooltip",
+                        t("Информация о кадре"),
+                      );
+                      button.setAttribute(
+                        "aria-expanded",
+                        String(
+                          propsRef.current.activeShot === node.attrs.blockId,
+                        ),
+                      );
+                      button.innerHTML = cropIconSvg(18);
+                      button.addEventListener("mousedown", (event) =>
+                        event.preventDefault(),
+                      );
+                      button.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        propsRef.current.onEditShot?.(node.attrs.blockId);
+                      });
+                      return button;
+                    },
+                    {
+                      key: `shot-${node.attrs.blockId}-${sceneLetter(node)}-${hasShotSettings(shotSettings({ sceneShots: propsRef.current.sceneShots }, node.attrs.blockId, sceneLetter(node)))}-${propsRef.current.activeShot === node.attrs.blockId}-${language}`,
+                      side: -1,
+                      stopEvent: () => true,
+                    },
+                  ),
                   Decoration.widget(
                     pos + 1,
                     () => {
@@ -1117,6 +1170,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     props,
     activeProp,
     outlineCards,
+    sceneShots,
+    activeShot,
     language,
   ]);
   useEffect(() => {

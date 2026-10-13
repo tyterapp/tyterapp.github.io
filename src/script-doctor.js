@@ -1,9 +1,9 @@
 import { nodeText } from "./data.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
+import { SCENE_TIME_ENDING } from "./scene-times.js";
 
 const SCENE_TYPE = /^(?:ИНТ|ЭКС|НАТ|ПАВ|INT|EXT|EST|I\/E)[.\s/]/iu;
-const SCENE_TIME =
-  /(?:[—–-]\s*|\s)(?:ДЕНЬ|НОЧЬ|УТРО|ВЕЧЕР|РАССВЕТ|ЗАКАТ|ПОЗЖЕ|ПРОДОЛЖЕНИЕ|DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|LATER|CONTINUOUS)\s*[.]*$/iu;
+const SCENE_TIME = SCENE_TIME_ENDING;
 
 export function inspectScript(
   content,

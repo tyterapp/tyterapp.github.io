@@ -399,7 +399,7 @@ for (const theme of ["light", "dark"]) {
     await picker.focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("listbox")).toBeVisible();
-    await expect(page.getByRole("option")).toHaveCount(10);
+    await expect(page.getByRole("option")).toHaveCount(SCRIPT_VERSIONS.length);
     await expect(
       page.locator(".script-version-trigger > .script-version-swatch"),
     ).toHaveCSS("width", "16px");

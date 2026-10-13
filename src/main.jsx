@@ -18,6 +18,7 @@ import "./script-doctor.css";
 import "./pro/quests/quests.css";
 import "./mobile-workspace.css";
 import "./workspace-polish.css";
+import "./shot-info.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";

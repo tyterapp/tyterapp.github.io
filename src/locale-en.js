@@ -1,6 +1,43 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "В начале сцены выбирайте ИНТ., ЭКС. или смешанный заголовок. После места и тире — время суток: ДЕНЬ, НОЧЬ, УТРО, ВЕЧЕР, СУМЕРКИ, РАССВЕТ, ВОСХОД, ЗАКАТ, ПОЛДЕНЬ или ПОЛНОЧЬ. Для продолжения сцены доступны ПОЗЖЕ и ПРОДОЛЖЕНИЕ. В тексте предлагаются только ваши компоненты с иконкой.":
+    "Start scenes with INT., EXT. or a combined heading. After the location and dash, choose DAY, NIGHT, MORNING, EVENING, DUSK, DAWN, SUNRISE, SUNSET, NOON or MIDNIGHT. LATER and CONTINUOUS are also available. Text suggestions use your own components with an icon.",
+  "Информация о кадре": "Shot information",
+  "Информация о кадре сцены {0}": "Shot information for scene {0}",
+  "Закрыть информацию о кадре": "Close shot information",
+  "Название шота": "Shot name",
+  "Например, встреча у окна": "For example, a meeting by the window",
+  "Хронометраж сцены": "Scene duration",
+  "Автоматически · 1 страница = 1 минута": "Automatic · 1 page = 1 minute",
+  "Оценка по сценарию Courier, без учёта масштаба экрана.":
+    "Estimated from Courier screenplay pages, independent of screen zoom.",
+  "Пример кадра": "Shot reference",
+  "Прикреплённый пример кадра": "Attached shot reference",
+  "Пример кадра недоступен. Добавьте изображение с устройства.":
+    "The reference is unavailable. Add an image from your device.",
+  "Ваш пример кадра": "Your shot reference",
+  "Добавить пример": "Add a reference",
+  "Удалить пример кадра": "Remove shot reference",
+  "Из заголовка сцены": "From the scene heading",
+  "из заголовка": "from heading",
+  "Не задано": "Not set",
+  "Например: {0}": "Example: {0}",
+  "Исключить наготу": "Exclude nudity",
+  "Исключить насилие": "Exclude violence",
+  "Требования к кадру. Содержимое референсов автоматически не фильтруется.":
+    "Shot requirements. Reference images are not filtered automatically.",
+  "Сбросить настройки кадра": "Reset shot settings",
+  "Текст сцены": "Scene text",
+  "Нажмите на блок, чтобы перейти к нему в сценарии.":
+    "Click a block to go to its screenplay text.",
+  "Пустой блок": "Empty block",
+  "Перейти к тексту": "Go to text",
+  "Примеры кадров взяты с сайта": "Example images sourced from",
+  "Прикреплённое изображение добавлено пользователем.":
+    "The attached image was added by the user.",
+  "PDF-отчёт по всем сценам": "PDF report for all scenes",
+  "Отчёт по кадрам": "Shot report",
   "Ширина карточки": "Card width",
   "Потяните, чтобы изменить ширину": "Drag to resize",
   "Перейти к карточке в аутлайне": "Go to card in outline",

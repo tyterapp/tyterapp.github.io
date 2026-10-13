@@ -2,6 +2,7 @@ import { t, useLanguage, getLanguage } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shapes } from "lucide-react";
+import { SCENE_TIMES } from "./scene-times.js";
 function componentMatches(before, position, format, components) {
   const matches = [];
   const lower = before.toLocaleLowerCase();
@@ -106,12 +107,7 @@ function context(editor, components) {
     if (ending) {
       const prefix = ending[1];
       const endings = sceneWords(
-        [
-          ["ДЕНЬ", "DAY"],
-          ["НОЧЬ", "NIGHT"],
-          ["ВЕЧЕР", "EVENING"],
-          ["УТРО", "MORNING"],
-        ],
+        SCENE_TIMES.map(([, ru, en]) => [ru, en]),
         prefix,
       );
       if (endings.length)
@@ -212,8 +208,20 @@ export default function Suggestions({
         setPopup(null);
         return;
       }
-      const width = Math.min(296, window.innerWidth - 24),
-        height = items.length * 34 + 30;
+      const visual =
+        window.innerWidth < 832 &&
+        Math.abs((window.visualViewport?.scale || 1) - 1) < 0.05
+          ? window.visualViewport
+          : null;
+      const viewportTop = visual?.offsetTop || 0;
+      const viewportBottom =
+        viewportTop + (visual?.height || window.innerHeight);
+      const width = Math.min(296, window.innerWidth - 24);
+      const maxHeight = Math.max(
+        74,
+        viewportBottom - Math.max(60, viewportTop + 12) - 42,
+      );
+      const height = Math.min(items.length * 34 + 30, maxHeight);
       setPopup((previous) => {
         const sameContext =
           previous && signature(previous.context) === signature(c);
@@ -226,15 +234,17 @@ export default function Suggestions({
             Math.min(rect.left, window.innerWidth - width - 12),
           ),
           top:
-            rect.bottom + height + 8 > window.innerHeight - 42
-              ? Math.max(60, rect.top - height - 6)
+            rect.bottom + height + 8 > viewportBottom - 42
+              ? Math.max(60, viewportTop + 12, rect.top - height - 6)
               : rect.bottom + 5,
           width,
+          maxHeight,
         };
         return sameContext &&
           previous.left === next.left &&
           previous.top === next.top &&
-          previous.width === next.width
+          previous.width === next.width &&
+          previous.maxHeight === next.maxHeight
           ? previous
           : next;
       });
@@ -397,6 +407,8 @@ export default function Suggestions({
     events.forEach((event) => editor.on(event, schedule));
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
       cancelAnimationFrame(frame);
       acceptRef.current = null;
@@ -404,6 +416,8 @@ export default function Suggestions({
       events.forEach((event) => editor.off(event, schedule));
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
       document.removeEventListener("keydown", captureShortcut, true);
       if (!editor.isDestroyed)
         editor.setOptions({
@@ -417,6 +431,12 @@ export default function Suggestions({
   useEffect(() => {
     scheduleRef.current?.();
   }, [components, disabled, language]);
+  useEffect(() => {
+    if (popup && !disabled)
+      document
+        .querySelector('.word-suggestions [aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+  }, [popup?.index, popup?.items.length, popup?.maxHeight, disabled]);
   if (!popup || disabled) return null;
   return createPortal(
     <div
@@ -427,6 +447,8 @@ export default function Suggestions({
         left: popup.left,
         top: popup.top,
         width: popup.width,
+        maxHeight: popup.maxHeight,
+        overflowY: "auto",
       }}
       onPointerDown={(e) => e.preventDefault()}
     >
