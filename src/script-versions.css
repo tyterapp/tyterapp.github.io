@@ -1,6 +1,58 @@
 .script-version-picker {
   flex: 0 0 auto;
 }
+.app-select-version-delete {
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+.app-select-version-delete:not(:disabled):hover,
+.app-select-version-delete:not(:disabled):focus-visible {
+  color: oklch(0.5 0.17 25);
+  background: oklch(0.95 0.02 25);
+}
+:root[data-theme="dark"] .app-select-version-delete:not(:disabled):hover,
+:root[data-theme="dark"]
+  .app-select-version-delete:not(:disabled):focus-visible {
+  color: oklch(0.77 0.13 25);
+  background: oklch(0.32 0.035 25);
+}
+.app-select-note:disabled,
+.app-select-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media screen and (max-width: 831px) {
+  .app-select-version-delete {
+    min-width: 44px;
+    flex-basis: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-select-version-delete {
+    transition: none;
+  }
+}
+@media screen and (max-width: 831px) {
+  .minimal-app[data-mobile] .app-message.version-deletion-message {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 8px;
+    width: calc(100% - 24px);
+    padding: 12px;
+  }
+  .version-deletion-message > span {
+    grid-column: 1 / -1;
+  }
+  .version-deletion-message > .app-message-action {
+    justify-content: center;
+    min-height: 44px;
+  }
+  .version-deletion-message > .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
 .minimal-app .script-version-trigger {
   width: auto;
   min-width: 136px;

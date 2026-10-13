@@ -85,9 +85,12 @@ import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
 import { useDailyQuests } from "./pro/quests/index.js";
 import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
 import {
+  SCRIPT_VERSIONS,
   scriptScopeId,
   scriptVersion,
   scriptVersionId,
+  removeScriptVersion,
+  restoreScriptVersion,
   switchScriptVersion,
 } from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
@@ -105,6 +108,7 @@ import ImageComponentPaste from "./ImageComponentPaste.jsx";
 import {
   changeLabel,
   deleteRevisions,
+  deleteScriptVersionRevisions,
   recordRevision,
   importRevisions,
   snapshotOf,
@@ -722,6 +726,8 @@ export default function MinimalApp({ onLogout }) {
       ? "Не удалось прочитать сохранённые документы. Исходные данные сохранены; новые изменения можно скачать в файл."
       : "",
   );
+  const [versionDeletion, setVersionDeletion] = useState(null);
+  const versionDeletionRef = useRef(null);
   const writingTimer = useWritingTimer(setMessage);
   useEffect(() => {
     let timeout;
@@ -1521,13 +1527,10 @@ export default function MinimalApp({ onLogout }) {
     setPageCount(1);
     setHistoryRevision(null);
   };
-  const changeScriptVersion = (id) => {
-    setNotesOpen(false);
-    if (id === activeScriptVersion.id || busy || !filesReady) return;
-    flushOutlineHistory(writingScope).catch(() => {});
+  const liveVersionDocument = () => {
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
-    let outgoing = {
+    return {
       ...latest,
       ...(notesOpen
         ? {
@@ -1538,6 +1541,9 @@ export default function MinimalApp({ onLogout }) {
           }
         : { content: editorRef.current?.getJSON() || latest.content }),
     };
+  };
+  const prepareVersionDocument = () => {
+    let outgoing = liveVersionDocument();
     // Comment navigation can temporarily open another scene letter. Archive
     // the user's working letters rather than that temporary preview.
     const preview = commentPreview.current;
@@ -1549,7 +1555,9 @@ export default function MinimalApp({ onLogout }) {
     }
     commentPreview.current = null;
     pendingCommentFocus.current = null;
-    const next = switchScriptVersion(outgoing, id);
+    return outgoing;
+  };
+  const activateVersionDocument = (next) => {
     componentHistory.current = { undo: [], redo: [] };
     showSidebar(null);
     switchDocument(current);
@@ -1560,6 +1568,141 @@ export default function MinimalApp({ onLogout }) {
     setSelection({ format: "scene" });
     update(() => next);
   };
+  const changeScriptVersion = (id) => {
+    setNotesOpen(false);
+    if (
+      id === activeScriptVersion.id ||
+      busy ||
+      !filesReady ||
+      (versionDeletionRef.current?.documentId === current.id &&
+        versionDeletionRef.current.versionId === id)
+    )
+      return;
+    flushOutlineHistory(writingScope).catch(() => {});
+    activateVersionDocument(switchScriptVersion(prepareVersionDocument(), id));
+  };
+  const confirmVersionDeletion = useCallback(
+    (id) => {
+      const pending = versionDeletionRef.current;
+      if (!pending || pending.id !== id) return Promise.resolve();
+      if (!pending.confirmation) {
+        pending.confirmed = true;
+        pending.confirmation = pending.flush
+          .then(() => historyFlushRef.current(pending.scope))
+          .then(() =>
+            deleteScriptVersionRevisions(pending.documentId, pending.versionId),
+          )
+          .catch(() =>
+            setMessage("Не удалось очистить историю удалённой копии."),
+          )
+          .then(() => {
+            historyTracked.current.delete(pending.scope);
+            historyWritten.current.delete(pending.scope);
+            historyWritten.current.delete(`${pending.scope}:screenplay`);
+            historyWritten.current.delete(`${pending.scope}:outline`);
+            setHistoryVersion((version) => version + 1);
+          });
+      }
+      return pending.confirmation;
+    },
+    [setMessage],
+  );
+  const dismissVersionDeletion = useCallback(
+    async (id) => {
+      const pending = versionDeletionRef.current;
+      if (!pending || pending.id !== id) return;
+      await confirmVersionDeletion(id);
+      if (versionDeletionRef.current === pending) {
+        versionDeletionRef.current = null;
+        setVersionDeletion(null);
+      }
+    },
+    [confirmVersionDeletion],
+  );
+  const undoVersionDeletion = () => {
+    const pending = versionDeletionRef.current;
+    if (!pending || pending.confirmed) return;
+    if (Date.now() >= pending.expiresAt) {
+      dismissVersionDeletion(pending.id);
+      return;
+    }
+    const latest = documentsRef.current.find(
+      (doc) => doc.id === pending.documentId,
+    );
+    if (!latest) {
+      versionDeletionRef.current = null;
+      setVersionDeletion(null);
+      return;
+    }
+    const live =
+      current.id === pending.documentId ? liveVersionDocument() : latest;
+    const activate =
+      pending.wasActive &&
+      current.id === pending.documentId &&
+      scriptVersionId(live) === pending.fallback;
+    const source = activate ? prepareVersionDocument() : live;
+    const restored = restoreScriptVersion(
+      source,
+      pending.versionId,
+      pending.snapshot,
+      { activate },
+    );
+    versionDeletionRef.current = null;
+    setVersionDeletion(null);
+    if (restored === source) {
+      setMessage(
+        "Не удалось отменить удаление: копия с этим названием уже существует.",
+      );
+      return;
+    }
+    if (activate) activateVersionDocument(restored);
+    else
+      setDocuments((list) =>
+        list.map((doc) =>
+          doc.id === pending.documentId
+            ? { ...restored, updatedAt: new Date().toISOString() }
+            : doc,
+        ),
+      );
+  };
+  const deleteScriptVersionCopy = (id) => {
+    if (versionDeletionRef.current || busy || !filesReady) return;
+    const live =
+      id === activeScriptVersion.id
+        ? prepareVersionDocument()
+        : liveVersionDocument();
+    const removed = removeScriptVersion(live, id);
+    if (!removed) return;
+    const scope = `${current.id}::script::${id}`;
+    const pending = {
+      id: uid(),
+      documentId: current.id,
+      versionId: id,
+      label: SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id,
+      snapshot: removed.snapshot,
+      wasActive: removed.wasActive,
+      fallback: removed.fallback,
+      expiresAt: Date.now() + 15000,
+      scope,
+      flush: historyFlushRef.current(scope).catch(() => {}),
+    };
+    versionDeletionRef.current = pending;
+    setVersionDeletion(pending);
+    setMessage("");
+    if (removed.wasActive) activateVersionDocument(removed.document);
+    else update(() => removed.document);
+  };
+  useEffect(() => {
+    const finalize = () => {
+      const pending = versionDeletionRef.current;
+      if (pending) confirmVersionDeletion(pending.id);
+    };
+    window.addEventListener("pagehide", finalize);
+    return () => {
+      window.removeEventListener("pagehide", finalize);
+      finalize();
+    };
+  }, [confirmVersionDeletion]);
   const openComments = useCallback(
     (source) => {
       showSidebar("comments");
@@ -2644,6 +2787,13 @@ export default function MinimalApp({ onLogout }) {
             document={current}
             disabled={!filesReady || !!busy || deleting}
             onChange={changeScriptVersion}
+            onDelete={deleteScriptVersionCopy}
+            pendingDeletion={
+              versionDeletion?.documentId === current.id
+                ? versionDeletion.versionId
+                : null
+            }
+            deleting={!!versionDeletion}
           />
         )}
         <button
@@ -2734,12 +2884,35 @@ export default function MinimalApp({ onLogout }) {
           </>
         )}
       </header>
-      {notice && (
+      {versionDeletion ? (
         <AppMessage
-          key={notice.id}
-          notice={notice}
-          onDismiss={dismissMessage}
+          key={versionDeletion.id}
+          notice={{
+            id: versionDeletion.id,
+            value: {
+              key: "Копия {0} удалена. Можно отменить удаление в течение 15 секунд.",
+              kind: "script-version-deletion",
+              values: [versionDeletion.label],
+              duration: 15000,
+              action: {
+                label: "Отменить удаление",
+                onClick: undoVersionDeletion,
+                icon: <Download size={14} aria-hidden="true" />,
+              },
+              closeLabel: "Подтвердить удаление копии",
+              onClose: () => confirmVersionDeletion(versionDeletion.id),
+            },
+          }}
+          onDismiss={dismissVersionDeletion}
         />
+      ) : (
+        notice && (
+          <AppMessage
+            key={notice.id}
+            notice={notice}
+            onDismiss={dismissMessage}
+          />
+        )
       )}
       <div className="minimal-workspace">
         <MobileSheet

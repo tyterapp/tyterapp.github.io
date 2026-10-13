@@ -167,6 +167,40 @@ export async function deleteRevisions(documentId) {
   }
 }
 
+export async function deleteScriptVersionRevisions(documentId, version) {
+  if (version === "white") return;
+  const database = await openDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(STORE, "readwrite");
+      const store = transaction.objectStore(STORE);
+      const index = store.index("documentId");
+      for (const scope of [documentId, `${documentId}::script::${version}`]) {
+        const request = index.getAll(scope);
+        request.onsuccess = () => {
+          for (const row of request.result) {
+            const area = revisionArea(row);
+            const sharedNotes =
+              area === "notes" ||
+              (area === "screenplay" && row.label?.includes("замет"));
+            if (
+              !sharedNotes &&
+              (scope !== documentId ||
+                scriptVersionId(row.snapshot) === version)
+            )
+              store.delete(row.id);
+          }
+        };
+      }
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
 export async function importRevisions(
   documentId,
   rows,

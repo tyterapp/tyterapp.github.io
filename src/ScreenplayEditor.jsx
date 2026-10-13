@@ -25,6 +25,7 @@ import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
+import { shotAspectRatio } from "./shot-image.js";
 import { cropIconSvg } from "./StoryIcons.jsx";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
@@ -596,6 +597,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   const searchScrollFrame = useRef(null);
   const navigationFlash = useRef(null);
   const navigationFlashTimer = useRef(null);
+  const shotVisuals = useRef({ entries: new Map(), sequence: 0 });
   const initialContent = useRef(null);
   if (!initialContent.current)
     initialContent.current = normalizeContent(content);
@@ -708,6 +710,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       decorations(state) {
         const decorations = [];
+        const visibleShots = new Set();
         if (minimal)
           for (const range of propRanges(
             state.doc,
@@ -807,6 +810,27 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               const card = propsRef.current.outlineCards.find(
                 (item) => item.blockId === node.attrs.blockId,
               );
+              const shot = shotSettings(
+                { sceneShots: propsRef.current.sceneShots },
+                node.attrs.blockId,
+                sceneLetter(node),
+              );
+              const shotScope = `${node.attrs.blockId}:${sceneLetter(node)}`;
+              visibleShots.add(shotScope);
+              let visual = shotVisuals.current.entries.get(shotScope);
+              // Keep decoration keys small: never copy image data into a key.
+              if (
+                !visual ||
+                visual.image !== shot.image ||
+                visual.aspectRatio !== shot.aspectRatio
+              ) {
+                visual = {
+                  image: shot.image,
+                  aspectRatio: shot.aspectRatio,
+                  key: ++shotVisuals.current.sequence,
+                };
+                shotVisuals.current.entries.set(shotScope, visual);
+              }
               if (minimal)
                 decorations.push(
                   Decoration.widget(
@@ -814,15 +838,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                     () => {
                       const button = document.createElement("button");
                       button.type = "button";
-                      button.className = "scene-shot-button";
+                      button.className = `scene-shot-button${shot.image ? " has-thumbnail" : ""}`;
                       button.contentEditable = "false";
-                      const configured = hasShotSettings(
-                        shotSettings(
-                          { sceneShots: propsRef.current.sceneShots },
-                          node.attrs.blockId,
-                          sceneLetter(node),
-                        ),
-                      );
+                      const configured = hasShotSettings(shot);
                       button.dataset.configured = String(configured);
                       button.setAttribute(
                         "aria-label",
@@ -838,7 +856,25 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                           propsRef.current.activeShot === node.attrs.blockId,
                         ),
                       );
-                      button.innerHTML = cropIconSvg(18);
+                      if (shot.image) {
+                        const frame = document.createElement("span");
+                        frame.className = "scene-shot-thumbnail";
+                        const ratio = shotAspectRatio(shot.aspectRatio);
+                        if (ratio) {
+                          frame.classList.add("is-cropped");
+                          frame.style.setProperty(
+                            "--shot-thumbnail-ratio",
+                            ratio,
+                          );
+                        }
+                        const image = document.createElement("img");
+                        image.src = shot.image;
+                        image.alt = "";
+                        image.draggable = false;
+                        frame.setAttribute("aria-hidden", "true");
+                        frame.append(image);
+                        button.append(frame);
+                      } else button.innerHTML = cropIconSvg(18);
                       button.addEventListener("mousedown", (event) =>
                         event.preventDefault(),
                       );
@@ -849,7 +885,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       return button;
                     },
                     {
-                      key: `shot-${node.attrs.blockId}-${sceneLetter(node)}-${hasShotSettings(shotSettings({ sceneShots: propsRef.current.sceneShots }, node.attrs.blockId, sceneLetter(node)))}-${propsRef.current.activeShot === node.attrs.blockId}-${language}`,
+                      key: `shot-${shotScope}-${number}-${visual.key}-${hasShotSettings(shot)}-${propsRef.current.activeShot === node.attrs.blockId}-${language}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -980,6 +1016,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             );
           }
         });
+        for (const scope of shotVisuals.current.entries.keys())
+          if (!visibleShots.has(scope))
+            shotVisuals.current.entries.delete(scope);
         if (minimal && review?.resolved && review.quote) {
           const currentText = reviewRanges.map((range) => range.text).join("");
           let fallback = Number.isInteger(review.anchor)

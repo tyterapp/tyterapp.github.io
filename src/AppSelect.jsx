@@ -79,8 +79,8 @@ export function SelectMenu({
   useLayoutEffect(() => {
     if (!position || menu.current?.contains(document.activeElement)) return;
     const selected =
-      menu.current?.querySelector('[aria-selected="true"]') ||
-      menu.current?.querySelector('[role="option"]');
+      menu.current?.querySelector('[aria-selected="true"]:not(:disabled)') ||
+      menu.current?.querySelector('[role="option"]:not(:disabled)');
     selected?.focus({ preventScroll: true });
     if (selected && menu.current)
       menu.current.scrollTop = Math.max(
@@ -105,8 +105,17 @@ export function SelectMenu({
           onClose(false);
       }}
       onKeyDown={(event) => {
-        const items = [...menu.current.querySelectorAll('[role="option"]')];
-        const index = items.indexOf(document.activeElement);
+        const items = [
+          ...menu.current.querySelectorAll('[role="option"]:not(:disabled)'),
+        ];
+        const focused = document.activeElement;
+        const index = items.indexOf(
+          focused?.matches('[role="option"]')
+            ? focused
+            : focused
+                ?.closest(".app-select-row")
+                ?.querySelector('[role="option"]'),
+        );
         let next = null;
         if (event.key === "ArrowDown") next = (index + 1) % items.length;
         if (event.key === "ArrowUp")
@@ -135,6 +144,7 @@ export function SelectMenu({
             key={option.value}
             data-value={option.value}
             aria-selected={option.value === value}
+            disabled={option.disabled}
             className="app-select-option"
             onClick={() => {
               onClose(false);
@@ -151,8 +161,9 @@ export function SelectMenu({
             {button}
             <button
               type="button"
-              className="app-select-note"
+              className={`app-select-note ${option.action.className || ""}`}
               aria-label={option.action.label}
+              disabled={option.action.disabled}
               onClick={() => {
                 onClose(false);
                 option.action.onClick();

@@ -1,6 +1,16 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Удалить копию {0}": "Delete copy {0}",
+  "Копия {0} удалена. Можно отменить удаление в течение 15 секунд.":
+    "Copy {0} deleted. You can undo deletion for 15 seconds.",
+  "Отменить удаление": "Undo deletion",
+  "Подтвердить удаление копии": "Confirm copy deletion",
+  "Удаляется…": "Deleting…",
+  "Не удалось очистить историю удалённой копии.":
+    "Unable to clear the deleted copy's history.",
+  "Не удалось отменить удаление: копия с этим названием уже существует.":
+    "Unable to undo deletion: a copy with this name already exists.",
   "Загрузить кадр": "Upload shot",
   "Кадр не загружен": "No shot image uploaded",
   "Кадрирование по центру. Оригинал сохраняется.":

@@ -46,6 +46,53 @@ export const scriptVersionSnapshot = (document) =>
     ),
   );
 
+export const isScriptVersionCopy = (document, id) =>
+  ids.has(id) &&
+  id !== "white" &&
+  (scriptVersionId(document) === id
+    ? !!document.scriptVersions?.white
+    : !!document.scriptVersions?.[id]);
+
+export function removeScriptVersion(document, id) {
+  if (!isScriptVersionCopy(document, id)) return null;
+  const wasActive = scriptVersionId(document) === id;
+  const snapshot = scriptVersionSnapshot(
+    wasActive ? document : document.scriptVersions[id],
+  );
+  const next = wasActive ? switchScriptVersion(document, "white") : document;
+  const versions = { ...next.scriptVersions };
+  delete versions[id];
+  return {
+    document: { ...next, scriptVersions: versions },
+    snapshot,
+    wasActive,
+    fallback: scriptVersionId(next),
+  };
+}
+
+export function restoreScriptVersion(
+  document,
+  id,
+  snapshot,
+  { activate = false } = {},
+) {
+  if (
+    !ids.has(id) ||
+    id === "white" ||
+    scriptVersionId(document) === id ||
+    document.scriptVersions?.[id]
+  )
+    return document;
+  const restored = {
+    ...document,
+    scriptVersions: {
+      ...document.scriptVersions,
+      [id]: scriptVersionSnapshot(snapshot),
+    },
+  };
+  return activate ? switchScriptVersion(restored, id) : restored;
+}
+
 export function switchScriptVersion(document, id) {
   const previous = scriptVersionId(document);
   if (!ids.has(id) || previous === id) return document;

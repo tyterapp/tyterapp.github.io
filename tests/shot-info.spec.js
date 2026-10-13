@@ -92,13 +92,17 @@ async function stored(page) {
   );
 }
 
-async function uploadedImage(page) {
+async function uploadedImage(page, reverse = false) {
   return Buffer.from(
-    await page.evaluate(() => {
+    await page.evaluate((reverse) => {
       const canvas = document.createElement("canvas");
       canvas.width = 600;
       canvas.height = 300;
       const ctx = canvas.getContext("2d");
+      if (reverse) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
       for (const [color, x, width] of [
         ["#1645e8", 0, 150],
         ["#16a34a", 150, 300],
@@ -108,7 +112,7 @@ async function uploadedImage(page) {
         ctx.fillRect(x, 0, width, 300);
       }
       return canvas.toDataURL("image/png").split(",")[1];
-    }),
+    }, reverse),
     "base64",
   );
 }
@@ -186,6 +190,8 @@ for (const theme of ["light", "dark"])
     await open(page, { theme });
     await page.mouse.move(100, 800);
     await expect(shotButton(page)).toHaveCSS("opacity", "0.2");
+    await expect(shotButton(page).locator("svg")).toHaveCount(1);
+    await expect(shotButton(page).locator("img")).toHaveCount(0);
     await shotButton(page).hover();
     await expect(shotButton(page)).toHaveCSS("opacity", "1");
     await shotButton(page).click();
@@ -231,19 +237,22 @@ for (const theme of ["light", "dark"])
       panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
       "2.39",
     );
-    await panel
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: "my-shot.png",
-        mimeType: "image/png",
-        buffer: await uploadedImage(page),
-      });
+    await panel.locator('input[type="file"]').setInputFiles({
+      name: "my-shot.png",
+      mimeType: "image/png",
+      buffer: await uploadedImage(page),
+    });
     await expect(
       panel.getByAltText("Прикреплённый пример кадра"),
     ).toBeVisible();
     const original = await panel
       .getByAltText("Прикреплённый пример кадра")
       .getAttribute("src");
+    await expect(shotButton(page).locator("img")).toHaveAttribute(
+      "src",
+      original,
+    );
+    await expect(shotButton(page).locator("svg")).toHaveCount(0);
     for (const [format, ratio] of [
       ["2.39", 2.39],
       ["1:1", 1],
@@ -256,6 +265,14 @@ for (const theme of ["light", "dark"])
       );
       const rect = await panel.locator(".shot-image-frame").boundingBox();
       expect(rect.width / rect.height).toBeCloseTo(ratio, 2);
+      await expect
+        .poll(async () => {
+          const thumbnail = await shotButton(page)
+            .locator(".scene-shot-thumbnail")
+            .boundingBox();
+          return thumbnail.width / thumbnail.height;
+        })
+        .toBeCloseTo(ratio, 2);
       await expect(
         panel.getByAltText("Прикреплённый пример кадра"),
       ).toHaveAttribute("src", original);
@@ -284,6 +301,8 @@ for (const theme of ["light", "dark"])
       .getByRole("combobox", { name: "Вариант сцены 1", exact: true })
       .click();
     await page.getByRole("option", { name: "F", exact: true }).click();
+    await expect(shotButton(page).locator("img")).toHaveCount(0);
+    await expect(shotButton(page).locator("svg")).toHaveCount(1);
     await expect(
       panel.getByRole("button", { name: "Название шота", exact: true }),
     ).toHaveAttribute("aria-expanded", "false");
@@ -325,6 +344,39 @@ for (const theme of ["light", "dark"])
       .click();
     await page.mouse.move(100, 800);
     await expect(shotButton(page)).toHaveCSS("opacity", "1");
+    await expect(shotButton(page).locator("img")).toHaveAttribute(
+      "src",
+      original,
+    );
+    await shotButton(page).screenshot({
+      path: info.outputPath("shot-thumbnail.png"),
+    });
+    await shotButton(page).click();
+    await expect(
+      drawer(page).getByRole("textbox", { name: "Название шота" }),
+    ).toHaveValue("Встреча у окна");
+    await drawer(page)
+      .locator('input[type="file"]')
+      .setInputFiles({
+        name: "replacement-shot.png",
+        mimeType: "image/png",
+        buffer: await uploadedImage(page, true),
+      });
+    await expect(
+      drawer(page).getByAltText("Прикреплённый пример кадра"),
+    ).not.toHaveAttribute("src", original);
+    const replacement = await drawer(page)
+      .getByAltText("Прикреплённый пример кадра")
+      .getAttribute("src");
+    await expect(shotButton(page).locator("img")).toHaveAttribute(
+      "src",
+      replacement,
+    );
+    await drawer(page)
+      .getByRole("button", { name: "Удалить пример кадра", exact: true })
+      .click();
+    await expect(shotButton(page).locator("img")).toHaveCount(0);
+    await expect(shotButton(page).locator("svg")).toHaveCount(1);
   });
 
 test("320px: shot settings use the mobile sheet and block navigation returns to the text", async ({
@@ -347,6 +399,19 @@ test("320px: shot settings use the mobile sheet and block navigation returns to 
     drawer(page).getByRole("combobox", { name: "Людей в кадре", exact: true }),
     "2",
   );
+  await drawer(page)
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name: "mobile-shot.png",
+      mimeType: "image/png",
+      buffer: await uploadedImage(page),
+    });
+  await expect(
+    drawer(page).getByAltText("Прикреплённый пример кадра"),
+  ).toBeVisible();
+  const original = await drawer(page)
+    .getByAltText("Прикреплённый пример кадра")
+    .getAttribute("src");
   await page.screenshot({ path: info.outputPath("mobile-shot-sheet.png") });
   await drawer(page)
     .getByRole("button", { name: /Диалог Мы увидимся/ })
@@ -362,6 +427,19 @@ test("320px: shot settings use the mobile sheet and block navigation returns to 
       ),
     )
     .toBe("dialogue");
+  await expect(shotButton(page).locator("img")).toBeVisible();
+  await expect(shotButton(page).locator("img")).toHaveAttribute(
+    "src",
+    original,
+  );
+  expect((await shotButton(page).boundingBox()).width).toBe(44);
+  await shotButton(page).screenshot({
+    path: info.outputPath("mobile-shot-thumbnail.png"),
+  });
+  await shotButton(page).click();
+  await expect(
+    drawer(page).getByAltText("Прикреплённый пример кадра"),
+  ).toHaveAttribute("src", original);
 });
 
 test("scene autocomplete offers dusk, dawn, sunrise, sunset and other screenplay times", async ({

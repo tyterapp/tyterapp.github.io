@@ -38,7 +38,10 @@ export default function AppMessage({ notice, onDismiss }) {
   const value = notice.value;
   const action = typeof value === "object" ? value.action : null;
   return (
-    <div className={`app-message${closing ? " is-closing" : ""}`} role="alert">
+    <div
+      className={`app-message${value.kind === "script-version-deletion" ? " version-deletion-message" : ""}${closing ? " is-closing" : ""}`}
+      role="alert"
+    >
       <span>
         {typeof value === "object"
           ? t(value.key, ...(value.values || []))
@@ -49,28 +52,42 @@ export default function AppMessage({ notice, onDismiss }) {
           {t("Перейти")}
         </button>
       )}
-      {action && (
-        <a
-          className="app-message-action"
-          href={action.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => {
-            if (action.desktopSupport && window.tyterDesktop?.openSupport) {
-              event.preventDefault();
-              window.tyterDesktop.openSupport(action.desktopSupport);
-            }
-          }}
-        >
-          {t(action.label)}
-          <ExternalLink size={14} aria-hidden="true" />
-        </a>
-      )}
+      {action &&
+        (typeof action.onClick === "function" ? (
+          <button
+            type="button"
+            className="app-message-action"
+            disabled={closing}
+            onClick={action.onClick}
+          >
+            {action.icon}
+            {t(action.label)}
+          </button>
+        ) : (
+          <a
+            className="app-message-action"
+            href={action.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              if (action.desktopSupport && window.tyterDesktop?.openSupport) {
+                event.preventDefault();
+                window.tyterDesktop.openSupport(action.desktopSupport);
+              }
+            }}
+          >
+            {t(action.label)}
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+        ))}
       <button
         className="icon-button"
-        aria-label={t("Закрыть уведомление")}
+        aria-label={t(value.closeLabel || "Закрыть уведомление")}
         disabled={closing}
-        onClick={() => setClosing(true)}
+        onClick={() => {
+          value.onClose?.();
+          setClosing(true);
+        }}
       >
         <X size={16} />
       </button>
