@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import { grantPro, codesRoute, listResponse } from "./helpers/pro-access.js";
+import { OUTLINE_STAGES } from "../src/outline-stages.js";
 
 function fixture() {
   const project = createProject("Русское название");
@@ -181,30 +182,30 @@ test("graph dots and connecting gradients track card colors while editing", asyn
     exact: true,
   });
   const dots = graph.locator(".drama-dot");
-  await expect(dots.nth(0)).toHaveAttribute("fill", "#f06c43");
-  await expect(dots.nth(1)).toHaveAttribute("fill", "#1b2eff");
+  await expect(dots.nth(0)).toHaveAttribute("fill", OUTLINE_STAGES[1].color);
+  await expect(dots.nth(1)).toHaveAttribute("fill", OUTLINE_STAGES[2].color);
   const gradient = graph.locator("linearGradient");
   await expect(gradient.locator('stop[offset="0%"]')).toHaveAttribute(
     "stop-color",
-    "#f06c43",
+    OUTLINE_STAGES[1].color,
   );
   await expect(gradient.locator('stop[offset="100%"]')).toHaveAttribute(
     "stop-color",
-    "#1b2eff",
+    OUTLINE_STAGES[2].color,
   );
   await graph
     .getByRole("button", { name: "Завязка: драматичность 3 из 10" })
     .click();
-  await page.getByRole("button", { name: "Зелёный", exact: true }).click();
-  const color = await page
-    .getByRole("button", { name: "Зелёный", exact: true })
-    .evaluate((el) => el.style.getPropertyValue("--card-color"));
+  await page
+    .getByRole("button", { name: "Pre production", exact: true })
+    .click();
+  const color = OUTLINE_STAGES[0].color;
   await expect(dots.nth(0)).toHaveAttribute("fill", color);
   await expect(gradient.locator('stop[offset="0%"]')).toHaveAttribute(
     "stop-color",
     color,
   );
-  await expect(dots.nth(1)).toHaveAttribute("fill", "#1b2eff");
+  await expect(dots.nth(1)).toHaveAttribute("fill", OUTLINE_STAGES[2].color);
   await page.screenshot({ path: info.outputPath("card-colored-graph.png") });
 });
 

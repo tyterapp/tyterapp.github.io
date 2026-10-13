@@ -1,0 +1,62 @@
+.history-deletions {
+  margin-top: 24px;
+  padding: 16px 4px 8px;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-text);
+}
+.history-deletions-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-deletions-heading > svg {
+  flex: 0 0 auto;
+  color: var(--ui-muted);
+}
+.history-deletions-heading h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.history-deletions-heading > span {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--ui-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.history-deletions ul {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.history-deletions li {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 12px;
+}
+.history-deletions li > span {
+  overflow-wrap: anywhere;
+}
+.history-deletions time {
+  flex: 0 0 auto;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+}
+.history-achievement {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+.history-achievement span {
+  margin-left: 6px;
+  color: var(--ui-accent);
+  white-space: nowrap;
+}
+.history-deletions-empty {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}

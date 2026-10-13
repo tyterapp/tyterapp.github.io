@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cleanStreak, dailyVisit } from "./daily-streak.js";
+import {
+  cleanWalletExtras,
+  walletHasDoctor,
+  purchaseWalletDoctor,
+  recordWalletWriting,
+  recordWalletDeletion,
+  queueDeletionConfirmation,
+  pendingDeletionConfirmations,
+  clearDeletionConfirmation,
+  PENDING_DELETION_PREFIX,
+} from "./writing-wallet.js";
 
 export const WRITING_TIMER_STORAGE = "tyter.writing-timer.v1";
 export const TIMER_MINUTES = [5, 10, 25, 60, 120, 240];
@@ -26,6 +37,7 @@ function cleanTimer(value) {
     coins,
     ...(ideas.length ? { ideas } : {}),
     ...(streak ? { streak } : {}),
+    ...cleanWalletExtras(value),
   };
   const quest = session?.quest;
   const link =
@@ -114,6 +126,10 @@ export function useWritingTimer(onComplete) {
         let reward = 0;
         let result = { ok: true };
         let visitReward = 0;
+        let activityReward = 0;
+        let achievementReward = 0;
+        let purchasedDoctor = false;
+        const pendingDeletions = pendingDeletionConfirmations();
         // Read the stored session inside the lock, then remove it before notifying.
         // Two tabs (or a reload after completion) must never claim it twice.
         if (
@@ -201,16 +217,46 @@ export function useWritingTimer(onComplete) {
           next = visit.wallet;
           visitReward = visit.reward;
         }
-        if (next !== current) {
+        for (const { receipt } of pendingDeletions) {
+          if (action === "version-deletion" && receipt.id === payload?.id)
+            continue;
+          const recovered = recordWalletDeletion(next, receipt, time);
+          next = recovered.wallet;
+          achievementReward += recovered.reward;
+        }
+        if (
+          ["purchase-doctor", "writing", "version-deletion"].includes(action)
+        ) {
+          const update =
+            action === "purchase-doctor"
+              ? purchaseWalletDoctor(next, time)
+              : action === "writing"
+                ? recordWalletWriting(next, payload)
+                : recordWalletDeletion(next, payload, time);
+          next = update.wallet;
+          const { wallet: _wallet, ...outcome } = update;
+          result = outcome;
+          if (action === "writing") activityReward = update.reward;
+          if (action === "version-deletion") achievementReward += update.reward;
+          purchasedDoctor =
+            action === "purchase-doctor" && update.ok && !update.alreadyOwned;
+        }
+        let persisted = !memoryOnly.current;
+        if (next !== current || pendingDeletions.length) {
           try {
             localStorage.setItem(WRITING_TIMER_STORAGE, JSON.stringify(next));
             memoryOnly.current = false;
+            persisted = true;
           } catch {
-            if (action === "idea") return { ok: false, reason: "storage" };
+            if (action === "idea" || action === "purchase-doctor")
+              return { ok: false, reason: "storage", coins: current.coins };
             // A blocked or full storage must not interrupt editing or the countdown.
             memoryOnly.current = true;
+            persisted = false;
           }
         }
+        if (persisted)
+          pendingDeletions.forEach(({ key }) => clearDeletionConfirmation(key));
         latest.current = next;
         setState(next);
         setNow(time);
@@ -227,7 +273,16 @@ export function useWritingTimer(onComplete) {
                 : "С возвращением! Монета за вход сегодня: +1.",
             values: visitReward > 1 ? [next.streak.count, visitReward] : [],
           });
-        return { ...result, session: next.session };
+        if (activityReward)
+          complete.current?.({ key: "+{0} coins", values: [activityReward] });
+        if (achievementReward)
+          complete.current?.({ key: "Мусорщик: +10 coins", values: [] });
+        if (purchasedDoctor)
+          complete.current?.({
+            key: "Доктор сценария приобретён.",
+            values: [],
+          });
+        return { ...result, coins: next.coins, session: next.session };
       };
       if (navigator.locks?.request)
         return navigator.locks.request(WRITING_TIMER_STORAGE, perform);
@@ -242,6 +297,7 @@ export function useWritingTimer(onComplete) {
       if (
         event.type !== "storage" ||
         event.key === WRITING_TIMER_STORAGE ||
+        event.key?.startsWith(PENDING_DELETION_PREFIX) ||
         event.key === null
       ) {
         if (event.type === "storage") memoryOnly.current = false;
@@ -279,11 +335,33 @@ export function useWritingTimer(onComplete) {
   ]);
 
   const claimVisit = useCallback(() => change("visit"), [change]);
+  const purchaseDoctor = useCallback(() => change("purchase-doctor"), [change]);
+  const recordWriting = useCallback(
+    (activity) => change("writing", null, null, activity),
+    [change],
+  );
+  const confirmVersionDeletion = useCallback(
+    (deletion) => {
+      const queued = queueDeletionConfirmation(deletion);
+      if (!queued.receipt)
+        return Promise.resolve({ ok: false, reason: queued.reason });
+      return change("version-deletion", null, null, queued.receipt);
+    },
+    [change],
+  );
   return {
     now,
     coins: state.coins,
     streak: state.streak || null,
     claimVisit,
+    hasDoctor: walletHasDoctor(state),
+    purchaseDoctor,
+    recordWriting,
+    confirmVersionDeletion,
+    purchases: state.purchases || {},
+    achievements: Object.values(state.achievements || {}),
+    deletions: state.deletions || [],
+    writingRemainder: (state.writing?.characters || 0) % 100,
     ideas: state.ideas || [],
     session: state.session,
     remainingMs: timerRemaining(state.session, now),

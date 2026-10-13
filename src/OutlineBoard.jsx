@@ -19,6 +19,7 @@ import { dramaValue } from "./document-layout.js";
 import OutlineDramaChart from "./OutlineDramaChart.jsx";
 import OutlineCardDrawer from "./OutlineCardDrawer.jsx";
 import { CardIcon } from "./StoryIcons.jsx";
+import { outlineStage, outlineStageStyle } from "./outline-stages.js";
 import "./outline.css";
 function RemoveDialog({ removing, onClose, onConfirm }) {
   const language = useLanguage();
@@ -542,9 +543,8 @@ export default function OutlineBoard({
                               : "")
                           }
                           data-card-id={card.id}
-                          style={{
-                            "--card-color": card.color,
-                          }}
+                          data-production-stage={outlineStage(card).id}
+                          style={outlineStageStyle(card)}
                           draggable
                           onDragStart={(event) => {
                             event.dataTransfer.setData(

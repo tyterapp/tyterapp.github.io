@@ -852,6 +852,12 @@ export async function exportShotReportPDF(document) {
     write(scene.title || t("Без названия"), { bold: true });
     const settings = scene.settings;
     write(`${t("Название шота")}: ${settings.name || t("Не задано")}`);
+    write(`${t("Дата съёмок")}: ${settings.shootingDate || t("Не задано")}`);
+    const location = settings.location;
+    write(`${t("Локация съёмок")}: ${location?.name?.trim() || t("Не задано")}`);
+    write(
+      `${t("Координаты")}: ${location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : t("Не задано")}`,
+    );
     write(
       `${t("Хронометраж сцены")}: ${durationLabel(scene.seconds)} (${scene.pages.toFixed(2)} ${language ? "pages" : "стр."})`,
     );

@@ -89,6 +89,7 @@ import {
   scriptScopeId,
   scriptVersion,
   scriptVersionId,
+  isScriptVersionCopy,
   removeScriptVersion,
   restoreScriptVersion,
   switchScriptVersion,
@@ -729,6 +730,9 @@ export default function MinimalApp({ onLogout }) {
   const [versionDeletion, setVersionDeletion] = useState(null);
   const versionDeletionRef = useRef(null);
   const writingTimer = useWritingTimer(setMessage);
+  useEffect(() => {
+    if (!writingTimer.hasDoctor) setDoctorOpen(false);
+  }, [writingTimer.hasDoctor]);
   useEffect(() => {
     let timeout;
     const visit = () => {
@@ -1587,6 +1591,21 @@ export default function MinimalApp({ onLogout }) {
       if (!pending || pending.id !== id) return Promise.resolve();
       if (!pending.confirmation) {
         pending.confirmed = true;
+        const document = documentsRef.current.find(
+          (doc) => doc.id === pending.documentId,
+        );
+        const lastCopy =
+          !!document &&
+          !SCRIPT_VERSIONS.some((version) =>
+            isScriptVersionCopy(document, version.id),
+          );
+        const reward = writingTimer.confirmVersionDeletion({
+          id: pending.id,
+          documentId: pending.documentId,
+          versionId: pending.versionId,
+          label: pending.label,
+          lastCopy,
+        });
         pending.confirmation = pending.flush
           .then(() => historyFlushRef.current(pending.scope))
           .then(() =>
@@ -1601,11 +1620,12 @@ export default function MinimalApp({ onLogout }) {
             historyWritten.current.delete(`${pending.scope}:screenplay`);
             historyWritten.current.delete(`${pending.scope}:outline`);
             setHistoryVersion((version) => version + 1);
-          });
+          })
+          .then(() => reward);
       }
       return pending.confirmation;
     },
-    [setMessage],
+    [setMessage, writingTimer.confirmVersionDeletion],
   );
   const dismissVersionDeletion = useCallback(
     async (id) => {
@@ -1774,8 +1794,8 @@ export default function MinimalApp({ onLogout }) {
     [current.content, current.sceneVariants, searchText, searchFormat],
   );
   const doctorFindings = useMemo(
-    () => inspectDocumentScript(current),
-    [current.content, current.sceneVariants],
+    () => (writingTimer.hasDoctor ? inspectDocumentScript(current) : []),
+    [writingTimer.hasDoctor, current.content, current.sceneVariants],
   );
   const locateDoctorFinding = (finding) => {
     const latest =
@@ -2955,22 +2975,24 @@ export default function MinimalApp({ onLogout }) {
                   >
                     <ChartNoAxesColumn size={17} />
                   </button>
-                  <button
-                    className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
-                    aria-label={t("Доктор сценария")}
-                    data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
-                    aria-expanded={doctorOpen}
-                    aria-describedby="script-doctor-condition"
-                    onClick={() => showSidebar(doctorOpen ? null : "doctor")}
-                  >
-                    <ScriptDoctorIcon count={doctorFindings.length} />
-                    <span
-                      className="visually-hidden"
-                      id="script-doctor-condition"
+                  {writingTimer.hasDoctor && (
+                    <button
+                      className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
+                      aria-label={t("Доктор сценария")}
+                      data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
+                      aria-expanded={doctorOpen}
+                      aria-describedby="script-doctor-condition"
+                      onClick={() => showSidebar(doctorOpen ? null : "doctor")}
                     >
-                      {t("Замечаний: {0}", doctorFindings.length)}
-                    </span>
-                  </button>
+                      <ScriptDoctorIcon count={doctorFindings.length} />
+                      <span
+                        className="visually-hidden"
+                        id="script-doctor-condition"
+                      >
+                        {t("Замечаний: {0}", doctorFindings.length)}
+                      </span>
+                    </button>
+                  )}
                   <button
                     className={`icon-button${characterView ? " active" : ""}`}
                     aria-label={t("Реплики персонажей")}
@@ -3393,11 +3415,13 @@ export default function MinimalApp({ onLogout }) {
                   fontFamily={fontFamily}
                   content={current.content}
                   onChange={changeContent}
-                  trackWritingActivity={
-                    IS_PRO &&
-                    writingTimer.session?.status === "running" &&
-                    writingTimer.session.quest?.scope === writingScope
+                  onWritingActivity={(activity) =>
+                    writingTimer.recordWriting({
+                      ...activity,
+                      scope: writingScope,
+                    })
                   }
+                  trackWritingActivity
                   onSelection={setSelection}
                   showLineHighlight={false}
                   spellcheck={current.settings.spellcheck}
@@ -3667,7 +3691,7 @@ export default function MinimalApp({ onLogout }) {
               onClose={() => setStatisticsOpen(false)}
             />
           )}
-          {doctorOpen && (
+          {writingTimer.hasDoctor && doctorOpen && (
             <ScriptDoctor
               key={writingScope}
               findings={doctorFindings}
@@ -3696,6 +3720,8 @@ export default function MinimalApp({ onLogout }) {
               notes={notesOpen}
               version={historyVersion}
               selectedId={historyRevision?.id}
+              deletions={writingTimer.deletions}
+              achievements={writingTimer.achievements}
               onSelect={(revision) => {
                 setHistoryRevision(revision);
                 if (revision)
@@ -4079,7 +4105,9 @@ export default function MinimalApp({ onLogout }) {
           onEmbed={embedLibrary}
         />
       )}
-      {preferences.doctorFlies && <DoctorFlies count={doctorFindings.length} />}
+      {writingTimer.hasDoctor && preferences.doctorFlies && (
+        <DoctorFlies count={doctorFindings.length} />
+      )}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {questOverlay && IS_PRO && (
         <QuestOverlay

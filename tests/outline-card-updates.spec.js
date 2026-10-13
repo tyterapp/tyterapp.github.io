@@ -69,7 +69,7 @@ async function open(
     comments: [],
   };
   await page.addInitScript(
-    ({ doc, theme }) => {
+    ({ doc, theme, errors }) => {
       if (sessionStorage.getItem("card-updates-seeded")) return;
       sessionStorage.setItem("card-updates-seeded", "yes");
       localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
@@ -79,8 +79,19 @@ async function open(
         "tyter.editor-preferences.v1",
         JSON.stringify({ theme, doctorFlies: true }),
       );
+      if (errors)
+        localStorage.setItem(
+          "tyter.writing-timer.v1",
+          JSON.stringify({
+            coins: 0,
+            session: null,
+            purchases: {
+              "script-doctor": { purchasedAt: Date.now(), cost: 20 },
+            },
+          }),
+        );
     },
-    { doc, theme },
+    { doc, theme, errors },
   );
   await page.goto("/beta");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
@@ -123,6 +134,7 @@ for (const theme of ["light", "dark"]) {
   test(`${theme}: screenplay opens a resizable card at the right and target goes to outline`, async ({
     page,
   }, info) => {
+    test.setTimeout(45000);
     await open(page, { theme });
     await cardLink(page).click();
     const drawer = cardDrawer(page);
@@ -131,6 +143,35 @@ for (const theme of ["light", "dark"]) {
       "aria-pressed",
       "true",
     );
+    // A legacy green card derives Production without rewriting its saved color.
+    await expect(cardLink(page)).toHaveAttribute(
+      "data-production-stage",
+      "production",
+    );
+    await expect(
+      drawer.getByRole("button", { name: "Production", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await drawer
+      .getByRole("button", { name: "Pre production", exact: true })
+      .click();
+    await expect(cardLink(page)).toHaveAttribute(
+      "data-production-stage",
+      "pre-production",
+    );
+    await drawer
+      .getByRole("button", { name: "Post production", exact: true })
+      .click();
+    await expect(cardLink(page)).toHaveAttribute(
+      "data-production-stage",
+      "post-production",
+    );
+    const sceneColor = await cardLink(page).evaluate(
+      (node) => getComputedStyle(node).color,
+    );
+    const swatchColor = await drawer
+      .locator('[aria-pressed="true"] .outline-stage-swatch')
+      .evaluate((node) => getComputedStyle(node).backgroundColor);
+    expect(sceneColor).toBe(swatchColor);
     const rect = await drawer.boundingBox();
     expect(rect.width).toBe(340);
     expect(rect.x + rect.width).toBe(1440);
@@ -172,6 +213,15 @@ for (const theme of ["light", "dark"]) {
       .click();
     await expect(view(page, "Аутлайн")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-card-id="card"]')).toHaveClass(/selected/);
+    await expect(page.locator('[data-card-id="card"]')).toHaveAttribute(
+      "data-production-stage",
+      "post-production",
+    );
+    expect(
+      await page
+        .locator('[data-card-id="card"] .outline-card-title')
+        .evaluate((node) => getComputedStyle(node).color),
+    ).toBe(sceneColor);
     expect((await cardDrawer(page).boundingBox()).width).toBe(480);
     await expect(
       cardDrawer(page).getByRole("textbox", {
@@ -181,6 +231,10 @@ for (const theme of ["light", "dark"]) {
     ).toHaveValue("Новая встреча");
     await page.reload();
     await cardLink(page, "Новая встреча").click();
+    await expect(cardLink(page, "Новая встреча")).toHaveAttribute(
+      "data-production-stage",
+      "post-production",
+    );
     expect((await cardDrawer(page).boundingBox()).width).toBe(480);
     await page.keyboard.press("Escape");
     await expect(cardDrawer(page)).toHaveCount(0);

@@ -209,11 +209,50 @@ export const FORMAT_NAMES = {
   transition: ["Переход", "Transition"],
   plain: ["Заметки", "Notes"],
 };
+export function cleanShootingDate(value) {
+  if (typeof value !== "string") return "";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+  const [, year, month, day] = match.map(Number);
+  if (year < 1 || month < 1 || month > 12 || day < 1) return "";
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1] ? value : "";
+}
+export function cleanShotLocation(value) {
+  if (!value || typeof value !== "object") return null;
+  const { latitude, longitude } = value;
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  )
+    return null;
+  const location = {
+    latitude: Math.round(latitude * 1e6) / 1e6,
+    longitude: Math.round(longitude * 1e6) / 1e6,
+  };
+  if (typeof value.name === "string" && value.name.trim())
+    location.name = value.name.slice(0, 180);
+  return location;
+}
+export function shotLocationLabel(location) {
+  const clean = cleanShotLocation(location);
+  if (!clean) return "";
+  return `${clean.name ? `${clean.name.trim()} · ` : ""}${clean.latitude.toFixed(6)}, ${clean.longitude.toFixed(6)}`;
+}
 export function cleanShotSettings(source) {
   const clean = {};
   if (!source || typeof source !== "object") return clean;
   if (typeof source.name === "string" && source.name.trim())
     clean.name = source.name.slice(0, 180);
+  const shootingDate = cleanShootingDate(source.shootingDate);
+  if (shootingDate) clean.shootingDate = shootingDate;
+  const location = cleanShotLocation(source.location);
+  if (location) clean.location = location;
   for (const { key, options } of SHOT_FIELDS)
     if (options.some(([value]) => value === source[key]))
       clean[key] = source[key];

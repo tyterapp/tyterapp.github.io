@@ -10,15 +10,12 @@ import {
 import { t, useLanguage } from "./i18n.js";
 import { uid } from "./data.js";
 import { dramaValue } from "./document-layout.js";
+import {
+  OUTLINE_STAGES,
+  outlineStage,
+  outlineStageStyle,
+} from "./outline-stages.js";
 import "./outline.css";
-const COLORS = [
-  "#33313b",
-  "#d89b17",
-  "#aa45ef",
-  "#e86847",
-  "#609923",
-  "#1b2eff",
-];
 
 const WIDTH_KEY = "tyter.outline-card-width.v1";
 const clampWidth = (value) => Math.max(340, Math.min(480, Math.round(value)));
@@ -229,32 +226,25 @@ export default function OutlineCardDrawer({
           </span>
         </label>
         <fieldset className="outline-colors">
-          <legend>{t("Цвет карточки")}</legend>
+          <legend>{t("Этап производства")}</legend>
           <div>
-            {COLORS.map((color, index) => (
+            {OUTLINE_STAGES.map((stage) => (
               <button
-                key={color}
-                aria-label={t(
-                  [
-                    "Графитовый",
-                    "Жёлтый",
-                    "Фиолетовый",
-                    "Оранжевый",
-                    "Зелёный",
-                    "Синий",
-                  ][index],
-                )}
-                aria-pressed={selected.color === color}
-                style={{
-                  "--card-color": color,
-                }}
+                type="button"
+                key={stage.id}
+                className="outline-stage-choice"
+                aria-label={stage.label}
+                aria-pressed={outlineStage(selected).id === stage.id}
+                data-production-stage={stage.id}
+                style={outlineStageStyle(stage)}
                 onClick={() =>
                   changeCard(selected.id, {
-                    color,
+                    color: stage.color,
                   })
                 }
               >
-                <span />
+                <span className="outline-stage-swatch" aria-hidden="true" />
+                <span>{stage.label}</span>
               </button>
             ))}
           </div>

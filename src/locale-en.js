@@ -1,6 +1,30 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
 export default {
+  "Этап производства": "Production stage",
+  "Удалённые копии за сегодня": "Copies deleted today",
+  "Сегодня копии не удалялись.": "No copies deleted today.",
+  "Ачивка «Мусорщик»": "Scavenger achievement",
+  "Мусорщик: +10 coins": "Scavenger: +10 coins",
+  "+{0} coins": "+{0} coins",
+  "Доктор сценария приобретён.": "Script doctor purchased.",
+  "Дата съёмок": "Shooting date",
+  "Локация съёмок": "Shooting location",
+  Координаты: "Coordinates",
+  "Карта локации съёмок": "Shooting location map",
+  "Нажмите на карту. Стрелки перемещают карту, Enter выбирает центр.":
+    "Click the map. Arrow keys pan, Enter selects the center.",
+  "Карта недоступна. Локацию можно задать координатами.":
+    "Map unavailable. Enter coordinates to set a location.",
+  "Выбрать центр карты": "Select map center",
+  "Название локации": "Location name",
+  "Например, кафе у вокзала": "For example, a cafe by the station",
+  Широта: "Latitude",
+  Долгота: "Longitude",
+  "Применить координаты": "Apply coordinates",
+  "Удалить локацию": "Remove location",
+  "Широта: от −90 до 90. Долгота: от −180 до 180.":
+    "Latitude: −90 to 90. Longitude: −180 to 180.",
   "Удалить копию {0}": "Delete copy {0}",
   "Копия {0} удалена. Можно отменить удаление в течение 15 секунд.":
     "Copy {0} deleted. You can undo deletion for 15 seconds.",

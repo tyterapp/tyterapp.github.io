@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Play, X, Flame } from "lucide-react";
+import { Play, X, Flame, Store } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
+import WritingShop from "./WritingShop.jsx";
 import {
   MoneyIcon,
   PauseIcon,
@@ -10,12 +11,53 @@ import {
 } from "./WritingTimerIcons.jsx";
 
 export default function WritingTimer({ visible, timer, onStreak }) {
-  useLanguage();
+  const language = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
+  const [shopClosing, setShopClosing] = useState(false);
+  const shopButtonRef = useRef(null);
+  const shopCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const ref = useRef(null);
   const paused = timer.session?.status === "paused";
   const time = formatTimerTime(timer.remainingMs);
+  const closeShop = () => {
+    if (!shopOpen || shopClosing) return;
+    setShopClosing(true);
+    shopCloseTimeout.current = setTimeout(() => {
+      setShopOpen(false);
+      setShopClosing(false);
+      shopButtonRef.current?.focus({ preventScroll: true });
+    }, 160);
+  };
+  useEffect(() => () => clearTimeout(shopCloseTimeout.current), []);
+  useEffect(() => {
+    if (!visible || timer.session || pickerOpen) {
+      clearTimeout(shopCloseTimeout.current);
+      setShopOpen(false);
+      setShopClosing(false);
+    }
+  }, [visible, timer.session?.id, pickerOpen]);
+  useEffect(() => {
+    if (!shopOpen) return;
+    const close = (event) => {
+      if (event.type === "keydown" && event.key === "Escape") {
+        event.stopPropagation();
+        event.preventDefault();
+        closeShop();
+      } else if (
+        event.type === "pointerdown" &&
+        !ref.current?.contains(event.target)
+      )
+        closeShop();
+    };
+    document.addEventListener("keydown", close, true);
+    document.addEventListener("pointerdown", close);
+    return () => {
+      document.removeEventListener("keydown", close, true);
+      document.removeEventListener("pointerdown", close);
+    };
+  }, [shopOpen, shopClosing]);
 
   useEffect(() => {
     if (!visible || timer.session) setPickerOpen(false);
@@ -69,6 +111,9 @@ export default function WritingTimer({ visible, timer, onStreak }) {
       aria-label={t("Таймер письма")}
       onMouseDown={(event) => event.preventDefault()}
     >
+      {shopOpen && (
+        <WritingShop timer={timer} closing={shopClosing} onClose={closeShop} />
+      )}
       {timer.streak && !timer.session && !pickerOpen && (
         <button
           type="button"
@@ -162,6 +207,25 @@ export default function WritingTimer({ visible, timer, onStreak }) {
             <MoneyIcon />
             <span>{timer.coins}</span>
           </span>
+          <button
+            ref={shopButtonRef}
+            type="button"
+            className="writing-timer-button is-idle"
+            aria-label={language === "en" ? "Open shop" : "Открыть магазин"}
+            data-tooltip={language === "en" ? "Shop" : "Магазин"}
+            aria-expanded={shopOpen && !shopClosing}
+            aria-controls="writing-shop"
+            onClick={() => {
+              if (shopOpen && !shopClosing) closeShop();
+              else {
+                clearTimeout(shopCloseTimeout.current);
+                setShopClosing(false);
+                setShopOpen(true);
+              }
+            }}
+          >
+            <Store size={20} aria-hidden="true" />
+          </button>
         </>
       )}
     </div>

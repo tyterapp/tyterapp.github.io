@@ -17,8 +17,10 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
 import { cardIconSvg } from "./StoryIcons.jsx";
+import { outlineStage, outlineStageStyle } from "./outline-stages.js";
 import { quoteDiff } from "./comment-review.js";
 import { getWordCount } from "./data.js";
+import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
@@ -488,6 +490,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     documentId,
     autoFocus = false,
     onChange,
+    onWritingActivity,
     trackWritingActivity = false,
     continuous = false,
     plainOnly = false,
@@ -550,6 +553,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   };
   const propsRef = useRef({
     onChange,
+    onWritingActivity,
     trackWritingActivity,
     onSelection,
     onComments,
@@ -577,6 +581,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onEditProp,
     onEditAnnotations,
     onChange,
+    onWritingActivity,
     trackWritingActivity,
     onSelection,
     onComments,
@@ -593,6 +598,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     activeComment,
   };
   const lastEmitted = useRef(null);
+  const writingComposition = useRef({});
   const lastReceived = useRef(JSON.stringify(content));
   const searchScrollFrame = useRef(null);
   const navigationFlash = useRef(null);
@@ -936,13 +942,19 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       const button = document.createElement("button");
                       button.type = "button";
                       button.className = "outline-scene-link";
+                      const stage = outlineStage(card);
+                      button.dataset.productionStage = stage.id;
+                      for (const [name, value] of Object.entries(
+                        outlineStageStyle(card),
+                      ))
+                        button.style.setProperty(name, value);
                       button.setAttribute(
                         "aria-label",
                         t("Открыть карточку {0}", card.title),
                       );
                       button.setAttribute(
                         "data-tooltip",
-                        t("Открыть карточку аутлайна"),
+                        `${t("Открыть карточку аутлайна")} · ${stage.label}`,
                       );
                       button.contentEditable = "false";
                       button.innerHTML = cardIconSvg(18);
@@ -957,7 +969,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       return gutter;
                     },
                     {
-                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${card?.id || ""}-${card?.title || ""}-${language}`,
+                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${card?.id || ""}-${card?.title || ""}-${card?.color || ""}-${language}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -1112,6 +1124,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             }
           : undefined,
       );
+      if (propsRef.current.trackWritingActivity) {
+        const characters = writtenCharacters(
+          transaction,
+          writingComposition.current,
+        );
+        if (characters)
+          propsRef.current.onWritingActivity?.({ id: makeId(), characters });
+      }
       propsRef.current.onSelection?.(selectionInfo(updatedEditor));
     },
     onSelectionUpdate({ editor: updatedEditor }) {
@@ -1141,6 +1161,27 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     });
     return () => cancelAnimationFrame(frame);
   }, [editor, caretReady, autoFocus]);
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const start = () => {
+      writingComposition.current.active = true;
+    };
+    const finish = (event) => {
+      const active = writingComposition.current.active;
+      writingComposition.current.active = false;
+      const characters = committedCharacters(event.data || "");
+      if (active && characters && propsRef.current.trackWritingActivity)
+        propsRef.current.onWritingActivity?.({ id: makeId(), characters });
+    };
+    dom.addEventListener("compositionstart", start);
+    dom.addEventListener("compositionend", finish);
+    return () => {
+      dom.removeEventListener("compositionstart", start);
+      dom.removeEventListener("compositionend", finish);
+      writingComposition.current.active = false;
+    };
+  }, [editor]);
   useScreenplayPagination(
     editor,
     minimal && !continuous,
@@ -1374,6 +1415,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         editor
           .chain()
           .focus()
+          .command(({ tr }) => {
+            tr.setMeta("skipWritingReward", true);
+            return true;
+          })
           .insertContentAt(end, [
             {
               type: "paragraph",
@@ -1410,6 +1455,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         const inserted = editor
           .chain()
           .setTextSelection(editor.state.selection.head)
+          .command(({ tr }) => {
+            tr.setMeta("skipWritingReward", true);
+            return true;
+          })
           .insertContent(blocks)
           .run();
         return inserted ? editor.getJSON() : null;
@@ -1578,6 +1627,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (!ranges.length) return 0;
         const transaction = editor.state.tr;
         transaction.setMeta(SKIP_COMPONENT_LINKS, true);
+        transaction.setMeta("skipWritingReward", true);
         for (const range of ranges.reverse())
           transaction.replaceWith(
             range.from,
@@ -1591,6 +1641,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         if (!editor || !name) return 0;
         const ranges = propRanges(editor.state.doc, [prop]);
         const tr = editor.state.tr;
+        tr.setMeta("skipWritingReward", true);
         for (const range of ranges.reverse()) {
           const marks =
             editor.state.doc.resolve(range.from).nodeAfter?.marks || [];

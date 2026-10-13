@@ -53,6 +53,7 @@ async function open(
         "tyter.writing-timer.v1",
         JSON.stringify({
           coins: 37,
+          purchases: { "script-doctor": { purchasedAt: Date.now(), cost: 20 } },
           session: null,
           streak: { day, count: 7, best: 12 },
         }),

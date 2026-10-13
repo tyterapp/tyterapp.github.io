@@ -1,5 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { ArrowLeft, Copy, ChartLine } from "lucide-react";
+import { outlineStage, outlineStageStyle } from "./outline-stages.js";
 export default function OutlineHistoryPreview({ revision, onExit }) {
   const language = useLanguage();
   const outline = revision.snapshot.outline || {
@@ -36,11 +37,16 @@ export default function OutlineHistoryPreview({ revision, onExit }) {
               {outline.cards
                 .filter((card) => card.columnId === column.id)
                 .map((card) => (
-                  <article className="outline-card" key={card.id}>
+                  <article
+                    className="outline-card"
+                    key={card.id}
+                    data-production-stage={outlineStage(card).id}
+                    style={outlineStageStyle(card)}
+                  >
                     <div
                       className="outline-card-heading"
                       style={{
-                        color: card.color,
+                        color: "var(--card-color)",
                       }}
                     >
                       <Copy size={17} />

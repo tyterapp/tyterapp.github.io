@@ -6,9 +6,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 28px;
-  padding: 3px 8px;
+  --shot-thumbnail-height: 48px;
+  width: 48px;
+  height: 48px;
+  padding: 8px;
   border: 0;
   border-radius: 6px;
   background: var(--ui-soft);
@@ -23,7 +24,7 @@
 .scene-shot-button::before {
   content: "";
   position: absolute;
-  inset: -6px -3px;
+  inset: 0;
 }
 .scene-shot-button:hover,
 .scene-shot-button:focus-visible,
@@ -60,7 +61,7 @@
 .scene-shot-thumbnail.is-cropped {
   width: min(
     100%,
-    calc(var(--shot-thumbnail-height, 28px) * var(--shot-thumbnail-ratio))
+    calc(var(--shot-thumbnail-height, 48px) * var(--shot-thumbnail-ratio))
   );
   height: auto;
   aspect-ratio: var(--shot-thumbnail-ratio);
@@ -368,13 +369,19 @@
 .focus-mode .scene-shot-button {
   display: none;
 }
+@media screen {
+  .minimal-app:not(.focus-mode)
+    .screenplay-editor
+    .screenplay-block[data-format="scene"]:has(
+      + .screenplay-block[data-format="scene"]
+    ) {
+    margin-bottom: max(var(--block-gap, 20px), calc(52px - 1lh));
+  }
+}
 @media screen and (min-width: 320px) and (max-width: 831px) {
   .minimal-app[data-mobile] .scene-shot-button {
-    --shot-thumbnail-height: 44px;
     right: 0;
-    top: 22px;
-    width: 44px;
-    height: 44px;
+    top: 24px;
   }
   .minimal-app[data-mobile] .scene-shot-button::before {
     inset: 0;

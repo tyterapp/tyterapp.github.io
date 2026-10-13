@@ -9,6 +9,11 @@ import {
 } from "../src/script-versions.js";
 import { grantPro } from "./helpers/pro-access.js";
 
+const wallet = (page) =>
+  page.evaluate(() =>
+    JSON.parse(localStorage.getItem("tyter.writing-timer.v1")),
+  );
+
 const block = (format, text, blockId) => ({
   type: "paragraph",
   attrs: { format, blockId },
@@ -376,4 +381,53 @@ test("320px: copy deletion has touch controls and the warning fits the screen", 
     .getByRole("button", { name: "Отменить удаление", exact: true })
     .click();
   await expect(notice(page)).toHaveCount(0);
+});
+
+test("only confirmed deletions enter today's history; deleting the last copy awards Scavenger once", async ({
+  page,
+}) => {
+  await open(page);
+  await freeze(page);
+  const balance = (await wallet(page)).coins;
+  await picker(page).click();
+  await blueDelete(page).click();
+  await notice(page)
+    .getByRole("button", { name: "Отменить удаление", exact: true })
+    .click();
+  await page.clock.runFor(300);
+  expect((await wallet(page)).deletions || []).toHaveLength(0);
+  const remove = async (name) => {
+    await picker(page).click();
+    await page
+      .getByRole("button", { name: `Удалить копию ${name}`, exact: true })
+      .click();
+    await notice(page)
+      .getByRole("button", { name: "Подтвердить удаление копии", exact: true })
+      .click();
+    await page.clock.runFor(300);
+    await expect(notice(page)).toHaveCount(0);
+  };
+  await remove("v2 Blue");
+  await expect.poll(async () => (await wallet(page)).deletions?.length).toBe(1);
+  expect((await wallet(page)).coins).toBe(balance);
+  expect((await wallet(page)).achievements?.scavenger).toBeUndefined();
+  await remove("v3 Pink");
+  await expect.poll(async () => (await wallet(page)).coins).toBe(balance + 10);
+  expect((await wallet(page)).deletions).toHaveLength(2);
+  expect((await wallet(page)).achievements.scavenger.reward).toBe(10);
+  await page
+    .getByRole("button", { name: "История изменений", exact: true })
+    .click();
+  const journal = page.locator(".history-deletions");
+  await expect(journal).toContainText("Ачивка «Мусорщик»");
+  await expect(journal.locator("li")).toHaveCount(2);
+  await expect(journal).toContainText("v2 Blue");
+  await expect(journal).toContainText("v3 Pink");
+  await page
+    .getByRole("button", { name: "Закрыть историю", exact: true })
+    .click();
+  await choose(page, "blue");
+  await remove("v2 Blue");
+  await expect.poll(async () => (await wallet(page)).deletions?.length).toBe(3);
+  expect((await wallet(page)).coins).toBe(balance + 10);
 });

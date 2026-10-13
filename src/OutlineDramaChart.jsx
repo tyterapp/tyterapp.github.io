@@ -2,6 +2,7 @@ import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { dramaValue } from "./document-layout.js";
+import { outlineStage, outlineStageStyle } from "./outline-stages.js";
 export default function OutlineDramaChart({
   columns,
   cards,
@@ -151,13 +152,15 @@ export default function OutlineDramaChart({
                 >
                   <stop
                     offset="0%"
-                    stopColor={from.card.color || "#33313b"}
-                    style={{ "--drama-color": from.card.color || "#33313b" }}
+                    stopColor={outlineStage(from.card).color}
+                    data-production-stage={outlineStage(from.card).id}
+                    style={outlineStageStyle(from.card)}
                   />
                   <stop
                     offset="100%"
-                    stopColor={point.card.color || "#33313b"}
-                    style={{ "--drama-color": point.card.color || "#33313b" }}
+                    stopColor={outlineStage(point.card).color}
+                    data-production-stage={outlineStage(point.card).id}
+                    style={outlineStageStyle(point.card)}
                   />
                 </linearGradient>
               );
@@ -216,9 +219,8 @@ export default function OutlineDramaChart({
           {points.map(({ card, x, y }) => (
             <g
               key={card.id}
-              style={{
-                "--drama-color": card.color || "#33313b",
-              }}
+              data-production-stage={outlineStage(card).id}
+              style={outlineStageStyle(card)}
               className={
                 "outline-drama-point" +
                 (card.id === selectedId ? " is-selected" : "") +
@@ -265,8 +267,8 @@ export default function OutlineDramaChart({
                 cx={x}
                 cy={y}
                 r={5}
-                fill={card.color || "#33313b"}
-                stroke={card.color || "#33313b"}
+                fill={outlineStage(card).color}
+                stroke={outlineStage(card).color}
                 strokeWidth={2.5}
               />
               <text x={x} y={y - 13} textAnchor="middle">

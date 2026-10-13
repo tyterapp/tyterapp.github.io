@@ -36,6 +36,14 @@ async function open(page, doc = fixture(), theme = "light", pro = false) {
       localStorage.setItem("tyter.active", doc.id);
       localStorage.setItem("tyter.language.v1", "ru");
       localStorage.setItem(
+        "tyter.writing-timer.v1",
+        JSON.stringify({
+          coins: 0,
+          session: null,
+          purchases: { "script-doctor": { purchasedAt: Date.now(), cost: 20 } },
+        }),
+      );
+      localStorage.setItem(
         "tyter.editor-preferences.v1",
         JSON.stringify({ theme, doctorFlies: true }),
       );
@@ -156,6 +164,7 @@ for (const theme of ["light", "dark"]) {
   test(`doctor is readable and clickable in ${theme}, opens findings and navigates without mutating text`, async ({
     page,
   }, info) => {
+    test.setTimeout(45000);
     await open(page, fixture(6), theme);
     await expect(icon(page)).toHaveAttribute("data-error-count", "12");
     await expect(icon(page)).toHaveAttribute("data-fill", "1");

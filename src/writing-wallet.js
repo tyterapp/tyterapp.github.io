@@ -1,0 +1,236 @@
+import { localDay } from "./daily-streak.js";
+
+export const DOCTOR_PRODUCT = "script-doctor";
+export const DOCTOR_PRICE = 20;
+export const SCAVENGER_ACHIEVEMENT = "scavenger";
+export const PENDING_DELETION_PREFIX = "tyter.pending-deletion.v1:";
+const validId = (value) =>
+  typeof value === "string" && value.length > 0 && value.length <= 256;
+const validDay = (value) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  Number.isFinite(Date.parse(`${value}T12:00:00Z`)) &&
+  new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
+const safeCount = (value) =>
+  Number.isSafeInteger(value) && value >= 0 ? value : 0;
+
+export function deletionConfirmationReceipt(deletion, now = Date.now()) {
+  const date = deletion?.date || localDay(now);
+  if (
+    !validId(deletion?.id) ||
+    !validId(deletion.documentId) ||
+    !validId(deletion.versionId) ||
+    typeof deletion.label !== "string" ||
+    !validDay(date)
+  )
+    return null;
+  return {
+    id: deletion.id,
+    documentId: deletion.documentId,
+    versionId: deletion.versionId,
+    label: deletion.label.slice(0, 180),
+    date,
+    lastCopy: deletion.lastCopy === true,
+    deletedAt:
+      Number.isFinite(deletion.deletedAt) && deletion.deletedAt >= 0
+        ? deletion.deletedAt
+        : now,
+  };
+}
+
+// A separate key per confirmation is written synchronously before requesting the wallet lock.
+// If an unloading tab cannot finish the lock callback, the next tab recovers this receipt.
+export function queueDeletionConfirmation(deletion, storage, now = Date.now()) {
+  const receipt = deletionConfirmationReceipt(deletion, now);
+  if (!receipt) return { ok: false, reason: "deletion" };
+  const key = `${PENDING_DELETION_PREFIX}${encodeURIComponent(receipt.id)}`;
+  try {
+    storage ||= globalThis.localStorage;
+    storage.setItem(key, JSON.stringify(receipt));
+    return { ok: true, receipt, key };
+  } catch {
+    return { ok: false, reason: "storage", receipt, key };
+  }
+}
+
+export function pendingDeletionConfirmations(storage) {
+  try {
+    storage ||= globalThis.localStorage;
+    const keys = Array.from({ length: storage.length }, (_, index) =>
+      storage.key(index),
+    ).filter((key) => key?.startsWith(PENDING_DELETION_PREFIX));
+    return keys.flatMap((key) => {
+      try {
+        const receipt = deletionConfirmationReceipt(
+          JSON.parse(storage.getItem(key)),
+        );
+        return receipt &&
+          key === `${PENDING_DELETION_PREFIX}${encodeURIComponent(receipt.id)}`
+          ? [{ key, receipt }]
+          : [];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function clearDeletionConfirmation(key, storage) {
+  if (!key?.startsWith(PENDING_DELETION_PREFIX)) return;
+  try {
+    (storage || globalThis.localStorage).removeItem(key);
+  } catch {
+    /* Safe to retry recovery; wallet receipt IDs prevent duplicate credit. */
+  }
+}
+
+export function cleanWalletExtras(value) {
+  const purchases = value?.purchases?.[DOCTOR_PRODUCT];
+  const achievement = value?.achievements?.[SCAVENGER_ACHIEVEMENT];
+  const characters = safeCount(value?.writing?.characters);
+  const receipts = Array.isArray(value?.writing?.receipts)
+    ? [...new Set(value.writing.receipts.filter(validId))].slice(-2000)
+    : [];
+  const deletions = Array.isArray(value?.deletions)
+    ? value.deletions
+        .filter(
+          (entry) =>
+            validId(entry?.id) &&
+            validId(entry.documentId) &&
+            validId(entry.versionId) &&
+            typeof entry.label === "string" &&
+            validDay(entry.date),
+        )
+        .slice(-5000)
+        .map(({ id, documentId, versionId, label, date, deletedAt }) => ({
+          id,
+          documentId,
+          versionId,
+          label: label.slice(0, 180),
+          date,
+          ...(Number.isFinite(deletedAt) && deletedAt >= 0
+            ? { deletedAt }
+            : {}),
+        }))
+    : [];
+  return {
+    ...(Number.isFinite(purchases?.purchasedAt)
+      ? {
+          purchases: {
+            [DOCTOR_PRODUCT]: {
+              purchasedAt: purchases.purchasedAt,
+              cost: DOCTOR_PRICE,
+            },
+          },
+        }
+      : {}),
+    ...(validDay(achievement?.date)
+      ? {
+          achievements: {
+            [SCAVENGER_ACHIEVEMENT]: {
+              id: SCAVENGER_ACHIEVEMENT,
+              name: "Мусорщик",
+              date: achievement.date,
+              reward: 10,
+            },
+          },
+        }
+      : {}),
+    ...(characters || receipts.length
+      ? { writing: { characters, receipts } }
+      : {}),
+    ...(deletions.length ? { deletions } : {}),
+  };
+}
+
+export function walletHasDoctor(wallet) {
+  return Number.isFinite(wallet?.purchases?.[DOCTOR_PRODUCT]?.purchasedAt);
+}
+
+export function purchaseWalletDoctor(wallet, now = Date.now()) {
+  if (walletHasDoctor(wallet))
+    return { wallet, ok: true, alreadyOwned: true, reward: 0 };
+  if (wallet.coins < DOCTOR_PRICE)
+    return { wallet, ok: false, reason: "coins", reward: 0 };
+  return {
+    ok: true,
+    reward: 0,
+    wallet: {
+      ...wallet,
+      coins: wallet.coins - DOCTOR_PRICE,
+      purchases: {
+        ...wallet.purchases,
+        [DOCTOR_PRODUCT]: { purchasedAt: now, cost: DOCTOR_PRICE },
+      },
+    },
+  };
+}
+
+// The editor sends only fresh user insertions, never document loads, variant switches or undo/redo.
+// The receipt makes retries and duplicate delivery safe under the shared wallet lock.
+export function recordWalletWriting(wallet, activity) {
+  if (
+    !validId(activity?.id) ||
+    !validId(activity.scope) ||
+    !Number.isSafeInteger(activity.characters) ||
+    activity.characters <= 0 ||
+    activity.characters > 1_000_000
+  )
+    return { wallet, ok: false, reason: "activity", reward: 0 };
+  if (wallet.writing?.receipts?.includes(activity.id))
+    return { wallet, ok: true, reward: 0 };
+  const before = safeCount(wallet.writing?.characters);
+  const characters = before + activity.characters;
+  if (!Number.isSafeInteger(characters))
+    return { wallet, ok: false, reason: "activity", reward: 0 };
+  const reward = (Math.floor(characters / 100) - Math.floor(before / 100)) * 10;
+  return {
+    ok: true,
+    reward,
+    wallet: {
+      ...wallet,
+      coins: wallet.coins + reward,
+      writing: {
+        characters,
+        receipts: [...(wallet.writing?.receipts || []), activity.id].slice(
+          -2000,
+        ),
+      },
+    },
+  };
+}
+
+export function recordWalletDeletion(wallet, deletion, now = Date.now()) {
+  const receipt = deletionConfirmationReceipt(deletion, now);
+  if (!receipt) return { wallet, ok: false, reason: "deletion", reward: 0 };
+  const { date } = receipt;
+  if (wallet.deletions?.some((entry) => entry.id === deletion.id))
+    return { wallet, ok: true, reward: 0 };
+  const reward =
+    receipt.lastCopy && !wallet.achievements?.[SCAVENGER_ACHIEVEMENT] ? 10 : 0;
+  const { lastCopy: _lastCopy, ...entry } = receipt;
+  return {
+    ok: true,
+    reward,
+    ...(reward ? { achievement: SCAVENGER_ACHIEVEMENT } : {}),
+    wallet: {
+      ...wallet,
+      coins: wallet.coins + reward,
+      deletions: [...(wallet.deletions || []), entry].slice(-5000),
+      ...(reward
+        ? {
+            achievements: {
+              ...wallet.achievements,
+              [SCAVENGER_ACHIEVEMENT]: {
+                id: SCAVENGER_ACHIEVEMENT,
+                name: "Мусорщик",
+                date,
+                reward,
+              },
+            },
+          }
+        : {}),
+    },
+  };
+}

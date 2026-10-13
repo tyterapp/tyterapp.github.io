@@ -1,6 +1,8 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useState } from "react";
-import { History, RotateCcw, X } from "lucide-react";
+import { History, RotateCcw, Trash2, X } from "lucide-react";
+import { localDay } from "./daily-streak.js";
+import "./deletion-history.css";
 import { listRevisions, revisionArea } from "./history.js";
 import { useEdition } from "./edition.js";
 import { scriptVersionId } from "./script-versions.js";
@@ -26,6 +28,8 @@ export default function HistoryPanel({
   notes = false,
   version,
   selectedId,
+  deletions = [],
+  achievements = [],
   onSelect,
   onRestore,
   onClose,
@@ -34,6 +38,11 @@ export default function HistoryPanel({
   const { isPro: IS_PRO, historyDays: HISTORY_DAYS } = useEdition();
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
+  const today = localDay();
+  const dailyDeletions = deletions.filter(
+    (entry) => entry.documentId === documentId && entry.date === today,
+  );
+  const scavenger = achievements.find((entry) => entry.id === "scavenger");
   const visibleEntries = entries.filter((entry) =>
     notes
       ? revisionArea(entry) === "notes" ||
@@ -150,6 +159,45 @@ export default function HistoryPanel({
             )}
           </div>
         ))}
+        <section
+          className="history-deletions"
+          aria-label={t("Удалённые копии за сегодня")}
+        >
+          <div className="history-deletions-heading">
+            <Trash2 size={17} aria-hidden="true" />
+            <h3>{t("Удалённые копии за сегодня")}</h3>
+            <span>{dailyDeletions.length}</span>
+          </div>
+          {scavenger && (
+            <p className="history-achievement">
+              {t("Ачивка «Мусорщик»")} <span>+10 coins</span>
+            </p>
+          )}
+          {dailyDeletions.length ? (
+            <ul>
+              {dailyDeletions.map((entry) => (
+                <li key={entry.id}>
+                  <span>{entry.label}</span>
+                  {entry.deletedAt && (
+                    <time dateTime={new Date(entry.deletedAt).toISOString()}>
+                      {new Date(entry.deletedAt).toLocaleTimeString(
+                        languageLocale(),
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
+                    </time>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="history-deletions-empty">
+              {t("Сегодня копии не удалялись.")}
+            </p>
+          )}
+        </section>
       </div>
       {!IS_PRO && (
         <p className="history-upgrade">

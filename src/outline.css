@@ -438,28 +438,47 @@
   color: #675b73;
 }
 .outline-colors > div {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  gap: 3px;
   border-radius: 8px;
   padding: 3px;
   background: #e6e3eb;
 }
 .outline-colors button {
   border: 0;
-  min-height: 40px;
-  width: 40px;
+  min-height: 44px;
+  width: 100%;
+  padding: 8px 10px;
   background: transparent;
-  display: grid;
-  place-items: center;
+  color: var(--ui-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
   border-radius: 5px;
+  cursor: pointer;
+  transition:
+    background-color 130ms ease,
+    scale 120ms ease;
+}
+.outline-colors button:hover {
+  background: var(--ui-soft);
+}
+.outline-colors button:active {
+  scale: 0.96;
+}
+.outline-colors button:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
 }
 .outline-colors button[aria-pressed="true"] {
   background: #fff;
 }
-.outline-colors span {
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
+.outline-colors .outline-stage-swatch {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
   background: var(--card-color);
 }
 .outline-comments h3 {
@@ -531,6 +550,46 @@
 }
 .minimal-app .screenplay-editor .outline-scene-link:hover {
   background: #e8eaff;
+}
+/* Shared stage tokens keep the document icon, outline and history in sync. */
+.minimal-app [data-production-stage] {
+  --card-color: var(--card-color-light);
+}
+:root[data-theme="dark"] .minimal-app [data-production-stage] {
+  --card-color: var(--card-color-dark);
+}
+.minimal-app .screenplay-editor .outline-scene-link[data-production-stage],
+:root[data-theme="dark"]
+  .minimal-app
+  .screenplay-editor
+  .outline-scene-link[data-production-stage],
+:root[data-theme="dark"]
+  .outline-card[data-production-stage]
+  .outline-card-title {
+  color: var(--card-color);
+}
+.outline-drama-point[data-production-stage] {
+  --drama-color: var(--card-color);
+}
+.minimal-app .outline-drama-point[data-production-stage] .drama-dot,
+:root[data-theme="dark"]
+  .minimal-app
+  .outline-drama-point[data-production-stage]
+  .drama-dot {
+  fill: var(--card-color);
+  stroke: var(--card-color);
+}
+.minimal-app .outline-drama-scroll stop[data-production-stage],
+:root[data-theme="dark"]
+  .minimal-app
+  .outline-drama-scroll
+  stop[data-production-stage] {
+  stop-color: var(--card-color);
+}
+@media (prefers-reduced-motion: reduce) {
+  .outline-colors button {
+    transition: none;
+  }
 }
 .outline-card-drama {
   display: inline-flex;

@@ -53,6 +53,14 @@ async function open(
       localStorage.setItem("tyter.active", doc.id);
       localStorage.setItem("tyter.language.v1", "ru");
       localStorage.setItem(
+        "tyter.writing-timer.v1",
+        JSON.stringify({
+          coins: 0,
+          session: null,
+          purchases: { "script-doctor": { purchasedAt: Date.now(), cost: 20 } },
+        }),
+      );
+      localStorage.setItem(
         "tyter.editor-preferences.v1",
         JSON.stringify({ theme, doctorFlies: true }),
       );

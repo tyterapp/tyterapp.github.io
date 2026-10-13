@@ -109,7 +109,9 @@ test("outline cards create independent scenes and navigate in both directions", 
   await page
     .getByLabel("Текст карточки", { exact: true })
     .fill("Карточка: кошка замечает свет в окне.");
-  await page.getByRole("button", { name: "Синий", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Post production", exact: true })
+    .click();
   await page
     .getByLabel("Комментарий карточки", { exact: true })
     .fill("Важная часть истории");

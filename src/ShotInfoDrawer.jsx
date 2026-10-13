@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import AppSelect from "./AppSelect.jsx";
+import ShotLocationPicker from "./ShotLocationPicker.jsx";
 import { imageThumbnail } from "./image-thumbnail.js";
 import { getLanguage, t, useLanguage } from "./i18n.js";
 import {
@@ -62,6 +63,8 @@ export default function ShotInfoDrawer({
   const ratio = shotAspectRatio(settings.aspectRatio);
   const assigned = {
     name: !!settings.name?.trim(),
+    shootingDate: !!settings.shootingDate,
+    location: !!settings.location,
     duration: scene.blocks.some((block) => shotText(block).trim()),
     ...Object.fromEntries(
       SHOT_FIELDS.map((field) => [
@@ -275,6 +278,30 @@ export default function ShotInfoDrawer({
               maxLength={180}
               placeholder={t("Например, встреча у окна")}
               onChange={(event) => onChange({ name: event.target.value })}
+            />,
+          )}
+          {property(
+            "shootingDate",
+            t("Дата съёмок"),
+            <input
+              className="shot-name-input"
+              type="date"
+              min="0001-01-01"
+              max="9999-12-31"
+              aria-label={t("Дата съёмок")}
+              value={settings.shootingDate || ""}
+              onChange={(event) =>
+                onChange({ shootingDate: event.target.value })
+              }
+            />,
+          )}
+          {property(
+            "location",
+            t("Локация съёмок"),
+            <ShotLocationPicker
+              key={sceneKey}
+              value={settings.location}
+              onChange={(location) => onChange({ location })}
             />,
           )}
           {property(
