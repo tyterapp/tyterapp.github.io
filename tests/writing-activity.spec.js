@@ -118,7 +118,13 @@ test("editor accrues coins without a timer, carries the remainder through reload
   await expect.poll(async () => (await wallet())?.writing?.characters).toBe(99);
   expect((await wallet()).coins).toBe(1);
   await page.keyboard.insertText("😺");
+  const balance = page.locator(".writing-timer-balance");
+  await expect(balance).toHaveClass(/is-rewarding/);
   await expect.poll(async () => (await wallet())?.coins).toBe(11);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /\+\d+ coins/ }),
+  ).toHaveCount(0);
+  await expect(balance).not.toHaveClass(/is-rewarding/);
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Control+y");
   expect((await wallet()).writing.characters).toBe(100);
@@ -167,4 +173,22 @@ test("editor accrues coins without a timer, carries the remainder through reload
     .poll(async () => (await wallet())?.writing?.characters)
     .toBe(201);
   expect((await wallet()).coins).toBe(21);
+  await expect(balance).not.toHaveClass(/is-rewarding/);
+  await page
+    .getByRole("button", { name: "Открыть таймер", exact: true })
+    .click();
+  await page.getByRole("button", { name: "5 мин", exact: true }).click();
+  const controls = await page.locator(".writing-timer").boundingBox();
+  await page.locator('[data-block-id="body"]').click();
+  await page.keyboard.insertText("z".repeat(99));
+  await expect(balance).toHaveClass(/is-rewarding.*is-transient/);
+  expect(await page.locator(".writing-timer").boundingBox()).toEqual(controls);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /\+\d+ coins/ }),
+  ).toHaveCount(0);
+  await expect.poll(async () => (await wallet())?.coins).toBe(31);
+  await expect(balance).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Завершить таймер", exact: true })
+    .click();
 });

@@ -45,9 +45,27 @@ function fixture() {
     { type: "text", text: " входит." },
   ];
   source.content.content[4].content[0].marks = [{ type: "italic" }];
+  source.content.content[1].content = [
+    { type: "text", text: "ИНТ. " },
+    { type: "text", text: "ДОМ", marks: [{ type: "underline" }] },
+    { type: "text", text: " — ДЕНЬ" },
+  ];
   const target = createProject("Другой сценарий");
   target.id = "clipboard-target";
-  target.content.content = [p("action", "", "target")];
+  target.content.content = [p("scene", "", "target")];
+  target.outline = {
+    columns: [{ id: "act", title: "Акт 1" }],
+    cards: [
+      {
+        id: "target-card",
+        columnId: "act",
+        blockId: "target",
+        title: "Пустая карточка",
+        text: "",
+        comments: [],
+      },
+    ],
+  };
   return [source, target];
 }
 async function open(page, context) {
@@ -57,6 +75,8 @@ async function open(page, context) {
     route.fulfill({ status: 404 }),
   );
   await page.addInitScript((docs) => {
+    if (sessionStorage.getItem("clipboard-seeded")) return;
+    sessionStorage.setItem("clipboard-seeded", "yes");
     localStorage.setItem("tyter.onboarding.v1", "done");
     localStorage.setItem("tyter.projects.v1", JSON.stringify(docs));
     localStorage.setItem("tyter.active", docs[0].id);
@@ -177,6 +197,12 @@ for (const [copy, paste] of [
     expect(rows.map((p) => p.format)).toEqual(formats);
     expect(rows.map((p) => p.text)).toEqual(texts);
     expect(new Set(rows.map((p) => p.id)).size).toBe(formats.length);
+    expect(rows[0].id).toBe("target");
+    expect(await paragraphs(page)).toHaveLength(formats.length);
+    await expect(block(page, "target").locator("u")).toHaveText("ДОМ");
+    await expect(
+      block(page, "target").getByRole("button", { name: /^Открыть карточку / }),
+    ).toHaveCount(1);
     await expect(page.locator(".screenplay-editor strong em u")).toHaveText(
       "смело",
     );
@@ -268,3 +294,57 @@ test("cutting and pasting through the menu retains block formats; plain paste re
     "Привет, мир.",
   );
 });
+
+for (const paste of ["keyboard", "menu"])
+  test(`${paste}: a whole heading fills the scene created from an outline card and retains its variant through undo and reload`, async ({
+    page,
+    context,
+  }) => {
+    await open(page, context);
+    await select(page, "source-scene");
+    await page.keyboard.press("Control+c");
+    await otherDocument(page);
+    await page.keyboard.press("Alt+2");
+    await page
+      .getByRole("button", { name: "Добавить карточку в Акт 1", exact: true })
+      .click();
+    await page.keyboard.press("Alt+1");
+    const scenes = page.locator('.screenplay-editor p[data-format="scene"]');
+    await expect(scenes).toHaveCount(2);
+    const id = await scenes.last().getAttribute("data-block-id");
+    const target = block(page, id);
+    await target
+      .getByRole("combobox", { name: "Вариант сцены 2", exact: true })
+      .click();
+    await page.getByRole("option", { name: "F", exact: true }).click();
+    await target.click();
+    if (paste === "keyboard") await page.keyboard.press("Control+v");
+    else await menuAction(page, id, "Вставить");
+    await expect(target).toContainText(texts[0]);
+    await expect(target.locator("u")).toHaveText("ДОМ");
+    await expect(target).toHaveAttribute("data-scene-variant", "F");
+    await expect(
+      target.getByRole("button", { name: /^Открыть карточку / }),
+    ).toHaveCount(1);
+    await expect(scenes).toHaveCount(2);
+    expect(await paragraphs(page)).toHaveLength(2);
+    expect((await paragraphs(page)).find((row) => row.id === id).text).toBe(
+      texts[0],
+    );
+    await page.keyboard.press("Control+z");
+    expect((await paragraphs(page)).find((row) => row.id === id).text).toBe("");
+    await expect(target).toHaveAttribute("data-scene-variant", "F");
+    await page.keyboard.press("Control+y");
+    await expect(target).toContainText(texts[0]);
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("tyter:save-now")),
+    );
+    await page.reload();
+    await expect(target).toContainText(texts[0]);
+    await expect(target.locator("u")).toHaveText("ДОМ");
+    await expect(target).toHaveAttribute("data-scene-variant", "F");
+    await expect(
+      target.getByRole("button", { name: /^Открыть карточку / }),
+    ).toHaveCount(1);
+    await expect(scenes).toHaveCount(2);
+  });

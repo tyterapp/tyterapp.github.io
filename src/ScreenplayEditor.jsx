@@ -34,6 +34,7 @@ import { commentColor, commentStyle } from "./comment-options.js";
 import {
   copiedScreenplaySlice,
   pastedScreenplaySlice,
+  pasteIntoScreenplayScene,
 } from "./screenplay-clipboard.js";
 import {
   captureCaret,
@@ -512,6 +513,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     props = [],
     activeProp = null,
     selectionToolbarDisabled = false,
+    suggestionsDisabled = selectionToolbarDisabled,
     onReady,
     showLineHighlight = true,
     spellcheck = false,
@@ -640,6 +642,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       transformCopied: copiedScreenplaySlice,
       transformPasted: (slice, view, plain) =>
         pastedScreenplaySlice(slice, propsRef.current.components, view, plain),
+      handlePaste: (view, event, slice) =>
+        !plainOnly && pasteIntoScreenplayScene(view, slice),
       attributes: {
         class: "screenplay-editor",
         role: "textbox",
@@ -1739,7 +1743,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           editor={editor}
           components={enabledSuggestions}
           disabled={
-            selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
+            suggestionsDisabled || contextMenuOpen || !!sceneVariantMenu
           }
         />
       )}

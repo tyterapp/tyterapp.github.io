@@ -3455,6 +3455,34 @@ export default function MinimalApp({ onLogout }) {
                     !!outlineCard ||
                     !!selectedShot
                   }
+                  suggestionsDisabled={
+                    view === "outline" ||
+                    (!!componentDialog && !componentDialog.id) ||
+                    (!!propDialog && !propDialog.id) ||
+                    rename !== null ||
+                    menu !== null ||
+                    tourOpen ||
+                    subscriptionOpen ||
+                    !!deleteTarget ||
+                    !!folderToDelete ||
+                    questsOpen ||
+                    questOverlay ||
+                    !!characterView ||
+                    !!libraryDialog ||
+                    (mobile &&
+                      (mobileToolsOpen ||
+                        searchOpen ||
+                        settingsOpen ||
+                        statisticsOpen ||
+                        doctorOpen ||
+                        historyOpen ||
+                        commentsOpen ||
+                        componentsOpen ||
+                        propsOpen ||
+                        !!annotations ||
+                        !!outlineCard ||
+                        !!selectedShot))
+                  }
                   onCreateComponent={componentFromSelection}
                   onPasteImages={(files) =>
                     imagePasteRef.current?.insert(files)

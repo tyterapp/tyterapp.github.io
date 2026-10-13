@@ -10,7 +10,10 @@ const paragraph = (format, text, blockId) => ({
 const popup = (page) =>
   page.getByRole("listbox", { name: "Подсказки", exact: true });
 
-async function open(page, { theme = "light", width = 1440 } = {}) {
+async function open(
+  page,
+  { theme = "light", width = 1440, doctor = false } = {},
+) {
   await page.setViewportSize({ width, height: width < 832 ? 844 : 1000 });
   await grantPro(page);
   await page.route("**/__tyter_local/**", (route) =>
@@ -22,17 +25,31 @@ async function open(page, { theme = "light", width = 1440 } = {}) {
     paragraph("scene", "ТЕКСТ", "first"),
     paragraph("scene", "", "other"),
   ];
+  doc.components = [
+    { id: "anna", name: "АННА", type: "character", description: "" },
+  ];
   await page.addInitScript(
-    ({ doc, theme }) => {
+    ({ doc, theme, doctor }) => {
       localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
       localStorage.setItem("tyter.active", doc.id);
       localStorage.setItem("tyter.language.v1", "ru");
+      if (doctor)
+        localStorage.setItem(
+          "tyter.writing-timer.v1",
+          JSON.stringify({
+            coins: 0,
+            session: null,
+            purchases: {
+              "script-doctor": { purchasedAt: Date.now(), cost: 20 },
+            },
+          }),
+        );
       localStorage.setItem(
         "tyter.editor-preferences.v1",
         JSON.stringify({ theme }),
       );
     },
-    { doc, theme },
+    { doc, theme, doctor },
   );
   await page.goto("/beta");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
@@ -165,4 +182,114 @@ test("silent scene replacement refreshes suggestions and cannot insert an old he
     "ИНТ. ДОМ — ДЕНЬ",
   );
   await expect(popup(page)).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"]) {
+  test(`${theme}: scene and component suggestions work while desktop sidebars remain open`, async ({
+    page,
+  }) => {
+    await open(page, { theme, doctor: true });
+    await page
+      .getByRole("button", { name: "Доктор сценария", exact: true })
+      .click();
+    await expect(page.locator(".doctor-drawer")).toBeVisible();
+    const scene = page.locator('[data-block-id="other"]');
+    await scene.click();
+    await expect(popup(page)).toBeVisible();
+    await expect(popup(page).getByRole("option")).toHaveCount(4);
+    await page.keyboard.press("Control+Enter");
+    await expect(scene).toContainText("ИНТ.");
+    await page.keyboard.press("Control+2");
+    await scene.evaluate((node) => {
+      node.closest("[contenteditable]").focus();
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+    });
+    await page.keyboard.insertText("АН");
+    await expect(
+      popup(page).getByRole("option", { name: /^АННА/ }),
+    ).toBeVisible();
+    await page.keyboard.press("Control+Enter");
+    await expect(scene).toContainText("АННА");
+    await expect(page.locator(".doctor-drawer")).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Поиск по сценарию", exact: true })
+      .click();
+    const search = page.getByRole("textbox", {
+      name: "Поиск по тексту",
+      exact: true,
+    });
+    await search.focus();
+    await expect(popup(page)).toHaveCount(0);
+    await scene.click();
+    await page.keyboard.press("Control+1");
+    await scene.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+    });
+    await page.keyboard.press("Backspace");
+    await expect(popup(page)).toBeVisible();
+    await expect(page.locator(".search-drawer")).toBeVisible();
+    await search.focus();
+    await expect(popup(page)).toHaveCount(0);
+    await scene.click();
+    await expect(popup(page)).toBeVisible();
+  });
+}
+
+test("right shot sidebar and full screen allow suggestions when the document has focus", async ({
+  page,
+}) => {
+  await open(page);
+  await page
+    .getByRole("button", { name: "Информация о кадре сцены 3", exact: true })
+    .click();
+  const panel = page.getByRole("complementary", {
+    name: "Информация о кадре",
+    exact: true,
+  });
+  await expect(panel).toBeVisible();
+  const scene = page.locator('[data-block-id="other"]');
+  await scene.click();
+  await expect(popup(page)).toBeVisible();
+  await panel.getByRole("button", { name: "Дата съёмок", exact: true }).click();
+  await panel.locator('input[type="date"]').focus();
+  await expect(popup(page)).toHaveCount(0);
+  await scene.click();
+  await expect(popup(page)).toBeVisible();
+  await page
+    .getByRole("button", { name: "Открыть во весь экран", exact: true })
+    .click();
+  await expect(panel).toHaveCount(0);
+  await expect(popup(page)).toBeVisible();
+  await page.keyboard.press("Control+Enter");
+  await expect(scene).toContainText("ИНТ.");
+});
+
+test("mobile sidebar sheets hide suggestions until closed and the user returns to the document", async ({
+  page,
+}) => {
+  await open(page, { width: 390 });
+  await page
+    .getByRole("button", { name: "Информация о кадре сцены 3", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Панель сценария", exact: true }),
+  ).toBeVisible();
+  await expect(popup(page)).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Закрыть информацию о кадре", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Панель сценария", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Control+End");
+  await expect(popup(page)).toBeVisible();
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator('[data-block-id="other"]')).toContainText("ИНТ.");
 });

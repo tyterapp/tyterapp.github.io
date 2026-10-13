@@ -18,9 +18,24 @@ export default function WritingTimer({ visible, timer, onStreak }) {
   const shopButtonRef = useRef(null);
   const shopCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
+  const [rewardPulse, setRewardPulse] = useState(0);
+  const lastWritingReward = useRef(timer.writingReward ?? 0);
   const ref = useRef(null);
   const paused = timer.session?.status === "paused";
   const time = formatTimerTime(timer.remainingMs);
+  useEffect(() => {
+    const reward = timer.writingReward ?? 0;
+    const previous = lastWritingReward.current;
+    lastWritingReward.current = reward;
+    if (!visible || reward < previous) {
+      setRewardPulse(0);
+      return;
+    }
+    if (reward === previous) return;
+    setRewardPulse(reward);
+    const timeout = setTimeout(() => setRewardPulse(0), 1000);
+    return () => clearTimeout(timeout);
+  }, [timer.writingReward, visible]);
   const closeShop = () => {
     if (!shopOpen || shopClosing) return;
     setShopClosing(true);
@@ -188,45 +203,59 @@ export default function WritingTimer({ visible, timer, onStreak }) {
           </button>
         </div>
       ) : (
-        <>
-          <button
-            type="button"
-            className="writing-timer-button is-idle"
-            aria-label={t("Открыть таймер")}
-            data-tooltip={t("Таймер письма")}
-            aria-expanded={pickerOpen}
-            onClick={() => setPickerOpen(true)}
-          >
-            <TimerIcon />
-          </button>
+        <button
+          type="button"
+          className="writing-timer-button is-idle"
+          aria-label={t("Открыть таймер")}
+          data-tooltip={t("Таймер письма")}
+          aria-expanded={pickerOpen}
+          onClick={() => setPickerOpen(true)}
+        >
+          <TimerIcon />
+        </button>
+      )}
+      {((!timer.session && !pickerOpen) || rewardPulse > 0) && (
+        <span
+          className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${timer.session || pickerOpen ? " is-transient" : ""}`}
+          aria-label={t("Монеты: {0}", timer.coins)}
+          data-tooltip={t("Монеты: {0}", timer.coins)}
+        >
+          {rewardPulse > 0 && (
+            <span
+              key={`sweep-${rewardPulse}`}
+              className="writing-timer-balance-sweep"
+              aria-hidden="true"
+            />
+          )}
           <span
-            className="writing-timer-balance"
-            aria-label={t("Монеты: {0}", timer.coins)}
-            data-tooltip={t("Монеты: {0}", timer.coins)}
+            key={`balance-${rewardPulse}`}
+            className="writing-timer-balance-content"
           >
             <MoneyIcon />
             <span>{timer.coins}</span>
           </span>
-          <button
-            ref={shopButtonRef}
-            type="button"
-            className="writing-timer-button is-idle"
-            aria-label={language === "en" ? "Open shop" : "Открыть магазин"}
-            data-tooltip={language === "en" ? "Shop" : "Магазин"}
-            aria-expanded={shopOpen && !shopClosing}
-            aria-controls="writing-shop"
-            onClick={() => {
-              if (shopOpen && !shopClosing) closeShop();
-              else {
-                clearTimeout(shopCloseTimeout.current);
-                setShopClosing(false);
-                setShopOpen(true);
-              }
-            }}
-          >
-            <Store size={20} aria-hidden="true" />
-          </button>
-        </>
+        </span>
+      )}
+      {!timer.session && !pickerOpen && (
+        <button
+          ref={shopButtonRef}
+          type="button"
+          className="writing-timer-button is-idle"
+          aria-label={language === "en" ? "Open shop" : "Открыть магазин"}
+          data-tooltip={language === "en" ? "Shop" : "Магазин"}
+          aria-expanded={shopOpen && !shopClosing}
+          aria-controls="writing-shop"
+          onClick={() => {
+            if (shopOpen && !shopClosing) closeShop();
+            else {
+              clearTimeout(shopCloseTimeout.current);
+              setShopClosing(false);
+              setShopOpen(true);
+            }
+          }}
+        >
+          <Store size={20} aria-hidden="true" />
+        </button>
       )}
     </div>
   );

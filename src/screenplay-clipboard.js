@@ -1,4 +1,6 @@
 import { Fragment, Slice } from "@tiptap/pm/model";
+import { TextSelection } from "@tiptap/pm/state";
+import { closeHistory } from "@tiptap/pm/history";
 import { uid } from "./data.js";
 
 // ProseMirror normally leaves the paragraph edges open for inline insertion.
@@ -72,6 +74,51 @@ export function pastedScreenplaySlice(
     keepBlockFormat ? 0 : slice.openStart,
     keepBlockFormat ? 0 : slice.openEnd,
   );
+}
+
+// A closed copied scene should fill its destination heading, rather than leave
+// an empty scene beside it. Its ID and variant own the destination card/data.
+export function pasteIntoScreenplayScene(view, slice) {
+  const { selection } = view.state;
+  const destination = selection.$from.parent;
+  const source = slice.content.firstChild;
+  if (
+    destination.type.name !== "paragraph" ||
+    destination.attrs.format !== "scene" ||
+    selection.$to.parent !== destination ||
+    source?.type.name !== "paragraph" ||
+    source.attrs.format !== "scene" ||
+    slice.openStart !== 0 ||
+    slice.openEnd !== 0 ||
+    (destination.textContent.trim() &&
+      (selection.$from.parentOffset !== 0 ||
+        selection.$to.parentOffset !== destination.content.size))
+  )
+    return false;
+  const content = slice.content.replaceChild(
+    0,
+    source.type.create(
+      {
+        ...source.attrs,
+        ...destination.attrs,
+        blockId: destination.attrs.blockId || source.attrs.blockId,
+        sceneVariant: destination.attrs.sceneVariant || "A",
+      },
+      source.content,
+      source.marks,
+    ),
+  );
+  const from = selection.$from.before();
+  const tr = closeHistory(view.state.tr).replaceWith(
+    from,
+    from + destination.nodeSize,
+    content,
+  );
+  tr.setSelection(TextSelection.near(tr.doc.resolve(from + content.size), -1));
+  view.dispatch(
+    tr.scrollIntoView().setMeta("paste", true).setMeta("uiEvent", "paste"),
+  );
+  return true;
 }
 
 export async function copyScreenplaySelection(editor, source) {
