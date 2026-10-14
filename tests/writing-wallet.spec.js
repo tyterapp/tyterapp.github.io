@@ -321,6 +321,9 @@ for (const theme of ["light", "dark"]) {
     });
     await expect(houseButton).toHaveCount(0);
     await openShop(page);
+    await expect(
+      shop(page).getByRole("button", { name: "Локации", exact: true }),
+    ).toHaveCount(0);
     await shop(page)
       .getByRole("button", {
         name: "Купить oiia домик за 100 монет",
@@ -358,6 +361,7 @@ for (const theme of ["light", "dark"]) {
     for (const [name, item] of [
       ["Скины", "Классическая кошка"],
       ["Декор", "Уютный коврик"],
+      ["Локации", "Тихий сад"],
       ["Разное", "Подарочная коробка"],
     ]) {
       await shop(page).getByRole("button", { name, exact: true }).click();
@@ -378,10 +382,24 @@ for (const theme of ["light", "dark"]) {
     await expect(houseButton).toBeVisible();
     await openShop(page);
     await expect(shop(page).locator(".writing-shop-product")).toHaveCount(0);
-    await expect(shop(page).locator(".writing-shop-category")).toHaveCount(3);
+    await expect(shop(page).locator(".writing-shop-category")).toHaveCount(4);
     await expect(page.locator(".writing-timer-balance-content")).toHaveText(
       "0",
     );
+    await page.getByRole("button", { name: "ENG", exact: true }).click();
+    await expect(page.locator("#writing-shop")).toHaveCount(0);
+    await page.getByRole("button", { name: "Open shop", exact: true }).click();
+    const englishShop = page.getByRole("dialog", { name: "Shop", exact: true });
+    await englishShop
+      .getByRole("button", { name: "Locations", exact: true })
+      .click();
+    await expect(englishShop).toContainText("Quiet garden");
+    await englishShop
+      .getByRole("button", { name: "Back to categories", exact: true })
+      .click();
+    await expect(
+      englishShop.getByRole("button", { name: "Locations", exact: true }),
+    ).toBeFocused();
   });
 }
 

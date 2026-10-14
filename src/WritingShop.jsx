@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BriefcaseMedical,
   ChevronRight,
+  MapPin,
   Package,
   RefreshCw,
   X,
@@ -49,6 +50,13 @@ export default function WritingShop({
       icon: DecorIcon,
       item: text("Уютный коврик", "Cozy rug"),
       itemIcon: DecorIcon,
+    },
+    {
+      id: "locations",
+      name: text("Локации", "Locations"),
+      icon: MapPin,
+      item: text("Тихий сад", "Quiet garden"),
+      itemIcon: MapPin,
     },
     {
       id: "misc",

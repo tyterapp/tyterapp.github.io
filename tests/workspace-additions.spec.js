@@ -162,7 +162,7 @@ test("daily login awards once across tabs and reload; fifth day adds bonus", asy
   await expect.poll(async () => (await wallet(page))?.streak.count).toBe(1);
   expect((await wallet(page)).coins).toBe(16);
 });
-test("midnight grants the next visit and Go is inert; notification fades after five seconds", async ({
+test("midnight grants the next visit without an inert Go button; notification fades after five seconds", async ({
   page,
 }) => {
   await page.clock.install({ time: new Date("2026-10-10T20:59:30Z") });
@@ -175,13 +175,20 @@ test("midnight grants the next visit and Go is inert; notification fades after f
   await page.clock.runFor(4300);
   await expect.poll(async () => (await wallet(page))?.streak.count).toBe(2);
   expect((await wallet(page)).coins).toBe(2);
-  const url = page.url();
-  const go = page
-    .locator(".app-message")
-    .getByRole("button", { name: "Перейти" });
-  await go.click();
-  expect(page.url()).toBe(url);
-  await expect(page.locator(".app-message")).toHaveCSS("color", "oklch(0 0 0)");
+  const notice = page.locator(".app-message");
+  await expect(notice.locator(".app-message-action")).toHaveCount(0);
+  await expect(
+    notice.getByRole("button", { name: "Закрыть уведомление" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "ENG", exact: true }).click();
+  await expect(notice.locator(".app-message-action")).toHaveCount(0);
+  await expect(
+    notice.getByRole("button", { name: "Dismiss notification" }),
+  ).toBeEnabled();
+  await expect(page.locator(".app-message")).toHaveCSS(
+    "color",
+    /^(?:oklch\(0 0 0\)|rgb\(0, 0, 0\))$/,
+  );
   await page.clock.runFor(5000);
   await expect(page.locator(".app-message")).toHaveClass(/is-closing/);
   await page.clock.runFor(250);

@@ -37,6 +37,11 @@ export default function AppMessage({ notice, onDismiss }) {
   }, [closing, notice.id, onDismiss]);
   const value = notice.value;
   const action = typeof value === "object" ? value.action : null;
+  const hasAction =
+    typeof action?.onClick === "function" ||
+    (typeof action?.href === "string" &&
+      action.href.trim().length > 0 &&
+      action.href.trim() !== "#");
   return (
     <div
       className={`app-message${value.kind === "script-version-deletion" ? " version-deletion-message" : value.kind === "progress-reset" ? " progress-reset-message" : ""}${closing ? " is-closing" : ""}`}
@@ -47,12 +52,7 @@ export default function AppMessage({ notice, onDismiss }) {
           ? t(value.key, ...(value.values || []))
           : t(value)}
       </span>
-      {!action && (
-        <button type="button" className="app-message-action" disabled={closing}>
-          {t("Перейти")}
-        </button>
-      )}
-      {action &&
+      {hasAction &&
         (typeof action.onClick === "function" ? (
           <button
             type="button"

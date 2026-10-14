@@ -4,6 +4,10 @@ import { libraryFromDocument } from "../src/component-library.js";
 import { grantPro } from "./helpers/pro-access.js";
 import { selectAppOption } from "./helpers/app-select.js";
 
+// The production CSS minifier can serialize these same neutral colours as RGB.
+const BLACK = /^(?:oklch\(0 0 0\)|rgb\(0, 0, 0\))$/;
+const WHITE = /^(?:oklch\(1 0 0\)|rgb\(255, 255, 255\))$/;
+
 async function freezeTime(page) {
   await page.clock.install({ time: new Date("2026-10-09T12:00:00Z") });
   await page.clock.pauseAt(new Date("2026-10-09T12:00:01Z"));
@@ -49,6 +53,7 @@ async function imageWarning(page) {
     "Выберите JPG, PNG или WebP размером до 10 МБ.",
   );
   await expect(page.locator(".app-message")).not.toHaveClass(/is-closing/);
+  await expect(page.locator(".app-message .app-message-action")).toHaveCount(0);
 }
 
 for (const theme of ["light", "dark"]) {
@@ -59,13 +64,13 @@ for (const theme of ["light", "dark"]) {
     await freezeTime(page);
     await imageWarning(page);
     const notice = page.locator(".app-message");
-    await expect(notice.locator("span")).toHaveCSS("color", "oklch(0 0 0)");
-    await expect(notice).toHaveCSS("background-color", "oklch(1 0 0)");
+    await expect(notice.locator("span")).toHaveCSS("color", BLACK);
+    await expect(notice).toHaveCSS("background-color", WHITE);
     await expect(notice).toHaveCSS("transition-duration", "0.2s, 0.2s");
     await notice.getByRole("button", { name: "Закрыть уведомление" }).hover();
     await expect(
       notice.getByRole("button", { name: "Закрыть уведомление" }),
-    ).toHaveCSS("color", "oklch(0 0 0)");
+    ).toHaveCSS("color", BLACK);
     await page.screenshot({ path: info.outputPath("warning.png") });
     await page.clock.runFor(4999);
     await expect(notice).toBeVisible();
@@ -147,7 +152,7 @@ for (const theme of ["light", "dark"]) {
     await expect(notice).toContainText(
       "Для сценария лучше всего использовать Courier — это стандарт индустрии.",
     );
-    await expect(notice.locator("span")).toHaveCSS("color", "oklch(0 0 0)");
+    await expect(notice.locator("span")).toHaveCSS("color", BLACK);
     const link = notice.getByRole("link", { name: "Подробнее", exact: true });
     const lines = () =>
       notice.locator("span").evaluate((span) => {
@@ -171,7 +176,7 @@ for (const theme of ["light", "dark"]) {
     const url = "https://tyterapp.github.io/blog/standarty-v-kino";
     await expect(link).toHaveAttribute("href", url);
     await link.hover();
-    await expect(link).toHaveCSS("color", "oklch(0 0 0)");
+    await expect(link).toHaveCSS("color", BLACK);
     await page.screenshot({ path: info.outputPath("font-advice.png") });
     await page.context().route(url, (route) =>
       route.fulfill({
@@ -184,7 +189,7 @@ for (const theme of ["light", "dark"]) {
     const article = await popupPromise;
     await expect(article).toHaveURL(url);
     await article.close();
-    await expect(page).toHaveURL(/\/beta$/);
+    await expect(page).toHaveURL(/\/beta\/?$/);
     await expect(font).toHaveAttribute("data-value", "georgia");
     await page.getByRole("button", { name: "ENG", exact: true }).click();
     await expect(notice).toContainText(
@@ -228,5 +233,5 @@ test("the font advice uses the desktop browser bridge", async ({ page }) => {
   expect(await page.evaluate(() => window.supportLinks)).toEqual([
     "screenplay-standards",
   ]);
-  await expect(page).toHaveURL(/\/beta$/);
+  await expect(page).toHaveURL(/\/beta\/?$/);
 });

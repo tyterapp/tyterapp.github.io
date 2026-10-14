@@ -93,6 +93,7 @@ test("the timer pauses, survives reload, resumes and awards once; early stops ea
   await expect(page.locator(".app-message")).toContainText(
     "Начислено монет: 25.",
   );
+  await expect(page.locator(".app-message .app-message-action")).toHaveCount(0);
   await page.reload();
   await expect(balance(page)).toHaveText("25");
   await expect(page.locator(".app-message")).toHaveCount(0);
