@@ -28,16 +28,18 @@ export default function WritingHouse({ closing, onClose }) {
           <X size={18} aria-hidden="true" />
         </button>
       </header>
-      <img
-        src="/oiia/house.png"
-        alt={
-          language === "en"
-            ? "An empty room ready for your future pet"
-            : "Пустая комната для будущего питомца"
-        }
-        width="734"
-        height="468"
-      />
+      <div className="writing-popover-scroll">
+        <img
+          src="/oiia/house.png"
+          alt={
+            language === "en"
+              ? "An empty room ready for your future pet"
+              : "Пустая комната для будущего питомца"
+          }
+          width="734"
+          height="468"
+        />
+      </div>
     </aside>
   );
 }

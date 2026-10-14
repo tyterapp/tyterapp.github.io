@@ -4,6 +4,7 @@ import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import WritingShop from "./WritingShop.jsx";
 import WritingHouse from "./WritingHouse.jsx";
+import WritingCoins from "./WritingCoins.jsx";
 import { CatIcon } from "./WritingHouseIcons.jsx";
 import {
   MoneyIcon,
@@ -23,9 +24,11 @@ export default function WritingTimer({
   const [panel, setPanel] = useState("");
   const shopOpen = panel === "shop";
   const houseOpen = panel === "house";
+  const coinsOpen = panel === "coins";
   const [panelClosing, setPanelClosing] = useState(false);
   const shopButtonRef = useRef(null);
   const houseButtonRef = useRef(null);
+  const coinsButtonRef = useRef(null);
   const panelCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const [rewardPulse, setRewardPulse] = useState(0);
@@ -48,7 +51,11 @@ export default function WritingTimer({
   }, [timer.writingReward, visible]);
   const closePanel = () => {
     if (!panel || panelClosing) return;
-    const button = houseOpen ? houseButtonRef : shopButtonRef;
+    const button = houseOpen
+      ? houseButtonRef
+      : coinsOpen
+        ? coinsButtonRef
+        : shopButtonRef;
     setPanelClosing(true);
     panelCloseTimeout.current = setTimeout(() => {
       setPanel("");
@@ -156,6 +163,13 @@ export default function WritingTimer({
       {houseOpen && (
         <WritingHouse closing={panelClosing} onClose={closePanel} />
       )}
+      {coinsOpen && (
+        <WritingCoins
+          timer={timer}
+          closing={panelClosing}
+          onClose={closePanel}
+        />
+      )}
       {timer.streak && !timer.session && !pickerOpen && (
         <button
           type="button"
@@ -242,10 +256,23 @@ export default function WritingTimer({
         </button>
       )}
       {((!timer.session && !pickerOpen) || rewardPulse > 0) && (
-        <span
+        <button
+          ref={coinsButtonRef}
+          type="button"
           className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${timer.session || pickerOpen ? " is-transient" : ""}`}
           aria-label={t("Монеты: {0}", timer.coins)}
-          data-tooltip={t("Монеты: {0}", timer.coins)}
+          data-tooltip={coinsOpen ? undefined : t("Монеты: {0}", timer.coins)}
+          aria-expanded={coinsOpen && !panelClosing}
+          aria-controls="writing-coins"
+          disabled={!!timer.session || pickerOpen}
+          onClick={() => {
+            if (coinsOpen && !panelClosing) closePanel();
+            else {
+              clearTimeout(panelCloseTimeout.current);
+              setPanelClosing(false);
+              setPanel("coins");
+            }
+          }}
         >
           {rewardPulse > 0 && (
             <span
@@ -261,7 +288,7 @@ export default function WritingTimer({
             <MoneyIcon />
             <span>{timer.coins}</span>
           </span>
-        </span>
+        </button>
       )}
       {timer.hasHouse && !timer.session && !pickerOpen && (
         <button

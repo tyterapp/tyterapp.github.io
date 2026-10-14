@@ -164,86 +164,89 @@ export default function WritingShop({
           <X size={18} aria-hidden="true" />
         </button>
       </header>
-      {selected ? (
-        <div className="writing-shop-product writing-shop-preview">
-          <span className="writing-shop-product-icon">
-            <selected.itemIcon size={24} />
-          </span>
-          <div className="writing-shop-product-copy">
-            <strong>{selected.item}</strong>
-            <p>{text("Скоро в магазине", "Coming soon")}</p>
-          </div>
-        </div>
-      ) : (
-        <div className="writing-shop-list">
-          {products.map((product) => (
-            <div key={product.id} className="writing-shop-product">
-              <span className="writing-shop-product-icon">
-                <product.icon size={24} aria-hidden="true" />
-              </span>
-              <div className="writing-shop-product-copy">
-                <strong>{product.name}</strong>
-                <p>{product.description}</p>
-              </div>
-              <button
-                type="button"
-                className="writing-shop-buy"
-                aria-label={product.label}
-                disabled={!!buying || closing || timer.coins < product.price}
-                onClick={() => purchase(product)}
-              >
-                <MoneyIcon />
-                <span>
-                  {buying === product.id
-                    ? text("Покупка…", "Buying…")
-                    : product.price}
-                </span>
-              </button>
+      <div className="writing-popover-scroll">
+        {selected ? (
+          <div className="writing-shop-product writing-shop-preview">
+            <span className="writing-shop-product-icon">
+              <selected.itemIcon size={24} />
+            </span>
+            <div className="writing-shop-product-copy">
+              <strong>{selected.item}</strong>
+              <p>{text("Скоро в магазине", "Coming soon")}</p>
             </div>
-          ))}
-          {timer.hasHouse &&
-            categories.map((entry) => (
-              <button
-                type="button"
-                key={entry.id}
-                ref={(element) => {
-                  categoryRefs.current[entry.id] = element;
-                }}
-                className="writing-shop-category"
-                onClick={() => setCategory(entry.id)}
-                disabled={closing}
-              >
-                <span>{entry.name}</span>
-                <entry.icon size={22} aria-hidden="true" />
-                <ChevronRight size={16} aria-hidden="true" />
-              </button>
+          </div>
+        ) : (
+          <div className="writing-shop-list">
+            {products.map((product) => (
+              <div key={product.id} className="writing-shop-product">
+                <span className="writing-shop-product-icon">
+                  <product.icon size={24} aria-hidden="true" />
+                </span>
+                <div className="writing-shop-product-copy">
+                  <strong>{product.name}</strong>
+                  <p>{product.description}</p>
+                </div>
+                <button
+                  type="button"
+                  className="writing-shop-buy"
+                  aria-label={product.label}
+                  disabled={!!buying || closing || timer.coins < product.price}
+                  onClick={() => purchase(product)}
+                >
+                  <MoneyIcon />
+                  <span>
+                    {buying === product.id
+                      ? text("Покупка…", "Buying…")
+                      : product.price}
+                  </span>
+                </button>
+              </div>
             ))}
-        </div>
-      )}
-      {!selected && products.some((product) => timer.coins < product.price) && (
-        <p className="writing-shop-hint">
-          {text(
-            "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
-            "100 written characters = 10 coins. Timers earn coins too.",
+            {timer.hasHouse &&
+              categories.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.id}
+                  ref={(element) => {
+                    categoryRefs.current[entry.id] = element;
+                  }}
+                  className="writing-shop-category"
+                  onClick={() => setCategory(entry.id)}
+                  disabled={closing}
+                >
+                  <span>{entry.name}</span>
+                  <entry.icon size={22} aria-hidden="true" />
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              ))}
+          </div>
+        )}
+        {!selected &&
+          products.some((product) => timer.coins < product.price) && (
+            <p className="writing-shop-hint">
+              {text(
+                "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
+                "100 written characters = 10 coins. Timers earn coins too.",
+              )}
+            </p>
           )}
-        </p>
-      )}
-      {error && (
-        <p className="writing-shop-error" role="alert">
-          {error}
-        </p>
-      )}
-      <button
-        type="button"
-        className="writing-shop-reset"
-        disabled={!!buying || closing || timer.coins < RESET_PROGRESS_PRICE}
-        onClick={onResetProgress}
-      >
-        <RefreshCw size={18} aria-hidden="true" />
-        <span>{text("Сбросить прогресс", "Reset progress")}</span>
-        <MoneyIcon />
-        <span>{RESET_PROGRESS_PRICE}</span>
-      </button>
+        {error && (
+          <p className="writing-shop-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button
+          type="button"
+          className="writing-shop-reset"
+          disabled={!!buying || closing || timer.coins < RESET_PROGRESS_PRICE}
+          onClick={onResetProgress}
+        >
+          <RefreshCw size={18} aria-hidden="true" />
+          <span>{text("Сбросить прогресс", "Reset progress")}</span>
+          <MoneyIcon />
+          <span>{RESET_PROGRESS_PRICE}</span>
+        </button>
+      </div>
     </aside>
   );
 }
