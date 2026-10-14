@@ -5,6 +5,8 @@ import {
   cleanWalletExtras,
   walletHasDoctor,
   purchaseWalletDoctor,
+  walletHasHouse,
+  purchaseWalletHouse,
   recordWalletWriting,
   recordWalletDeletion,
   queueDeletionConfirmation,
@@ -104,6 +106,30 @@ test("deletion confirmation receipts remain recoverable until persistence and du
       },
     }).reason,
   ).toBe("storage");
+});
+
+test("the house costs 100 coins once, and cleaning preserves both purchases and writing rewards", () => {
+  expect(walletHasHouse({ coins: 500 })).toBe(false);
+  expect(purchaseWalletHouse({ coins: 99 }).ok).toBe(false);
+  const doctor = purchaseWalletDoctor(
+    { coins: 130, session: null },
+    12345,
+  ).wallet;
+  const house = purchaseWalletHouse(doctor, 23456);
+  expect(house.wallet.coins).toBe(10);
+  expect(walletHasHouse(house.wallet)).toBe(true);
+  expect(walletHasDoctor(house.wallet)).toBe(true);
+  expect(purchaseWalletHouse(house.wallet, 34567).wallet).toBe(house.wallet);
+  const written = recordWalletWriting(house.wallet, {
+    id: "house-writing",
+    scope: "doc",
+    characters: 100,
+  });
+  expect(written.wallet.coins).toBe(20);
+  expect(cleanWalletExtras(written.wallet).purchases).toEqual({
+    "script-doctor": { cost: 20, purchasedAt: 12345 },
+    "oiia-house": { cost: 100, purchasedAt: 23456 },
+  });
 });
 
 test("confirmed deletions log each copy and award the scavenger achievement once across documents", () => {
@@ -217,7 +243,7 @@ for (const theme of ["light", "dark"]) {
     await openShop(page);
     await expect(purchase(page)).toBeEnabled();
     await purchase(page).click();
-    await expect(shop(page)).toContainText("Куплено");
+    await expect(purchase(page)).toHaveCount(0);
     await expect(page.locator(".writing-timer-balance > span")).toHaveText("0");
     await expect(
       page.getByRole("button", { name: "Доктор сценария", exact: true }),
@@ -229,7 +255,7 @@ for (const theme of ["light", "dark"]) {
     ).toBeFocused();
     await page.reload();
     await openShop(page);
-    await expect(shop(page)).toContainText("Куплено");
+    await expect(purchase(page)).toHaveCount(0);
     const wallet = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       WRITING_TIMER_STORAGE,
@@ -275,11 +301,186 @@ test("two tabs buying simultaneously spend only one doctor price", async ({
     firstButton.evaluate((node) => node.click()),
     secondButton.evaluate((node) => node.click()),
   ]);
-  await expect(shop(page)).toContainText("Куплено");
-  await expect(shop(second)).toContainText("Куплено");
+  await expect(purchase(page)).toHaveCount(0);
+  await expect(purchase(second)).toHaveCount(0);
   await expect(page.locator(".writing-timer-balance > span")).toHaveText("20");
   await expect(second.locator(".writing-timer-balance > span")).toHaveText(
     "20",
+  );
+  await second.close();
+});
+
+for (const theme of ["light", "dark"]) {
+  test(`${theme}: house purchase opens the room, persists, hides owned goods, and categories do not spend coins`, async ({
+    page,
+  }) => {
+    await open(page, { theme, coins: 120 });
+    const houseButton = page.getByRole("button", {
+      name: "Открыть oiia домик",
+      exact: true,
+    });
+    await expect(houseButton).toHaveCount(0);
+    await openShop(page);
+    await shop(page)
+      .getByRole("button", {
+        name: "Купить oiia домик за 100 монет",
+        exact: true,
+      })
+      .click();
+    await expect(page.locator(".writing-timer-balance-content")).toHaveText(
+      "20",
+    );
+    await expect(
+      shop(page).getByRole("button", {
+        name: "Купить oiia домик за 100 монет",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await houseButton.click();
+    const room = page.getByRole("dialog", { name: "oiia домик", exact: true });
+    await expect(room).toBeVisible();
+    await expect(shop(page)).toHaveCount(0);
+    await expect
+      .poll(() =>
+        room.locator("img").evaluate((img) => img.complete && img.naturalWidth),
+      )
+      .toBe(734);
+    expect(
+      (await page.locator(".writing-timer-balance").boundingBox()).height,
+    ).toBe((await houseButton.boundingBox()).height);
+    await page.screenshot({ path: `.cache/house-${theme}.png` });
+    await page.keyboard.press("Escape");
+    await expect(room).toHaveCount(0);
+    await expect(houseButton).toBeFocused();
+    await openShop(page);
+    await purchase(page).click();
+    await expect(purchase(page)).toHaveCount(0);
+    for (const [name, item] of [
+      ["Скины", "Классическая кошка"],
+      ["Декор", "Уютный коврик"],
+      ["Разное", "Подарочная коробка"],
+    ]) {
+      await shop(page).getByRole("button", { name, exact: true }).click();
+      await expect(shop(page)).toContainText(item);
+      await shop(page).getByText(item, { exact: true }).click();
+      await expect(page.locator(".writing-timer-balance-content")).toHaveText(
+        "0",
+      );
+      await shop(page)
+        .getByRole("button", { name: "Назад к категориям", exact: true })
+        .click();
+      await expect(
+        shop(page).getByRole("button", { name, exact: true }),
+      ).toBeFocused();
+    }
+    await page.screenshot({ path: `.cache/shop-categories-${theme}.png` });
+    await page.reload();
+    await expect(houseButton).toBeVisible();
+    await openShop(page);
+    await expect(shop(page).locator(".writing-shop-product")).toHaveCount(0);
+    await expect(shop(page).locator(".writing-shop-category")).toHaveCount(3);
+    await expect(page.locator(".writing-timer-balance-content")).toHaveText(
+      "0",
+    );
+  });
+}
+
+test("320px: the house and wallet fit the viewport, including a short keyboard viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await open(page, { coins: 100, theme: "dark" });
+  await openShop(page);
+  await shop(page)
+    .getByRole("button", {
+      name: "Купить oiia домик за 100 монет",
+      exact: true,
+    })
+    .click();
+  const button = page.getByRole("button", {
+    name: "Открыть oiia домик",
+    exact: true,
+  });
+  await button.click();
+  const room = page.getByRole("dialog", { name: "oiia домик", exact: true });
+  await expect
+    .poll(() =>
+      room.locator("img").evaluate((img) => img.complete && img.naturalWidth),
+    )
+    .toBe(734);
+  for (const height of [720, 360]) {
+    await page.setViewportSize({ width: 320, height });
+    await expect(room).toBeVisible();
+    const bounds = await room.boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);
+  }
+  expect((await button.boundingBox()).height).toBe(44);
+  expect(
+    (await page.locator(".writing-timer-balance").boundingBox()).height,
+  ).toBe(44);
+  await page.screenshot({ path: ".cache/house-mobile.png" });
+});
+
+test("a failed house save neither spends coins nor unlocks the house", async ({
+  page,
+}) => {
+  await open(page, { coins: 120 });
+  await page.evaluate(() => {
+    const save = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "tyter.writing-timer.v1")
+        throw new DOMException("Full", "QuotaExceededError");
+      return save.call(this, key, value);
+    };
+  });
+  await openShop(page);
+  await shop(page)
+    .getByRole("button", {
+      name: "Купить oiia домик за 100 монет",
+      exact: true,
+    })
+    .click();
+  await expect(shop(page).getByRole("alert")).toContainText(
+    "Не удалось сохранить покупку",
+  );
+  await expect(
+    page.getByRole("button", { name: "Открыть oiia домик", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".writing-timer-balance-content")).toHaveText(
+    "120",
+  );
+});
+
+test("two tabs buying the house simultaneously spend 100 coins only once", async ({
+  page,
+  context,
+}) => {
+  await open(page, { coins: 200 });
+  const second = await context.newPage();
+  await open(second, { seed: false });
+  await openShop(page);
+  await openShop(second);
+  const button = (target) =>
+    shop(target).getByRole("button", {
+      name: "Купить oiia домик за 100 монет",
+      exact: true,
+    });
+  const firstButton = await button(page).elementHandle();
+  const secondButton = await button(second).elementHandle();
+  await Promise.all([
+    firstButton.evaluate((node) => node.click()),
+    secondButton.evaluate((node) => node.click()),
+  ]);
+  await expect(button(page)).toHaveCount(0);
+  await expect(button(second)).toHaveCount(0);
+  await expect(page.locator(".writing-timer-balance-content")).toHaveText(
+    "100",
+  );
+  await expect(second.locator(".writing-timer-balance-content")).toHaveText(
+    "100",
   );
   await second.close();
 });

@@ -1,5 +1,6 @@
 export const PRO_CODES_URL = "https://tyterapp.github.io/codes-for-pro.txt";
 export const PRO_SESSION_STORAGE = "tyter.webPro.session.v2";
+export const PRO_VERIFIED_STORAGE = "tyter.webPro.verified.v1";
 const MAX_FILE_SIZE = 1024 * 1024;
 
 const normalizeEmail = (value) =>

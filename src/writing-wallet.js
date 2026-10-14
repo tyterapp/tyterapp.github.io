@@ -2,6 +2,8 @@ import { localDay } from "./daily-streak.js";
 
 export const DOCTOR_PRODUCT = "script-doctor";
 export const DOCTOR_PRICE = 20;
+export const HOUSE_PRODUCT = "oiia-house";
+export const HOUSE_PRICE = 100;
 export const SCAVENGER_ACHIEVEMENT = "scavenger";
 export const PENDING_DELETION_PREFIX = "tyter.pending-deletion.v1:";
 const validId = (value) =>
@@ -86,7 +88,17 @@ export function clearDeletionConfirmation(key, storage) {
 }
 
 export function cleanWalletExtras(value) {
-  const purchases = value?.purchases?.[DOCTOR_PRODUCT];
+  const purchases = Object.fromEntries(
+    [
+      [DOCTOR_PRODUCT, DOCTOR_PRICE],
+      [HOUSE_PRODUCT, HOUSE_PRICE],
+    ].flatMap(([id, cost]) => {
+      const purchase = value?.purchases?.[id];
+      return Number.isFinite(purchase?.purchasedAt) && purchase.purchasedAt >= 0
+        ? [[id, { purchasedAt: purchase.purchasedAt, cost }]]
+        : [];
+    }),
+  );
   const achievement = value?.achievements?.[SCAVENGER_ACHIEVEMENT];
   const characters = safeCount(value?.writing?.characters);
   const receipts = Array.isArray(value?.writing?.receipts)
@@ -115,16 +127,7 @@ export function cleanWalletExtras(value) {
         }))
     : [];
   return {
-    ...(Number.isFinite(purchases?.purchasedAt)
-      ? {
-          purchases: {
-            [DOCTOR_PRODUCT]: {
-              purchasedAt: purchases.purchasedAt,
-              cost: DOCTOR_PRICE,
-            },
-          },
-        }
-      : {}),
+    ...(Object.keys(purchases).length ? { purchases } : {}),
     ...(validDay(achievement?.date)
       ? {
           achievements: {
@@ -149,19 +152,31 @@ export function walletHasDoctor(wallet) {
 }
 
 export function purchaseWalletDoctor(wallet, now = Date.now()) {
-  if (walletHasDoctor(wallet))
+  return purchaseWalletProduct(wallet, DOCTOR_PRODUCT, DOCTOR_PRICE, now);
+}
+
+export function walletHasHouse(wallet) {
+  return Number.isFinite(wallet?.purchases?.[HOUSE_PRODUCT]?.purchasedAt);
+}
+
+export function purchaseWalletHouse(wallet, now = Date.now()) {
+  return purchaseWalletProduct(wallet, HOUSE_PRODUCT, HOUSE_PRICE, now);
+}
+
+function purchaseWalletProduct(wallet, product, price, now) {
+  if (Number.isFinite(wallet?.purchases?.[product]?.purchasedAt))
     return { wallet, ok: true, alreadyOwned: true, reward: 0 };
-  if (wallet.coins < DOCTOR_PRICE)
+  if (wallet.coins < price)
     return { wallet, ok: false, reason: "coins", reward: 0 };
   return {
     ok: true,
     reward: 0,
     wallet: {
       ...wallet,
-      coins: wallet.coins - DOCTOR_PRICE,
+      coins: wallet.coins - price,
       purchases: {
         ...wallet.purchases,
-        [DOCTOR_PRODUCT]: { purchasedAt: now, cost: DOCTOR_PRICE },
+        [product]: { purchasedAt: now, cost: price },
       },
     },
   };

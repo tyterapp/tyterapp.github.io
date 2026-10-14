@@ -3,6 +3,8 @@ import { Play, X, Flame, Store } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import WritingShop from "./WritingShop.jsx";
+import WritingHouse from "./WritingHouse.jsx";
+import { CatIcon } from "./WritingHouseIcons.jsx";
 import {
   MoneyIcon,
   PauseIcon,
@@ -13,10 +15,13 @@ import {
 export default function WritingTimer({ visible, timer, onStreak }) {
   const language = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [shopOpen, setShopOpen] = useState(false);
-  const [shopClosing, setShopClosing] = useState(false);
+  const [panel, setPanel] = useState("");
+  const shopOpen = panel === "shop";
+  const houseOpen = panel === "house";
+  const [panelClosing, setPanelClosing] = useState(false);
   const shopButtonRef = useRef(null);
-  const shopCloseTimeout = useRef(null);
+  const houseButtonRef = useRef(null);
+  const panelCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const [rewardPulse, setRewardPulse] = useState(0);
   const lastWritingReward = useRef(timer.writingReward ?? 0);
@@ -36,35 +41,36 @@ export default function WritingTimer({ visible, timer, onStreak }) {
     const timeout = setTimeout(() => setRewardPulse(0), 1000);
     return () => clearTimeout(timeout);
   }, [timer.writingReward, visible]);
-  const closeShop = () => {
-    if (!shopOpen || shopClosing) return;
-    setShopClosing(true);
-    shopCloseTimeout.current = setTimeout(() => {
-      setShopOpen(false);
-      setShopClosing(false);
-      shopButtonRef.current?.focus({ preventScroll: true });
+  const closePanel = () => {
+    if (!panel || panelClosing) return;
+    const button = houseOpen ? houseButtonRef : shopButtonRef;
+    setPanelClosing(true);
+    panelCloseTimeout.current = setTimeout(() => {
+      setPanel("");
+      setPanelClosing(false);
+      button.current?.focus({ preventScroll: true });
     }, 160);
   };
-  useEffect(() => () => clearTimeout(shopCloseTimeout.current), []);
+  useEffect(() => () => clearTimeout(panelCloseTimeout.current), []);
   useEffect(() => {
     if (!visible || timer.session || pickerOpen) {
-      clearTimeout(shopCloseTimeout.current);
-      setShopOpen(false);
-      setShopClosing(false);
+      clearTimeout(panelCloseTimeout.current);
+      setPanel("");
+      setPanelClosing(false);
     }
   }, [visible, timer.session?.id, pickerOpen]);
   useEffect(() => {
-    if (!shopOpen) return;
+    if (!panel) return;
     const close = (event) => {
       if (event.type === "keydown" && event.key === "Escape") {
         event.stopPropagation();
         event.preventDefault();
-        closeShop();
+        closePanel();
       } else if (
         event.type === "pointerdown" &&
         !ref.current?.contains(event.target)
       )
-        closeShop();
+        closePanel();
     };
     document.addEventListener("keydown", close, true);
     document.addEventListener("pointerdown", close);
@@ -72,7 +78,7 @@ export default function WritingTimer({ visible, timer, onStreak }) {
       document.removeEventListener("keydown", close, true);
       document.removeEventListener("pointerdown", close);
     };
-  }, [shopOpen, shopClosing]);
+  }, [panel, panelClosing]);
 
   useEffect(() => {
     if (!visible || timer.session) setPickerOpen(false);
@@ -127,7 +133,14 @@ export default function WritingTimer({ visible, timer, onStreak }) {
       onMouseDown={(event) => event.preventDefault()}
     >
       {shopOpen && (
-        <WritingShop timer={timer} closing={shopClosing} onClose={closeShop} />
+        <WritingShop
+          timer={timer}
+          closing={panelClosing}
+          onClose={closePanel}
+        />
+      )}
+      {houseOpen && (
+        <WritingHouse closing={panelClosing} onClose={closePanel} />
       )}
       {timer.streak && !timer.session && !pickerOpen && (
         <button
@@ -236,6 +249,29 @@ export default function WritingTimer({ visible, timer, onStreak }) {
           </span>
         </span>
       )}
+      {timer.hasHouse && !timer.session && !pickerOpen && (
+        <button
+          ref={houseButtonRef}
+          type="button"
+          className="writing-timer-button is-idle"
+          aria-label={
+            language === "en" ? "Open oiia house" : "Открыть oiia домик"
+          }
+          data-tooltip={language === "en" ? "oiia house" : "oiia домик"}
+          aria-expanded={houseOpen && !panelClosing}
+          aria-controls="writing-house"
+          onClick={() => {
+            if (houseOpen && !panelClosing) closePanel();
+            else {
+              clearTimeout(panelCloseTimeout.current);
+              setPanelClosing(false);
+              setPanel("house");
+            }
+          }}
+        >
+          <CatIcon />
+        </button>
+      )}
       {!timer.session && !pickerOpen && (
         <button
           ref={shopButtonRef}
@@ -243,14 +279,14 @@ export default function WritingTimer({ visible, timer, onStreak }) {
           className="writing-timer-button is-idle"
           aria-label={language === "en" ? "Open shop" : "Открыть магазин"}
           data-tooltip={language === "en" ? "Shop" : "Магазин"}
-          aria-expanded={shopOpen && !shopClosing}
+          aria-expanded={shopOpen && !panelClosing}
           aria-controls="writing-shop"
           onClick={() => {
-            if (shopOpen && !shopClosing) closeShop();
+            if (shopOpen && !panelClosing) closePanel();
             else {
-              clearTimeout(shopCloseTimeout.current);
-              setShopClosing(false);
-              setShopOpen(true);
+              clearTimeout(panelCloseTimeout.current);
+              setPanelClosing(false);
+              setPanel("shop");
             }
           }}
         >

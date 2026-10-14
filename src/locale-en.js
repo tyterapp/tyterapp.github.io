@@ -8,6 +8,7 @@ export default {
   "Мусорщик: +10 coins": "Scavenger: +10 coins",
   "+{0} coins": "+{0} coins",
   "Доктор сценария приобретён.": "Script doctor purchased.",
+  "Домик oiia приобретён.": "oiia house purchased.",
   "Дата съёмок": "Shooting date",
   "Локация съёмок": "Shooting location",
   Координаты: "Coordinates",

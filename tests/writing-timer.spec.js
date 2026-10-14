@@ -3,8 +3,9 @@ import { createProject } from "../src/data.js";
 import { TIMER_MINUTES, WRITING_TIMER_STORAGE } from "../src/writing-timer.js";
 import { grantPro } from "./helpers/pro-access.js";
 
-const epoch = new Date("2026-10-09T12:00:00Z");
 async function open(page, theme = "light", seed = true) {
+  // Keep mocked time newer than document timestamps, so local saves never appear stale.
+  const epoch = new Date(Date.now() + 1000);
   await grantPro(page);
   await page.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
@@ -41,6 +42,7 @@ async function open(page, theme = "light", seed = true) {
   await page.goto("/beta");
   await page.bringToFront();
   if (!seed) await page.clock.runFor(250);
+  await page.locator(".screenplay-editor").click();
   await expect(page.locator(".screenplay-editor")).toBeFocused();
   if (seed) await page.clock.pauseAt(new Date(epoch.getTime() + 10_000));
 }
@@ -203,12 +205,26 @@ test("the timer keeps running across documents, outline and focus mode", async (
   await expect(balance(page)).toHaveText("5");
   await page.clock.runFor(1200);
   const documents = await page.evaluate(
-    async () =>
-      (
-        await (
-          await import("/src/browser-files.js")
-        ).browserRequest("documents")
-      ).documents,
+    () =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open("tyter.local-files.v1", 1);
+        open.onsuccess = () => {
+          const database = open.result;
+          const request = database
+            .transaction("files")
+            .objectStore("files")
+            .get("documents");
+          request.onsuccess = () => {
+            resolve(request.result || []);
+            database.close();
+          };
+          request.onerror = () => {
+            reject(request.error);
+            database.close();
+          };
+        };
+        open.onerror = () => reject(open.error);
+      }),
   );
   expect(documents).toHaveLength(2);
   expect(

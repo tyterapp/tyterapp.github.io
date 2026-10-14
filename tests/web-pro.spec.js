@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { PRO_CODES_URL, PRO_SESSION_STORAGE } from "../src/pro-access.js";
+import {
+  PRO_CODES_URL,
+  PRO_SESSION_STORAGE,
+  PRO_VERIFIED_STORAGE,
+} from "../src/pro-access.js";
 import {
   login,
   codesRoute,
@@ -171,6 +175,55 @@ test("an unavailable file reports an error and retains the session", async ({
   await expect(page.getByRole("alert")).toContainText("Файл ключей недоступен");
   await expect(page.locator(".screenplay-editor")).toHaveCount(0);
   expect(await storedProof(page)).toBe(proof);
+});
+
+test("a verified session survives offline rechecks and editing, then locks when online access is revoked", async ({
+  page,
+  context,
+}) => {
+  await grantPro(page);
+  let allowed = true;
+  let unreachable = false;
+  await page.route(codesRoute, async (route) =>
+    unreachable
+      ? route.abort("internetdisconnected")
+      : route.fulfill(await listResponse(allowed ? undefined : "[ABC123][]")),
+  );
+  await page.goto("/beta");
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      PRO_VERIFIED_STORAGE,
+    ),
+  ).toBe(await storedProof(page));
+  await page.clock.install();
+  await context.setOffline(true);
+  await page.clock.runFor(61000);
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  const paragraph = page.locator(".screenplay-editor p").first();
+  await paragraph.click();
+  await page.keyboard.press("Home");
+  await page.keyboard.insertText("ОФЛАЙН ");
+  await expect(paragraph).toContainText("ОФЛАЙН");
+  // Network failures can also happen while navigator.onLine still reports true.
+  unreachable = true;
+  const unavailable = page.waitForRequest(codesRoute);
+  await context.setOffline(false);
+  await unavailable;
+  await expect(paragraph).toContainText("ОФЛАЙН");
+  unreachable = false;
+  allowed = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.locator(".screenplay-editor")).toHaveCount(0);
+  expect(await storedProof(page)).toBeNull();
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      PRO_VERIFIED_STORAGE,
+    ),
+  ).toBeNull();
+  expect(await localDocumentCount(page)).toBeGreaterThan(0);
 });
 
 test("an arbitrary stored session is checked against the file", async ({

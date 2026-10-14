@@ -4,6 +4,8 @@ import {
   cleanWalletExtras,
   walletHasDoctor,
   purchaseWalletDoctor,
+  walletHasHouse,
+  purchaseWalletHouse,
   recordWalletWriting,
   recordWalletDeletion,
   queueDeletionConfirmation,
@@ -130,6 +132,7 @@ export function useWritingTimer(onComplete) {
         let activityReward = 0;
         let achievementReward = 0;
         let purchasedDoctor = false;
+        let purchasedHouse = false;
         const pendingDeletions = pendingDeletionConfirmations();
         // Read the stored session inside the lock, then remove it before notifying.
         // Two tabs (or a reload after completion) must never claim it twice.
@@ -226,14 +229,21 @@ export function useWritingTimer(onComplete) {
           achievementReward += recovered.reward;
         }
         if (
-          ["purchase-doctor", "writing", "version-deletion"].includes(action)
+          [
+            "purchase-doctor",
+            "purchase-house",
+            "writing",
+            "version-deletion",
+          ].includes(action)
         ) {
           const update =
             action === "purchase-doctor"
               ? purchaseWalletDoctor(next, time)
-              : action === "writing"
-                ? recordWalletWriting(next, payload)
-                : recordWalletDeletion(next, payload, time);
+              : action === "purchase-house"
+                ? purchaseWalletHouse(next, time)
+                : action === "writing"
+                  ? recordWalletWriting(next, payload)
+                  : recordWalletDeletion(next, payload, time);
           next = update.wallet;
           const { wallet: _wallet, ...outcome } = update;
           result = outcome;
@@ -241,6 +251,8 @@ export function useWritingTimer(onComplete) {
           if (action === "version-deletion") achievementReward += update.reward;
           purchasedDoctor =
             action === "purchase-doctor" && update.ok && !update.alreadyOwned;
+          purchasedHouse =
+            action === "purchase-house" && update.ok && !update.alreadyOwned;
         }
         let persisted = !memoryOnly.current;
         if (next !== current || pendingDeletions.length) {
@@ -249,7 +261,7 @@ export function useWritingTimer(onComplete) {
             memoryOnly.current = false;
             persisted = true;
           } catch {
-            if (action === "idea" || action === "purchase-doctor")
+            if (action === "idea" || action.startsWith("purchase-"))
               return { ok: false, reason: "storage", coins: current.coins };
             // A blocked or full storage must not interrupt editing or the countdown.
             memoryOnly.current = true;
@@ -282,6 +294,8 @@ export function useWritingTimer(onComplete) {
             key: "Доктор сценария приобретён.",
             values: [],
           });
+        if (purchasedHouse)
+          complete.current?.({ key: "Домик oiia приобретён.", values: [] });
         return { ...result, coins: next.coins, session: next.session };
       };
       if (navigator.locks?.request)
@@ -336,6 +350,7 @@ export function useWritingTimer(onComplete) {
 
   const claimVisit = useCallback(() => change("visit"), [change]);
   const purchaseDoctor = useCallback(() => change("purchase-doctor"), [change]);
+  const purchaseHouse = useCallback(() => change("purchase-house"), [change]);
   const recordWriting = useCallback(
     (activity) => change("writing", null, null, activity),
     [change],
@@ -357,6 +372,8 @@ export function useWritingTimer(onComplete) {
     claimVisit,
     hasDoctor: walletHasDoctor(state),
     purchaseDoctor,
+    hasHouse: walletHasHouse(state),
+    purchaseHouse,
     recordWriting,
     confirmVersionDeletion,
     purchases: state.purchases || {},

@@ -54,3 +54,16 @@ createRoot(document.getElementById("root")).render(
     )}
   </EditionContext.Provider>,
 );
+
+if (
+  import.meta.env.PROD &&
+  editor &&
+  !desktop &&
+  "serviceWorker" in navigator
+) {
+  navigator.serviceWorker
+    .register("/editor-sw.js", { scope: "/", updateViaCache: "none" })
+    .catch(() => {
+      /* A cache failure must never prevent editing or local saves. */
+    });
+}

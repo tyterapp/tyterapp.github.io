@@ -2,8 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { localFilesPlugin } from "./local-files-plugin.js";
 import { webProPlugin } from "./web-pro-plugin.js";
+import { offlineEditorPlugin } from "./scripts/offline-editor-plugin.mjs";
 export default defineConfig({
-  plugins: [react(), webProPlugin(), localFilesPlugin()],
+  plugins: [react(), webProPlugin(), localFilesPlugin(), offlineEditorPlugin()],
   server: {
     fs: {
       deny: [

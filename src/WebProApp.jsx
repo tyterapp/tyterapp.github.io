@@ -6,6 +6,7 @@ import App from "./MinimalApp.jsx";
 import { EditionContext } from "./edition.js";
 import {
   PRO_SESSION_STORAGE,
+  PRO_VERIFIED_STORAGE,
   ProAccessUnavailable,
   validProSession,
   verifyProAccess,
@@ -32,6 +33,16 @@ export default function WebProApp() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const token = useRef(readToken());
+  const verifiedToken = useRef(
+    (() => {
+      try {
+        const saved = localStorage.getItem(PRO_VERIFIED_STORAGE);
+        return validProSession(saved) && saved === token.current ? saved : "";
+      } catch {
+        return "";
+      }
+    })(),
+  );
   const requestId = useRef(0);
   const request = useRef(null);
   const gateElement = useRef(null);
@@ -55,9 +66,15 @@ export default function WebProApp() {
   }, [gate.status, language]);
   const lock = useCallback((message = "", forget = true) => {
     window.dispatchEvent(new Event("tyter:save-now"));
-    if (forget) token.current = "";
+    if (forget) {
+      token.current = "";
+      verifiedToken.current = "";
+    }
     try {
-      if (forget) localStorage.removeItem(STORAGE);
+      if (forget) {
+        localStorage.removeItem(STORAGE);
+        localStorage.removeItem(PRO_VERIFIED_STORAGE);
+      }
     } catch {
       /* Storage may be blocked. */
     }
@@ -74,12 +91,28 @@ export default function WebProApp() {
   }, []);
   const call = useCallback(
     async (method, body) => {
+      const allow = () =>
+        setGate((previous) => ({
+          ...previous,
+          status: "allowed",
+          message: "",
+        }));
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
       const id = ++requestId.current;
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
+        // Offline access is available only after this exact session was verified online.
+        if (
+          method === "GET" &&
+          !navigator.onLine &&
+          token.current &&
+          verifiedToken.current === token.current
+        ) {
+          allow();
+          return;
+        }
         const response = await verifyProAccess({
           method,
           body,
@@ -109,13 +142,22 @@ export default function WebProApp() {
           }
           setCode("");
         }
-        setGate((previous) => ({
-          ...previous,
-          status: "allowed",
-          message: "",
-        }));
+        verifiedToken.current = token.current;
+        try {
+          localStorage.setItem(PRO_VERIFIED_STORAGE, token.current);
+        } catch {
+          /* This tab can still keep its verified session while offline. */
+        }
+        allow();
       } catch (error) {
-        if (id === requestId.current)
+        if (id !== requestId.current) return;
+        if (
+          method === "GET" &&
+          token.current &&
+          verifiedToken.current === token.current
+        )
+          allow();
+        else
           lock(
             error instanceof ProAccessUnavailable
               ? error.message
@@ -156,11 +198,13 @@ export default function WebProApp() {
     };
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", verify);
+    window.addEventListener("online", verify);
     window.addEventListener("storage", storage);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("focus", verify);
+      window.removeEventListener("online", verify);
       window.removeEventListener("storage", storage);
       ++requestId.current;
       request.current?.abort();

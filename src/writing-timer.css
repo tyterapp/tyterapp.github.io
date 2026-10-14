@@ -57,7 +57,11 @@
   display: inline-flex;
   isolation: isolate;
   overflow: hidden;
-  padding: 8px 8px 8px 0;
+  box-sizing: border-box;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 7px;
   background: var(--ui-field);
 }
@@ -127,7 +131,8 @@
 .writing-timer-time.is-paused {
   color: var(--ui-accent);
 }
-.writing-shop {
+.writing-shop,
+.writing-house {
   position: absolute;
   bottom: calc(100% + 12px);
   left: 0;
@@ -136,7 +141,7 @@
   max-height: min(360px, calc(100dvh - 160px));
   overflow: auto;
   padding: 12px;
-  border-radius: 16px;
+  border-radius: 24px;
   background: var(--ui-surface);
   color: var(--ui-text);
   box-shadow:
@@ -146,7 +151,8 @@
   transform-origin: bottom left;
   animation: writing-shop-enter 160ms ease-out both;
 }
-.writing-shop.is-closing {
+.writing-shop.is-closing,
+.writing-house.is-closing {
   animation: writing-shop-exit 160ms ease-in both;
   pointer-events: none;
 }
@@ -158,6 +164,7 @@
   margin-bottom: 8px;
 }
 .writing-shop-header > strong {
+  flex: 1;
   padding-left: 4px;
   font-size: 14px;
 }
@@ -172,6 +179,57 @@
   padding: 12px;
   border-radius: 12px;
   background: var(--ui-soft);
+}
+.writing-shop-list {
+  display: grid;
+  gap: 8px;
+}
+.minimal-app .writing-shop-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ui-soft);
+  color: var(--ui-muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    scale 120ms ease;
+}
+.writing-shop-category > span {
+  flex: 1;
+  text-align: left;
+  color: var(--ui-text);
+}
+.minimal-app .writing-shop-category:hover {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+.minimal-app .writing-shop-category:active {
+  scale: 0.96;
+}
+.minimal-app .writing-shop-category:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+.writing-house {
+  width: 280px;
+}
+.writing-house > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+[data-theme="dark"] .writing-house > img {
+  outline-color: oklch(1 0 0 / 0.1);
 }
 .writing-shop-product-icon {
   display: grid;
@@ -255,9 +313,12 @@
   }
 }
 @media (min-width: 320px) and (max-width: 831px) {
-  .minimal-app[data-mobile] .writing-shop {
+  .minimal-app[data-mobile] :is(.writing-shop, .writing-house) {
     width: min(328px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
+  }
+  .minimal-app[data-mobile] .writing-timer-balance {
+    height: 44px;
   }
   .minimal-app[data-mobile] :is(.writing-timer-button, .writing-shop-buy) {
     min-width: 44px;
@@ -276,11 +337,14 @@
     color: var(--ui-accent);
   }
   .minimal-app .writing-timer-button,
-  .minimal-app .writing-shop-buy {
+  .minimal-app .writing-shop-buy,
+  .minimal-app .writing-shop-category {
     transition: none;
   }
   .writing-shop,
-  .writing-shop.is-closing {
+  .writing-shop.is-closing,
+  .writing-house,
+  .writing-house.is-closing {
     animation: none;
   }
 }
