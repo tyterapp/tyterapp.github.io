@@ -157,6 +157,11 @@ a:focus {
   outline: 2px solid #b9b1c5;
   outline-offset: 1px;
 }
+:root:not([data-keyboard-focus]):has(.minimal-app)
+  :is(button, a, [role="button"]):focus,
+:root:has(.minimal-app[data-mobile]) :is(button, a, [role="button"]):focus {
+  outline: none !important;
+}
 svg {
   flex-shrink: 0;
   stroke-width: 1.6;

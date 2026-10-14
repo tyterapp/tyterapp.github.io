@@ -134,14 +134,35 @@ export default function WritingTimer({
         `${bar?.offsetHeight || 48}px`,
       );
       setStacked(space < ref.current.offsetWidth);
+      const top = Math.max(
+        column.getBoundingClientRect().top,
+        window.visualViewport?.offsetTop || 0,
+      );
+      // Leave 12px between the panel and toolbar, and 12px above the panel.
+      const available = Math.max(
+        0,
+        ref.current.getBoundingClientRect().top - top - 24,
+      );
+      ref.current.style.setProperty(
+        "--writing-popover-height",
+        `${Math.floor(available)}px`,
+      );
     };
     const observer = new ResizeObserver(fit);
     observer.observe(column);
     observer.observe(ref.current);
     if (bar) observer.observe(bar);
+    window.addEventListener("resize", fit);
+    window.visualViewport?.addEventListener("resize", fit);
+    window.visualViewport?.addEventListener("scroll", fit);
     fit();
-    return () => observer.disconnect();
-  }, [visible, pickerOpen, !!timer.session]);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", fit);
+      window.visualViewport?.removeEventListener("resize", fit);
+      window.visualViewport?.removeEventListener("scroll", fit);
+    };
+  }, [visible, pickerOpen, !!timer.session, stacked, panel]);
 
   if (!visible) return null;
   return (

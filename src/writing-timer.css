@@ -152,13 +152,12 @@
 .writing-shop,
 .writing-house,
 .writing-coins {
-  --writing-popover-max-height: 360px;
   position: absolute;
   bottom: calc(100% + 12px);
   left: 0;
   width: 328px;
   max-width: calc(100vw - 104px);
-  max-height: min(var(--writing-popover-max-height), calc(100dvh - 160px));
+  max-height: var(--writing-popover-height, calc(100dvh - 160px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -260,9 +259,6 @@
 }
 .writing-house {
   width: 280px;
-}
-.writing-coins {
-  --writing-popover-max-height: 440px;
 }
 .writing-coins-guide {
   grid-template-columns: 20px minmax(0, 1fr);
@@ -502,16 +498,6 @@
   .minimal-app[data-mobile] :is(.writing-shop, .writing-house, .writing-coins) {
     width: min(328px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
-    max-height: min(
-      var(--writing-popover-max-height),
-      max(
-        80px,
-        calc(
-          var(--mobile-height, 100dvh) - 240px -
-            env(safe-area-inset-bottom, 0px)
-        )
-      )
-    );
   }
   .minimal-app[data-mobile] .writing-timer-balance {
     height: 44px;
