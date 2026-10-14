@@ -833,6 +833,11 @@ export default {
   "Шрифт в редакторе": "Editor font",
   "ЭКС. · натура": "EXT. · exterior",
   "Экспорт PDF, DOCX и FDX": "PDF, DOCX and FDX export",
+  "Настройки экспорта": "Export settings",
+  "Нумерация сцен": "Scene numbers",
+  "Варианты сцен": "Scene variants",
+  "Увеличить домик до 200%": "Expand house to 200%",
+  "Уменьшить домик до 100%": "Collapse house to 100%",
   "Экспорт PDF, DOCX и FDX всегда использует Courier.":
     "PDF, DOCX and FDX exports always use Courier.",
   "актов аутлайна": "outline acts",

@@ -11,6 +11,9 @@ import {
   ZoomIn,
   PanelBottom,
   UserRound,
+  FileOutput,
+  ListOrdered,
+  Copy,
 } from "lucide-react";
 import { documentFont, documentFonts } from "./document-fonts.js";
 import AppSelect from "./AppSelect.jsx";
@@ -44,10 +47,36 @@ export function SettingsSwitch({
     </label>
   );
 }
+export function ExportSettings({ settings = {}, onChange }) {
+  return (
+    <div
+      className="export-options"
+      role="group"
+      aria-label={t("Настройки экспорта")}
+    >
+      <SettingsSwitch
+        label={t("Нумерация сцен")}
+        icon={ListOrdered}
+        role="switch"
+        checked={settings.exportSceneNumbers !== false}
+        onChange={(exportSceneNumbers) => onChange({ exportSceneNumbers })}
+      />
+      <SettingsSwitch
+        label={t("Варианты сцен")}
+        icon={Copy}
+        role="switch"
+        checked={settings.exportSceneVariants !== false}
+        onChange={(exportSceneVariants) => onChange({ exportSceneVariants })}
+      />
+    </div>
+  );
+}
 export default function DocumentSettings({
   metadata = {},
   spellcheck = false,
   onSpellcheck,
+  exportSettings,
+  onExportSettings,
   preferences = { theme: "light", typewriter: false },
   onPreferences,
   documentZoom,
@@ -160,6 +189,17 @@ export default function DocumentSettings({
           <p className="settings-hint">
             {t("Экспорт PDF, DOCX и FDX всегда использует Courier.")}
           </p>
+        </section>
+        <section className="settings-section">
+          <h3>
+            <FileOutput size={15} />
+            {t("Настройки экспорта")}
+          </h3>
+          <ExportSettings
+            settings={exportSettings}
+            onChange={onExportSettings}
+          />
+          <p className="settings-hint">PDF · DOCX · FDX</p>
         </section>
         <section className="settings-section">
           <h3>

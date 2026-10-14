@@ -49,7 +49,7 @@ import AnnotationsPanel from "./AnnotationsPanel.jsx";
 import { documentFont } from "./document-fonts.js";
 import { CommentsPanel, Onboarding } from "./EditorPanels.jsx";
 import DocumentSearch from "./DocumentSearch.jsx";
-import DocumentSettings from "./DocumentSettings.jsx";
+import DocumentSettings, { ExportSettings } from "./DocumentSettings.jsx";
 import SubscriptionDialog from "./SubscriptionDialog.jsx";
 import { IS_PRO as BUILD_IS_PRO, useEdition } from "./edition.js";
 import { importDocument } from "./imports.js";
@@ -2450,6 +2450,11 @@ export default function MinimalApp({ onLogout }) {
     setComponentDialog(null);
     setFolderToDelete(null);
   };
+  const changeExportSettings = (patch) =>
+    update((document) => ({
+      ...document,
+      settings: { ...document.settings, ...patch },
+    }));
   const download = async (format) => {
     setMobileToolsOpen(false);
     setMenu(null);
@@ -3729,6 +3734,8 @@ export default function MinimalApp({ onLogout }) {
               onPreferences={setPreferences}
               metadata={current.metadata}
               spellcheck={current.settings.spellcheck}
+              exportSettings={current.settings}
+              onExportSettings={changeExportSettings}
               onSpellcheck={(spellcheck) =>
                 update((document) => ({
                   ...document,
@@ -4114,6 +4121,10 @@ export default function MinimalApp({ onLogout }) {
             }}
           >
             <div className="popover-heading">{t("Сохранить файл")}</div>
+            <ExportSettings
+              settings={current.settings}
+              onChange={changeExportSettings}
+            />
             {[
               ["pdf", "PDF", t("Для чтения и печати")],
               ["docx", "Word · DOCX", t("Для работы в Word")],

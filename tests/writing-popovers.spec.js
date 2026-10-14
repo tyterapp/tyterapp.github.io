@@ -46,6 +46,121 @@ const overflow = (page) =>
     .evaluate((el) => el.scrollHeight - el.clientHeight);
 
 for (const theme of ["light", "dark"]) {
+  test(`${theme}: house expands its canvas to 200%, collapses, and keeps controls inside narrow viewports`, async ({
+    page,
+  }, info) => {
+    await open(page, theme);
+    const opener = page.getByRole("button", {
+      name: "Открыть oiia домик",
+      exact: true,
+    });
+    const house = page.locator("#writing-house");
+    const expand = house.getByRole("button", {
+      name: "Увеличить домик до 200%",
+      exact: true,
+    });
+    const collapse = house.getByRole("button", {
+      name: "Уменьшить домик до 100%",
+      exact: true,
+    });
+    const close = house.getByRole("button", {
+      name: "Закрыть домик",
+      exact: true,
+    });
+    const image = house.locator("img");
+    await opener.click();
+    await expect
+      .poll(() => image.evaluate((img) => img.complete && img.naturalWidth))
+      .toBe(734);
+    const original = await image.boundingBox();
+    const outer = await house.boundingBox();
+    const controlSize = await close.boundingBox();
+    await expand.click();
+    await expect(collapse).toHaveAttribute("aria-pressed", "true");
+    await expect(collapse.locator(".lucide-minimize2")).toHaveCSS(
+      "opacity",
+      "1",
+    );
+    await expect(collapse.locator(".lucide-maximize2")).toHaveCSS(
+      "opacity",
+      "0",
+    );
+    const bigger = await image.boundingBox();
+    expect(bigger.width).toBeCloseTo(original.width * 2, 0);
+    expect(bigger.height).toBeCloseTo(original.height * 2, 0);
+    expect((await house.boundingBox()).width).toBeCloseTo(outer.width * 2, 0);
+    expect((await close.boundingBox()).height).toBe(controlSize.height);
+    await expect(close).toBeInViewport();
+    await house.screenshot({ path: info.outputPath("expanded-house.png") });
+    await collapse.click();
+    expect((await image.boundingBox()).width).toBeCloseTo(original.width, 0);
+    expect((await house.boundingBox()).height).toBeCloseTo(outer.height, 0);
+    await close.click();
+    await expect(house).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Настройки документа", exact: true })
+      .click();
+    await page.setViewportSize({ width: 832, height: 700 });
+    await opener.click();
+    await expand.click();
+    const constrained = await house.boundingBox();
+    expect(constrained.x).toBeGreaterThanOrEqual(0);
+    expect(constrained.x + constrained.width).toBeLessThanOrEqual(832);
+    await expect(close).toBeInViewport();
+    await close.click();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.keyboard.press("Escape");
+    await opener.click();
+    const mobileOriginal = await image.boundingBox();
+    await expand.click();
+    expect((await image.boundingBox()).width).toBeCloseTo(
+      mobileOriginal.width * 2,
+      0,
+    );
+    const scroll = house.locator(".writing-popover-scroll");
+    expect(
+      await scroll.evaluate((el) => el.scrollWidth - el.clientWidth),
+    ).toBeGreaterThan(0);
+    await scroll.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    await expect(close).toBeInViewport();
+    await page.setViewportSize({ width: 320, height: 450 });
+    await expect
+      .poll(() => scroll.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeGreaterThan(0);
+    await expect(close).toBeInViewport();
+    const small = await house.boundingBox();
+    expect(small.x + small.width).toBeLessThanOrEqual(320);
+    expect(small.y).toBeGreaterThanOrEqual(0);
+    await house.screenshot({
+      path: info.outputPath("mobile-house-scroll.png"),
+    });
+    await collapse.click();
+    await page.setViewportSize({ width: 320, height: 844 });
+    expect((await image.boundingBox()).width).toBeCloseTo(
+      mobileOriginal.width,
+      0,
+    );
+    await close.click();
+    await page.getByRole("button", { name: "ENG", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Open oiia house", exact: true })
+      .click();
+    await house
+      .getByRole("button", { name: "Expand house to 200%", exact: true })
+      .click();
+    await expect(
+      house.getByRole("button", {
+        name: "Collapse house to 100%",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(house).toHaveCount(0);
+  });
+
   test(`${theme}: pointer clicks have no focus rings, while desktop Tab and keyboard popover navigation keep rings`, async ({
     page,
   }) => {

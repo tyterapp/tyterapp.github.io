@@ -120,13 +120,27 @@ const styledRuns = (block) => {
     };
   });
 };
+const exportSceneLabel = (document, block, number) =>
+  [
+    document.settings?.exportSceneNumbers !== false ? number : null,
+    document.settings?.exportSceneVariants !== false
+      ? sceneLetter(block)
+      : null,
+  ]
+    .filter((value) => value !== null)
+    .join(" ");
 export function exportFDX(document) {
   const titlePage = hasTitlePage(document)
     ? `<TitlePage><Content>${Array.from({ length: 8 }, () => '<Paragraph Type="General"><Text></Text></Paragraph>').join("")}${[document.title, "Сценарий", document.metadata.author, document.metadata.year, document.metadata.email].map((text) => `<Paragraph Type="General" Alignment="Center"><Text Font="Courier Final Draft" Size="12">${xml(text)}</Text></Paragraph>`).join("")}</Content></TitlePage>`
     : "";
+  let sceneNumber = 0;
   const paragraphs = document.content.content
     .map((block) => {
       const spec = FORMAT[block.attrs?.format] || FORMAT.action;
+      const label =
+        block.attrs?.format === "scene"
+          ? exportSceneLabel(document, block, ++sceneNumber)
+          : "";
       const text =
         styledRuns(block)
           .map((run) => {
@@ -140,7 +154,7 @@ export function exportFDX(document) {
             return `<Text${style ? ` Style="${style}"` : ""}>${xml(run.text)}</Text>`;
           })
           .join("") || "<Text></Text>";
-      return `    <Paragraph Type="${spec.fdx}">${text}</Paragraph>`;
+      return `    <Paragraph Type="${spec.fdx}"${label ? ` Number="${xml(label)}"` : ""}>${text}</Paragraph>`;
     })
     .join("\n");
   return new Blob(
@@ -317,6 +331,9 @@ export async function exportDOCX(document) {
   let sceneNumber = 0;
   const paragraphs = document.content.content.map((block, index, blocks) => {
     const isScene = block.attrs?.format === "scene";
+    const label = isScene
+      ? exportSceneLabel(document, block, ++sceneNumber)
+      : "";
     const spec = FORMAT[block.attrs?.format] || FORMAT.action;
     const nextBlock = blocks[index + 1];
     const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
@@ -327,9 +344,9 @@ export async function exportDOCX(document) {
       indent: {
         left: Math.round(spec.left * 20),
         right: Math.round(spec.right * 20),
-        ...(isScene ? { hanging: 720 } : {}),
+        ...(label ? { hanging: 720 } : {}),
       },
-      ...(isScene
+      ...(label
         ? {
             tabStops: [
               { type: TabStopType.RIGHT, position: -360 },
@@ -350,14 +367,10 @@ export async function exportDOCX(document) {
       keepLines: true,
       widowControl: true,
       children: [
-        ...(isScene
+        ...(label
           ? [
               new TextRun({
-                children: [
-                  new Tab(),
-                  `${++sceneNumber} ${sceneLetter(block)}`,
-                  new Tab(),
-                ],
+                children: [new Tab(), label, new Tab()],
                 font: "Courier New",
                 size: 18,
                 position: 3,
@@ -581,6 +594,8 @@ export async function exportPDF(document) {
   document.content.content.forEach((block, index) => {
     const format = block.attrs?.format || "action";
     const number = format === "scene" ? ++sceneNumber : null;
+    const label =
+      number !== null ? exportSceneLabel(document, block, number) : "";
     const spec = FORMAT[format] || FORMAT.action;
     const nextBlock = document.content.content[index + 1];
     const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
@@ -624,15 +639,12 @@ export async function exportPDF(document) {
     let cursor = 0;
     for (const [lineIndex, line] of lines.entries()) {
       if (y + lineHeight > bottomEdge) newPage();
-      if (number !== null && lineIndex === 0) {
+      if (label && lineIndex === 0) {
         pdf.setFont("ScreenplayCourier", "normal");
         pdf.setFontSize(9);
-        pdf.text(
-          `${number} ${sceneLetter(block)}`,
-          leftMargin - 18,
-          y + baseline - (fontSize - 9) / 2,
-          { align: "right" },
-        );
+        pdf.text(label, leftMargin - 18, y + baseline - (fontSize - 9) / 2, {
+          align: "right",
+        });
         pdf.setFontSize(fontSize);
       }
       const start = Math.max(cursor, text.indexOf(line, cursor));

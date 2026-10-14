@@ -258,7 +258,44 @@
   outline-offset: 2px;
 }
 .writing-house {
-  width: 280px;
+  --house-width: min(280px, var(--writing-popover-width, calc(100vw - 104px)));
+  width: var(--house-width);
+  max-width: var(--writing-popover-width, calc(100vw - 104px));
+}
+.writing-house.is-expanded {
+  width: calc(var(--house-width) * 2);
+}
+.writing-house-actions {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.writing-house-expand {
+  position: relative;
+}
+.writing-house-size-icon {
+  transition:
+    opacity 160ms cubic-bezier(0.2, 0, 0, 1),
+    scale 160ms cubic-bezier(0.2, 0, 0, 1),
+    filter 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.writing-house-size-icon + .writing-house-size-icon {
+  position: absolute;
+}
+.writing-house-size-icon.is-hidden {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+.writing-house.is-expanded .writing-popover-scroll {
+  overflow-x: auto;
+}
+.writing-house-canvas {
+  width: 100%;
+  margin-inline: auto;
+}
+.writing-house.is-expanded .writing-house-canvas {
+  width: calc((var(--house-width) - 24px) * 2);
 }
 .writing-coins-guide {
   grid-template-columns: 20px minmax(0, 1fr);
@@ -349,7 +386,7 @@
   .writing-coins-achievement-status {
   color: var(--ui-accent);
 }
-.writing-house .writing-popover-scroll > img {
+.writing-house-canvas > img {
   display: block;
   width: 100%;
   height: auto;
@@ -357,7 +394,7 @@
   outline: 1px solid oklch(0 0 0 / 0.1);
   outline-offset: -1px;
 }
-[data-theme="dark"] .writing-house .writing-popover-scroll > img {
+[data-theme="dark"] .writing-house-canvas > img {
   outline-color: oklch(1 0 0 / 0.1);
 }
 .writing-shop-product-icon {
@@ -499,6 +536,18 @@
     width: min(328px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
   }
+  .minimal-app[data-mobile] .writing-house {
+    --house-width: min(
+      328px,
+      calc(100vw - 16px),
+      var(--writing-popover-width, calc(100vw - 16px))
+    );
+    width: var(--house-width);
+    max-width: var(--writing-popover-width, calc(100vw - 16px));
+  }
+  .minimal-app[data-mobile] .writing-house.is-expanded {
+    width: calc(var(--house-width) * 2);
+  }
   .minimal-app[data-mobile] .writing-timer-balance {
     height: 44px;
     min-width: 44px;
@@ -532,6 +581,7 @@
     color: var(--ui-accent);
   }
   .minimal-app .writing-timer-button,
+  .writing-house-size-icon,
   .minimal-app .writing-timer-balance,
   .minimal-app .writing-shop-buy,
   .minimal-app .writing-shop-category,

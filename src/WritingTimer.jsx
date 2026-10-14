@@ -147,6 +147,14 @@ export default function WritingTimer({
         "--writing-popover-height",
         `${Math.floor(available)}px`,
       );
+      const viewport = window.visualViewport;
+      const right = viewport
+        ? viewport.offsetLeft + viewport.width
+        : window.innerWidth;
+      ref.current.style.setProperty(
+        "--writing-popover-width",
+        `${Math.max(0, Math.floor(right - ref.current.getBoundingClientRect().left - 12))}px`,
+      );
     };
     const observer = new ResizeObserver(fit);
     observer.observe(column);

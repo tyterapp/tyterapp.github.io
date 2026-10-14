@@ -30,6 +30,8 @@ const DEFAULT_SETTINGS = {
   components: false,
   formatLabels: false,
   spellcheck: false,
+  exportSceneNumbers: true,
+  exportSceneVariants: true,
 };
 
 export function uid() {
