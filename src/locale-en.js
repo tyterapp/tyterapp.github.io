@@ -11,6 +11,15 @@ export default {
   "+{0} coins": "+{0} coins",
   "Доктор сценария приобретён.": "Script doctor purchased.",
   "Домик oiia приобретён.": "oiia house purchased.",
+  "Сброс за {0} монет обнулит баланс, покупки, стрики и награды. Домик и доктор снова станут доступны для покупки. Сценарии сохранятся.":
+    "Resetting for {0} coins will clear your balance, purchases, streaks and rewards. The house and doctor will be available to buy again. Your scripts will be kept.",
+  "Сбросить за 200 монет": "Reset for 200 coins",
+  "Для сброса прогресса нужно 200 монет.":
+    "Resetting progress requires 200 coins.",
+  "Не удалось сохранить сброс. Прогресс не изменён.":
+    "The reset could not be saved. Your progress has not changed.",
+  "Прогресс сброшен. Баланс: 0 монет. Домик и доктор снова доступны для покупки.":
+    "Progress reset. Balance: 0 coins. The house and doctor are available to buy again.",
   "Дата съёмок": "Shooting date",
   "Локация съёмок": "Shooting location",
   Координаты: "Coordinates",

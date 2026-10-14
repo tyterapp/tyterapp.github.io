@@ -81,6 +81,7 @@ import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
+import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
 import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
 import { useDailyQuests } from "./pro/quests/index.js";
 import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
@@ -3559,6 +3560,35 @@ export default function MinimalApp({ onLogout }) {
               view === "screenplay"
             }
             timer={writingTimer}
+            onResetProgress={() => {
+              let confirming = false;
+              setMessage({
+                key: "Сброс за {0} монет обнулит баланс, покупки, стрики и награды. Домик и доктор снова станут доступны для покупки. Сценарии сохранятся.",
+                values: [RESET_PROGRESS_PRICE],
+                kind: "progress-reset",
+                action: {
+                  label: "Сбросить за 200 монет",
+                  icon: <RefreshCw size={14} aria-hidden="true" />,
+                  onClick: async () => {
+                    if (confirming) return;
+                    confirming = true;
+                    try {
+                      const result = await writingTimer.resetProgress();
+                      if (!result.ok)
+                        setMessage(
+                          result.reason === "coins"
+                            ? "Для сброса прогресса нужно 200 монет."
+                            : "Не удалось сохранить сброс. Прогресс не изменён.",
+                        );
+                    } catch {
+                      setMessage(
+                        "Не удалось сохранить сброс. Прогресс не изменён.",
+                      );
+                    }
+                  },
+                },
+              });
+            }}
             onStreak={(streak) =>
               setMessage({
                 key: "Дней подряд: {0}. Рекорд: {1}.",

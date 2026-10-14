@@ -6,6 +6,7 @@ import {
   purchaseWalletDoctor,
   walletHasHouse,
   purchaseWalletHouse,
+  resetWalletProgress,
   recordWalletWriting,
   recordWalletDeletion,
   queueDeletionConfirmation,
@@ -133,6 +134,7 @@ export function useWritingTimer(onComplete) {
         let achievementReward = 0;
         let purchasedDoctor = false;
         let purchasedHouse = false;
+        let progressReset = false;
         const pendingDeletions = pendingDeletionConfirmations();
         // Read the stored session inside the lock, then remove it before notifying.
         // Two tabs (or a reload after completion) must never claim it twice.
@@ -254,6 +256,14 @@ export function useWritingTimer(onComplete) {
           purchasedHouse =
             action === "purchase-house" && update.ok && !update.alreadyOwned;
         }
+        if (action === "reset-progress") {
+          const update = resetWalletProgress(next, time);
+          next = update.wallet;
+          const { wallet: _wallet, ...outcome } = update;
+          result = outcome;
+          progressReset = update.ok;
+          if (progressReset) reward = achievementReward = visitReward = 0;
+        }
         let persisted = !memoryOnly.current;
         if (next !== current || pendingDeletions.length) {
           try {
@@ -261,7 +271,11 @@ export function useWritingTimer(onComplete) {
             memoryOnly.current = false;
             persisted = true;
           } catch {
-            if (action === "idea" || action.startsWith("purchase-"))
+            if (
+              action === "idea" ||
+              action === "reset-progress" ||
+              action.startsWith("purchase-")
+            )
               return { ok: false, reason: "storage", coins: current.coins };
             // A blocked or full storage must not interrupt editing or the countdown.
             memoryOnly.current = true;
@@ -296,6 +310,14 @@ export function useWritingTimer(onComplete) {
           });
         if (purchasedHouse)
           complete.current?.({ key: "Домик oiia приобретён.", values: [] });
+        if (progressReset) {
+          setWritingReward(0);
+          complete.current?.({
+            key: "Прогресс сброшен. Баланс: 0 монет. Домик и доктор снова доступны для покупки.",
+            values: [],
+            kind: "progress-reset",
+          });
+        }
         return { ...result, coins: next.coins, session: next.session };
       };
       if (navigator.locks?.request)
@@ -351,6 +373,7 @@ export function useWritingTimer(onComplete) {
   const claimVisit = useCallback(() => change("visit"), [change]);
   const purchaseDoctor = useCallback(() => change("purchase-doctor"), [change]);
   const purchaseHouse = useCallback(() => change("purchase-house"), [change]);
+  const resetProgress = useCallback(() => change("reset-progress"), [change]);
   const recordWriting = useCallback(
     (activity) => change("writing", null, null, activity),
     [change],
@@ -374,6 +397,7 @@ export function useWritingTimer(onComplete) {
     purchaseDoctor,
     hasHouse: walletHasHouse(state),
     purchaseHouse,
+    resetProgress,
     recordWriting,
     confirmVersionDeletion,
     purchases: state.purchases || {},

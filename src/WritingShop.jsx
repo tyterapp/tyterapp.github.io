@@ -4,10 +4,15 @@ import {
   BriefcaseMedical,
   ChevronRight,
   Package,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { useLanguage } from "./i18n.js";
-import { DOCTOR_PRICE, HOUSE_PRICE } from "./writing-wallet.js";
+import {
+  DOCTOR_PRICE,
+  HOUSE_PRICE,
+  RESET_PROGRESS_PRICE,
+} from "./writing-wallet.js";
 import { MoneyIcon } from "./WritingTimerIcons.jsx";
 import {
   CatIcon,
@@ -16,7 +21,12 @@ import {
   SkinsIcon,
 } from "./WritingHouseIcons.jsx";
 
-export default function WritingShop({ timer, closing, onClose }) {
+export default function WritingShop({
+  timer,
+  closing,
+  onClose,
+  onResetProgress,
+}) {
   const language = useLanguage();
   const text = (ru, en) => (language === "en" ? en : ru);
   const closeRef = useRef(null);
@@ -55,6 +65,9 @@ export default function WritingShop({ timer, closing, onClose }) {
   useEffect(() => {
     if (category) backRef.current?.focus({ preventScroll: true });
   }, [category]);
+  useEffect(() => {
+    if (!timer.hasHouse) setCategory("");
+  }, [timer.hasHouse]);
   const purchase = async (product) => {
     if (buying) return;
     setBuying(product.id);
@@ -220,6 +233,17 @@ export default function WritingShop({ timer, closing, onClose }) {
           {error}
         </p>
       )}
+      <button
+        type="button"
+        className="writing-shop-reset"
+        disabled={!!buying || closing || timer.coins < RESET_PROGRESS_PRICE}
+        onClick={onResetProgress}
+      >
+        <RefreshCw size={18} aria-hidden="true" />
+        <span>{text("Сбросить прогресс", "Reset progress")}</span>
+        <MoneyIcon />
+        <span>{RESET_PROGRESS_PRICE}</span>
+      </button>
     </aside>
   );
 }

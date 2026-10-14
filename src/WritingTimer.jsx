@@ -12,7 +12,12 @@ import {
   TimerIcon,
 } from "./WritingTimerIcons.jsx";
 
-export default function WritingTimer({ visible, timer, onStreak }) {
+export default function WritingTimer({
+  visible,
+  timer,
+  onStreak,
+  onResetProgress,
+}) {
   const language = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState("");
@@ -59,6 +64,14 @@ export default function WritingTimer({ visible, timer, onStreak }) {
       setPanelClosing(false);
     }
   }, [visible, timer.session?.id, pickerOpen]);
+  useEffect(() => {
+    if (!timer.hasHouse && houseOpen) {
+      clearTimeout(panelCloseTimeout.current);
+      setPanel("");
+      setPanelClosing(false);
+      shopButtonRef.current?.focus({ preventScroll: true });
+    }
+  }, [timer.hasHouse, houseOpen]);
   useEffect(() => {
     if (!panel) return;
     const close = (event) => {
@@ -137,6 +150,7 @@ export default function WritingTimer({ visible, timer, onStreak }) {
           timer={timer}
           closing={panelClosing}
           onClose={closePanel}
+          onResetProgress={onResetProgress}
         />
       )}
       {houseOpen && (

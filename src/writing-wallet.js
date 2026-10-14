@@ -4,6 +4,7 @@ export const DOCTOR_PRODUCT = "script-doctor";
 export const DOCTOR_PRICE = 20;
 export const HOUSE_PRODUCT = "oiia-house";
 export const HOUSE_PRICE = 100;
+export const RESET_PROGRESS_PRICE = 200;
 export const SCAVENGER_ACHIEVEMENT = "scavenger";
 export const PENDING_DELETION_PREFIX = "tyter.pending-deletion.v1:";
 const validId = (value) =>
@@ -128,6 +129,9 @@ export function cleanWalletExtras(value) {
     : [];
   return {
     ...(Object.keys(purchases).length ? { purchases } : {}),
+    ...(validDay(value?.progressResetDay)
+      ? { progressResetDay: value.progressResetDay }
+      : {}),
     ...(validDay(achievement?.date)
       ? {
           achievements: {
@@ -149,6 +153,25 @@ export function cleanWalletExtras(value) {
 
 export function walletHasDoctor(wallet) {
   return Number.isFinite(wallet?.purchases?.[DOCTOR_PRODUCT]?.purchasedAt);
+}
+
+export function resetWalletProgress(wallet, now = Date.now()) {
+  if (wallet.coins < RESET_PROGRESS_PRICE)
+    return { wallet, ok: false, reason: "coins", reward: 0 };
+  return {
+    ok: true,
+    reward: 0,
+    wallet: {
+      coins: 0,
+      session: null,
+      progressResetDay: localDay(now),
+      // Keep the document deletion audit and deduplication receipts, not earned progress.
+      ...(wallet.deletions?.length ? { deletions: wallet.deletions } : {}),
+      ...(wallet.writing?.receipts?.length
+        ? { writing: { characters: 0, receipts: wallet.writing.receipts } }
+        : {}),
+    },
+  };
 }
 
 export function purchaseWalletDoctor(wallet, now = Date.now()) {

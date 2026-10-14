@@ -22,7 +22,12 @@ export function cleanStreak(value) {
 export function dailyVisit(wallet, now = Date.now()) {
   const day = localDay(now),
     previous = cleanStreak(wallet.streak);
-  if (previous && previous.day >= day) return { wallet, reward: 0 };
+  if (
+    (previous && previous.day >= day) ||
+    (/^\d{4}-\d{2}-\d{2}$/.test(wallet.progressResetDay) &&
+      wallet.progressResetDay >= day)
+  )
+    return { wallet, reward: 0 };
   const days = (value) => Date.parse(`${value}T12:00:00Z`) / 86400000;
   const count =
     previous && days(day) - days(previous.day) === 1 ? previous.count + 1 : 1;

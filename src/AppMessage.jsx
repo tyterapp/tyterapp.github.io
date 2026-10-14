@@ -39,7 +39,7 @@ export default function AppMessage({ notice, onDismiss }) {
   const action = typeof value === "object" ? value.action : null;
   return (
     <div
-      className={`app-message${value.kind === "script-version-deletion" ? " version-deletion-message" : ""}${closing ? " is-closing" : ""}`}
+      className={`app-message${value.kind === "script-version-deletion" ? " version-deletion-message" : value.kind === "progress-reset" ? " progress-reset-message" : ""}${closing ? " is-closing" : ""}`}
       role="alert"
     >
       <span>

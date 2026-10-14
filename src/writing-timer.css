@@ -292,6 +292,59 @@
 .writing-shop-error {
   color: var(--ui-text);
 }
+.minimal-app .writing-shop-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ui-soft);
+  color: var(--ui-muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.writing-shop-reset > span:first-of-type {
+  flex: 1;
+  color: var(--ui-text);
+  text-align: left;
+}
+.minimal-app .writing-shop-reset:hover:enabled {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+.minimal-app .writing-shop-reset:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.minimal-app .writing-shop-reset:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+.minimal-app .progress-reset-message {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  width: min(540px, calc(100vw - 30px));
+  padding: 14px;
+}
+.progress-reset-message > span {
+  flex: 1 1 100%;
+  padding-right: 28px;
+}
+.progress-reset-message > .app-message-action {
+  margin-left: auto;
+}
+.progress-reset-message > .icon-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
 @keyframes writing-shop-enter {
   from {
     opacity: 0;
@@ -324,6 +377,18 @@
     min-width: 44px;
     min-height: 44px;
   }
+  .minimal-app[data-mobile] .progress-reset-message > .app-message-action {
+    min-height: 44px;
+  }
+  .minimal-app[data-mobile] .progress-reset-message > span {
+    padding-right: 36px;
+  }
+  .minimal-app[data-mobile] .progress-reset-message > .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+    top: 2px;
+    right: 2px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .writing-timer-balance-sweep,
@@ -338,7 +403,8 @@
   }
   .minimal-app .writing-timer-button,
   .minimal-app .writing-shop-buy,
-  .minimal-app .writing-shop-category {
+  .minimal-app .writing-shop-category,
+  .minimal-app .writing-shop-reset {
     transition: none;
   }
   .writing-shop,
