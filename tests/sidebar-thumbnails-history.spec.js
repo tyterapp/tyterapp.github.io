@@ -314,23 +314,34 @@ test("outline history includes card edits, previews old cards and restores witho
     exact: true,
   });
   await expect(history.getByRole("tab")).toHaveCount(0);
-  const outlineVersions = history
-    .locator(".history-card")
-    .filter({
-      has: page.locator(".history-area-badge", { hasText: "Аутлайн" }),
-    });
-  const screenplayVersions = history
-    .locator(".history-card")
-    .filter({
-      has: page.locator(".history-area-badge", { hasText: "Сценарий" }),
-    });
+  const outlineVersions = history.locator(".history-card").filter({
+    has: page.locator(".history-area-badge", { hasText: "Аутлайн" }),
+  });
+  const screenplayVersions = history.locator(".history-card").filter({
+    has: page.locator(".history-area-badge", { hasText: "Сценарий" }),
+  });
   await expect(outlineVersions).toHaveCount(1);
   await expect(screenplayVersions).toHaveCount(1);
+  const current = history.getByRole("button", {
+    name: "Текущая версия",
+    exact: true,
+  });
+  await expect(current).toHaveAttribute("aria-pressed", "true");
+  await expect(history.locator(".history-card strong")).toHaveCount(0);
   await outlineVersions.first().click();
+  await expect(current).toHaveAttribute("aria-pressed", "false");
   const preview = page.getByLabel("Аутлайн выбранной версии");
   await expect(preview).toContainText("Знакомство");
   await expect(preview).toContainText("Мир героя");
   await expect(preview).not.toContainText("Новый сюжет карточки");
+  await current.click();
+  await expect(current).toHaveAttribute("aria-pressed", "true");
+  await expect(preview).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Новая карточка", exact: true }),
+  ).toBeVisible();
+  expect((await stored(page)).outline.cards[0].drama).toBe(8);
+  await outlineVersions.first().click();
   await page.screenshot({ path: info.outputPath("outline-history.png") });
   await history
     .getByRole("button", { name: "Восстановить эту версию" })

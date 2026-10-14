@@ -4,6 +4,7 @@ import { switchSceneVariant } from "../src/scene-variants.js";
 import { switchScriptVersion } from "../src/script-versions.js";
 import {
   shotScenes,
+  shotReportName,
   updateShotSettings,
   sceneDuration,
   SHOT_FIELDS,
@@ -44,6 +45,45 @@ function fixture() {
   };
   return doc;
 }
+test("shot names follow scene order and variants without changing the stored base names", () => {
+  let doc = updateShotSettings(fixture(), "scene", "A", {
+    name: "Встреча у окна",
+  });
+  doc = updateShotSettings(doc, "scene", "F", { name: "Вечерняя встреча" });
+  expect(shotScenes(doc, { allVariants: true }).map(shotReportName)).toEqual([
+    "1-A: Встреча у окна",
+    "1-F: Вечерняя встреча",
+    "2-A: untitled 1",
+  ]);
+  const before = JSON.stringify(doc.sceneShots);
+  doc = {
+    ...doc,
+    content: {
+      ...doc.content,
+      content: [
+        ...doc.content.content.slice(7),
+        ...doc.content.content.slice(0, 7),
+      ],
+    },
+  };
+  expect(shotScenes(doc, { allVariants: true }).map(shotReportName)).toEqual([
+    "1-A: untitled 1",
+    "2-A: Встреча у окна",
+    "2-F: Вечерняя встреча",
+  ]);
+  expect(JSON.stringify(doc.sceneShots)).toBe(before);
+  const hundred = createProject("100 сцен");
+  hundred.content.content = Array.from({ length: 100 }, (_, index) =>
+    p("scene", "ИНТ. ДОМ — ДЕНЬ", `scene-${index}`, index === 99 ? "F" : "A"),
+  );
+  const last = shotScenes(
+    updateShotSettings(hundred, "scene-99", "F", { name: "untitled 1" }),
+  ).at(-1);
+  expect(shotReportName(last)).toBe("100-F: untitled 1");
+  expect(shotReportName({ ...last, settings: { name: "  " } })).toBe(
+    "100-F: untitled 1",
+  );
+});
 const drawer = (page) =>
   page.getByRole("complementary", { name: "Информация о кадре", exact: true });
 const shotButton = (page) =>
@@ -257,9 +297,15 @@ for (const theme of ["light", "dark"])
     await panel
       .getByRole("button", { name: "Название шота", exact: true })
       .click();
+    await expect(panel.locator(".shot-name-preview")).toHaveText(
+      "В отчёте: 1-A: untitled 1",
+    );
     await panel
       .getByRole("textbox", { name: "Название шота", exact: true })
       .fill("Встреча у окна");
+    await expect(panel.locator(".shot-name-preview")).toHaveText(
+      "В отчёте: 1-A: Встреча у окна",
+    );
     await panel
       .getByRole("button", { name: "Дата съёмок", exact: true })
       .click();
@@ -384,6 +430,9 @@ for (const theme of ["light", "dark"])
     await panel
       .getByRole("textbox", { name: "Название шота" })
       .fill("Вечерняя встреча");
+    await expect(panel.locator(".shot-name-preview")).toHaveText(
+      "В отчёте: 1-F: Вечерняя встреча",
+    );
     await expect
       .poll(async () => (await stored(page))?.sceneShots?.scene?.F?.name)
       .toBe("Вечерняя встреча");
@@ -659,6 +708,20 @@ test("PDF shot report includes every scene and stored variant, all settings and 
   await download.saveAs(path);
   const fs = await import("node:fs/promises");
   const bytes = Array.from(await fs.readFile(path));
+  for (const filename of ["pdf.mjs", "pdf.worker.mjs"])
+    await page.route(
+      `**/node_modules/pdfjs-dist/build/${filename}`,
+      async (route) =>
+        route.fulfill({
+          contentType: "text/javascript",
+          body: await fs.readFile(
+            new URL(
+              `../node_modules/pdfjs-dist/build/${filename}`,
+              import.meta.url,
+            ),
+          ),
+        }),
+    );
   const result = await page.evaluate(async (bytes) => {
     const pdfjs = await import("/node_modules/pdfjs-dist/build/pdf.mjs");
     pdfjs.GlobalWorkerOptions.workerSrc =
@@ -685,6 +748,9 @@ test("PDF shot report includes every scene and stored variant, all settings and 
     "Вариант F",
     "Встреча у окна",
     "Вечерняя встреча",
+    "Название шота: 1-A: Встреча у окна",
+    "Название шота: 1-F: Вечерняя встреча",
+    "Название шота: 2-A: untitled 1",
     "2.39",
     "Контровой",
     "НОЧЬ",

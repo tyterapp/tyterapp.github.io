@@ -56,20 +56,22 @@ export default function DocumentSearch({
           }}
         />
       </label>
-      {!hideFormat && <label className="search-format-filter">
-        <span>{t("Формат текста")}</span>
-        <select
-          value={format}
-          onChange={(event) => onFormat(event.target.value)}
-        >
-          <option value="all">{t("Все форматы")}</option>
-          {FORMATS.map(([key, , label]) => (
-            <option key={key} value={key}>
-              {t(label)}
-            </option>
-          ))}
-        </select>
-      </label>}
+      {!hideFormat && (
+        <label className="search-format-filter">
+          <span>{t("Формат текста")}</span>
+          <select
+            value={format}
+            onChange={(event) => onFormat(event.target.value)}
+          >
+            <option value="all">{t("Все форматы")}</option>
+            {FORMATS.map(([key, , label]) => (
+              <option key={key} value={key}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="search-summary">
         <span className="search-count">
           {matches.length
@@ -99,6 +101,7 @@ export default function DocumentSearch({
       </div>
       <div className="search-results">
         {matches.map((match, i) => {
+          const matchedFormat = FORMATS.find(([key]) => key === match.format);
           const start = Math.max(0, match.at - 50),
             end = Math.min(match.text.length, match.at + match.length + 80);
           return (
@@ -110,7 +113,15 @@ export default function DocumentSearch({
               onClick={() => onSelect(i, "card")}
             >
               <span className="search-result-meta">
-                {t(FORMATS.find((f) => f[0] === match.format)?.[2] || "Текст")}
+                <span className="search-result-format">
+                  <img
+                    className="format-bar-icon search-result-format-icon"
+                    src={`/icons/format/${matchedFormat?.[0] || "plain"}.svg`}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  {t(matchedFormat?.[2] || "Текст")}
+                </span>
                 <span>{i + 1}</span>
               </span>
               {match.variant && (

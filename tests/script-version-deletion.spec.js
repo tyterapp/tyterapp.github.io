@@ -419,10 +419,21 @@ test("only confirmed deletions enter today's history; deleting the last copy awa
     .getByRole("button", { name: "История изменений", exact: true })
     .click();
   const journal = page.locator(".history-deletions");
+  const disclosure = journal.getByRole("button", {
+    name: /Удалённые копии за сегодня/,
+  });
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(journal.locator(".history-achievement")).toBeHidden();
+  await expect(journal.locator("ul")).toBeHidden();
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  await expect(journal.locator(".history-achievement")).toBeVisible();
   await expect(journal).toContainText("Ачивка «Мусорщик»");
   await expect(journal.locator("li")).toHaveCount(2);
   await expect(journal).toContainText("v2 Blue");
   await expect(journal).toContainText("v3 Pink");
+  await disclosure.click();
+  await expect(journal.locator("ul")).toBeHidden();
   await page
     .getByRole("button", { name: "Закрыть историю", exact: true })
     .click();

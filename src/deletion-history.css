@@ -8,23 +8,47 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .history-deletions-heading > svg {
   flex: 0 0 auto;
   color: var(--ui-muted);
 }
-.history-deletions-heading h3 {
+.history-deletions-title {
   flex: 1;
-  margin: 0;
   font-size: 12px;
   font-weight: 600;
 }
-.history-deletions-heading > span {
+.history-deletions-count {
   padding: 2px 7px;
   border-radius: 6px;
   background: var(--ui-soft);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+.history-deletions-chevron {
+  transform: rotate(-90deg);
+  transition: transform 160ms ease;
+}
+.history-deletions-heading[aria-expanded="true"] .history-deletions-chevron {
+  transform: rotate(0deg);
+}
+.mobile-sheet .history-deletions-heading {
+  min-height: 44px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-deletions-chevron {
+    transition: none;
+  }
 }
 .history-deletions ul {
   margin: 12px 0 0;

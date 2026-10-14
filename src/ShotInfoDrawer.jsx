@@ -16,6 +16,7 @@ import {
   FORMAT_NAMES,
   durationLabel,
   shotText,
+  shotReportName,
 } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
 const text = (pair) => pair[getLanguage() === "en" ? 1 : 0];
@@ -50,6 +51,7 @@ export default function ShotInfoDrawer({
   busy,
 }) {
   useLanguage();
+  const namePreviewId = useId();
   const input = useRef(null),
     body = useRef(null),
     sceneKey = `${scene.id}:${scene.letter}`;
@@ -271,14 +273,20 @@ export default function ShotInfoDrawer({
           {property(
             "name",
             t("Название шота"),
-            <input
-              className="shot-name-input"
-              aria-label={t("Название шота")}
-              value={settings.name || ""}
-              maxLength={180}
-              placeholder={t("Например, встреча у окна")}
-              onChange={(event) => onChange({ name: event.target.value })}
-            />,
+            <>
+              <input
+                className="shot-name-input"
+                aria-label={t("Название шота")}
+                aria-describedby={namePreviewId}
+                value={settings.name || ""}
+                maxLength={180}
+                placeholder={t("Например, встреча у окна")}
+                onChange={(event) => onChange({ name: event.target.value })}
+              />
+              <p id={namePreviewId} className="shot-help shot-name-preview">
+                {t("В отчёте: {0}", shotReportName(scene))}
+              </p>
+            </>,
           )}
           {property(
             "shootingDate",

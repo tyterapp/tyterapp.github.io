@@ -198,6 +198,11 @@ export const shotText = (node) =>
     .join("");
 export const shotSettings = (document, id, letter) =>
   document.sceneShots?.[id]?.[letter] || {};
+export function shotReportName(scene) {
+  const name =
+    typeof scene.settings?.name === "string" ? scene.settings.name.trim() : "";
+  return `${scene.number}-${scene.letter}: ${name || "untitled 1"}`;
+}
 export const hasShotSettings = (settings) =>
   Object.keys(settings || {}).some((key) => key !== "reference");
 export const FORMAT_NAMES = {

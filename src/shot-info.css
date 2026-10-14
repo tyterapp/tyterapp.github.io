@@ -271,6 +271,9 @@
 .shot-name-input::placeholder {
   color: var(--ui-muted);
 }
+.shot-name-preview {
+  overflow-wrap: anywhere;
+}
 .shot-property .app-select-trigger {
   font-size: 13px;
 }

@@ -1,6 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
-import { useEffect, useState } from "react";
-import { History, RotateCcw, Trash2, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { ChevronDown, History, RotateCcw, Trash2, X } from "lucide-react";
 import { localDay } from "./daily-streak.js";
 import "./deletion-history.css";
 import { listRevisions, revisionArea } from "./history.js";
@@ -38,6 +38,8 @@ export default function HistoryPanel({
   const { isPro: IS_PRO, historyDays: HISTORY_DAYS } = useEdition();
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
+  const [deletionsOpen, setDeletionsOpen] = useState(false);
+  const deletionsId = useId();
   const today = localDay();
   const dailyDeletions = deletions.filter(
     (entry) => entry.documentId === documentId && entry.date === today,
@@ -94,10 +96,14 @@ export default function HistoryPanel({
         id="history-revisions"
         aria-label={t("История изменений")}
       >
-        <div className="history-current">
-          <History size={16} />
+        <button
+          className="history-current"
+          aria-pressed={selectedId == null}
+          onClick={() => onSelect(null)}
+        >
+          <History size={16} aria-hidden="true" />
           {t(" Текущая версия")}
-        </div>
+        </button>
         {error && (
           <p role="alert" className="sidebar-empty">
             {t(error)}
@@ -133,18 +139,9 @@ export default function HistoryPanel({
                   minute: "2-digit",
                 })}
               </time>
-              <strong>
-                {entry.label === "восстановления"
-                  ? t("До восстановления")
-                  : t(
-                      "До изменения {0}",
-                      entry.label
-                        .split(", ")
-                        .map((label) => t(label))
-                        .join(", "),
-                    )}
-              </strong>
-              <span>{preview(entry, notes)}</span>
+              <span className="history-card-preview">
+                {preview(entry, notes)}
+              </span>
             </button>
             {selectedId === entry.id && (
               <div className="history-entry-actions">
@@ -163,40 +160,56 @@ export default function HistoryPanel({
           className="history-deletions"
           aria-label={t("Удалённые копии за сегодня")}
         >
-          <div className="history-deletions-heading">
+          <button
+            className="history-deletions-heading"
+            aria-expanded={deletionsOpen}
+            aria-controls={deletionsId}
+            onClick={() => setDeletionsOpen((open) => !open)}
+          >
             <Trash2 size={17} aria-hidden="true" />
-            <h3>{t("Удалённые копии за сегодня")}</h3>
-            <span>{dailyDeletions.length}</span>
+            <span className="history-deletions-title">
+              {t("Удалённые копии за сегодня")}
+            </span>
+            <span className="history-deletions-count">
+              {dailyDeletions.length}
+            </span>
+            <ChevronDown
+              size={15}
+              className="history-deletions-chevron"
+              aria-hidden="true"
+            />
+          </button>
+          <div id={deletionsId} hidden={!deletionsOpen}>
+            {scavenger && (
+              <p className="history-achievement">
+                {t("Ачивка «Мусорщик»")} <span>+10 coins</span>
+              </p>
+            )}
+            {dailyDeletions.length ? (
+              <ul>
+                {dailyDeletions.map((entry) => (
+                  <li key={entry.id}>
+                    <span>{entry.label}</span>
+                    {entry.deletedAt && (
+                      <time dateTime={new Date(entry.deletedAt).toISOString()}>
+                        {new Date(entry.deletedAt).toLocaleTimeString(
+                          languageLocale(),
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </time>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="history-deletions-empty">
+                {t("Сегодня копии не удалялись.")}
+              </p>
+            )}
           </div>
-          {scavenger && (
-            <p className="history-achievement">
-              {t("Ачивка «Мусорщик»")} <span>+10 coins</span>
-            </p>
-          )}
-          {dailyDeletions.length ? (
-            <ul>
-              {dailyDeletions.map((entry) => (
-                <li key={entry.id}>
-                  <span>{entry.label}</span>
-                  {entry.deletedAt && (
-                    <time dateTime={new Date(entry.deletedAt).toISOString()}>
-                      {new Date(entry.deletedAt).toLocaleTimeString(
-                        languageLocale(),
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
-                    </time>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="history-deletions-empty">
-              {t("Сегодня копии не удалялись.")}
-            </p>
-          )}
         </section>
       </div>
       {!IS_PRO && (

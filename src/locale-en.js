@@ -59,6 +59,7 @@ export default {
   "Информация о кадре сцены {0}": "Shot information for scene {0}",
   "Закрыть информацию о кадре": "Close shot information",
   "Название шота": "Shot name",
+  "В отчёте: {0}": "In the report: {0}",
   "Например, встреча у окна": "For example, a meeting by the window",
   "Хронометраж сцены": "Scene duration",
   "Автоматически · 1 страница = 1 минута": "Automatic · 1 page = 1 minute",

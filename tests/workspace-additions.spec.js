@@ -480,7 +480,7 @@ test.skip("restoring notes history preserves the current screenplay and outline"
     .click();
   await page
     .locator(".history-card")
-    .filter({ hasText: "До изменения тестовых заметок" })
+    .filter({ hasText: "Белые заметки" })
     .click();
   await expect(page.locator(".history-preview-content")).toContainText(
     "Белые заметки",

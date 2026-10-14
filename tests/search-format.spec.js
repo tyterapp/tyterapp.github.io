@@ -82,8 +82,17 @@ for (const edition of ["free", "pro"])
           nodes.map((node) => node.closest("p").dataset.format),
         );
       expect(new Set(visibleFormats)).toEqual(new Set([format]));
-      for (const card of await cards.all())
+      for (const card of await cards.all()) {
         await expect(card.locator(".search-result-meta")).toContainText(label);
+        const icon = card.locator(".search-result-format-icon");
+        await expect(icon).toHaveAttribute(
+          "src",
+          `/icons/format/${format}.svg`,
+        );
+        await expect
+          .poll(() => icon.evaluate((img) => img.naturalWidth))
+          .toBeGreaterThan(0);
+      }
     }
     await filter.selectOption("action");
     await cards.last().click();
@@ -148,6 +157,10 @@ test("format filter and result labels switch to English and fit the mobile sideb
   ]);
   await filter.selectOption("speech");
   await expect(page.locator(".search-result-meta")).toContainText("Dialogue");
+  await expect(page.locator(".search-result-format-icon")).toHaveAttribute(
+    "src",
+    "/icons/format/speech.svg",
+  );
   await expect(page.locator(".search-count")).toHaveText("1 / 1");
   await page.screenshot({ path: info.outputPath("desktop-search-filter.png") });
   await page.setViewportSize({ width: 390, height: 844 });
