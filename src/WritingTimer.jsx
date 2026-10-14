@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Play, X, Flame, Store } from "lucide-react";
+import { Play, X, Store } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import WritingShop from "./WritingShop.jsx";
@@ -17,7 +17,6 @@ import {
 export default function WritingTimer({
   visible,
   timer,
-  onStreak,
   onResetProgress,
   onBurnPage,
   burnDisabled = false,
@@ -201,18 +200,6 @@ export default function WritingTimer({
           closing={panelClosing}
           onClose={closePanel}
         />
-      )}
-      {timer.streak && !timer.session && !pickerOpen && (
-        <button
-          type="button"
-          className="writing-timer-button is-idle writing-streak"
-          data-tooltip={t("Дней подряд: {0}", timer.streak.count)}
-          aria-label={t("Показать стрик")}
-          onClick={() => onStreak?.(timer.streak)}
-        >
-          <Flame size={20} aria-hidden="true" />
-          {timer.streak.count}
-        </button>
       )}
       {timer.session ? (
         <>

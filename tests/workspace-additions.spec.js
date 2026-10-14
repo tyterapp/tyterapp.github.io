@@ -156,7 +156,10 @@ test("daily login awards once across tabs and reload; fifth day adds bonus", asy
       .toBe(day - 9);
   }
   expect((await wallet(page)).coins).toBe(15);
-  await expect(page.locator(".app-message")).toContainText("Стрик: 5 дней");
+  await expect(page.locator(".app-message")).toContainText(
+    "Монеты за вход сегодня: +11",
+  );
+  await expect(page.locator(".app-message")).not.toContainText("Стрик");
   await page.clock.setSystemTime(new Date("2026-10-16T09:00:00Z"));
   await page.reload();
   await expect.poll(async () => (await wallet(page))?.streak.count).toBe(1);

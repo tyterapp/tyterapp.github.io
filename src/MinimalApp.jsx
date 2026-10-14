@@ -3679,13 +3679,6 @@ export default function MinimalApp({ onLogout }) {
                 },
               });
             }}
-            onStreak={(streak) =>
-              setMessage({
-                key: "Дней подряд: {0}. Рекорд: {1}.",
-                values: [streak.count, streak.best],
-                duration: 10000,
-              })
-            }
           />
           {focusMode && !notesOpen && (
             <div

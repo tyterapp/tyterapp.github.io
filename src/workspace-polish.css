@@ -69,10 +69,6 @@
   color: var(--ui-text);
   border-color: var(--ui-border);
 }
-.minimal-app .writing-streak {
-  gap: 6px;
-  font-variant-numeric: tabular-nums;
-}
 .app-select-row {
   display: flex;
   align-items: stretch;

@@ -64,6 +64,8 @@ test("coin onboarding shows real rewards and progress; section navigation, keybo
   page,
 }) => {
   await open(page);
+  await expect(page.locator(".writing-timer .lucide-flame")).toHaveCount(0);
+  await expect(page.locator(".writing-streak")).toHaveCount(0);
   const before = await readWallet(page);
   await coins(page).click();
   await expect(panel(page)).toBeVisible();

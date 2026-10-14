@@ -118,8 +118,6 @@ export default {
   "Показывать мух": "Show flies",
   "В значке доктора и поверх интерфейса":
     "In the doctor icon and over the interface",
-  "Показать стрик": "Show streak",
-  "Дней подряд: {0}. Рекорд: {1}.": "Consecutive days: {0}. Best streak: {1}.",
   "Редактор заметок": "Notes editor",
   "Дней подряд: {0}": "Consecutive days: {0}",
   Перейти: "Go",
@@ -130,8 +128,8 @@ export default {
   "Комментарии к заметкам": "Notes comments",
   "С возвращением! Монета за вход сегодня: +1.":
     "Welcome back! Today's visit: +1 coin.",
-  "Стрик: {0} дней. Начислено монет: {1}.":
-    "Streak: {0} days. Coins awarded: {1}.",
+  "С возвращением! Монеты за вход сегодня: +{0}.":
+    "Welcome back! Today's visit: +{0} coins.",
   "Стрик: {0} дней": "Streak: {0} days",
   "Открыть инструменты": "Open tools",
   "Закрыть шторку": "Close sheet",

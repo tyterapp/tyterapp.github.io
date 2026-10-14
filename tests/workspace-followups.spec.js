@@ -180,46 +180,37 @@ for (const theme of ["light", "dark"]) {
     await expect(allFlies(page)).toHaveCount(12);
   });
 
-  test(`${theme}: streak button matches timer controls and its warning lasts ten seconds`, async ({
+  test(`${theme}: streak information is available only through coins`, async ({
     page,
   }, info) => {
     await open(page, { theme });
-    const streak = page.getByRole("button", {
-      name: "Показать стрик",
-      exact: true,
-    });
-    const timer = page.getByRole("button", {
-      name: "Открыть таймер",
-      exact: true,
-    });
-    await expect(streak).toContainText("7");
-    const css = (node) => {
-      const style = getComputedStyle(node);
-      return [
-        style.height,
-        style.borderRadius,
-        style.backgroundColor,
-        style.color,
-        style.fontSize,
-      ];
-    };
-    expect(await streak.evaluate(css)).toEqual(await timer.evaluate(css));
-    await page.clock.install({ time: new Date("2026-10-10T12:00:00Z") });
-    await page.clock.pauseAt(new Date("2026-10-10T12:00:01Z"));
-    await streak.click();
-    const notice = page.getByRole("alert");
-    await expect(notice).toContainText("Дней подряд: 7. Рекорд: 12.");
+    await expect(
+      page.getByRole("button", {
+        name: "Показать стрик",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(page.locator(".writing-streak")).toHaveCount(0);
+    await expect(page.locator("#writing-coins")).toHaveCount(0);
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("tyter.writing-timer.v1")),
+    );
+    await page.locator(".writing-timer-balance").click();
+    const panel = page.locator("#writing-coins");
+    await panel
+      .getByRole("button", { name: "Стрики за день", exact: true })
+      .click();
+    await expect(panel.locator("dd")).toHaveText(["7", "12"]);
     await page.screenshot({ path: info.outputPath("streak.png") });
-    await page.clock.runFor(9999);
-    await expect(notice).not.toHaveClass(/is-closing/);
-    await streak.click();
-    await page.clock.runFor(9999);
-    await expect(notice).not.toHaveClass(/is-closing/);
-    await page.clock.runFor(1);
-    await expect(notice).toHaveClass(/is-closing/);
-    await page.clock.runFor(201);
-    await expect(notice).toHaveCount(0);
-    await expect(streak).toContainText("7");
+    expect(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("tyter.writing-timer.v1")),
+      ),
+    ).toEqual(before);
+    await panel
+      .getByRole("button", { name: "Закрыть монеты", exact: true })
+      .click();
+    await expect(panel).toHaveCount(0);
   });
 }
 

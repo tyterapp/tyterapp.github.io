@@ -308,9 +308,9 @@ export function useWritingTimer(onComplete) {
           complete.current?.({
             key:
               visitReward > 1
-                ? "Стрик: {0} дней. Начислено монет: {1}."
+                ? "С возвращением! Монеты за вход сегодня: +{0}."
                 : "С возвращением! Монета за вход сегодня: +1.",
-            values: visitReward > 1 ? [next.streak.count, visitReward] : [],
+            values: visitReward > 1 ? [visitReward] : [],
           });
         if (activityReward) setWritingReward((version) => version + 1);
         if (achievementReward)
