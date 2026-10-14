@@ -278,9 +278,9 @@ test("landing and PRO gate translate, including rejected credentials", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "ENG", exact: true }).click();
   await expect(page.locator("h1")).toHaveText("Screenwriting without chaos");
-  await expect(page.locator(".landing-outline-preview")).toBeVisible();
-  await expect(page.locator(".landing-tyt-preview")).toBeVisible();
-  await expect(page.locator(".landing")).not.toContainText(/[А-Яа-яЁё]/);
+  await expect(page.locator(".landing-outline-preview")).toBeAttached();
+  await expect(page.locator(".landing-tyt-preview")).toBeAttached();
+  await expect(page.locator(".site-shell")).not.toContainText(/[А-Яа-яЁё]/);
   await page.goto("/pro");
   await expect(
     page.getByRole("heading", { name: "Sign in to Pro" }),

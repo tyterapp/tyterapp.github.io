@@ -12,7 +12,9 @@ test("Pages serves the landing and direct editor routes without an API", async (
     page.getByRole("heading", { name: "Сценарий без хаоса" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Попробовать", exact: true }),
+    page
+      .getByRole("link", { name: "Попробовать бесплатно", exact: true })
+      .first(),
   ).toHaveAttribute("href", "/free");
   for (const route of ["/free", "/free/", "/app/"]) {
     await page.goto(route);

@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createWebProHandler } from "./web-pro.mjs";
+import { SITE_ROUTES } from "../src/site-content.js";
 const site = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -43,7 +44,12 @@ createServer(async (req, res) => {
       const relative =
         pathname === "/"
           ? "index.html"
-          : ["/app", "/pro", "/beta"].includes(pathname)
+          : [
+                "/app",
+                "/pro",
+                "/beta",
+                ...SITE_ROUTES.map((path) => `/${path}`),
+              ].includes(pathname)
             ? pathname.slice(1) + "/index.html"
             : pathname.slice(1);
       const target = path.resolve(site, relative);

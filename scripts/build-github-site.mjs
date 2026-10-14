@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import { createProAccessList, PRO_CODES_URL } from "../src/pro-access.js";
+import { SITE_ROUTES } from "../src/site-content.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "github-pages");
 let codes = process.env.TYTER_PRO_CODES;
@@ -22,7 +23,15 @@ if (!codes?.trim()) {
 // Never publish the raw secret: the browser needs only one-way pair proofs.
 const accessList = await createProAccessList(codes);
 await build({ root, mode: "production", base: "/", build: { outDir: output } });
-for (const page of ["app", "free", "pay", "pro", "beta", "404"]) {
+for (const page of [
+  "app",
+  "free",
+  "pay",
+  "pro",
+  "beta",
+  "404",
+  ...SITE_ROUTES,
+]) {
   await mkdir(path.join(output, page), { recursive: true });
   await copyFile(
     path.join(output, "index.html"),

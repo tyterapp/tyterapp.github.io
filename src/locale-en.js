@@ -1,6 +1,8 @@
 // UI messages only. Document text and user names are never translated.
 import questMessages from "./pro/quests/locale-en.js";
+import siteMessages from "./site-messages.js";
 export default {
+  ...siteMessages,
   "Этап производства": "Production stage",
   "Удалённые копии за сегодня": "Copies deleted today",
   "Сегодня копии не удалялись.": "No copies deleted today.",

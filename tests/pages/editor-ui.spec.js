@@ -93,6 +93,14 @@ test("English time-of-day suggestions also work in an existing Russian scene hea
     "NIGHT",
     "EVENING",
     "MORNING",
+    "DUSK",
+    "DAWN",
+    "SUNRISE",
+    "SUNSET",
+    "NOON",
+    "MIDNIGHT",
+    "LATER",
+    "CONTINUOUS",
   ]);
   await page.keyboard.insertText("Н");
   await expect(popup.locator(".suggestion-label")).toHaveText(["NIGHT"]);

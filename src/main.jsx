@@ -4,6 +4,8 @@ import App from "./MinimalApp.jsx";
 import LandingPage from "./LandingPage.jsx";
 import NotFoundPage from "./NotFoundPage.jsx";
 import WebProApp from "./WebProApp.jsx";
+import { BlogPage, HelpPage } from "./SitePages.jsx";
+import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
 import { EditionContext } from "./edition.js";
 import { readEditorPreferences } from "./editor-preferences.js";
 import "./minimal.css";
@@ -26,10 +28,11 @@ const pathname = location.pathname.replace(/\/+$/, "") || "/";
 if (!desktop && pathname === "/pay") location.replace("/beta");
 const webPro = ["/pro", "/beta"].includes(pathname);
 const editor = desktop || ["/free", "/app"].includes(pathname) || webPro;
-document.documentElement.dataset.theme = editor
-  ? readEditorPreferences().theme
-  : "light";
-const notFound = !editor && !["/", "/pay"].includes(pathname);
+document.documentElement.dataset.theme = readEditorPreferences().theme;
+const article = BLOG_ARTICLES.find(({ slug }) => pathname === `/blog/${slug}`);
+const notFound =
+  !editor &&
+  !["/", "/pay", ...SITE_ROUTES.map((path) => `/${path}`)].includes(pathname);
 if (!editor) {
   document.documentElement.classList.add("site-mode");
   document.title = notFound ? "404 — Tyter" : "Tyter — редактор киносценариев";
@@ -49,8 +52,12 @@ createRoot(document.getElementById("root")).render(
       <App />
     ) : notFound ? (
       <NotFoundPage />
+    ) : pathname === "/help" ? (
+      <HelpPage />
+    ) : pathname === "/blog" || article ? (
+      <BlogPage article={article} />
     ) : (
-      <LandingPage />
+      <LandingPage alternate={pathname === "/b"} />
     )}
   </EditionContext.Provider>,
 );
