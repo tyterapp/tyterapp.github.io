@@ -2,6 +2,22 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Сжечь последнюю страницу": "Burn the last page",
+  "Сжигание последней страницы": "Burning the last page",
+  "Сжигаем страницу {0}": "Burning page {0}",
+  "Пропустить анимацию": "Skip animation",
+  "Зажигалка приобретена. Можно использовать многократно.":
+    "Lighter purchased. It can be used repeatedly.",
+  "Достижение: «После прочтения сжечь».": "Achievement: Burn after reading.",
+  "Последняя страница сожжена.": "The last page has been burned.",
+  "Отменить сжигание": "Undo burning",
+  "Сжигание отменено.": "Burning undone.",
+  "Сжигание можно отменить через историю действий редактора.":
+    "You can undo burning through the editor's undo history.",
+  "В документе пока нет текста для сжигания.":
+    "There is no text to burn in this document yet.",
+  "Не удалось сжечь страницу. Попробуйте ещё раз.":
+    "The page could not be burned. Please try again.",
   ...siteMessages,
   "Этап производства": "Production stage",
   "Удалённые копии за сегодня": "Copies deleted today",
@@ -838,6 +854,22 @@ export default {
   "Варианты сцен": "Scene variants",
   "Увеличить домик до 200%": "Expand house to 200%",
   "Уменьшить домик до 100%": "Collapse house to 100%",
+  "Сделать снимок домика": "Take a house snapshot",
+  "Снимок домика": "House snapshot",
+  "Снимок готов": "Snapshot ready",
+  "Создаём снимок…": "Taking a snapshot…",
+  "Скачать PNG": "Download PNG",
+  "Копировать ссылку": "Copy link",
+  "Поделиться снимком": "Share snapshot",
+  "Ссылка на снимок": "Snapshot link",
+  "Ссылка скопирована": "Link copied",
+  "Скопируйте ссылку из поля.": "Copy the link from the field.",
+  "Не удалось сделать снимок. Попробуйте ещё раз.":
+    "Could not take the snapshot. Try again.",
+  "Не удалось открыть меню отправки. Скопируйте ссылку.":
+    "Could not open the share menu. Copy the link instead.",
+  "Снимок не найден. Проверьте, что ссылка скопирована полностью.":
+    "Snapshot not found. Check that the entire link was copied.",
   "Экспорт PDF, DOCX и FDX всегда использует Courier.":
     "PDF, DOCX and FDX exports always use Courier.",
   "актов аутлайна": "outline acts",

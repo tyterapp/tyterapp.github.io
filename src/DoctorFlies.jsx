@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { doctorCondition } from "./script-doctor.js";
 
@@ -155,10 +155,41 @@ function Fly({ index }) {
     </svg>
   );
 }
-export default function DoctorFlies({ count }) {
+export default function DoctorFlies({
+  count,
+  suppressed = false,
+  resetToken = 0,
+}) {
   const ref = useRef(null),
     { flies } = doctorCondition(count);
-  const visible = flies;
+  const [regenerated, setRegenerated] = useState(flies);
+  const regenerationStart = useRef(null);
+  useEffect(() => {
+    if (suppressed) {
+      regenerationStart.current = null;
+      setRegenerated(0);
+      return;
+    }
+    if (!resetToken) {
+      setRegenerated(flies);
+      return;
+    }
+    regenerationStart.current ??= Date.now();
+    let interval;
+    const tick = () => {
+      const restored = Math.min(
+        flies,
+        Math.floor((Date.now() - regenerationStart.current) / 3000),
+      );
+      setRegenerated(restored);
+      if (restored === flies) clearInterval(interval);
+      return restored;
+    };
+    const restored = tick();
+    if (restored < flies) interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [flies, suppressed, resetToken]);
+  const visible = suppressed ? 0 : Math.min(flies, regenerated);
   useEffect(() => {
     const node = ref.current;
     if (!node || !visible || !node.showPopover) return;

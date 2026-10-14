@@ -137,7 +137,7 @@ test("earned achievements and five-day streak are shown, and an external progres
     .click();
   await expect(panel(page).locator("li.is-complete")).toHaveCount(5);
   await panel(page).getByRole("button", { name: "Назад к монетам" }).click();
-  await expect(panel(page)).toContainText("Получено: 1 из 1");
+  await expect(panel(page)).toContainText("Получено: 1 из 2");
   await panel(page)
     .getByRole("button", { name: "Достижения", exact: true })
     .click();
@@ -162,7 +162,7 @@ test("earned achievements and five-day streak are shown, and an external progres
     },
     { key, reset },
   );
-  await expect(panel(page).locator('[data-earned="false"]')).toBeVisible();
+  await expect(panel(page).locator('[data-earned="false"]')).toHaveCount(2);
   await expect(panel(page)).toContainText("Ещё не получено");
   await expect(coins(page)).toHaveAccessibleName("Монеты: 0");
   await panel(page).getByRole("button", { name: "Назад к монетам" }).click();

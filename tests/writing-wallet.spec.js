@@ -381,7 +381,13 @@ for (const theme of ["light", "dark"]) {
     await page.reload();
     await expect(houseButton).toBeVisible();
     await openShop(page);
-    await expect(shop(page).locator(".writing-shop-product")).toHaveCount(0);
+    await expect(shop(page).locator(".writing-shop-product")).toHaveCount(1);
+    await expect(
+      shop(page).getByRole("button", {
+        name: "Купить зажигалку за 50 монет",
+        exact: true,
+      }),
+    ).toBeDisabled();
     await expect(shop(page).locator(".writing-shop-category")).toHaveCount(4);
     await expect(page.locator(".writing-timer-balance-content")).toHaveText(
       "0",

@@ -141,6 +141,7 @@ export const BLOG_ARTICLES = [
 ];
 export const SITE_ROUTES = [
   "b",
+  "house",
   "blog",
   "help",
   ...BLOG_ARTICLES.map(({ slug }) => `blog/${slug}`),

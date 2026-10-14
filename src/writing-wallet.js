@@ -4,6 +4,9 @@ export const DOCTOR_PRODUCT = "script-doctor";
 export const DOCTOR_PRICE = 20;
 export const HOUSE_PRODUCT = "oiia-house";
 export const HOUSE_PRICE = 100;
+export const LIGHTER_PRODUCT = "paper-lighter";
+export const LIGHTER_PRICE = 50;
+export const BURN_ACHIEVEMENT = "burn-after-reading";
 export const RESET_PROGRESS_PRICE = 200;
 export const SCAVENGER_ACHIEVEMENT = "scavenger";
 export const PENDING_DELETION_PREFIX = "tyter.pending-deletion.v1:";
@@ -93,6 +96,7 @@ export function cleanWalletExtras(value) {
     [
       [DOCTOR_PRODUCT, DOCTOR_PRICE],
       [HOUSE_PRODUCT, HOUSE_PRICE],
+      [LIGHTER_PRODUCT, LIGHTER_PRICE],
     ].flatMap(([id, cost]) => {
       const purchase = value?.purchases?.[id];
       return Number.isFinite(purchase?.purchasedAt) && purchase.purchasedAt >= 0
@@ -100,7 +104,16 @@ export function cleanWalletExtras(value) {
         : [];
     }),
   );
-  const achievement = value?.achievements?.[SCAVENGER_ACHIEVEMENT];
+  const achievements = Object.fromEntries(
+    [
+      [SCAVENGER_ACHIEVEMENT, "Мусорщик", 10],
+      [BURN_ACHIEVEMENT, "После прочтения сжечь", 0],
+    ].flatMap(([id, name, reward]) =>
+      validDay(value?.achievements?.[id]?.date)
+        ? [[id, { id, name, date: value.achievements[id].date, reward }]]
+        : [],
+    ),
+  );
   const characters = safeCount(value?.writing?.characters);
   const receipts = Array.isArray(value?.writing?.receipts)
     ? [...new Set(value.writing.receipts.filter(validId))].slice(-2000)
@@ -132,18 +145,7 @@ export function cleanWalletExtras(value) {
     ...(validDay(value?.progressResetDay)
       ? { progressResetDay: value.progressResetDay }
       : {}),
-    ...(validDay(achievement?.date)
-      ? {
-          achievements: {
-            [SCAVENGER_ACHIEVEMENT]: {
-              id: SCAVENGER_ACHIEVEMENT,
-              name: "Мусорщик",
-              date: achievement.date,
-              reward: 10,
-            },
-          },
-        }
-      : {}),
+    ...(Object.keys(achievements).length ? { achievements } : {}),
     ...(characters || receipts.length
       ? { writing: { characters, receipts } }
       : {}),
@@ -184,6 +186,37 @@ export function walletHasHouse(wallet) {
 
 export function purchaseWalletHouse(wallet, now = Date.now()) {
   return purchaseWalletProduct(wallet, HOUSE_PRODUCT, HOUSE_PRICE, now);
+}
+
+export function walletHasLighter(wallet) {
+  return Number.isFinite(wallet?.purchases?.[LIGHTER_PRODUCT]?.purchasedAt);
+}
+
+export function purchaseWalletLighter(wallet, now = Date.now()) {
+  return purchaseWalletProduct(wallet, LIGHTER_PRODUCT, LIGHTER_PRICE, now);
+}
+
+export function recordWalletBurn(wallet, now = Date.now()) {
+  if (!walletHasLighter(wallet))
+    return { wallet, ok: false, reason: "ownership" };
+  if (wallet.achievements?.[BURN_ACHIEVEMENT])
+    return { wallet, ok: true, unlocked: false };
+  return {
+    ok: true,
+    unlocked: true,
+    wallet: {
+      ...wallet,
+      achievements: {
+        ...wallet.achievements,
+        [BURN_ACHIEVEMENT]: {
+          id: BURN_ACHIEVEMENT,
+          name: "После прочтения сжечь",
+          date: localDay(now),
+          reward: 0,
+        },
+      },
+    },
+  };
 }
 
 function purchaseWalletProduct(wallet, product, price, now) {

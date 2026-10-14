@@ -108,6 +108,7 @@ for (const theme of ["light", "dark"]) {
     expect(constrained.x + constrained.width).toBeLessThanOrEqual(832);
     await expect(close).toBeInViewport();
     await close.click();
+    await expect(house).toHaveCount(0);
 
     await page.setViewportSize({ width: 320, height: 844 });
     await page.keyboard.press("Escape");
@@ -236,7 +237,7 @@ for (const theme of ["light", "dark"]) {
     await expect.poll(() => overflow(page)).toBeLessThanOrEqual(1);
     expect((await shop(page).boundingBox()).height).toBeGreaterThan(360);
     await page.screenshot({ path: info.outputPath("full-shop-desktop.png") });
-    await page.setViewportSize({ width: 390, height: 850 });
+    await page.setViewportSize({ width: 390, height: 1100 });
     await expect(page.locator(".minimal-app")).toHaveAttribute(
       "data-mobile",
       "true",
@@ -270,7 +271,7 @@ for (const theme of ["light", "dark"]) {
       path: info.outputPath("scrolling-shop-mobile.png"),
     });
 
-    await page.setViewportSize({ width: 390, height: 850 });
+    await page.setViewportSize({ width: 390, height: 1100 });
     await expect.poll(() => overflow(page)).toBeLessThanOrEqual(1);
     await closeShop(page).click();
     await page

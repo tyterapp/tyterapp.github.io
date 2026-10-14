@@ -77,6 +77,7 @@ import AppMessage, { useAppMessage } from "./AppMessage.jsx";
 import WritingTimer from "./WritingTimer.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import DoctorFlies from "./DoctorFlies.jsx";
+import BurningPaper from "./BurningPaper.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
 import { useMobileWorkspace } from "./mobile-workspace.js";
@@ -731,6 +732,9 @@ export default function MinimalApp({ onLogout }) {
   const [versionDeletion, setVersionDeletion] = useState(null);
   const versionDeletionRef = useRef(null);
   const writingTimer = useWritingTimer(setMessage);
+  const [burningPage, setBurningPage] = useState(null);
+  const burnInProgress = useRef(false);
+  const [burnSequence, setBurnSequence] = useState(0);
   useEffect(() => {
     if (!writingTimer.hasDoctor) setDoctorOpen(false);
   }, [writingTimer.hasDoctor]);
@@ -1157,6 +1161,83 @@ export default function MinimalApp({ onLogout }) {
     },
     [update, dailyQuests.recordWords],
   );
+  const burnLastPage = () => {
+    if (
+      burnInProgress.current ||
+      !writingTimer.hasLighter ||
+      notesOpen ||
+      historyRevision ||
+      view !== "screenplay"
+    )
+      return;
+    burnInProgress.current = true;
+    try {
+      const beforeContent = editorRef.current?.getJSON();
+      const burn = editorRef.current?.preparePageBurn();
+      if (!burn || !burn.commit()) {
+        burnInProgress.current = false;
+        setMessage("В документе пока нет текста для сжигания.");
+        return;
+      }
+      const latest =
+        documentsRef.current.find((doc) => doc.id === current.id) || current;
+      historyWritten.current.set(`${writingScope}:screenplay`, Date.now());
+      recordRevision(
+        current.id,
+        snapshotOf({ ...latest, content: beforeContent }),
+        "До сжигания последней страницы",
+        historyDays,
+        "screenplay",
+      )
+        .then(() => setHistoryVersion((version) => version + 1))
+        .catch(() => {});
+      editorRef.current?.setEditable(false);
+      setBurnSequence((sequence) => sequence + 1);
+      const receipt = writingTimer
+        .recordBurn()
+        .catch(() => ({ unlocked: false }));
+      setBurningPage({ ...burn, receipt });
+      setMessage("");
+    } catch {
+      burnInProgress.current = false;
+      editorRef.current?.setEditable(true);
+      setMessage("Не удалось сжечь страницу. Попробуйте ещё раз.");
+    }
+  };
+  const finishPageBurn = () => {
+    if (!burnInProgress.current) return;
+    const editor = editorRef.current;
+    const content = JSON.stringify(editor?.getJSON());
+    const receipt = burningPage?.receipt;
+    burnInProgress.current = false;
+    setBurningPage(null);
+    editorRef.current?.setEditable(true);
+    editorRef.current?.focusEnd();
+    Promise.resolve(receipt).then((result) => {
+      if (burnInProgress.current) return;
+      setMessage({
+        key: result?.unlocked
+          ? "Достижение: «После прочтения сжечь»."
+          : "Последняя страница сожжена.",
+        values: [],
+        action: {
+          label: "Отменить сжигание",
+          onClick: () => {
+            if (
+              editorRef.current === editor &&
+              JSON.stringify(editor?.getJSON()) === content &&
+              editor.undo()
+            )
+              setMessage("Сжигание отменено.");
+            else
+              setMessage(
+                "Сжигание можно отменить через историю действий редактора.",
+              );
+          },
+        },
+      });
+    });
+  };
   const changeSceneVariant = (id, letter) => {
     const content = editorRef.current?.getJSON();
     const latest =
@@ -3443,6 +3524,7 @@ export default function MinimalApp({ onLogout }) {
                   onComments={openComments}
                   onCommentFromSelection={openComments}
                   selectionToolbarDisabled={
+                    !!burningPage ||
                     view === "outline" ||
                     (!!componentDialog && !componentDialog.id) ||
                     (!!propDialog && !propDialog.id) ||
@@ -3462,6 +3544,7 @@ export default function MinimalApp({ onLogout }) {
                     !!selectedShot
                   }
                   suggestionsDisabled={
+                    !!burningPage ||
                     view === "outline" ||
                     (!!componentDialog && !componentDialog.id) ||
                     (!!propDialog && !propDialog.id) ||
@@ -3565,6 +3648,8 @@ export default function MinimalApp({ onLogout }) {
               view === "screenplay"
             }
             timer={writingTimer}
+            onBurnPage={burnLastPage}
+            burnDisabled={!!burningPage || notesOpen}
             onResetProgress={() => {
               let confirming = false;
               setMessage({
@@ -4175,7 +4260,14 @@ export default function MinimalApp({ onLogout }) {
         />
       )}
       {writingTimer.hasDoctor && preferences.doctorFlies && (
-        <DoctorFlies count={doctorFindings.length} />
+        <DoctorFlies
+          count={doctorFindings.length}
+          suppressed={!!burningPage}
+          resetToken={burnSequence}
+        />
+      )}
+      {burningPage && (
+        <BurningPaper burn={burningPage} onDone={finishPageBurn} />
       )}
       {tourOpen && <Onboarding onClose={closeTour} />}
       {questOverlay && IS_PRO && (

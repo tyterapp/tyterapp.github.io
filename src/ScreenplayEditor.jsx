@@ -22,6 +22,7 @@ import { quoteDiff } from "./comment-review.js";
 import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
+import { preparePageBurn } from "./burning-page.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
@@ -1584,6 +1585,12 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       getJSON() {
         return editor?.getJSON();
       },
+      preparePageBurn() {
+        return preparePageBurn(editor, { fontSize, documentZoom });
+      },
+      setEditable(value) {
+        editor?.setEditable(value, false);
+      },
       restoreContent(content) {
         if (!editor) return;
         const caret = captureCaret(editor.state);
@@ -1689,7 +1696,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         return editor?.chain().focus().redo().run();
       },
     }),
-    [editor],
+    [editor, fontSize, documentZoom],
   );
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;

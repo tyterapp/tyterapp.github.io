@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { localDay } from "./daily-streak.js";
-import { SCAVENGER_ACHIEVEMENT } from "./writing-wallet.js";
+import { SCAVENGER_ACHIEVEMENT, BURN_ACHIEVEMENT } from "./writing-wallet.js";
 import { MoneyIcon, TimerIcon } from "./WritingTimerIcons.jsx";
 
 export default function WritingCoins({ timer, closing, onClose }) {
@@ -29,6 +29,34 @@ export default function WritingCoins({ timer, closing, onClose }) {
   const scavenger = timer.achievements.find(
     (entry) => entry.id === SCAVENGER_ACHIEVEMENT,
   );
+  const burned = timer.achievements.find(
+    (entry) => entry.id === BURN_ACHIEVEMENT,
+  );
+  const earnedCount = Number(!!scavenger) + Number(!!burned);
+  const achievements = [
+    {
+      id: SCAVENGER_ACHIEVEMENT,
+      earned: scavenger,
+      icon: Trash2,
+      reward: 10,
+      name: text("Мусорщик", "Scavenger"),
+      description: text(
+        "Удалите все созданные копии сценария. Достижение приносит 10 монет один раз.",
+        "Delete all created script copies. This achievement awards 10 coins once.",
+      ),
+    },
+    {
+      id: BURN_ACHIEVEMENT,
+      earned: burned,
+      icon: Flame,
+      reward: 0,
+      name: text("После прочтения сжечь", "Burn after reading"),
+      description: text(
+        "Сожгите последнюю страницу сценария с помощью зажигалки.",
+        "Burn the last screenplay page with your lighter.",
+      ),
+    },
+  ];
   const sections = [
     {
       id: "streak",
@@ -39,8 +67,8 @@ export default function WritingCoins({ timer, closing, onClose }) {
     {
       id: "achievements",
       title: text("Достижения", "Achievements"),
-      detail: scavenger
-        ? text("Получено: 1 из 1", "Unlocked: 1 of 1")
+      detail: earnedCount
+        ? text(`Получено: ${earnedCount} из 2`, `Unlocked: ${earnedCount} of 2`)
         : text("Пока нет достижений", "No achievements yet"),
       icon: Award,
     },
@@ -209,41 +237,47 @@ export default function WritingCoins({ timer, closing, onClose }) {
           </div>
         )}
         {section === "achievements" && (
-          <div
-            className="writing-shop-product writing-coins-achievement"
-            data-earned={!!scavenger}
-          >
-            <span className="writing-shop-product-icon" aria-hidden="true">
-              <Trash2 size={24} />
-            </span>
-            <div className="writing-shop-product-copy">
-              <strong>{text("Мусорщик", "Scavenger")}</strong>
-              <p>
-                {text(
-                  "Удалите все созданные копии сценария. Достижение приносит 10 монет один раз.",
-                  "Delete all created script copies. This achievement awards 10 coins once.",
-                )}
-              </p>
-            </div>
-            <div className="writing-coins-achievement-status">
-              {scavenger ? (
-                <>
-                  <Check size={16} aria-hidden="true" />
-                  <span>{text("Получено", "Unlocked")}</span>
-                  <time dateTime={scavenger.date}>
-                    {new Date(`${scavenger.date}T12:00:00`).toLocaleDateString(
-                      language === "en" ? "en-US" : "ru-RU",
-                    )}
-                  </time>
-                </>
-              ) : (
-                <>
-                  <MoneyIcon />
-                  <span>+10</span>
-                  <span>{text("Ещё не получено", "Not unlocked yet")}</span>
-                </>
-              )}
-            </div>
+          <div className="writing-shop-list">
+            {achievements.map((achievement) => (
+              <div
+                key={achievement.id}
+                className="writing-shop-product writing-coins-achievement"
+                data-earned={!!achievement.earned}
+              >
+                <span className="writing-shop-product-icon" aria-hidden="true">
+                  <achievement.icon size={24} />
+                </span>
+                <div className="writing-shop-product-copy">
+                  <strong>{achievement.name}</strong>
+                  <p>{achievement.description}</p>
+                </div>
+                <div className="writing-coins-achievement-status">
+                  {achievement.earned ? (
+                    <>
+                      <Check size={16} aria-hidden="true" />
+                      <span>{text("Получено", "Unlocked")}</span>
+                      <time dateTime={achievement.earned.date}>
+                        {new Date(
+                          `${achievement.earned.date}T12:00:00`,
+                        ).toLocaleDateString(
+                          language === "en" ? "en-US" : "ru-RU",
+                        )}
+                      </time>
+                    </>
+                  ) : (
+                    <>
+                      {!!achievement.reward && (
+                        <>
+                          <MoneyIcon />
+                          <span>+{achievement.reward}</span>
+                        </>
+                      )}
+                      <span>{text("Ещё не получено", "Not unlocked yet")}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

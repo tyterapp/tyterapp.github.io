@@ -4,6 +4,7 @@ import App from "./MinimalApp.jsx";
 import LandingPage from "./LandingPage.jsx";
 import NotFoundPage from "./NotFoundPage.jsx";
 import WebProApp from "./WebProApp.jsx";
+import HouseSnapshotPage from "./HouseSnapshotPage.jsx";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
 import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
 import { EditionContext } from "./edition.js";
@@ -21,6 +22,7 @@ import "./pro/quests/quests.css";
 import "./mobile-workspace.css";
 import "./workspace-polish.css";
 import "./shot-info.css";
+import "./house-snapshot.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";
@@ -52,6 +54,8 @@ createRoot(document.getElementById("root")).render(
       <App />
     ) : notFound ? (
       <NotFoundPage />
+    ) : pathname === "/house" ? (
+      <HouseSnapshotPage />
     ) : pathname === "/help" ? (
       <HelpPage />
     ) : pathname === "/blog" || article ? (

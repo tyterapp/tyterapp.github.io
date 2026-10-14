@@ -12,9 +12,11 @@ import { useLanguage } from "./i18n.js";
 import {
   DOCTOR_PRICE,
   HOUSE_PRICE,
+  LIGHTER_PRICE,
   RESET_PROGRESS_PRICE,
 } from "./writing-wallet.js";
 import { MoneyIcon } from "./WritingTimerIcons.jsx";
+import LighterIcon from "./LighterIcon.jsx";
 import {
   CatIcon,
   DecorIcon,
@@ -134,6 +136,19 @@ export default function WritingShop({
         "Buy oiia house for 100 coins",
       ),
       purchase: timer.purchaseHouse,
+    },
+    {
+      id: "lighter",
+      owned: timer.hasLighter,
+      price: LIGHTER_PRICE,
+      name: text("Зажигалка", "Lighter"),
+      icon: LighterIcon,
+      description: text(
+        "Сжигает последнюю страницу сценария. Покупка разовая, использование многократное.",
+        "Burns the last screenplay page. Buy once, use repeatedly.",
+      ),
+      label: text("Купить зажигалку за 50 монет", "Buy lighter for 50 coins"),
+      purchase: timer.purchaseLighter,
     },
   ].filter((product) => !product.owned);
   return (
