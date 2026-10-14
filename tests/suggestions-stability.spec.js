@@ -12,7 +12,7 @@ const popup = (page) =>
 
 async function open(
   page,
-  { theme = "light", width = 1440, doctor = false } = {},
+  { theme = "light", width = 1440, doctor = false, components } = {},
 ) {
   await page.setViewportSize({ width, height: width < 832 ? 844 : 1000 });
   await grantPro(page);
@@ -25,7 +25,7 @@ async function open(
     paragraph("scene", "ТЕКСТ", "first"),
     paragraph("scene", "", "other"),
   ];
-  doc.components = [
+  doc.components = components || [
     { id: "anna", name: "АННА", type: "character", description: "" },
   ];
   await page.addInitScript(
@@ -59,6 +59,94 @@ async function open(
   await page.keyboard.press("Control+1");
   await expect(popup(page)).toBeVisible();
 }
+
+const editorSelection = (page) =>
+  page.locator(".ProseMirror").evaluate((node) => ({
+    from: node.editor.state.selection.from,
+    to: node.editor.state.selection.to,
+    content: node.editor.getJSON(),
+  }));
+
+for (const theme of ["light", "dark"]) {
+  test(`${theme}: held Shift and arrows navigate time suggestions without selecting or changing screenplay text`, async ({
+    page,
+  }, info) => {
+    await open(page, { theme });
+    await page.keyboard.press("Control+Enter");
+    await page.keyboard.insertText("ДОМ — ");
+    await expect(popup(page).getByRole("option")).toHaveCount(12);
+    const selected = popup(page).locator('[aria-selected="true"]');
+    await expect(selected).toContainText("ДЕНЬ");
+    const before = await editorSelection(page);
+    await observe(page);
+    await page.keyboard.down("Shift");
+    await page.keyboard.press("ArrowUp");
+    await expect(selected).toContainText("ПРОДОЛЖЕНИЕ");
+    await page.keyboard.press("ArrowDown");
+    await expect(selected).toContainText("ДЕНЬ");
+    await page.keyboard.press("ArrowDown");
+    await expect(selected).toContainText("НОЧЬ");
+    await page.keyboard.down("ArrowDown");
+    await page.keyboard.down("ArrowDown");
+    await page.keyboard.up("ArrowDown");
+    await page.keyboard.up("Shift");
+    await expect(selected).toContainText("УТРО");
+    expect(await editorSelection(page)).toEqual(before);
+    expect(await page.evaluate(() => window.suggestionChanges)).toEqual([]);
+    await popup(page).screenshot({
+      path: info.outputPath("shift-arrow-suggestions.png"),
+    });
+    await page.keyboard.press("Control+Enter");
+    await expect(popup(page)).toHaveCount(0);
+    await expect(page.locator(".screenplay-editor p").nth(1)).toContainText(
+      "ИНТ. ДОМ — УТРО",
+    );
+    const accepted = await editorSelection(page);
+    await page.keyboard.press("Shift+ArrowUp");
+    const normalSelection = await editorSelection(page);
+    expect(normalSelection.from).not.toBe(normalSelection.to);
+    expect(normalSelection.content).toEqual(accepted.content);
+  });
+}
+
+test("Shift and arrows choose components, while Ctrl+Enter inserts the chosen linked component", async ({
+  page,
+}) => {
+  await open(page, {
+    components: [
+      { id: "anna", name: "АННА", type: "character", description: "" },
+      {
+        id: "anastasia",
+        name: "АНАСТАСИЯ",
+        type: "character",
+        description: "",
+      },
+      { id: "anton", name: "АНТОН", type: "character", description: "" },
+    ],
+  });
+  await page.keyboard.press("Control+2");
+  await page.keyboard.insertText("АН");
+  await expect(popup(page).getByRole("option")).toHaveCount(3);
+  const before = await editorSelection(page);
+  await page.keyboard.press("Shift+ArrowDown");
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(popup(page).locator('[aria-selected="true"]')).toContainText(
+    "АНТОН",
+  );
+  expect(await editorSelection(page)).toEqual(before);
+  await page.keyboard.press("Control+Enter");
+  const content = (await editorSelection(page)).content.content[1].content;
+  expect(
+    content.some(
+      (part) =>
+        part.text === "АНТОН" &&
+        part.marks?.some(
+          (mark) => mark.type === "entity" && mark.attrs.id === "anton",
+        ),
+    ),
+  ).toBe(true);
+  await expect(popup(page)).toHaveCount(0);
+});
 
 async function observe(page) {
   await page.evaluate(() => {

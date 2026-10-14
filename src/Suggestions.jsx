@@ -329,6 +329,18 @@ export default function Suggestions({
       setPopup(null);
       return true;
     };
+    const move = (direction) => {
+      setPopup((current) =>
+        current
+          ? {
+              ...current,
+              index:
+                (current.index + direction + current.items.length) %
+                current.items.length,
+            }
+          : current,
+      );
+    };
     const original = editor.options.editorProps.handleKeyDown;
     const handler = (view, event) => {
       if (event.isComposing || event.keyCode === 229) return false;
@@ -348,18 +360,7 @@ export default function Suggestions({
         if (event.key === "Tab") return false;
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
-          setPopup((p) =>
-            p
-              ? {
-                  ...p,
-                  index:
-                    (p.index +
-                      (event.key === "ArrowDown" ? 1 : -1) +
-                      p.items.length) %
-                    p.items.length,
-                }
-              : p,
-          );
+          move(event.key === "ArrowDown" ? 1 : -1);
           return true;
         }
         if (event.key === "Escape") {
@@ -378,6 +379,26 @@ export default function Suggestions({
     });
     const captureShortcut = (event) => {
       const current = popupRef.current;
+      // Handle Shift+arrows before the editor or browser extends the text selection.
+      if (
+        current &&
+        !config.current.disabled &&
+        editor.isFocused &&
+        editor.view.dom.contains(event.target) &&
+        !editor.view.composing &&
+        !event.isComposing &&
+        event.keyCode !== 229 &&
+        event.shiftKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        ["ArrowDown", "ArrowUp"].includes(event.key)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        move(event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
       if (event.key === "Escape") {
         const c =
           current?.context || context(editor, config.current.components);
@@ -473,7 +494,7 @@ export default function Suggestions({
         </button>
       ))}
       <div className="suggestion-hint">
-        {t("↑ ↓ выбрать ")}
+        <span>Shift + ↑ ↓</span>
         <span>{t("Ctrl+Enter вставить · Esc закрыть")}</span>
       </div>
     </div>,
