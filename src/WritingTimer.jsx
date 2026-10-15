@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Clapperboard, Play, X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import WritingHouse from "./WritingHouse.jsx";
@@ -30,7 +30,6 @@ export default function WritingTimer({
   const [panelClosing, setPanelClosing] = useState(false);
   const houseButtonRef = useRef(null);
   const coinsButtonRef = useRef(null);
-  const tikiTokButtonRef = useRef(null);
   const panelCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const [rewardPulse, setRewardPulse] = useState(0);
@@ -53,11 +52,7 @@ export default function WritingTimer({
   }, [timer.writingReward, visible]);
   const closePanel = (restoreFocus = true) => {
     if (!panel || panelClosing) return;
-    const button = houseOpen
-      ? houseButtonRef
-      : tikiTokOpen
-        ? tikiTokButtonRef
-        : coinsButtonRef;
+    const button = houseOpen ? houseButtonRef : coinsButtonRef;
     setPanelClosing(true);
     panelCloseTimeout.current = setTimeout(() => {
       setPanel("");
@@ -349,27 +344,6 @@ export default function WritingTimer({
           }}
         >
           <CatIcon />
-        </button>
-      )}
-      {timer.hasTikiTok && !pickerOpen && (
-        <button
-          ref={tikiTokButtonRef}
-          type="button"
-          className="writing-timer-button is-idle"
-          aria-label={language === "en" ? "Open TikiTok" : "Открыть TikiTok"}
-          data-tooltip="TikiTok"
-          aria-expanded={tikiTokOpen && !panelClosing}
-          aria-controls="writing-tikitok"
-          onClick={() => {
-            if (tikiTokOpen && !panelClosing) closePanel();
-            else {
-              clearTimeout(panelCloseTimeout.current);
-              setPanelClosing(false);
-              setPanel("tikitok");
-            }
-          }}
-        >
-          <Clapperboard size={20} aria-hidden="true" />
         </button>
       )}
     </div>

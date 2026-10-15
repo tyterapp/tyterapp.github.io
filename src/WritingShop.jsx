@@ -6,6 +6,7 @@ import {
   Clapperboard,
   MapPin,
   Package,
+  Play,
   RefreshCw,
   X,
 } from "lucide-react";
@@ -169,62 +170,68 @@ export default function WritingShop({
     price: TIKITOK_PRICE,
     name: "TikiTok",
     icon: Clapperboard,
+    useIcon: Play,
     label: text("Купить TikiTok за 200 монет", "Buy TikiTok for 200 coins"),
     purchase: timer.purchaseTikiTok,
     useLabel: text("Открыть TikiTok", "Open TikiTok"),
     useDisabled: false,
     onUse: onOpenTikiTok,
   };
-  const productTile = (product) => (
-    <div
-      key={product.id}
-      className="writing-shop-product"
-      data-product={product.id}
-    >
-      <span className="writing-shop-product-icon">
-        <product.icon size={24} aria-hidden="true" />
-      </span>
-      <div className="writing-shop-product-copy">
-        <strong>{product.name}</strong>
-        {product.description && <p>{product.description}</p>}
-      </div>
-      <button
-        key={product.owned ? "use" : "buy"}
-        type="button"
-        className="writing-shop-buy"
-        aria-label={
-          product.owned
-            ? product.useLabel ||
-              text("Сжечь последнюю страницу", "Burn the last page")
-            : product.label
-        }
-        disabled={
-          !!buying ||
-          closing ||
-          (product.owned
-            ? (product.useDisabled ?? burnDisabled)
-            : timer.coins < product.price)
-        }
-        onClick={() =>
-          product.owned ? (product.onUse || onBurnPage)?.() : purchase(product)
-        }
+  const productTile = (product) => {
+    const UseIcon = product.useIcon || product.icon;
+    return (
+      <div
+        key={product.id}
+        className="writing-shop-product"
+        data-product={product.id}
       >
-        {product.owned ? (
-          <product.icon size={18} aria-hidden="true" />
-        ) : (
-          <MoneyIcon />
-        )}
-        <span>
-          {product.owned
-            ? product.useLabel ||
-              text("Сжечь последнюю страницу", "Burn the last page")
-            : buying === product.id
-              ? text("Покупка…", "Buying…")
-              : product.price}
+        <span className="writing-shop-product-icon">
+          <product.icon size={24} aria-hidden="true" />
         </span>
-      </button>
-    </div>
-  );
+        <div className="writing-shop-product-copy">
+          <strong>{product.name}</strong>
+          {product.description && <p>{product.description}</p>}
+        </div>
+        <button
+          key={product.owned ? "use" : "buy"}
+          type="button"
+          className="writing-shop-buy"
+          aria-label={
+            product.owned
+              ? product.useLabel ||
+                text("Сжечь последнюю страницу", "Burn the last page")
+              : product.label
+          }
+          disabled={
+            !!buying ||
+            closing ||
+            (product.owned
+              ? (product.useDisabled ?? burnDisabled)
+              : timer.coins < product.price)
+          }
+          onClick={() =>
+            product.owned
+              ? (product.onUse || onBurnPage)?.()
+              : purchase(product)
+          }
+        >
+          {product.owned ? (
+            <UseIcon size={18} aria-hidden="true" />
+          ) : (
+            <MoneyIcon />
+          )}
+          <span>
+            {product.owned
+              ? product.useLabel ||
+                text("Сжечь последнюю страницу", "Burn the last page")
+              : buying === product.id
+                ? text("Покупка…", "Buying…")
+                : product.price}
+          </span>
+        </button>
+      </div>
+    );
+  };
   return (
     <div id="writing-shop" className="writing-shop-content">
       <header className="writing-shop-header">

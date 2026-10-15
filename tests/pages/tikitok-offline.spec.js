@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createProject } from "../../src/data.js";
 import { grantPro } from "../helpers/pro-access.js";
+import { openWritingShop } from "../helpers/writing-shop.js";
 
 test("the supplied TikiTok video loops offline and cached byte ranges remain correct", async ({
   page,
@@ -59,8 +60,14 @@ test("the supplied TikiTok video loops offline and cached byte ranges remain cor
     { status: 206, range: "bytes 6747698-6748209/6748210", size: 512 },
     { status: 416, range: "bytes */6748210", size: 0 },
   ]);
+  await expect(
+    page.locator('.writing-timer > button[aria-controls="writing-tikitok"]'),
+  ).toHaveCount(0);
+  await openWritingShop(page);
+  await page.getByRole("button", { name: "Разное", exact: true }).click();
   await page
-    .locator('.writing-timer > button[aria-controls="writing-tikitok"]')
+    .locator('[data-product="tikitok"]')
+    .getByRole("button", { name: "Открыть TikiTok", exact: true })
     .click();
   const video = page.locator("#writing-tikitok video");
   await expect

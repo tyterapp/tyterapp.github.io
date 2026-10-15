@@ -75,6 +75,10 @@ for (const theme of ["light", "dark"]) {
       .toBe(734);
     const original = await image.boundingBox();
     const outer = await house.boundingBox();
+    const padding = await house.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    });
     const controlSize = await close.boundingBox();
     await expand.click();
     await expect(collapse).toHaveAttribute("aria-pressed", "true");
@@ -87,8 +91,11 @@ for (const theme of ["light", "dark"]) {
       "0",
     );
     const bigger = await image.boundingBox();
-    expect(bigger.width).toBeCloseTo(original.width * 2, 0);
-    expect(bigger.height).toBeCloseTo(original.height * 2, 0);
+    expect(bigger.width).toBeCloseTo(outer.width * 2 - padding, 0);
+    expect(bigger.height).toBeCloseTo(
+      (original.height * bigger.width) / original.width,
+      0,
+    );
     expect((await house.boundingBox()).width).toBeCloseTo(outer.width * 2, 0);
     expect((await close.boundingBox()).height).toBe(controlSize.height);
     await expect(close).toBeInViewport();
@@ -117,7 +124,7 @@ for (const theme of ["light", "dark"]) {
     const mobileOriginal = await image.boundingBox();
     await expand.click();
     expect((await image.boundingBox()).width).toBeCloseTo(
-      mobileOriginal.width * 2,
+      mobileOriginal.width * 2 + padding,
       0,
     );
     const scroll = house.locator(".writing-popover-scroll");

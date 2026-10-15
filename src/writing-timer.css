@@ -322,7 +322,7 @@
   margin-inline: auto;
 }
 .writing-house.is-expanded .writing-house-canvas {
-  width: calc((var(--house-width) - 24px) * 2);
+  width: calc(var(--house-width) * 2 - 24px);
 }
 .writing-coins-guide {
   grid-template-columns: 20px minmax(0, 1fr);

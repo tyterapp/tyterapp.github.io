@@ -14,6 +14,8 @@ const panel = (page) => page.locator("#writing-tikitok");
 const video = (page) => panel(page).locator("video");
 const tile = (page) => page.locator('[data-product="tikitok"]');
 const opener = (page) =>
+  tile(page).getByRole("button", { name: /^(Открыть TikiTok|Open TikiTok)$/ });
+const footerOpener = (page) =>
   page.locator('.writing-timer > button[aria-controls="writing-tikitok"]');
 const wallet = (page) =>
   page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
@@ -68,7 +70,15 @@ async function open(
 }
 async function misc(page) {
   await openWritingShop(page);
-  await page.getByRole("button", { name: /^(Разное|Miscellaneous)$/ }).click();
+  const category = page.getByRole("button", {
+    name: /^(Разное|Miscellaneous)$/,
+  });
+  if (await category.count()) await category.click();
+}
+async function startPlayer(page) {
+  await misc(page);
+  await expect(footerOpener(page)).toHaveCount(0);
+  await opener(page).click();
 }
 async function playing(page) {
   await expect(panel(page)).toBeVisible();
@@ -139,6 +149,9 @@ test("buying only unlocks TikiTok; the supplied video loops in the mini player, 
     tile(page).getByRole("button", { name: "Открыть TikiTok", exact: true }),
   ).toBeVisible();
   expect((await wallet(page)).coins).toBe(0);
+  await expect(footerOpener(page)).toHaveCount(0);
+  await expect(opener(page).locator(".lucide-play")).toHaveCount(1);
+  await expect(opener(page).locator(".lucide-clapperboard")).toHaveCount(0);
   await expect(page.locator("video")).toHaveCount(0);
   await tile(page)
     .getByRole("button", { name: "Открыть TikiTok", exact: true })
@@ -188,15 +201,17 @@ test("buying only unlocks TikiTok; the supplied video loops in the mini player, 
     .getByRole("button", { name: "Закрыть TikiTok", exact: true })
     .click();
   await released(page);
-  await expect(opener(page)).toBeFocused();
+  await expect(page.locator(".writing-timer-balance")).toBeFocused();
   for (let i = 0; i < 2; i++) {
-    await opener(page).click();
+    await startPlayer(page);
     await playing(page);
     await holdVideo(page);
     await page.keyboard.press("Escape");
     await released(page);
   }
   await page.reload();
+  await expect(footerOpener(page)).toHaveCount(0);
+  await misc(page);
   await expect(opener(page)).toBeVisible();
   await expect(page.locator("video")).toHaveCount(0);
   expect((await wallet(page)).coins).toBe(0);
@@ -245,7 +260,7 @@ for (const [width, height, theme] of [
   }, info) => {
     await open(page, { width, height, theme, pro: false, owned: true });
     await page.getByRole("button", { name: "ENG", exact: true }).click();
-    await opener(page).click();
+    await startPlayer(page);
     await playing(page);
     const box = await panel(page).boundingBox();
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -284,6 +299,8 @@ test("two tabs unlock TikiTok for a single 200 coin payment without starting pla
   ]);
   await expect(opener(page)).toBeVisible();
   await expect(opener(second)).toBeVisible();
+  await expect(footerOpener(page)).toHaveCount(0);
+  await expect(footerOpener(second)).toHaveCount(0);
   expect((await wallet(page)).coins).toBe(200);
   expect((await wallet(second)).coins).toBe(200);
   await expect(page.locator("video")).toHaveCount(0);
@@ -295,7 +312,7 @@ test("an external progress reset immediately closes the player and releases its 
   page,
 }) => {
   await open(page, { owned: true });
-  await opener(page).click();
+  await startPlayer(page);
   await playing(page);
   await holdVideo(page);
   await page.evaluate((key) => {
@@ -326,7 +343,7 @@ test("a blocked autoplay remains a playable icon instead of pretending playback 
       return play.call(this);
     };
   });
-  await opener(page).click();
+  await startPlayer(page);
   await panel(page)
     .getByRole("button", { name: "Воспроизвести TikiTok", exact: true })
     .click();
