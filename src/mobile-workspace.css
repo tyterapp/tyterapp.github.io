@@ -109,7 +109,7 @@
   .minimal-app[data-mobile] .editor-column .minimal-scroll {
     width: 100%;
     min-height: 0;
-    padding: 12px 0 92px;
+    padding: 12px 0 max(92px, var(--navigation-bottom-space, 0px));
     scroll-padding-block: 16px 100px;
     overflow-x: hidden;
     overscroll-behavior-y: contain;

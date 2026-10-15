@@ -74,6 +74,7 @@ export default function WritingShop({
     },
   ];
   const selected = categories.find((entry) => entry.id === category);
+  const recording = category === "misc" && dictation.active;
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
   }, []);
@@ -216,7 +217,11 @@ export default function WritingShop({
             <ArrowLeft size={18} aria-hidden="true" />
           </button>
         ) : null}
-        <strong>{selected?.name || text("Магазин", "Shop")}</strong>
+        <strong>
+          {recording
+            ? text("Рация", "Radio")
+            : selected?.name || text("Магазин", "Shop")}
+        </strong>
         <button
           ref={closeRef}
           type="button"
@@ -232,7 +237,7 @@ export default function WritingShop({
           <div className="writing-shop-list">
             {category === "misc" && (
               <>
-                {productTile(lighter)}
+                {!recording && productTile(lighter)}
                 <WritingRadio
                   owned={timer.hasRadio}
                   dictation={dictation}
@@ -250,15 +255,17 @@ export default function WritingShop({
                 />
               </>
             )}
-            <div className="writing-shop-product writing-shop-preview">
-              <span className="writing-shop-product-icon">
-                <selected.itemIcon size={24} />
-              </span>
-              <div className="writing-shop-product-copy">
-                <strong>{selected.item}</strong>
-                <p>{text("Скоро в магазине", "Coming soon")}</p>
+            {!recording && (
+              <div className="writing-shop-product writing-shop-preview">
+                <span className="writing-shop-product-icon">
+                  <selected.itemIcon size={24} />
+                </span>
+                <div className="writing-shop-product-copy">
+                  <strong>{selected.item}</strong>
+                  <p>{text("Скоро в магазине", "Coming soon")}</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="writing-shop-list">
@@ -283,34 +290,37 @@ export default function WritingShop({
               ))}
           </div>
         )}
-        {((!selected &&
-          products.some((product) => timer.coins < product.price)) ||
-          (category === "misc" &&
-            ((!lighter.owned && timer.coins < LIGHTER_PRICE) ||
-              (!timer.hasRadio && timer.coins < RADIO_PRICE)))) && (
-          <p className="writing-shop-hint">
-            {text(
-              "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
-              "100 written characters = 10 coins. Timers earn coins too.",
-            )}
-          </p>
-        )}
+        {!recording &&
+          ((!selected &&
+            products.some((product) => timer.coins < product.price)) ||
+            (category === "misc" &&
+              ((!lighter.owned && timer.coins < LIGHTER_PRICE) ||
+                (!timer.hasRadio && timer.coins < RADIO_PRICE)))) && (
+            <p className="writing-shop-hint">
+              {text(
+                "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
+                "100 written characters = 10 coins. Timers earn coins too.",
+              )}
+            </p>
+          )}
         {error && (
           <p className="writing-shop-error" role="alert">
             {error}
           </p>
         )}
-        <button
-          type="button"
-          className="writing-shop-reset"
-          disabled={!!buying || closing || timer.coins < RESET_PROGRESS_PRICE}
-          onClick={onResetProgress}
-        >
-          <RefreshCw size={18} aria-hidden="true" />
-          <span>{text("Сбросить прогресс", "Reset progress")}</span>
-          <MoneyIcon />
-          <span>{RESET_PROGRESS_PRICE}</span>
-        </button>
+        {!recording && (
+          <button
+            type="button"
+            className="writing-shop-reset"
+            disabled={!!buying || closing || timer.coins < RESET_PROGRESS_PRICE}
+            onClick={onResetProgress}
+          >
+            <RefreshCw size={18} aria-hidden="true" />
+            <span>{text("Сбросить прогресс", "Reset progress")}</span>
+            <MoneyIcon />
+            <span>{RESET_PROGRESS_PRICE}</span>
+          </button>
+        )}
       </div>
     </aside>
   );

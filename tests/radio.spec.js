@@ -42,6 +42,9 @@ async function open(
     prefixed = false,
     error = "",
     deferStop = false,
+    deferAudio = false,
+    noMeter = false,
+    doc = fixture(),
     seed = true,
   } = {},
 ) {
@@ -61,6 +64,8 @@ async function open(
       prefixed,
       error,
       deferStop,
+      deferAudio,
+      noMeter,
       seed,
     }) => {
       if (seed && !localStorage.getItem("tyter.radio-seeded")) {
@@ -95,6 +100,58 @@ async function open(
         error,
         deferStop,
         active: false,
+        level: 0,
+        audioCalls: 0,
+        tracksStopped: 0,
+        contextsClosed: 0,
+      });
+      const stream = () => ({
+        getTracks: () => [{ stop: () => state.tracksStopped++ }],
+      });
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: {
+          getUserMedia: () => {
+            state.audioCalls++;
+            return deferAudio
+              ? new Promise((resolve) => {
+                  state.resolveAudio = () => resolve(stream());
+                })
+              : Promise.resolve(stream());
+          },
+        },
+      });
+      class AudioMeter {
+        state = "running";
+        resume() {
+          return Promise.resolve();
+        }
+        close() {
+          this.state = "closed";
+          state.contextsClosed++;
+          return Promise.resolve();
+        }
+        createMediaStreamSource() {
+          return { connect() {}, disconnect() {} };
+        }
+        createAnalyser() {
+          return {
+            disconnect() {},
+            getByteTimeDomainData(samples) {
+              samples.forEach((_, index) => {
+                samples[index] = 128 + (index % 2 ? 1 : -1) * state.level * 70;
+              });
+            },
+          };
+        }
+      }
+      Object.defineProperty(window, "AudioContext", {
+        configurable: true,
+        value: noMeter ? undefined : AudioMeter,
+      });
+      Object.defineProperty(window, "webkitAudioContext", {
+        configurable: true,
+        value: undefined,
       });
       class Recognition {
         results = [];
@@ -139,7 +196,7 @@ async function open(
       });
     },
     {
-      doc: fixture(),
+      doc,
       coins,
       owned,
       theme,
@@ -148,6 +205,8 @@ async function open(
       prefixed,
       error,
       deferStop,
+      deferAudio,
+      noMeter,
       seed,
     },
   );
@@ -253,7 +312,7 @@ test("radio is a separate miscellaneous item; buying never turns the mic on, and
   expect(await page.evaluate(() => radioSpeech.instances.length)).toBe(0);
 });
 
-test("only final phrases enter the mapped caret, keep formatting and literal text, deduplicate and support normal undo and writing rewards", async ({
+test("live drafts appear inline and are replaced without saving or rewards; final phrases preserve the mapped caret, formatting and undo", async ({
   page,
 }) => {
   await open(page, { owned: true, coins: 0 });
@@ -264,7 +323,14 @@ test("only final phrases enter the mapped caret, keep formatting and literal tex
   const before = await json(page);
   await start(page);
   await emit(page, "кошка у окна", false, 0);
-  await expect(radio(page).locator(".writing-radio-interim")).toHaveText(
+  await expect(
+    page.locator(".screenplay-editor .dictation-preview"),
+  ).toHaveText("кошка у окна");
+  await emit(page, "кошка у открытого окна", false, 0);
+  await expect(
+    page.locator(".screenplay-editor .dictation-preview"),
+  ).toHaveText("кошка у открытого окна");
+  await expect(page.locator(".screenplay-editor")).not.toContainText(
     "кошка у окна",
   );
   expect(await json(page)).toEqual(before);
@@ -280,6 +346,7 @@ test("only final phrases enter the mapped caret, keep formatting and literal tex
   const prefix = await json(page),
     phrase = "кошка ".repeat(18).trim();
   await emit(page, phrase, true, 0);
+  await expect(page.locator(".dictation-preview")).toHaveText("");
   await expect(
     page.locator('.screenplay-editor [data-format="action"]'),
   ).toHaveText(`Вначале До ${phrase} после.`);
@@ -307,6 +374,7 @@ test("only final phrases enter the mapped caret, keep formatting and literal tex
     .getByRole("button", { name: "Закрыть магазин", exact: true })
     .click();
   await expect(page.locator("#writing-shop")).toHaveCount(0);
+  await expect(page.locator(".dictation-preview")).toHaveCount(0);
   await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(first);
   await page.locator(".screenplay-editor").press("Control+z");
@@ -384,6 +452,54 @@ for (const [width, theme] of [
       "en-US",
     );
     await emit(page, "A cat watches the rain.", false, 0);
+    const wave = radio(page).locator(".writing-radio-wave");
+    await expect(wave).toBeVisible();
+    await expect(wave).toHaveAttribute("data-speaking", "false");
+    await page.evaluate(() => {
+      radioSpeech.level = 0.8;
+    });
+    await expect(wave).toHaveAttribute("data-speaking", "true");
+    const colors = await radio(page)
+      .getByRole("button", { name: "Turn off microphone", exact: true })
+      .evaluate((button) => {
+        const style = getComputedStyle(button),
+          canvas = document.createElement("canvas"),
+          context = canvas.getContext("2d");
+        const rgb = (color) => {
+          context.fillStyle = color;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+        };
+        const luminance = (color) =>
+          rgb(color)
+            .map((value) => value / 255)
+            .map((value) =>
+              value <= 0.04045
+                ? value / 12.92
+                : ((value + 0.055) / 1.055) ** 2.4,
+            )
+            .reduce(
+              (sum, value, index) =>
+                sum + value * [0.2126, 0.7152, 0.0722][index],
+              0,
+            );
+        return {
+          background: rgb(style.backgroundColor),
+          contrast:
+            (luminance(style.color) + 0.05) /
+            (luminance(style.backgroundColor) + 0.05),
+        };
+      });
+    expect(colors.background[0]).toBeGreaterThan(colors.background[1] * 2);
+    expect(colors.contrast).toBeGreaterThanOrEqual(4.5);
+    await page.evaluate(() => {
+      radioSpeech.level = 0;
+    });
+    await expect(wave).toHaveAttribute("data-speaking", "false");
+    await expect(wave.locator("rect").first()).toHaveAttribute(
+      "height",
+      /3\.[0-2]\d/,
+    );
     const box = await page.locator("#writing-shop").boundingBox();
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(width);
@@ -394,6 +510,12 @@ for (const [width, theme] of [
     await expect
       .poll(() => page.evaluate(() => radioSpeech.active))
       .toBe(false);
+    expect(
+      await page.evaluate(() => [
+        radioSpeech.tracksStopped,
+        radioSpeech.contextsClosed,
+      ]),
+    ).toEqual([1, 1]);
   });
 
 test("pending final results after a version switch never enter the new version", async ({
@@ -402,6 +524,7 @@ test("pending final results after a version switch never enter the new version",
   await open(page, { owned: true, deferStop: true });
   const before = await json(page);
   await start(page);
+  await emit(page, "Черновик только в старой версии", false, 0);
   await page.evaluate(() => {
     window.lateRadioResult = radioSpeech.instances.at(-1).onresult;
   });
@@ -420,6 +543,7 @@ test("pending final results after a version switch never enter the new version",
     lateRadioResult({ resultIndex: 0, results: [result] });
   });
   expect(await json(page)).toEqual(blue);
+  await expect(page.locator(".dictation-preview")).toHaveCount(0);
   expect(await page.evaluate(() => radioSpeech.active)).toBe(false);
   await selectAppOption(
     page,
@@ -445,6 +569,11 @@ test("closing the shop releases the mic and accepts its final captured phrase on
     "Последняя фраза перед остановкой.",
   );
   await start(page);
+  await radio(page)
+    .getByRole("button", { name: "Выключить микрофон", exact: true })
+    .click();
+  await page.evaluate(() => radioSpeech.instances.at(-1).onend?.());
+  await expect(radio(page)).not.toHaveAttribute("data-recording");
   await page.getByRole("button", { name: /^Сбросить прогресс/ }).click();
   await page
     .getByRole("button", { name: "Сбросить за 200 монет", exact: true })
@@ -452,6 +581,7 @@ test("closing the shop releases the mic and accepts its final captured phrase on
   await expect.poll(async () => (await wallet(page)).coins).toBe(0);
   expect(walletHasRadio(await wallet(page))).toBe(false);
   await expect.poll(() => page.evaluate(() => radioSpeech.active)).toBe(false);
+  await openRadio(page);
   await expect(
     radio(page).getByRole("button", {
       name: "Купить рацию за 100 монет",
@@ -524,4 +654,158 @@ test("restoring text invalidates pending speech even with the same block ids, an
   });
   expect(await json(page)).toEqual(before);
   expect(await page.evaluate(() => radioSpeech.active)).toBe(false);
+});
+
+test("stopping saves the last visible draft once and releases the visualizer microphone immediately", async ({
+  page,
+}) => {
+  await open(page, { owned: true, deferStop: true });
+  const before = await json(page);
+  await start(page);
+  await emit(page, "Текст по ходу разговора.", false, 0);
+  expect(await json(page)).toEqual(before);
+  await expect(page.locator(".dictation-preview")).toHaveText(
+    "Текст по ходу разговора.",
+  );
+  await radio(page)
+    .getByRole("button", { name: "Выключить микрофон", exact: true })
+    .click();
+  expect(
+    await page.evaluate(() => [
+      radioSpeech.active,
+      radioSpeech.tracksStopped,
+      radioSpeech.contextsClosed,
+    ]),
+  ).toEqual([false, 1, 1]);
+  await page.evaluate(() => radioSpeech.instances.at(-1).onend?.());
+  await expect(page.locator(".dictation-preview")).toHaveCount(0);
+  await expect(page.locator(".screenplay-editor")).toContainText(
+    "Текст по ходу разговора.",
+  );
+  const after = await json(page);
+  await page.evaluate(() => radioSpeech.instances.at(-1).onend?.());
+  expect(await json(page)).toEqual(after);
+  await page.locator(".screenplay-editor").press("Control+z");
+  expect(await json(page)).toEqual(before);
+});
+
+test("a progress reset in another tab cancels the draft and closes even a late microphone stream", async ({
+  page,
+}) => {
+  await open(page, { owned: true, deferAudio: true });
+  await start(page);
+  const before = await json(page);
+  await emit(page, "Неподтверждённая фраза.", false, 0);
+  await page.evaluate(() => {
+    const key = "tyter.writing-timer.v1";
+    const current = JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(
+      key,
+      JSON.stringify({ ...current, coins: 0, purchases: {} }),
+    );
+    window.dispatchEvent(new StorageEvent("storage", { key }));
+  });
+  await expect(page.locator(".dictation-preview")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => radioSpeech.active)).toBe(false);
+  await page.evaluate(() => radioSpeech.resolveAudio());
+  expect(await json(page)).toEqual(before);
+  await expect
+    .poll(() => page.evaluate(() => radioSpeech.tracksStopped))
+    .toBe(1);
+  expect(await page.evaluate(() => radioSpeech.contextsClosed)).toBe(1);
+  expect(
+    await page.evaluate(() => localStorage.getItem("tyter.projects.v1")),
+  ).not.toContain("Неподтверждённая");
+});
+
+test("speech events animate the fallback wave without Web Audio", async ({
+  page,
+}) => {
+  await open(page, { owned: true, noMeter: true });
+  await start(page);
+  const wave = radio(page).locator(".writing-radio-wave");
+  await expect(wave).toHaveAttribute("data-speaking", "false");
+  await page.evaluate(() => radioSpeech.instances.at(-1).onspeechstart());
+  await expect(wave).toHaveAttribute("data-speaking", "true");
+  await page.evaluate(() => radioSpeech.instances.at(-1).onspeechend());
+  await expect(wave).toHaveAttribute("data-speaking", "false");
+  expect(await page.evaluate(() => radioSpeech.audioCalls)).toBe(0);
+});
+
+for (const width of [320, 1440])
+  test(`${width}px: live speech follows the insertion point smoothly above the compact radio and formatting bar`, async ({
+    page,
+  }, info) => {
+    const doc = fixture();
+    doc.content.content.push(
+      ...Array.from({ length: 70 }, (_, index) => ({
+        type: "paragraph",
+        attrs: { format: "action", blockId: `action-${index}` },
+        content: [
+          {
+            type: "text",
+            text:
+              `Действие ${index + 1}. ` +
+              "По улице неспешно идёт герой. ".repeat(5),
+          },
+        ],
+      })),
+    );
+    await open(page, { owned: true, doc, width });
+    if (width === 320) await page.setViewportSize({ width, height: 560 });
+    await page.locator(".screenplay-editor").evaluate((node) => {
+      node.editor.commands.setTextSelection(
+        node.editor.state.doc.content.size - 1,
+      );
+      const scroller = node.closest(".minimal-scroll");
+      scroller.scrollTop = 0;
+      window.radioScroll = [];
+      scroller.addEventListener("scroll", () =>
+        radioScroll.push(scroller.scrollTop),
+      );
+    });
+    await start(page);
+    await emit(page, "Герой останавливается и смотрит в окно.", false, 0);
+    const preview = page.locator(".dictation-preview-caret");
+    await expect(preview).toBeInViewport();
+    await expect
+      .poll(() => preview.boundingBox().then((box) => box.y))
+      .toBeLessThan(width === 320 ? 280 : 650);
+    const caret = await preview.boundingBox(),
+      popup = await page.locator("#writing-shop").boundingBox();
+    expect(caret.y).toBeGreaterThan(60);
+    expect(caret.x).toBeGreaterThanOrEqual(0);
+    expect(caret.x + caret.width).toBeLessThanOrEqual(width);
+    if (caret.x < popup.x + popup.width && caret.x > popup.x)
+      expect(caret.y + caret.height).toBeLessThan(popup.y);
+    const movement = await page.evaluate(() =>
+      radioScroll.filter((value) => value > 0),
+    );
+    expect(movement.length).toBeGreaterThan(2);
+    expect(movement[0]).toBeLessThan(movement.at(-1));
+    await expect(page.locator("#writing-shop")).not.toContainText(
+      "Подарочная коробка",
+    );
+    await page.screenshot({
+      path: info.outputPath("live-inline-dictation.png"),
+    });
+  });
+
+test("reduced motion keeps the wave still and immediately reveals the live draft", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await open(page, { owned: true });
+  await start(page);
+  await page.evaluate(() => {
+    radioSpeech.level = 1;
+  });
+  await emit(page, "Слова сразу в сценарии.", false, 0);
+  await expect(page.locator(".dictation-preview")).toHaveText(
+    "Слова сразу в сценарии.",
+  );
+  await expect(
+    radio(page).locator(".writing-radio-wave rect").first(),
+  ).toHaveAttribute("height", "3");
+  await expect(page.locator(".dictation-preview-caret")).toBeInViewport();
 });

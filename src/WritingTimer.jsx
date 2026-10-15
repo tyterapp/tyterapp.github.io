@@ -51,7 +51,7 @@ export default function WritingTimer({
     const timeout = setTimeout(() => setRewardPulse(0), 1000);
     return () => clearTimeout(timeout);
   }, [timer.writingReward, visible]);
-  const closePanel = () => {
+  const closePanel = (restoreFocus = true) => {
     if (!panel || panelClosing) return;
     const button = houseOpen
       ? houseButtonRef
@@ -62,7 +62,7 @@ export default function WritingTimer({
     panelCloseTimeout.current = setTimeout(() => {
       setPanel("");
       setPanelClosing(false);
-      button.current?.focus({ preventScroll: true });
+      if (restoreFocus) button.current?.focus({ preventScroll: true });
     }, 160);
   };
   useEffect(() => () => clearTimeout(panelCloseTimeout.current), []);
@@ -92,7 +92,7 @@ export default function WritingTimer({
         event.type === "pointerdown" &&
         !ref.current?.contains(event.target)
       )
-        closePanel();
+        closePanel(false);
     };
     document.addEventListener("keydown", close, true);
     document.addEventListener("pointerdown", close);

@@ -23,7 +23,11 @@ import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { preparePageBurn } from "./burning-page.js";
-import { createDictationTarget } from "./screenplay-dictation.js";
+import {
+  createDictationTarget,
+  dictationPreviewPlugin,
+  dictationPreviewKey,
+} from "./screenplay-dictation.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
@@ -1206,6 +1210,13 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     };
   }, [editor]);
   useEffect(() => {
+    if (!editor || plainOnly) return;
+    editor.registerPlugin(dictationPreviewPlugin());
+    return () => {
+      if (!editor.isDestroyed) editor.unregisterPlugin(dictationPreviewKey);
+    };
+  }, [editor, plainOnly]);
+  useEffect(() => {
     if (editor && !editor.isDestroyed)
       editor.view.dispatch(
         editor.state.tr
@@ -1590,7 +1601,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         return preparePageBurn(editor, { fontSize, documentZoom });
       },
       createDictationTarget() {
-        return createDictationTarget(editor);
+        return createDictationTarget(editor, {
+          follow: (view, position, element) =>
+            scrollToText(view, position, searchScrollFrame, true, {
+              ensureRoom: true,
+              targetElement: element,
+              avoidSelector: ".writing-shop",
+            }),
+        });
       },
       setEditable(value) {
         editor?.setEditable(value, false);

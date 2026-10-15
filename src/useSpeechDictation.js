@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createDictationAudio } from "./dictation-audio.js";
 
 const recognitionClass = () =>
   globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
@@ -23,7 +24,6 @@ export default function useSpeechDictation({
   editorRef,
 }) {
   const [status, setStatus] = useState("idle"),
-    [interim, setInterim] = useState(""),
     [error, setError] = useState("");
   const current = useRef(null),
     options = useRef(null);
@@ -40,9 +40,10 @@ export default function useSpeechDictation({
       session.recognition.onerror =
       session.recognition.onend =
         null;
+    session.recognition.onspeechstart = session.recognition.onspeechend = null;
+    session.audio.dispose();
     session.target.dispose();
     setStatus("idle");
-    setInterim("");
   }, []);
   const cancel = useCallback(() => {
     const session = current.current;
@@ -58,10 +59,18 @@ export default function useSpeechDictation({
     const session = current.current;
     if (!session || session.stopping) return;
     session.stopping = true;
+    session.listening = false;
+    session.audio.dispose();
     setStatus("stopping");
-    setInterim("");
     // stop() releases the mic and may deliver the final captured phrase.
-    session.timeout = setTimeout(cancel, 5000);
+    session.timeout = setTimeout(() => {
+      session.complete?.();
+      try {
+        session.recognition.abort();
+      } catch {
+        /* Already stopped. */
+      }
+    }, 5000);
     try {
       session.recognition.stop();
     } catch {
@@ -72,7 +81,6 @@ export default function useSpeechDictation({
     const config = options.current;
     if (current.current || !config.enabled) return;
     setError("");
-    setInterim("");
     const Recognition = recognitionClass();
     if (
       typeof Recognition !== "function" ||
@@ -101,6 +109,11 @@ export default function useSpeechDictation({
       language: config.language,
       finalized: new Set(),
       stopping: false,
+      pending: "",
+      audio: createDictationAudio(),
+      listening: false,
+      speaking: false,
+      activityUntil: 0,
     };
     current.current = session;
     const valid = () =>
@@ -117,7 +130,23 @@ export default function useSpeechDictation({
         if (current.current === session) cancel();
         return;
       }
-      if (!session.stopping) setStatus("listening");
+      if (!session.stopping) {
+        session.listening = true;
+        session.audio.start();
+        if (!target.preview("")) {
+          cancel();
+          setError("Позиция вставки изменилась. Включите рацию снова.");
+          return;
+        }
+        setStatus("listening");
+      }
+    };
+    recognition.onspeechstart = () => {
+      if (valid()) session.speaking = true;
+    };
+    recognition.onspeechend = () => {
+      session.speaking = false;
+      session.activityUntil = 0;
     };
     recognition.onresult = (event) => {
       if (!valid()) {
@@ -138,21 +167,27 @@ export default function useSpeechDictation({
           return;
         }
       }
-      if (!session.stopping)
-        setInterim(
-          Array.from(event.results)
-            .filter((result) => !result.isFinal)
-            .map((result) => result[0]?.transcript || "")
-            .join(" ")
-            .slice(-600),
-        );
+      session.pending = Array.from(event.results)
+        .filter((result) => !result.isFinal)
+        .map((result) => result[0]?.transcript || "")
+        .join(" ");
+      session.activityUntil = performance.now() + 650;
+      if (!target.preview(session.pending)) {
+        cancel();
+        setError("Позиция вставки изменилась. Включите рацию снова.");
+        return;
+      }
     };
     recognition.onerror = (event) => {
       if (current.current !== session) return;
       if (event.error !== "aborted") setError(speechError(event.error));
       cancel();
     };
-    recognition.onend = () => finish(session);
+    session.complete = () => {
+      if (valid() && session.pending) target.append(session.pending);
+      finish(session);
+    };
+    recognition.onend = session.complete;
     setStatus("starting");
     // Keep this inside the user's click: the browser owns the microphone prompt.
     try {
@@ -164,6 +199,14 @@ export default function useSpeechDictation({
       );
     }
   }, [cancel, finish]);
+  const sample = useCallback(() => {
+    const session = current.current;
+    if (!session?.listening || session.stopping) return 0;
+    return (
+      session.audio.sample() ??
+      (session.speaking || performance.now() < session.activityUntil ? 0.45 : 0)
+    );
+  }, []);
   useEffect(() => {
     if (!enabled) cancel();
     return cancel;
@@ -184,10 +227,10 @@ export default function useSpeechDictation({
     supported,
     enabled,
     status,
-    interim,
     error,
     active: status !== "idle",
     start,
     stop,
+    sample,
   };
 }

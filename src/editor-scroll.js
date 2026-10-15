@@ -3,7 +3,7 @@ export function scrollToText(
   position,
   frame,
   smooth = true,
-  { ensureRoom = false, onComplete } = {},
+  { ensureRoom = false, onComplete, targetElement, avoidSelector } = {},
 ) {
   if (frame.current !== null) cancelAnimationFrame(frame.current);
   frame.current = requestAnimationFrame(() => {
@@ -18,19 +18,39 @@ export function scrollToText(
     const start = { top: scroller.scrollTop, left: scroller.scrollLeft };
     let revealHorizontally = false;
     const target = () => {
-      const rect = view.coordsAtPos(position);
+      const rect = targetElement?.isConnected
+        ? targetElement.getBoundingClientRect()
+        : view.coordsAtPos(position);
       const viewport = scroller.getBoundingClientRect();
       const footer = scroller
         .closest(".editor-column")
         ?.querySelector(".minimal-footer")
         ?.getBoundingClientRect();
-      const top = Math.max(0, viewport.top) + 16;
-      const bottom =
+      const top =
+        Math.max(0, viewport.top, window.visualViewport?.offsetTop || 0) + 16;
+      let bottom =
         Math.min(
           viewport.top + scroller.clientHeight,
           window.innerHeight,
           footer?.top ?? Infinity,
         ) - 16;
+      const viewportBottom = window.visualViewport
+        ? window.visualViewport.offsetTop + window.visualViewport.height
+        : window.innerHeight;
+      bottom = Math.min(bottom, viewportBottom - 16);
+      const obstruction =
+        avoidSelector &&
+        scroller
+          .closest(".editor-column")
+          ?.querySelector(avoidSelector)
+          ?.getBoundingClientRect();
+      if (
+        obstruction &&
+        obstruction.right > rect.left &&
+        obstruction.left < rect.right &&
+        obstruction.top > top + 48
+      )
+        bottom = Math.min(bottom, obstruction.top - 16);
       const aim = top + (bottom - top) * 0.4;
       if (ensureRoom) {
         // Allow even the final scene to sit above the middle of the viewport.
