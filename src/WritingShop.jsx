@@ -13,10 +13,12 @@ import {
   DOCTOR_PRICE,
   HOUSE_PRICE,
   LIGHTER_PRICE,
+  RADIO_PRICE,
   RESET_PROGRESS_PRICE,
 } from "./writing-wallet.js";
 import { MoneyIcon } from "./WritingTimerIcons.jsx";
 import LighterIcon from "./LighterIcon.jsx";
+import WritingRadio from "./WritingRadio.jsx";
 import {
   CatIcon,
   DecorIcon,
@@ -31,6 +33,7 @@ export default function WritingShop({
   onResetProgress,
   onBurnPage,
   burnDisabled = false,
+  dictation,
 }) {
   const language = useLanguage();
   const text = (ru, en) => (language === "en" ? en : ru);
@@ -227,7 +230,26 @@ export default function WritingShop({
       <div className="writing-popover-scroll">
         {selected ? (
           <div className="writing-shop-list">
-            {category === "misc" && productTile(lighter)}
+            {category === "misc" && (
+              <>
+                {productTile(lighter)}
+                <WritingRadio
+                  owned={timer.hasRadio}
+                  dictation={dictation}
+                  buying={buying}
+                  closing={closing}
+                  onPurchase={
+                    timer.coins >= RADIO_PRICE
+                      ? () =>
+                          purchase({
+                            id: "radio",
+                            purchase: timer.purchaseRadio,
+                          })
+                      : null
+                  }
+                />
+              </>
+            )}
             <div className="writing-shop-product writing-shop-preview">
               <span className="writing-shop-product-icon">
                 <selected.itemIcon size={24} />
@@ -264,8 +286,8 @@ export default function WritingShop({
         {((!selected &&
           products.some((product) => timer.coins < product.price)) ||
           (category === "misc" &&
-            !lighter.owned &&
-            timer.coins < LIGHTER_PRICE)) && (
+            ((!lighter.owned && timer.coins < LIGHTER_PRICE) ||
+              (!timer.hasRadio && timer.coins < RADIO_PRICE)))) && (
           <p className="writing-shop-hint">
             {text(
               "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",

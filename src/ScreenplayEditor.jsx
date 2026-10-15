@@ -23,6 +23,7 @@ import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { preparePageBurn } from "./burning-page.js";
+import { createDictationTarget } from "./screenplay-dictation.js";
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
@@ -1587,6 +1588,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       preparePageBurn() {
         return preparePageBurn(editor, { fontSize, documentZoom });
+      },
+      createDictationTarget() {
+        return createDictationTarget(editor);
       },
       setEditable(value) {
         editor?.setEditable(value, false);

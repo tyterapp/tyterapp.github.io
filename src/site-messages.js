@@ -120,6 +120,8 @@ export default {
   "20 монет": "20 coins",
   "100 монет": "100 coins",
   "50 монет": "50 coins",
+  "Рация: микрофон и диктовка текста в сценарий":
+    "Radio: microphone and screenplay dictation",
   "200 монет": "200 coins",
   "Домик oiia, увеличение, снимок PNG и ссылка на снимок":
     "oiia house, expansion, PNG snapshot and snapshot link",

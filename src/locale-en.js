@@ -2,6 +2,42 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  Рация: "Radio",
+  "Купить рацию за 100 монет": "Buy radio for 100 coins",
+  "Рация приобретена. Микрофон можно включать многократно.":
+    "Radio purchased. You can switch the microphone on whenever you like.",
+  "Включает микрофон для диктовки текста в сценарий. Покупка разовая, использование многократное.":
+    "Turns on your microphone to dictate into the screenplay. Buy once, use repeatedly.",
+  "Включить микрофон": "Turn on microphone",
+  "Выключить микрофон": "Turn off microphone",
+  "Выключаем микрофон…": "Turning off microphone…",
+  "Включаем микрофон…": "Turning on microphone…",
+  "Микрофон включён. Говорите — текст появится в сценарии.":
+    "Microphone is on. Speak to add text to the screenplay.",
+  "Завершаем диктовку…": "Finishing dictation…",
+  "Микрофон выключен.": "Microphone is off.",
+  "В этом браузере диктовка недоступна.":
+    "Dictation is unavailable in this browser.",
+  "Браузер не разрешил диктовку. Проверьте доступ к микрофону и разрешения сайта.":
+    "The browser blocked dictation. Check microphone access and site permissions.",
+  "Микрофон недоступен. Проверьте его подключение и настройки.":
+    "The microphone is unavailable. Check its connection and settings.",
+  "Не удалось подключиться к распознаванию речи. Проверьте интернет и повторите.":
+    "Could not connect to speech recognition. Check your internet connection and try again.",
+  "Речь не распознана. Включите микрофон и попробуйте ещё раз.":
+    "No speech was recognized. Turn on the microphone and try again.",
+  "Этот язык диктовки не поддерживается браузером.":
+    "This dictation language is not supported by the browser.",
+  "Не удалось включить диктовку. Попробуйте ещё раз.":
+    "Could not start dictation. Please try again.",
+  "Выберите место для диктовки в сценарии.":
+    "Choose an insertion point in the screenplay.",
+  "Позиция вставки изменилась. Включите рацию снова.":
+    "The insertion point changed. Turn on the radio again.",
+  "Речь распознаёт браузер; он может передавать звук своему сервису. Для диктовки может понадобиться интернет.":
+    "Your browser recognizes speech and may send audio to its service. Dictation may need an internet connection.",
+  "Закрытие магазина выключает микрофон. Язык диктовки соответствует RU / ENG.":
+    "Closing the shop turns off the microphone. Dictation follows the RU / ENG language setting.",
   "Сжечь последнюю страницу": "Burn the last page",
   "Сжигание последней страницы": "Burning the last page",
   "Сжигаем страницу {0}": "Burning page {0}",

@@ -413,6 +413,28 @@
   font-size: 12px;
   line-height: 1.5;
 }
+.writing-radio-status,
+.writing-radio-note,
+.writing-radio-interim {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--ui-muted);
+}
+.writing-radio[data-recording] .writing-shop-product-icon,
+.writing-radio[data-recording] .writing-radio-status {
+  color: var(--ui-accent);
+}
+.writing-radio-interim {
+  max-height: 72px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ui-field);
+  color: var(--ui-text);
+}
 .minimal-app .writing-shop-buy,
 .writing-shop-owned {
   grid-column: 1 / -1;

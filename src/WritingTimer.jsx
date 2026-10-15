@@ -19,6 +19,7 @@ export default function WritingTimer({
   onResetProgress,
   onBurnPage,
   burnDisabled = false,
+  dictation,
 }) {
   const language = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -189,6 +190,7 @@ export default function WritingTimer({
           onClose={closePanel}
           onResetProgress={onResetProgress}
           burnDisabled={burnDisabled}
+          dictation={dictation}
           onBurnPage={() => {
             clearTimeout(panelCloseTimeout.current);
             setPanel("");

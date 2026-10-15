@@ -8,6 +8,8 @@ import {
   purchaseWalletHouse,
   walletHasLighter,
   purchaseWalletLighter,
+  walletHasRadio,
+  purchaseWalletRadio,
   recordWalletBurn,
   resetWalletProgress,
   recordWalletWriting,
@@ -138,6 +140,7 @@ export function useWritingTimer(onComplete) {
         let purchasedDoctor = false;
         let purchasedHouse = false;
         let purchasedLighter = false;
+        let purchasedRadio = false;
         let progressReset = false;
         const pendingDeletions = pendingDeletionConfirmations();
         // Read the stored session inside the lock, then remove it before notifying.
@@ -239,6 +242,7 @@ export function useWritingTimer(onComplete) {
             "purchase-doctor",
             "purchase-house",
             "purchase-lighter",
+            "purchase-radio",
             "burn",
             "writing",
             "version-deletion",
@@ -251,11 +255,13 @@ export function useWritingTimer(onComplete) {
                 ? purchaseWalletHouse(next, time)
                 : action === "purchase-lighter"
                   ? purchaseWalletLighter(next, time)
-                  : action === "burn"
-                    ? recordWalletBurn(next, time)
-                    : action === "writing"
-                      ? recordWalletWriting(next, payload)
-                      : recordWalletDeletion(next, payload, time);
+                  : action === "purchase-radio"
+                    ? purchaseWalletRadio(next, time)
+                    : action === "burn"
+                      ? recordWalletBurn(next, time)
+                      : action === "writing"
+                        ? recordWalletWriting(next, payload)
+                        : recordWalletDeletion(next, payload, time);
           next = update.wallet;
           const { wallet: _wallet, ...outcome } = update;
           result = outcome;
@@ -267,6 +273,8 @@ export function useWritingTimer(onComplete) {
             action === "purchase-house" && update.ok && !update.alreadyOwned;
           purchasedLighter =
             action === "purchase-lighter" && update.ok && !update.alreadyOwned;
+          purchasedRadio =
+            action === "purchase-radio" && update.ok && !update.alreadyOwned;
         }
         if (action === "reset-progress") {
           const update = resetWalletProgress(next, time);
@@ -325,6 +333,11 @@ export function useWritingTimer(onComplete) {
         if (purchasedLighter)
           complete.current?.({
             key: "Зажигалка приобретена. Можно использовать многократно.",
+            values: [],
+          });
+        if (purchasedRadio)
+          complete.current?.({
+            key: "Рация приобретена. Микрофон можно включать многократно.",
             values: [],
           });
         if (progressReset) {
@@ -395,6 +408,7 @@ export function useWritingTimer(onComplete) {
     [change],
   );
   const recordBurn = useCallback(() => change("burn"), [change]);
+  const purchaseRadio = useCallback(() => change("purchase-radio"), [change]);
   const resetProgress = useCallback(() => change("reset-progress"), [change]);
   const recordWriting = useCallback(
     (activity) => change("writing", null, null, activity),
@@ -421,6 +435,8 @@ export function useWritingTimer(onComplete) {
     purchaseHouse,
     hasLighter: walletHasLighter(state),
     purchaseLighter,
+    hasRadio: walletHasRadio(state),
+    purchaseRadio,
     recordBurn,
     resetProgress,
     recordWriting,

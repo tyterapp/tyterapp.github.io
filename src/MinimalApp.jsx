@@ -75,6 +75,7 @@ import CharacterDialogue from "./CharacterDialogue.jsx";
 import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
 import AppMessage, { useAppMessage } from "./AppMessage.jsx";
 import WritingTimer from "./WritingTimer.jsx";
+import useSpeechDictation from "./useSpeechDictation.js";
 import MobileSheet from "./MobileSheet.jsx";
 import DoctorFlies from "./DoctorFlies.jsx";
 import BurningPaper from "./BurningPaper.jsx";
@@ -735,6 +736,19 @@ export default function MinimalApp({ onLogout }) {
   const [burningPage, setBurningPage] = useState(null);
   const burnInProgress = useRef(false);
   const [burnSequence, setBurnSequence] = useState(0);
+  const dictation = useSpeechDictation({
+    enabled:
+      writingTimer.hasRadio &&
+      !!documents.length &&
+      !notesOpen &&
+      !historyRevision &&
+      !burningPage &&
+      !characterView &&
+      view === "screenplay",
+    scope: writingScope,
+    language: languageLocale(),
+    editorRef,
+  });
   useEffect(() => {
     if (!writingTimer.hasDoctor) setDoctorOpen(false);
   }, [writingTimer.hasDoctor]);
@@ -3623,6 +3637,7 @@ export default function MinimalApp({ onLogout }) {
               view === "screenplay"
             }
             timer={writingTimer}
+            dictation={dictation}
             onBurnPage={burnLastPage}
             burnDisabled={!!burningPage || notesOpen}
             onResetProgress={() => {
