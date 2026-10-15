@@ -4,6 +4,7 @@ import {
   BriefcaseMedical,
   ChevronRight,
   Clapperboard,
+  Flame,
   MapPin,
   Package,
   Play,
@@ -157,6 +158,7 @@ export default function WritingShop({
     price: LIGHTER_PRICE,
     name: text("Зажигалка", "Lighter"),
     icon: LighterIcon,
+    useIcon: Flame,
     description: text(
       "Сжигает последнюю страницу сценария. Покупка разовая, использование многократное.",
       "Burns the last screenplay page. Buy once, use repeatedly.",
