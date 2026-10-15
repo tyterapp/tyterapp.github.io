@@ -1606,7 +1606,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             scrollToText(view, position, searchScrollFrame, true, {
               ensureRoom: true,
               targetElement: element,
-              avoidSelector: ".writing-shop",
+              avoidSelector: "#writing-coins",
             }),
         });
       },

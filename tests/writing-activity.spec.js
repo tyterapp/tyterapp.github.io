@@ -181,13 +181,15 @@ test("editor accrues coins without a timer, carries the remainder through reload
   const controls = await page.locator(".writing-timer").boundingBox();
   await page.locator('[data-block-id="body"]').click();
   await page.keyboard.insertText("z".repeat(99));
-  await expect(balance).toHaveClass(/is-rewarding.*is-transient/);
+  await expect(balance).toHaveClass(/is-rewarding/);
+  await expect(balance).not.toHaveClass(/is-transient/);
   expect(await page.locator(".writing-timer").boundingBox()).toEqual(controls);
   await expect(
     page.getByRole("alert").filter({ hasText: /\+\d+ coins/ }),
   ).toHaveCount(0);
   await expect.poll(async () => (await wallet())?.coins).toBe(31);
-  await expect(balance).toHaveCount(0);
+  await expect(balance).toBeVisible();
+  await expect(balance).toBeEnabled();
   await page
     .getByRole("button", { name: "Завершить таймер", exact: true })
     .click();

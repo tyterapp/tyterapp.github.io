@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BriefcaseMedical,
   ChevronRight,
+  Clapperboard,
   MapPin,
   Package,
   RefreshCw,
@@ -14,6 +15,7 @@ import {
   HOUSE_PRICE,
   LIGHTER_PRICE,
   RADIO_PRICE,
+  TIKITOK_PRICE,
   RESET_PROGRESS_PRICE,
 } from "./writing-wallet.js";
 import { MoneyIcon } from "./WritingTimerIcons.jsx";
@@ -30,16 +32,19 @@ export default function WritingShop({
   timer,
   closing,
   onClose,
+  onBack,
   onResetProgress,
   onBurnPage,
   burnDisabled = false,
   dictation,
+  onOpenTikiTok,
 }) {
   const language = useLanguage();
   const text = (ru, en) => (language === "en" ? en : ru);
   const closeRef = useRef(null);
   const backRef = useRef(null);
   const categoryRefs = useRef({});
+  const scrollRef = useRef(null);
   const [buying, setBuying] = useState("");
   const [error, setError] = useState("");
   const [category, setCategory] = useState("");
@@ -79,6 +84,7 @@ export default function WritingShop({
     closeRef.current?.focus({ preventScroll: true });
   }, []);
   useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     if (category) backRef.current?.focus({ preventScroll: true });
   }, [category]);
   useEffect(() => {
@@ -157,34 +163,61 @@ export default function WritingShop({
     label: text("Купить зажигалку за 50 монет", "Buy lighter for 50 coins"),
     purchase: timer.purchaseLighter,
   };
+  const tikitok = {
+    id: "tikitok",
+    owned: timer.hasTikiTok,
+    price: TIKITOK_PRICE,
+    name: "TikiTok",
+    icon: Clapperboard,
+    label: text("Купить TikiTok за 200 монет", "Buy TikiTok for 200 coins"),
+    purchase: timer.purchaseTikiTok,
+    useLabel: text("Открыть TikiTok", "Open TikiTok"),
+    useDisabled: false,
+    onUse: onOpenTikiTok,
+  };
   const productTile = (product) => (
-    <div key={product.id} className="writing-shop-product">
+    <div
+      key={product.id}
+      className="writing-shop-product"
+      data-product={product.id}
+    >
       <span className="writing-shop-product-icon">
         <product.icon size={24} aria-hidden="true" />
       </span>
       <div className="writing-shop-product-copy">
         <strong>{product.name}</strong>
-        <p>{product.description}</p>
+        {product.description && <p>{product.description}</p>}
       </div>
       <button
+        key={product.owned ? "use" : "buy"}
         type="button"
         className="writing-shop-buy"
         aria-label={
           product.owned
-            ? text("Сжечь последнюю страницу", "Burn the last page")
+            ? product.useLabel ||
+              text("Сжечь последнюю страницу", "Burn the last page")
             : product.label
         }
         disabled={
           !!buying ||
           closing ||
-          (product.owned ? burnDisabled : timer.coins < product.price)
+          (product.owned
+            ? (product.useDisabled ?? burnDisabled)
+            : timer.coins < product.price)
         }
-        onClick={() => (product.owned ? onBurnPage?.() : purchase(product))}
+        onClick={() =>
+          product.owned ? (product.onUse || onBurnPage)?.() : purchase(product)
+        }
       >
-        {product.owned ? <LighterIcon size={18} /> : <MoneyIcon />}
+        {product.owned ? (
+          <product.icon size={18} aria-hidden="true" />
+        ) : (
+          <MoneyIcon />
+        )}
         <span>
           {product.owned
-            ? text("Сжечь последнюю страницу", "Burn the last page")
+            ? product.useLabel ||
+              text("Сжечь последнюю страницу", "Burn the last page")
             : buying === product.id
               ? text("Покупка…", "Buying…")
               : product.price}
@@ -193,30 +226,28 @@ export default function WritingShop({
     </div>
   );
   return (
-    <aside
-      id="writing-shop"
-      className={`writing-shop${closing ? " is-closing" : ""}`}
-      role="dialog"
-      aria-label={text("Магазин", "Shop")}
-      aria-modal="false"
-    >
+    <div id="writing-shop" className="writing-shop-content">
       <header className="writing-shop-header">
-        {selected ? (
-          <button
-            ref={backRef}
-            type="button"
-            className="writing-timer-button"
-            aria-label={text("Назад к категориям", "Back to categories")}
-            onClick={() => {
-              setCategory("");
-              requestAnimationFrame(() =>
-                categoryRefs.current[category]?.focus({ preventScroll: true }),
-              );
-            }}
-          >
-            <ArrowLeft size={18} aria-hidden="true" />
-          </button>
-        ) : null}
+        <button
+          ref={backRef}
+          type="button"
+          className="writing-timer-button"
+          aria-label={
+            selected
+              ? text("Назад к категориям", "Back to categories")
+              : text("Назад к монетам", "Back to coins")
+          }
+          disabled={closing}
+          onClick={() => {
+            if (!selected) return onBack();
+            setCategory("");
+            requestAnimationFrame(() =>
+              categoryRefs.current[category]?.focus({ preventScroll: true }),
+            );
+          }}
+        >
+          <ArrowLeft size={18} aria-hidden="true" />
+        </button>
         <strong>
           {recording
             ? text("Рация", "Radio")
@@ -232,7 +263,7 @@ export default function WritingShop({
           <X size={18} aria-hidden="true" />
         </button>
       </header>
-      <div className="writing-popover-scroll">
+      <div ref={scrollRef} className="writing-popover-scroll">
         {selected ? (
           <div className="writing-shop-list">
             {category === "misc" && (
@@ -253,6 +284,7 @@ export default function WritingShop({
                       : null
                   }
                 />
+                {!recording && productTile(tikitok)}
               </>
             )}
             {!recording && (
@@ -295,7 +327,8 @@ export default function WritingShop({
             products.some((product) => timer.coins < product.price)) ||
             (category === "misc" &&
               ((!lighter.owned && timer.coins < LIGHTER_PRICE) ||
-                (!timer.hasRadio && timer.coins < RADIO_PRICE)))) && (
+                (!timer.hasRadio && timer.coins < RADIO_PRICE) ||
+                (!timer.hasTikiTok && timer.coins < TIKITOK_PRICE)))) && (
             <p className="writing-shop-hint">
               {text(
                 "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
@@ -322,6 +355,6 @@ export default function WritingShop({
           </button>
         )}
       </div>
-    </aside>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { openWritingShop } from "../helpers/writing-shop.js";
 import { test, expect } from "@playwright/test";
 import { createProject } from "../../src/data.js";
 import { PRO_VERIFIED_STORAGE } from "../../src/pro-access.js";
@@ -86,9 +87,7 @@ test("the installed editor reloads offline, keeps document changes and loads the
   await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
   await expect(page.locator(".outline-layout")).toBeVisible();
   await page.getByRole("button", { name: "Сценарий", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await page
     .getByRole("button", {
       name: "Купить oiia домик за 100 монет",

@@ -149,8 +149,8 @@
 .writing-timer-time.is-paused {
   color: var(--ui-accent);
 }
-.writing-shop,
 .writing-house,
+.writing-tikitok,
 .writing-coins {
   position: absolute;
   bottom: calc(100% + 12px);
@@ -172,8 +172,8 @@
   transform-origin: bottom left;
   animation: writing-shop-enter 160ms ease-out both;
 }
-.writing-shop.is-closing,
 .writing-house.is-closing,
+.writing-tikitok.is-closing,
 .writing-coins.is-closing {
   animation: writing-shop-exit 160ms ease-in both;
   pointer-events: none;
@@ -185,6 +185,11 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
+}
+.writing-shop-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .writing-popover-scroll {
   min-height: 0;
@@ -264,6 +269,28 @@
 }
 .writing-house.is-expanded {
   width: calc(var(--house-width) * 2);
+}
+.writing-tikitok {
+  width: min(280px, var(--writing-popover-width, calc(100vw - 104px)));
+}
+.writing-tikitok-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: max(
+    0px,
+    calc(var(--writing-popover-height, calc(100dvh - 160px)) - 72px)
+  );
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+  border-radius: 12px;
+  background: oklch(0 0 0);
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+[data-theme="dark"] .writing-tikitok-video {
+  outline-color: oklch(1 0 0 / 0.1);
 }
 .writing-house-actions {
   display: flex;
@@ -594,7 +621,8 @@
   }
 }
 @media (min-width: 320px) and (max-width: 831px) {
-  .minimal-app[data-mobile] :is(.writing-shop, .writing-house, .writing-coins) {
+  .minimal-app[data-mobile]
+    :is(.writing-house, .writing-coins, .writing-tikitok) {
     width: min(328px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
   }
@@ -650,10 +678,10 @@
   .minimal-app .writing-shop-reset {
     transition: none;
   }
-  .writing-shop,
-  .writing-shop.is-closing,
   .writing-house,
   .writing-house.is-closing,
+  .writing-tikitok,
+  .writing-tikitok.is-closing,
   .writing-coins,
   .writing-coins.is-closing {
     animation: none;

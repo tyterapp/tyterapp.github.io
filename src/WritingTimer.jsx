@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Play, X, Store } from "lucide-react";
+import { Clapperboard, Play, X } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
-import WritingShop from "./WritingShop.jsx";
 import WritingHouse from "./WritingHouse.jsx";
 import WritingCoins from "./WritingCoins.jsx";
+import WritingTikiTok from "./WritingTikiTok.jsx";
 import { CatIcon } from "./WritingHouseIcons.jsx";
 import {
   MoneyIcon,
@@ -24,13 +24,13 @@ export default function WritingTimer({
   const language = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState("");
-  const shopOpen = panel === "shop";
   const houseOpen = panel === "house";
   const coinsOpen = panel === "coins";
+  const tikiTokOpen = panel === "tikitok";
   const [panelClosing, setPanelClosing] = useState(false);
-  const shopButtonRef = useRef(null);
   const houseButtonRef = useRef(null);
   const coinsButtonRef = useRef(null);
+  const tikiTokButtonRef = useRef(null);
   const panelCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const [rewardPulse, setRewardPulse] = useState(0);
@@ -55,9 +55,9 @@ export default function WritingTimer({
     if (!panel || panelClosing) return;
     const button = houseOpen
       ? houseButtonRef
-      : coinsOpen
-        ? coinsButtonRef
-        : shopButtonRef;
+      : tikiTokOpen
+        ? tikiTokButtonRef
+        : coinsButtonRef;
     setPanelClosing(true);
     panelCloseTimeout.current = setTimeout(() => {
       setPanel("");
@@ -78,9 +78,17 @@ export default function WritingTimer({
       clearTimeout(panelCloseTimeout.current);
       setPanel("");
       setPanelClosing(false);
-      shopButtonRef.current?.focus({ preventScroll: true });
+      coinsButtonRef.current?.focus({ preventScroll: true });
     }
   }, [timer.hasHouse, houseOpen]);
+  useEffect(() => {
+    if (!timer.hasTikiTok && tikiTokOpen) {
+      clearTimeout(panelCloseTimeout.current);
+      setPanel("");
+      setPanelClosing(false);
+      coinsButtonRef.current?.focus({ preventScroll: true });
+    }
+  }, [timer.hasTikiTok, tikiTokOpen]);
   useEffect(() => {
     if (!panel) return;
     const close = (event) => {
@@ -90,6 +98,7 @@ export default function WritingTimer({
         closePanel();
       } else if (
         event.type === "pointerdown" &&
+        !tikiTokOpen &&
         !ref.current?.contains(event.target)
       )
         closePanel(false);
@@ -183,30 +192,32 @@ export default function WritingTimer({
       aria-label={t("Таймер письма")}
       onMouseDown={(event) => event.preventDefault()}
     >
-      {shopOpen && (
-        <WritingShop
-          timer={timer}
-          closing={panelClosing}
-          onClose={closePanel}
-          onResetProgress={onResetProgress}
-          burnDisabled={burnDisabled}
-          dictation={dictation}
-          onBurnPage={() => {
-            clearTimeout(panelCloseTimeout.current);
-            setPanel("");
-            setPanelClosing(false);
-            onBurnPage?.();
-          }}
-        />
-      )}
       {houseOpen && (
         <WritingHouse closing={panelClosing} onClose={closePanel} />
+      )}
+      {tikiTokOpen && (
+        <WritingTikiTok closing={panelClosing} onClose={closePanel} />
       )}
       {coinsOpen && (
         <WritingCoins
           timer={timer}
           closing={panelClosing}
           onClose={closePanel}
+          onResetProgress={onResetProgress}
+          burnDisabled={burnDisabled}
+          dictation={dictation}
+          onOpenTikiTok={() => {
+            if (!timer.hasTikiTok) return;
+            clearTimeout(panelCloseTimeout.current);
+            setPanelClosing(false);
+            setPanel("tikitok");
+          }}
+          onBurnPage={() => {
+            clearTimeout(panelCloseTimeout.current);
+            setPanel("");
+            setPanelClosing(false);
+            onBurnPage?.();
+          }}
         />
       )}
       {timer.session ? (
@@ -282,16 +293,16 @@ export default function WritingTimer({
           <TimerIcon />
         </button>
       )}
-      {((!timer.session && !pickerOpen) || rewardPulse > 0) && (
+      {(!pickerOpen || rewardPulse > 0) && (
         <button
           ref={coinsButtonRef}
           type="button"
-          className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${timer.session || pickerOpen ? " is-transient" : ""}`}
+          className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${pickerOpen ? " is-transient" : ""}`}
           aria-label={t("Монеты: {0}", timer.coins)}
           data-tooltip={coinsOpen ? undefined : t("Монеты: {0}", timer.coins)}
           aria-expanded={coinsOpen && !panelClosing}
           aria-controls="writing-coins"
-          disabled={!!timer.session || pickerOpen}
+          disabled={pickerOpen}
           onClick={() => {
             if (coinsOpen && !panelClosing) closePanel();
             else {
@@ -340,25 +351,25 @@ export default function WritingTimer({
           <CatIcon />
         </button>
       )}
-      {!pickerOpen && (
+      {timer.hasTikiTok && !pickerOpen && (
         <button
-          ref={shopButtonRef}
+          ref={tikiTokButtonRef}
           type="button"
           className="writing-timer-button is-idle"
-          aria-label={language === "en" ? "Open shop" : "Открыть магазин"}
-          data-tooltip={language === "en" ? "Shop" : "Магазин"}
-          aria-expanded={shopOpen && !panelClosing}
-          aria-controls="writing-shop"
+          aria-label={language === "en" ? "Open TikiTok" : "Открыть TikiTok"}
+          data-tooltip="TikiTok"
+          aria-expanded={tikiTokOpen && !panelClosing}
+          aria-controls="writing-tikitok"
           onClick={() => {
-            if (shopOpen && !panelClosing) closePanel();
+            if (tikiTokOpen && !panelClosing) closePanel();
             else {
               clearTimeout(panelCloseTimeout.current);
               setPanelClosing(false);
-              setPanel("shop");
+              setPanel("tikitok");
             }
           }}
         >
-          <Store size={20} aria-hidden="true" />
+          <Clapperboard size={20} aria-hidden="true" />
         </button>
       )}
     </div>

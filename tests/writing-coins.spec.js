@@ -62,13 +62,16 @@ async function open(
 
 test("coin onboarding shows real rewards and progress; section navigation, keyboard and shared popovers never spend coins", async ({
   page,
-}) => {
+}, info) => {
   await open(page);
   await expect(page.locator(".writing-timer .lucide-flame")).toHaveCount(0);
   await expect(page.locator(".writing-streak")).toHaveCount(0);
   const before = await readWallet(page);
   await coins(page).click();
   await expect(panel(page)).toBeVisible();
+  await panel(page).screenshot({
+    path: info.outputPath("coins-shop-entry.png"),
+  });
   await expect(coins(page)).toHaveAttribute("aria-expanded", "true");
   await expect(panel(page)).toContainText(
     "5 минут = 5 монет, 25 минут = 25 монет",
@@ -120,12 +123,58 @@ test("coin onboarding shows real rewards and progress; section navigation, keybo
   await coins(page).click();
   await expect(page.locator("#writing-house")).toHaveCount(0);
   await expect(panel(page)).toBeVisible();
+  await expect(
+    page.locator(".writing-timer > button .lucide-store"),
+  ).toHaveCount(0);
+  await expect(panel(page).locator(".writing-coins-section")).toHaveText([
+    /Стрики за день/,
+    /Достижения/,
+    "Магазин",
+  ]);
+  await panel(page).evaluate((element) => {
+    window.coinsWindow = element;
+  });
   await page
     .getByRole("button", { name: "Открыть магазин", exact: true })
     .click();
-  await expect(panel(page)).toHaveCount(0);
+  await expect(panel(page)).toBeVisible();
+  await expect(panel(page)).toHaveAccessibleName("Магазин");
+  expect(
+    await panel(page).evaluate((element) => element === window.coinsWindow),
+  ).toBe(true);
+  await expect(page.locator(".writing-timer [role='dialog']")).toHaveCount(1);
   await expect(page.locator("#writing-shop")).toBeVisible();
+  await panel(page)
+    .getByRole("button", { name: "Разное", exact: true })
+    .click();
+  await panel(page)
+    .getByRole("button", { name: "Назад к категориям", exact: true })
+    .click();
+  await panel(page)
+    .getByRole("button", { name: "Назад к монетам", exact: true })
+    .click();
+  await expect(panel(page)).toHaveAccessibleName("Монеты");
+  await expect(
+    panel(page).getByRole("button", { name: "Открыть магазин", exact: true }),
+  ).toBeFocused();
+  await expect(page.locator("#writing-shop")).toHaveCount(0);
   expect(await readWallet(page)).toEqual(before);
+  await panel(page)
+    .getByRole("button", { name: "Закрыть монеты", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Открыть таймер", exact: true })
+    .click();
+  await page.getByRole("button", { name: "5 мин", exact: true }).click();
+  await expect(coins(page)).toBeVisible();
+  await expect(coins(page)).toBeEnabled();
+  await coins(page).click();
+  await panel(page)
+    .getByRole("button", { name: "Открыть магазин", exact: true })
+    .click();
+  await expect(page.getByRole("timer")).toBeVisible();
+  await expect(panel(page)).toHaveAccessibleName("Магазин");
+  expect((await readWallet(page)).coins).toBe(before.coins);
 });
 
 test("earned achievements and five-day streak are shown, and an external progress reset updates the open panel", async ({
@@ -182,13 +231,16 @@ test("earned achievements and five-day streak are shown, and an external progres
 
 test("320px dark mode: the empty wallet, English sections and reduced motion fit the viewport with touch targets", async ({
   page,
-}) => {
+}, info) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, { theme: "dark", empty: true });
   await page.getByRole("button", { name: "ENG", exact: true }).click();
   await coins(page).click();
   await expect(panel(page)).toHaveAccessibleName("Coins");
+  await panel(page).screenshot({
+    path: info.outputPath("coins-shop-entry-mobile-dark.png"),
+  });
   await expect(panel(page)).toContainText("Every 100 new characters");
   await expect(panel(page)).toContainText("Ending early gives no reward");
   const bounds = await panel(page).boundingBox();
@@ -196,7 +248,12 @@ test("320px dark mode: the empty wallet, English sections and reduced motion fit
   expect(bounds.y).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
   expect((await coins(page).boundingBox()).height).toBe(44);
-  for (const name of ["Daily streaks", "Achievements", "Close coins"]) {
+  for (const name of [
+    "Daily streaks",
+    "Achievements",
+    "Open shop",
+    "Close coins",
+  ]) {
     const hit = await panel(page)
       .getByRole("button", { name, exact: true })
       .boundingBox();
@@ -218,6 +275,17 @@ test("320px dark mode: the empty wallet, English sections and reduced motion fit
     .click();
   await expect(panel(page)).toContainText("Scavenger");
   await expect(panel(page)).toContainText("Not unlocked yet");
+  await panel(page).getByRole("button", { name: "Back to coins" }).click();
+  await panel(page)
+    .getByRole("button", { name: "Open shop", exact: true })
+    .click();
+  await expect(panel(page)).toHaveAccessibleName("Shop");
+  await expect(
+    panel(page).getByRole("button", { name: "Miscellaneous", exact: true }),
+  ).toBeVisible();
+  await panel(page)
+    .getByRole("button", { name: "Back to coins", exact: true })
+    .click();
   await panel(page)
     .getByRole("button", { name: "Close coins", exact: true })
     .click();

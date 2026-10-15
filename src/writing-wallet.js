@@ -8,6 +8,8 @@ export const LIGHTER_PRODUCT = "paper-lighter";
 export const LIGHTER_PRICE = 50;
 export const RADIO_PRODUCT = "dictation-radio";
 export const RADIO_PRICE = 100;
+export const TIKITOK_PRODUCT = "tikitok";
+export const TIKITOK_PRICE = 200;
 export const BURN_ACHIEVEMENT = "burn-after-reading";
 export const RESET_PROGRESS_PRICE = 200;
 export const SCAVENGER_ACHIEVEMENT = "scavenger";
@@ -100,6 +102,7 @@ export function cleanWalletExtras(value) {
       [HOUSE_PRODUCT, HOUSE_PRICE],
       [LIGHTER_PRODUCT, LIGHTER_PRICE],
       [RADIO_PRODUCT, RADIO_PRICE],
+      [TIKITOK_PRODUCT, TIKITOK_PRICE],
     ].flatMap(([id, cost]) => {
       const purchase = value?.purchases?.[id];
       return Number.isFinite(purchase?.purchasedAt) && purchase.purchasedAt >= 0
@@ -205,6 +208,14 @@ export function walletHasRadio(wallet) {
 
 export function purchaseWalletRadio(wallet, now = Date.now()) {
   return purchaseWalletProduct(wallet, RADIO_PRODUCT, RADIO_PRICE, now);
+}
+
+export function walletHasTikiTok(wallet) {
+  return Number.isFinite(wallet?.purchases?.[TIKITOK_PRODUCT]?.purchasedAt);
+}
+
+export function purchaseWalletTikiTok(wallet, now = Date.now()) {
+  return purchaseWalletProduct(wallet, TIKITOK_PRODUCT, TIKITOK_PRICE, now);
 }
 
 export function recordWalletBurn(wallet, now = Date.now()) {

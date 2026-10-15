@@ -1,3 +1,4 @@
+import { openWritingShop } from "./helpers/writing-shop.js";
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import { localDay, dailyVisit } from "../src/daily-streak.js";
@@ -133,9 +134,7 @@ async function open(page, { seed = true, coins = 240, mobile = false } = {}) {
 }
 
 async function requestReset(page) {
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await resetButton(page).click();
   await expect(confirm(page)).toBeVisible();
 }
@@ -171,9 +170,7 @@ test("reset confirms at the top, persists zero after reload, leaves script text 
     "Кошка спит на диване.",
   );
   await expect(page.locator(".writing-timer-balance-content")).toHaveText("0");
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await expect(
     shop(page).getByRole("button", {
       name: "Купить oiia домик за 100 монет",
@@ -186,16 +183,14 @@ test("reset confirms at the top, persists zero after reload, leaves script text 
       exact: true,
     }),
   ).toBeDisabled();
-  await expect(shop(page).locator(".writing-shop-category")).toHaveCount(0);
+  await expect(shop(page).locator(".writing-shop-category")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(shop(page)).toHaveCount(0);
   await page.locator(".screenplay-editor p").last().click();
   await page.keyboard.press("End");
   await page.keyboard.insertText("а".repeat(200));
   await expect(page.locator(".writing-timer-balance-content")).toHaveText("20");
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await shop(page)
     .getByRole("button", {
       name: "Купить доктора сценария за 20 монет",
@@ -236,9 +231,7 @@ test("199 coins cannot buy a reset, and the cost is rechecked when confirming", 
   page,
 }) => {
   await open(page, { coins: 199 });
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await expect(resetButton(page)).toBeDisabled();
   await page.evaluate((key) => {
     const value = JSON.parse(localStorage.getItem(key));

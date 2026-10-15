@@ -1,3 +1,4 @@
+import { openWritingShop } from "./helpers/writing-shop.js";
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import {
@@ -132,10 +133,7 @@ async function openMisc(page) {
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const shop = page.locator("#writing-shop");
-  if (!(await shop.count()))
-    await page
-      .getByRole("button", { name: /^(Открыть магазин|Open shop)$/ })
-      .click();
+  if (!(await shop.count())) await openWritingShop(page);
   const category = shop.getByRole("button", {
     name: /^(Разное|Miscellaneous)$/,
   });
@@ -149,9 +147,7 @@ async function useLighter(page) {
   await burn(page).click();
 }
 async function buy(page) {
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await expect(page.locator("#writing-shop")).not.toContainText("Зажигалка");
   await openMisc(page);
   await page

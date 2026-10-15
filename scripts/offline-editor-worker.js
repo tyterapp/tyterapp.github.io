@@ -3,6 +3,34 @@ const PREFIX = "tyter-editor-";
 const resourcePaths = new Set(RESOURCES);
 const editorPaths = new Set(["/beta", "/pro", "/app", "/free"]);
 
+async function videoRange(response, range) {
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(range.trim());
+  if (!match || (!match[1] && !match[2])) return response;
+  const body = await response.blob(),
+    size = body.size;
+  const start = match[1]
+    ? Number(match[1])
+    : Math.max(0, size - Number(match[2]));
+  const end =
+    match[1] && match[2] ? Math.min(size - 1, Number(match[2])) : size - 1;
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start > end ||
+    start >= size
+  )
+    return new Response(null, {
+      status: 416,
+      headers: { "Content-Range": `bytes */${size}` },
+    });
+  const headers = new Headers(response.headers);
+  headers.delete("Content-Encoding");
+  headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
+  headers.set("Content-Length", String(end - start + 1));
+  headers.set("Accept-Ranges", "bytes");
+  return new Response(body.slice(start, end + 1), { status: 206, headers });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -69,7 +97,16 @@ self.addEventListener("fetch", (event) => {
           !response && url.pathname.startsWith("/assets/")
             ? await caches.match(request, { ignoreSearch: true })
             : null;
-        return response || previous || fetch(request);
+        const cached = response || previous;
+        const range = request.headers.get("Range");
+        // Native video seeking and looping request partial bytes, including offline.
+        if (
+          cached?.status === 200 &&
+          range &&
+          url.pathname.startsWith("/tikitok/")
+        )
+          return videoRange(cached, range);
+        return cached || fetch(request);
       })(),
     );
   }

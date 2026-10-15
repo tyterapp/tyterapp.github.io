@@ -1,3 +1,4 @@
+import { openWritingShop } from "./helpers/writing-shop.js";
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import {
@@ -224,9 +225,7 @@ const json = (page) =>
   page.locator(".screenplay-editor").evaluate((node) => node.editor.getJSON());
 async function openRadio(page) {
   if (!(await page.locator("#writing-shop").count()))
-    await page
-      .getByRole("button", { name: /^(Открыть магазин|Open shop)$/ })
-      .click();
+    await openWritingShop(page);
   const category = page.getByRole("button", {
     name: /^(Разное|Miscellaneous)$/,
   });
@@ -278,9 +277,7 @@ test("radio is a separate miscellaneous item; buying never turns the mic on, and
   page,
 }, info) => {
   await open(page);
-  await page
-    .getByRole("button", { name: "Открыть магазин", exact: true })
-    .click();
+  await openWritingShop(page);
   await expect(page.locator("#writing-shop")).not.toContainText("Рация");
   await openRadio(page);
   await expect(

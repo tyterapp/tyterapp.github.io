@@ -1,3 +1,4 @@
+import { openWritingShop } from "./helpers/writing-shop.js";
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import { localDay } from "../src/daily-streak.js";
@@ -224,8 +225,7 @@ async function open(page, { theme = "light", coins = 20, seed = true } = {}) {
 }
 const shop = (page) =>
   page.getByRole("dialog", { name: "Магазин", exact: true });
-const openShop = (page) =>
-  page.getByRole("button", { name: "Открыть магазин", exact: true }).click();
+const openShop = (page) => openWritingShop(page);
 const purchase = (page) =>
   shop(page).getByRole("button", {
     name: "Купить доктора сценария за 20 монет",
@@ -233,7 +233,7 @@ const purchase = (page) =>
   });
 
 for (const theme of ["light", "dark"]) {
-  test(`${theme}: bottom shop purchases the doctor once, persists, and closes with Escape`, async ({
+  test(`${theme}: the shop inside coins purchases the doctor once, persists, and closes with Escape`, async ({
     page,
   }) => {
     await open(page, { theme });
@@ -250,9 +250,7 @@ for (const theme of ["light", "dark"]) {
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(shop(page)).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "Открыть магазин", exact: true }),
-    ).toBeFocused();
+    await expect(page.locator(".writing-timer-balance")).toBeFocused();
     await page.reload();
     await openShop(page);
     await expect(purchase(page)).toHaveCount(0);
@@ -400,7 +398,7 @@ for (const theme of ["light", "dark"]) {
     );
     await page.getByRole("button", { name: "ENG", exact: true }).click();
     await expect(page.locator("#writing-shop")).toHaveCount(0);
-    await page.getByRole("button", { name: "Open shop", exact: true }).click();
+    await openWritingShop(page);
     const englishShop = page.getByRole("dialog", { name: "Shop", exact: true });
     await englishShop
       .getByRole("button", { name: "Locations", exact: true })

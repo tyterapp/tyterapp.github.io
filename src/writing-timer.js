@@ -10,6 +10,8 @@ import {
   purchaseWalletLighter,
   walletHasRadio,
   purchaseWalletRadio,
+  walletHasTikiTok,
+  purchaseWalletTikiTok,
   recordWalletBurn,
   resetWalletProgress,
   recordWalletWriting,
@@ -243,6 +245,7 @@ export function useWritingTimer(onComplete) {
             "purchase-house",
             "purchase-lighter",
             "purchase-radio",
+            "purchase-tikitok",
             "burn",
             "writing",
             "version-deletion",
@@ -257,11 +260,13 @@ export function useWritingTimer(onComplete) {
                   ? purchaseWalletLighter(next, time)
                   : action === "purchase-radio"
                     ? purchaseWalletRadio(next, time)
-                    : action === "burn"
-                      ? recordWalletBurn(next, time)
-                      : action === "writing"
-                        ? recordWalletWriting(next, payload)
-                        : recordWalletDeletion(next, payload, time);
+                    : action === "purchase-tikitok"
+                      ? purchaseWalletTikiTok(next, time)
+                      : action === "burn"
+                        ? recordWalletBurn(next, time)
+                        : action === "writing"
+                          ? recordWalletWriting(next, payload)
+                          : recordWalletDeletion(next, payload, time);
           next = update.wallet;
           const { wallet: _wallet, ...outcome } = update;
           result = outcome;
@@ -409,6 +414,10 @@ export function useWritingTimer(onComplete) {
   );
   const recordBurn = useCallback(() => change("burn"), [change]);
   const purchaseRadio = useCallback(() => change("purchase-radio"), [change]);
+  const purchaseTikiTok = useCallback(
+    () => change("purchase-tikitok"),
+    [change],
+  );
   const resetProgress = useCallback(() => change("reset-progress"), [change]);
   const recordWriting = useCallback(
     (activity) => change("writing", null, null, activity),
@@ -437,6 +446,8 @@ export function useWritingTimer(onComplete) {
     purchaseLighter,
     hasRadio: walletHasRadio(state),
     purchaseRadio,
+    hasTikiTok: walletHasTikiTok(state),
+    purchaseTikiTok,
     recordBurn,
     resetProgress,
     recordWriting,

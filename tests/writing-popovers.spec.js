@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createProject } from "../src/data.js";
 import { grantPro } from "./helpers/pro-access.js";
+import { openWritingShop } from "./helpers/writing-shop.js";
 
 async function open(page, theme = "light") {
   await grantPro(page);
@@ -166,7 +167,7 @@ for (const theme of ["light", "dark"]) {
     page,
   }) => {
     await open(page, theme);
-    await openShop(page).click();
+    await openWritingShop(page);
     await expect(closeShop(page)).toBeFocused();
     await expect(closeShop(page)).toHaveCSS("outline-style", "none");
     await shop(page)
@@ -184,13 +185,21 @@ for (const theme of ["light", "dark"]) {
     ).toHaveCSS("outline-style", "none");
     await closeShop(page).click();
     await expect(shop(page)).toHaveCount(0);
-    await expect(openShop(page)).toHaveCSS("outline-style", "none");
+    const coins = page.locator(".writing-timer-balance");
+    await expect(coins).toHaveCSS("outline-style", "none");
 
     // Place focus before the opener, then use actual Tab navigation.
     await page
-      .getByRole("button", { name: "Открыть oiia домик", exact: true })
+      .getByRole("button", { name: "Открыть таймер", exact: true })
       .focus();
     await page.keyboard.press("Tab");
+    await expect(coins).toBeFocused();
+    await expect(coins).toHaveCSS("outline-style", "solid");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("button", { name: "Закрыть монеты", exact: true }),
+    ).toBeFocused();
+    for (let i = 0; i < 3; i++) await page.keyboard.press("Tab");
     await expect(openShop(page)).toBeFocused();
     await expect(openShop(page)).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Enter");
@@ -208,9 +217,9 @@ for (const theme of ["light", "dark"]) {
     await expect(back).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Escape");
     await expect(shop(page)).toHaveCount(0);
-    await expect(openShop(page)).toBeFocused();
-    await expect(openShop(page)).toHaveCSS("outline-style", "solid");
-    await openShop(page).click();
+    await expect(coins).toBeFocused();
+    await expect(coins).toHaveCSS("outline-style", "solid");
+    await openWritingShop(page);
     await expect(closeShop(page)).toHaveCSS("outline-style", "none");
     await closeShop(page).click();
 
@@ -233,7 +242,7 @@ for (const theme of ["light", "dark"]) {
   }, info) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await open(page, theme);
-    await openShop(page).click();
+    await openWritingShop(page);
     await expect.poll(() => overflow(page)).toBeLessThanOrEqual(1);
     expect((await shop(page).boundingBox()).height).toBeGreaterThan(360);
     await page.screenshot({ path: info.outputPath("full-shop-desktop.png") });
