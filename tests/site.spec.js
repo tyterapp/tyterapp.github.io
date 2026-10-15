@@ -64,6 +64,24 @@ test("landing keeps the left panel fixed, offers the correct routes and ends wit
     "Без ограничений",
   );
   await expect(page.locator(".site-comparison")).toContainText("TYT");
+  await expect(page.locator(".site-plan-group")).toHaveCount(5);
+  for (const feature of [
+    "Девять цветных версий и копии сценария",
+    "Свойства кадра: формат, оптика, план, ракурс, композиция и свет",
+    "Дата съёмки и локация на карте с координатами",
+    "Доктор сценария: проверка формата и отключаемые мухи",
+    "Зажигалка: многократное сжигание последней страницы",
+  ])
+    await expect(
+      page.getByRole("rowheader", { name: feature, exact: true }),
+    ).toHaveCount(1);
+  const doctor = page
+    .getByRole("rowheader", {
+      name: "Доктор сценария: проверка формата и отключаемые мухи",
+      exact: true,
+    })
+    .locator("..");
+  await expect(doctor.locator("td")).toHaveText(["20 монет", "20 монет"]);
   await page.screenshot({ path: ".cache/landing-annual-plans.png" });
   expect(errors).toEqual([]);
   await page

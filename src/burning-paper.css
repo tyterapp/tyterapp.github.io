@@ -1,60 +1,48 @@
-.burning-paper-dialog {
+.burning-paper-layer {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  max-height: none;
-  bottom: auto;
-  padding: 16px;
-  border: 0;
-  margin: 0;
-  background: transparent;
-  color: #fff;
-  overflow: hidden;
-}
-.burning-paper-dialog::backdrop {
-  background: rgb(12 9 16 / 72%);
-}
-.burning-paper-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
-.burning-paper-content p {
-  margin: 0;
-  font-size: 14px;
+  z-index: 60;
+  overflow: clip;
+  pointer-events: none;
+  contain: strict;
 }
 .burning-paper-canvas {
+  position: absolute;
   display: block;
-  width: min(
-    100%,
-    calc(min(760px, var(--burn-canvas-height, 72dvh)) * var(--burn-aspect))
-  );
-  height: auto;
-  flex-shrink: 0;
-  object-fit: contain;
   background-size: 100% 100%;
-}
-.burning-paper-content .quiet-button {
-  color: #fff;
-  min-height: 40px;
-  background: rgb(255 255 255 / 10%);
 }
 .burning-paper-fallback {
   animation: burning-paper-fade 1200ms ease-in forwards;
+}
+.burning-paper-reduced {
+  animation: burning-paper-reduced 180ms linear forwards;
+}
+.burning-paper-reveal {
+  animation: burning-paper-dissolve 700ms ease-out both;
 }
 @keyframes burning-paper-fade {
   to {
     opacity: 0;
     clip-path: inset(0 0 100% 0);
+    filter: sepia(1) brightness(0.45);
   }
 }
-@media (max-width: 831px) {
-  .burning-paper-content .quiet-button {
-    min-height: 44px;
+@keyframes burning-paper-reduced {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes burning-paper-dissolve {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .burning-paper-reveal {
+    animation: burning-paper-reduced 160ms linear reverse both;
   }
 }

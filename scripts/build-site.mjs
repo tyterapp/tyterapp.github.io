@@ -1,11 +1,14 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import { SITE_ROUTES } from "../src/site-content.js";
+import { pageMetadata, writeSiteSeo } from "./site-seo.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "site-dist");
 await build({ root, mode: "production", build: { outDir: output } });
+await writeSiteSeo(output);
+const html = await readFile(path.join(output, "index.html"), "utf8");
 for (const page of [
   "app",
   "free",
@@ -16,10 +19,10 @@ for (const page of [
   ...SITE_ROUTES,
 ]) {
   await mkdir(path.join(output, page), { recursive: true });
-  await copyFile(
-    path.join(output, "index.html"),
+  await writeFile(
     path.join(output, page, "index.html"),
+    pageMetadata(html, page),
   );
 }
-await copyFile(path.join(output, "index.html"), path.join(output, "404.html"));
+await writeFile(path.join(output, "404.html"), pageMetadata(html, "404"));
 console.log("Сайт готов: " + output);

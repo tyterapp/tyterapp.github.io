@@ -29,6 +29,8 @@ export default function WritingShop({
   closing,
   onClose,
   onResetProgress,
+  onBurnPage,
+  burnDisabled = false,
 }) {
   const language = useLanguage();
   const text = (ru, en) => (language === "en" ? en : ru);
@@ -76,8 +78,8 @@ export default function WritingShop({
     if (category) backRef.current?.focus({ preventScroll: true });
   }, [category]);
   useEffect(() => {
-    if (!timer.hasHouse) setCategory("");
-  }, [timer.hasHouse]);
+    if (!timer.hasHouse && category && category !== "misc") setCategory("");
+  }, [timer.hasHouse, category]);
   const purchase = async (product) => {
     if (buying) return;
     setBuying(product.id);
@@ -137,20 +139,55 @@ export default function WritingShop({
       ),
       purchase: timer.purchaseHouse,
     },
-    {
-      id: "lighter",
-      owned: timer.hasLighter,
-      price: LIGHTER_PRICE,
-      name: text("Зажигалка", "Lighter"),
-      icon: LighterIcon,
-      description: text(
-        "Сжигает последнюю страницу сценария. Покупка разовая, использование многократное.",
-        "Burns the last screenplay page. Buy once, use repeatedly.",
-      ),
-      label: text("Купить зажигалку за 50 монет", "Buy lighter for 50 coins"),
-      purchase: timer.purchaseLighter,
-    },
   ].filter((product) => !product.owned);
+  const lighter = {
+    id: "lighter",
+    owned: timer.hasLighter,
+    price: LIGHTER_PRICE,
+    name: text("Зажигалка", "Lighter"),
+    icon: LighterIcon,
+    description: text(
+      "Сжигает последнюю страницу сценария. Покупка разовая, использование многократное.",
+      "Burns the last screenplay page. Buy once, use repeatedly.",
+    ),
+    label: text("Купить зажигалку за 50 монет", "Buy lighter for 50 coins"),
+    purchase: timer.purchaseLighter,
+  };
+  const productTile = (product) => (
+    <div key={product.id} className="writing-shop-product">
+      <span className="writing-shop-product-icon">
+        <product.icon size={24} aria-hidden="true" />
+      </span>
+      <div className="writing-shop-product-copy">
+        <strong>{product.name}</strong>
+        <p>{product.description}</p>
+      </div>
+      <button
+        type="button"
+        className="writing-shop-buy"
+        aria-label={
+          product.owned
+            ? text("Сжечь последнюю страницу", "Burn the last page")
+            : product.label
+        }
+        disabled={
+          !!buying ||
+          closing ||
+          (product.owned ? burnDisabled : timer.coins < product.price)
+        }
+        onClick={() => (product.owned ? onBurnPage?.() : purchase(product))}
+      >
+        {product.owned ? <LighterIcon size={18} /> : <MoneyIcon />}
+        <span>
+          {product.owned
+            ? text("Сжечь последнюю страницу", "Burn the last page")
+            : buying === product.id
+              ? text("Покупка…", "Buying…")
+              : product.price}
+        </span>
+      </button>
+    </div>
+  );
   return (
     <aside
       id="writing-shop"
@@ -189,44 +226,24 @@ export default function WritingShop({
       </header>
       <div className="writing-popover-scroll">
         {selected ? (
-          <div className="writing-shop-product writing-shop-preview">
-            <span className="writing-shop-product-icon">
-              <selected.itemIcon size={24} />
-            </span>
-            <div className="writing-shop-product-copy">
-              <strong>{selected.item}</strong>
-              <p>{text("Скоро в магазине", "Coming soon")}</p>
+          <div className="writing-shop-list">
+            {category === "misc" && productTile(lighter)}
+            <div className="writing-shop-product writing-shop-preview">
+              <span className="writing-shop-product-icon">
+                <selected.itemIcon size={24} />
+              </span>
+              <div className="writing-shop-product-copy">
+                <strong>{selected.item}</strong>
+                <p>{text("Скоро в магазине", "Coming soon")}</p>
+              </div>
             </div>
           </div>
         ) : (
           <div className="writing-shop-list">
-            {products.map((product) => (
-              <div key={product.id} className="writing-shop-product">
-                <span className="writing-shop-product-icon">
-                  <product.icon size={24} aria-hidden="true" />
-                </span>
-                <div className="writing-shop-product-copy">
-                  <strong>{product.name}</strong>
-                  <p>{product.description}</p>
-                </div>
-                <button
-                  type="button"
-                  className="writing-shop-buy"
-                  aria-label={product.label}
-                  disabled={!!buying || closing || timer.coins < product.price}
-                  onClick={() => purchase(product)}
-                >
-                  <MoneyIcon />
-                  <span>
-                    {buying === product.id
-                      ? text("Покупка…", "Buying…")
-                      : product.price}
-                  </span>
-                </button>
-              </div>
-            ))}
-            {timer.hasHouse &&
-              categories.map((entry) => (
+            {products.map(productTile)}
+            {categories
+              .filter((entry) => timer.hasHouse || entry.id === "misc")
+              .map((entry) => (
                 <button
                   type="button"
                   key={entry.id}
@@ -244,15 +261,18 @@ export default function WritingShop({
               ))}
           </div>
         )}
-        {!selected &&
-          products.some((product) => timer.coins < product.price) && (
-            <p className="writing-shop-hint">
-              {text(
-                "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
-                "100 written characters = 10 coins. Timers earn coins too.",
-              )}
-            </p>
-          )}
+        {((!selected &&
+          products.some((product) => timer.coins < product.price)) ||
+          (category === "misc" &&
+            !lighter.owned &&
+            timer.coins < LIGHTER_PRICE)) && (
+          <p className="writing-shop-hint">
+            {text(
+              "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
+              "100 written characters = 10 coins. Timers earn coins too.",
+            )}
+          </p>
+        )}
         {error && (
           <p className="writing-shop-error" role="alert">
             {error}

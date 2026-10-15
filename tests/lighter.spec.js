@@ -128,19 +128,51 @@ const json = (page) =>
   page
     .locator(".screenplay-editor")
     .evaluate((element) => element.editor.getJSON());
+async function openMisc(page) {
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const shop = page.locator("#writing-shop");
+  if (!(await shop.count()))
+    await page
+      .getByRole("button", { name: /^(Открыть магазин|Open shop)$/ })
+      .click();
+  const category = shop.getByRole("button", {
+    name: /^(Разное|Miscellaneous)$/,
+  });
+  if (await category.count()) await category.click();
+  await expect(shop.locator(".writing-shop-header > strong")).toHaveText(
+    /^(Разное|Miscellaneous)$/,
+  );
+}
+async function useLighter(page) {
+  await openMisc(page);
+  await burn(page).click();
+}
 async function buy(page) {
   await page
     .getByRole("button", { name: "Открыть магазин", exact: true })
     .click();
+  await expect(page.locator("#writing-shop")).not.toContainText("Зажигалка");
+  await openMisc(page);
   await page
     .getByRole("button", { name: "Купить зажигалку за 50 монет", exact: true })
     .click();
   await expect(burn(page)).toBeVisible();
-  await expect(page.locator("#writing-shop")).not.toContainText("Зажигалка");
+  await expect(
+    page.getByRole("button", {
+      name: "Купить зажигалку за 50 монет",
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Закрыть магазин", exact: true })
     .click();
   await expect(page.locator("#writing-shop")).toHaveCount(0);
+  await expect(
+    page.locator(
+      '.writing-timer > button[aria-label="Сжечь последнюю страницу"]',
+    ),
+  ).toHaveCount(0);
 }
 
 test("lighter costs 50 once, persists through wallet cleaning, and its achievement and ownership reset with progress", () => {
@@ -169,6 +201,14 @@ test("lighter costs 50 once, persists through wallet cleaning, and its achieveme
   expect(reset.wallet.achievements).toBeUndefined();
 });
 
+async function completeBurn(page) {
+  await expect(page.locator(".burning-paper-layer")).toHaveCount(0, {
+    timeout: 7000,
+  });
+  await expect(page.locator(".script-paper")).toHaveCSS("mask-image", "none");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+}
+
 test("purchase burns only the last rendered page with WebGL, hides flies then restores them gradually, and supports repeat use and undo", async ({
   page,
 }, info) => {
@@ -176,6 +216,8 @@ test("purchase burns only the last rendered page with WebGL, hides flies then re
   await open(page);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(12);
   await buy(page);
+  await openMisc(page);
+  await page.screenshot({ path: info.outputPath("misc-lighter-owned.png") });
   expect((await wallet(page)).coins).toBe(0);
   const before = await json(page);
   const keep = await page.locator(".screenplay-editor").evaluate((element) => {
@@ -198,10 +240,32 @@ test("purchase burns only the last rendered page with WebGL, hides flies then re
   });
   expect(keep).toBeGreaterThan(0);
   expect(keep).toBeLessThan(before.content.length);
-  await burn(page).click();
-  const overlay = page.locator(".burning-paper-dialog");
+  await useLighter(page);
+  const overlay = page.locator(".burning-paper-layer");
   await expect(overlay).toBeVisible();
   await expect(overlay).toHaveAttribute("data-renderer", "webgl");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await json(page)).toEqual(before);
+  const geometry = await page
+    .locator(".burning-paper-canvas")
+    .evaluate((canvas) => {
+      const paper = document.querySelector(".script-paper"),
+        a = canvas.getBoundingClientRect(),
+        b = paper.getBoundingClientRect();
+      return {
+        x: a.x,
+        width: a.width,
+        right: a.right,
+        bottom: a.bottom,
+        paperX: b.x,
+        paperWidth: b.width,
+        paperRight: b.right,
+        paperBottom: b.bottom,
+      };
+    });
+  expect(geometry.x).toBeCloseTo(geometry.paperX, 0);
+  expect(geometry.width).toBeCloseTo(geometry.paperWidth, 0);
+  expect(geometry.bottom).toBeCloseTo(geometry.paperBottom, 0);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(0);
   await page.waitForTimeout(700);
   await page.screenshot({ path: info.outputPath("burning-page.png") });
@@ -246,13 +310,11 @@ test("purchase burns only the last rendered page with WebGL, hides flies then re
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(1, {
     timeout: 4200,
   });
-  await burn(page).click();
+  await useLighter(page);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(0);
   await expect(overlay).toHaveCount(0);
   expect((await wallet(page)).coins).toBe(0);
-  await page
-    .getByRole("button", { name: "Отменить сжигание", exact: true })
-    .click();
+  await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(after);
   await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(before);
@@ -260,12 +322,13 @@ test("purchase burns only the last rendered page with WebGL, hides flies then re
   await page.clock.fastForward(40000);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(12);
   await page.reload();
+  await openMisc(page);
   await expect(burn(page)).toBeVisible();
 });
 
 test("burning a partial last page in a long paragraph preserves its prefix, marks, block id, and exact undo", async ({
   page,
-}) => {
+}, info) => {
   await open(page, {
     owned: true,
     doc: documentFixture(true),
@@ -279,10 +342,17 @@ test("burning a partial last page in a long paragraph preserves its prefix, mark
   const beforeText = before.content[1].content
     .map((node) => node.text)
     .join("");
+  await page
+    .getByRole("button", { name: "Открыть таймер", exact: true })
+    .click();
+  await page.getByRole("button", { name: "5 мин", exact: true }).click();
+  const session = (await wallet(page)).session;
   await page.context().setOffline(true);
-  await burn(page).click();
-  await expect(page.locator(".burning-paper-dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Пропустить анимацию" }).click();
+  await useLighter(page);
+  await expect(page.locator(".burning-paper-layer")).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: info.outputPath("burning-page-dark.png") });
+  await completeBurn(page);
   const after = await json(page);
   const afterText = after.content[1].content.map((node) => node.text).join("");
   expect(afterText.length).toBeGreaterThan(0);
@@ -294,9 +364,9 @@ test("burning a partial last page in a long paragraph preserves its prefix, mark
   expect(after.content[1].content[1].marks).toEqual(
     before.content[1].content[1].marks,
   );
-  await page
-    .getByRole("button", { name: "Отменить сжигание", exact: true })
-    .click();
+  expect((await wallet(page)).session.id).toBe(session.id);
+  expect((await wallet(page)).coins).toBe(50);
+  await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(before);
   await page.waitForTimeout(3400);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(0);
@@ -308,7 +378,7 @@ for (const [width, options] of [
 ]) {
   test(`burn works at ${width}px with ${options.fallback ? "WebGL unavailable" : "reduced motion"}; empty document is safe`, async ({
     page,
-  }) => {
+  }, info) => {
     await open(page, {
       width,
       ...options,
@@ -316,9 +386,11 @@ for (const [width, options] of [
       doc: documentFixture(true),
       flies: false,
     });
+    await openMisc(page);
+    await page.screenshot({ path: info.outputPath("misc-lighter-mobile.png") });
     const before = await json(page);
-    await burn(page).click();
-    const overlay = page.locator(".burning-paper-dialog");
+    await useLighter(page);
+    const overlay = page.locator(".burning-paper-layer");
     await expect(overlay).toHaveAttribute(
       "data-renderer",
       options.fallback ? "fallback" : "reduced-motion",
@@ -335,9 +407,7 @@ for (const [width, options] of [
     ).toBeLessThan(
       before.content[1].content.map((n) => n.text).join("").length,
     );
-    await page
-      .getByRole("button", { name: "Отменить сжигание", exact: true })
-      .click();
+    await page.locator(".screenplay-editor").press("Control+z");
     expect(await json(page)).toEqual(before);
     await page.locator(".screenplay-editor").evaluate((element) =>
       element.editor.commands.setContent({
@@ -345,11 +415,12 @@ for (const [width, options] of [
         content: [{ type: "paragraph", attrs: { format: "scene" } }],
       }),
     );
-    await burn(page).click();
-    await expect(overlay).toHaveCount(0);
-    await expect(page.getByRole("alert")).toContainText(
-      "нет текста для сжигания",
-    );
+    await useLighter(page);
+    await completeBurn(page);
+    expect((await json(page)).content.map((n) => n.attrs.format)).toEqual([
+      "scene",
+      "action",
+    ]);
     expect((await wallet(page)).coins).toBe(50);
   });
 }
@@ -367,14 +438,22 @@ test("single page is cleared, undo restores it, achievement appears once and Eng
   };
   await open(page, { owned: true, doc, flies: false });
   const before = await json(page);
-  await burn(page).click();
-  await page.getByRole("button", { name: "Пропустить анимацию" }).click();
+  await useLighter(page);
+  await expect(page.locator(".burning-paper-layer")).toHaveAttribute(
+    "data-phase",
+    "dissolve",
+    { timeout: 5000 },
+  );
+  await page.screenshot({ path: ".cache/burn-first-page-dissolve.png" });
+  await completeBurn(page);
+  expect((await json(page)).content.map((n) => n.attrs.format)).toEqual([
+    "scene",
+    "action",
+  ]);
   expect(
     (await json(page)).content.every((node) => !node.content?.length),
   ).toBe(true);
-  await page
-    .getByRole("button", { name: "Отменить сжигание", exact: true })
-    .click();
+  await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(before);
   await page.getByRole("button", { name: "Монеты: 50", exact: true }).click();
   await page.getByRole("button", { name: "Достижения", exact: true }).click();
@@ -388,6 +467,7 @@ test("single page is cleared, undo restores it, achievement appears once and Eng
     .getByRole("button", { name: "Закрыть монеты", exact: true })
     .click();
   await page.getByRole("button", { name: "ENG", exact: true }).click();
+  await openMisc(page);
   await expect(
     page.getByRole("button", { name: "Burn the last page", exact: true }),
   ).toBeVisible();
@@ -414,16 +494,14 @@ for (const [fontSize, documentZoom] of [
     await open(page, { owned: true, flies: false, doc });
     await page.setViewportSize({ width: 2800, height: 1000 });
     const before = await json(page);
-    await burn(page).click();
-    await page.getByRole("button", { name: "Пропустить анимацию" }).click();
+    await useLighter(page);
+    await completeBurn(page);
     const desktop = await json(page);
-    await page
-      .getByRole("button", { name: "Отменить сжигание", exact: true })
-      .click();
+    await page.locator(".screenplay-editor").press("Control+z");
     expect(await json(page)).toEqual(before);
     await page.setViewportSize({ width: 320, height: 844 });
-    await burn(page).click();
-    await page.getByRole("button", { name: "Пропустить анимацию" }).click();
+    await useLighter(page);
+    await completeBurn(page);
     expect((await json(page)).content[1].content[1].text.length).toEqual(
       desktop.content[1].content[1].text.length,
     );
@@ -447,8 +525,8 @@ test("flies stay gone when burning removes every finding, and the user's visibil
   };
   await open(page, { owned: true, doc });
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(3);
-  await burn(page).click();
-  await page.getByRole("button", { name: "Пропустить анимацию" }).click();
+  await useLighter(page);
+  await completeBurn(page);
   await page.clock.install();
   await page.clock.fastForward(45000);
   await expect(page.locator(".doctor-interface-fly")).toHaveCount(0);

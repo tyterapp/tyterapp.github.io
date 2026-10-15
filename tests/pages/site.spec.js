@@ -1,5 +1,58 @@
 import { test, expect } from "@playwright/test";
 import { parseProAccessList } from "../../src/pro-access.js";
+import { readFile } from "node:fs/promises";
+
+test("social previews and route-specific SEO exist in the static HTML without JavaScript", async ({
+  request,
+}) => {
+  for (const [route, title] of [
+    ["/", "Tyter — сценарий без хаоса"],
+    ["/b", "Tyter PRO — 600 ₽ в месяц"],
+    ["/help", "Помощь Tyter"],
+    ["/blog", "Блог Tyter — о сценариях и работе с историей"],
+    ["/blog/standarty-v-kino", "Сценарный формат: с чего начать — Tyter"],
+  ]) {
+    const response = await request.get(route);
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain(`<title>${title}</title>`);
+    expect(html).toMatch(
+      new RegExp(`<meta\\s+property="og:title"\\s+content="${title}"`),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<link\\s+rel="canonical"\\s+href="https://tyterapp.github.io${route}"`,
+      ),
+    );
+    expect(html).toMatch(
+      /property="og:image"\s+content="https:\/\/tyterapp.github.io\/brand\/tyter-social-cover.png"/,
+    );
+    expect(html).toMatch(/name="twitter:card"\s+content="summary_large_image"/);
+    const description = html.match(/name="description"\s+content="([^"]+)"/)[1];
+    expect(html.match(/property="og:description"\s+content="([^"]+)"/)[1]).toBe(
+      description,
+    );
+  }
+  const cover = await request.get("/brand/tyter-social-cover.png");
+  expect(cover.status()).toBe(200);
+  const bytes = await cover.body();
+  expect(
+    bytes.equals(
+      await readFile(
+        new URL("../../public/brand/tyter-social-cover.png", import.meta.url),
+      ),
+    ),
+  ).toBe(true);
+  expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([
+    2400, 1260,
+  ]);
+  expect(await (await request.get("/robots.txt")).text()).toContain(
+    "Sitemap: https://tyterapp.github.io/sitemap.xml",
+  );
+  expect(await (await request.get("/sitemap.xml")).text()).toContain(
+    "<loc>https://tyterapp.github.io/b</loc>",
+  );
+});
 
 test("Pages serves the landing and direct editor routes without an API", async ({
   page,

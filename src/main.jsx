@@ -39,7 +39,9 @@ if (!editor) {
   document.documentElement.classList.add("site-mode");
   document.title = notFound ? "404 — Tyter" : "Tyter — редактор киносценариев";
   if (notFound) {
-    const robots = document.createElement("meta");
+    const robots =
+      document.querySelector('meta[name="robots"]') ||
+      document.createElement("meta");
     robots.name = "robots";
     robots.content = "noindex";
     document.head.append(robots);

@@ -5,7 +5,6 @@ import { formatTimerTime, TIMER_MINUTES } from "./writing-timer.js";
 import WritingShop from "./WritingShop.jsx";
 import WritingHouse from "./WritingHouse.jsx";
 import WritingCoins from "./WritingCoins.jsx";
-import LighterIcon from "./LighterIcon.jsx";
 import { CatIcon } from "./WritingHouseIcons.jsx";
 import {
   MoneyIcon,
@@ -189,6 +188,13 @@ export default function WritingTimer({
           closing={panelClosing}
           onClose={closePanel}
           onResetProgress={onResetProgress}
+          burnDisabled={burnDisabled}
+          onBurnPage={() => {
+            clearTimeout(panelCloseTimeout.current);
+            setPanel("");
+            setPanelClosing(false);
+            onBurnPage?.();
+          }}
         />
       )}
       {houseOpen && (
@@ -332,24 +338,7 @@ export default function WritingTimer({
           <CatIcon />
         </button>
       )}
-      {timer.hasLighter && !pickerOpen && (
-        <button
-          type="button"
-          className="writing-timer-button is-idle"
-          aria-label={t("Сжечь последнюю страницу")}
-          data-tooltip={t("Сжечь последнюю страницу")}
-          disabled={burnDisabled}
-          onClick={() => {
-            clearTimeout(panelCloseTimeout.current);
-            setPanel("");
-            setPanelClosing(false);
-            onBurnPage?.();
-          }}
-        >
-          <LighterIcon />
-        </button>
-      )}
-      {!timer.session && !pickerOpen && (
+      {!pickerOpen && (
         <button
           ref={shopButtonRef}
           type="button"
