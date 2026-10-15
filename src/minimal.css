@@ -3062,7 +3062,13 @@ kbd {
   margin-bottom: 25px;
 }
 .subscription-dialog > .primary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
+  color: oklch(1 0 0);
+  text-align: center;
 }
 .payment-unavailable {
   font-size: 11px !important;
