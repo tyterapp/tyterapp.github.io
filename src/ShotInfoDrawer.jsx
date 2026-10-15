@@ -60,6 +60,7 @@ export default function ShotInfoDrawer({
   const [error, setError] = useState(""),
     [imageError, setImageError] = useState(false);
   const [expansion, setExpansion] = useState({ scope: sceneKey, values: {} });
+  const [exportFormat, setExportFormat] = useState("pdf");
   const overrides = expansion.scope === sceneKey ? expansion.values : {};
   const settings = scene.settings;
   const ratio = shotAspectRatio(settings.aspectRatio);
@@ -382,9 +383,44 @@ export default function ShotInfoDrawer({
         </section>
       </div>
       <div className="shot-export">
-        <button className="primary-button" disabled={busy} onClick={onExport}>
+        <AppSelect
+          label={t("Формат отчёта")}
+          value={exportFormat}
+          onChange={setExportFormat}
+          disabled={busy}
+          options={[
+            { value: "pdf", label: t("PDF — документ") },
+            { value: "xlsx", label: t("XLSX — Google Таблицы") },
+            { value: "xml", label: t("XML — таблица Excel") },
+            { value: "csv", label: t("CSV — данные таблицы") },
+          ]}
+        />
+        <p className="shot-export-hint">
+          {t(
+            {
+              pdf: "Все сцены и варианты с параметрами и текстом.",
+              xlsx: "Для Google Таблиц: оформление, фильтры и два листа — кадры и текст сцен.",
+              xml: "Таблица Excel XML с оформлением и двумя листами.",
+              csv: "UTF-8, разделитель — запятая. Параметры сцены повторяются для каждого блока текста.",
+            }[exportFormat],
+          )}
+        </p>
+        <button
+          className="primary-button"
+          disabled={busy}
+          onClick={() => onExport(exportFormat)}
+        >
           <Download size={16} />
-          {busy ? t("Подготовка файла…") : t("PDF-отчёт по всем сценам")}
+          {busy
+            ? t("Подготовка файла…")
+            : t(
+                {
+                  pdf: "PDF-отчёт по всем сценам",
+                  xlsx: "XLSX-отчёт по всем сценам",
+                  xml: "XML-отчёт по всем сценам",
+                  csv: "CSV-отчёт по всем сценам",
+                }[exportFormat],
+              )}
         </button>
       </div>
     </aside>

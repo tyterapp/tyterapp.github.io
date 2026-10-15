@@ -369,6 +369,16 @@
   min-height: 40px;
   font-size: 12px;
 }
+.shot-export .app-select-trigger {
+  justify-content: space-between;
+  text-align: left;
+}
+.shot-export-hint {
+  margin: 7px 0 10px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
 .focus-mode .scene-shot-button {
   display: none;
 }

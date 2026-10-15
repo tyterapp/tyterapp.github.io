@@ -142,6 +142,22 @@ export default {
   "Прикреплённое изображение добавлено пользователем.":
     "The attached image was added by the user.",
   "PDF-отчёт по всем сценам": "PDF report for all scenes",
+  "XLSX-отчёт по всем сценам": "XLSX report for all scenes",
+  "XML-отчёт по всем сценам": "XML report for all scenes",
+  "CSV-отчёт по всем сценам": "CSV report for all scenes",
+  "Формат отчёта": "Report format",
+  "PDF — документ": "PDF — document",
+  "XLSX — Google Таблицы": "XLSX — Google Sheets",
+  "XML — таблица Excel": "XML — Excel table",
+  "CSV — данные таблицы": "CSV — table data",
+  "Все сцены и варианты с параметрами и текстом.":
+    "All scenes and variants with settings and text.",
+  "Для Google Таблиц: оформление, фильтры и два листа — кадры и текст сцен.":
+    "For Google Sheets: formatting, filters and two sheets — shots and scene text.",
+  "Таблица Excel XML с оформлением и двумя листами.":
+    "Excel XML table with formatting and two worksheets.",
+  "UTF-8, разделитель — запятая. Параметры сцены повторяются для каждого блока текста.":
+    "UTF-8, comma-separated. Scene settings are repeated for each text block.",
   "Отчёт по кадрам": "Shot report",
   "Ширина карточки": "Card width",
   "Потяните, чтобы изменить ширину": "Drag to resize",

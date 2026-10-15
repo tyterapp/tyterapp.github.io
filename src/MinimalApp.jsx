@@ -143,6 +143,11 @@ import {
   exportShotReportPDF,
   saveBlob,
 } from "./exports.js";
+import {
+  exportShotReportCSV,
+  exportShotReportXML,
+  exportShotReportXLSX,
+} from "./shot-report-tables.js";
 const STORAGE = "tyter.projects.v1";
 const EMPTY_PROPS = [];
 const BLOCK_LAYOUT_STYLE = Object.fromEntries(
@@ -2549,7 +2554,8 @@ export default function MinimalApp({ onLogout }) {
       setBusy("");
     }
   };
-  const downloadShotReport = async () => {
+  const downloadShotReport = async (format = "pdf") => {
+    if (!["pdf", "xlsx", "xml", "csv"].includes(format)) return;
     setBusy("shot-report");
     setMessage("");
     writeStorage();
@@ -2557,8 +2563,14 @@ export default function MinimalApp({ onLogout }) {
       const document =
         (await sessionExportSnapshot(documentsRef.current, current.id)) ||
         structuredClone(current);
-      const blob = await exportShotReportPDF(document);
-      saveBlob(blob, `${document.title} — ${t("Отчёт по кадрам")}`, "pdf");
+      const exporter = {
+        pdf: exportShotReportPDF,
+        xlsx: exportShotReportXLSX,
+        xml: exportShotReportXML,
+        csv: exportShotReportCSV,
+      }[format];
+      const blob = await exporter(document);
+      saveBlob(blob, `${document.title} — ${t("Отчёт по кадрам")}`, format);
     } catch (error) {
       console.error(error);
       setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
