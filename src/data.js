@@ -7,6 +7,7 @@ import { cleanNotes, sharedNotes } from "./notes.js";
 import { cleanScriptVersions, scriptVersionId } from "./script-versions.js";
 import { cleanRevisionRound, cleanRevisionStamp } from "./script-revisions.js";
 import { cleanSceneShots } from "./shot-info.js";
+import { cleanComponentAliases } from "./component-names.js";
 
 const FORMATS = new Set([
   "scene",
@@ -582,6 +583,10 @@ export function validateImport(input, options = {}) {
         .map((item) => ({
           id: cleanId(item.id),
           name: cleanText(item.name, 200).trim(),
+          aliases: cleanComponentAliases(
+            item.aliases,
+            cleanText(item.name, 200),
+          ),
           type: item.type === "place" ? "place" : "character",
           description: cleanText(item.description, 5000),
           color: cleanColor(item.color),

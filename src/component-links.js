@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { textMatchPattern } from "./prop-matches.js";
+import { componentNameCandidates } from "./component-names.js";
 
 export const componentLinksKey = new PluginKey("component-links");
 export const SKIP_COMPONENT_LINKS = "skip-component-links";
@@ -21,14 +22,14 @@ export function componentLinkTransaction(state, components) {
   if (!type) return null;
   const actual = [],
     desired = [];
-  const names = components
-    .filter(
-      (component) => component.enabled !== false && component.name?.trim(),
+  const names = componentNameCandidates(components)
+    .sort(
+      (a, b) =>
+        b.text.length - a.text.length || Number(a.alias) - Number(b.alias),
     )
-    .sort((a, b) => b.name.trim().length - a.name.trim().length)
-    .map((component) => ({
+    .map(({ component, text }) => ({
       component,
-      pattern: textMatchPattern(component.name),
+      pattern: textMatchPattern(text),
     }));
   state.doc.descendants((paragraph, position) => {
     if (paragraph.type.name !== "paragraph") return;

@@ -3,6 +3,7 @@ import LanguageSwitch from "./LanguageSwitch.jsx";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -113,6 +114,7 @@ import HistoryPreview from "./HistoryPreview.jsx";
 import OutlineHistoryPreview from "./OutlineHistoryPreview.jsx";
 import TooltipLayer from "./TooltipLayer.jsx";
 import ThumbnailField from "./ThumbnailField.jsx";
+import { cleanComponentAliases, componentNames } from "./component-names.js";
 import ThumbnailPreviewLayer from "./ThumbnailPreviewLayer.jsx";
 import ImageComponentPaste from "./ImageComponentPaste.jsx";
 import {
@@ -386,6 +388,10 @@ function ComponentForm({
   const [description, setDescription] = useState(value.description || "");
   const [quantity, setQuantity] = useState(value.quantity || 1);
   const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
+  const [aliases, setAliases] = useState(
+    cleanComponentAliases(value.aliases, value.name).join("\n"),
+  );
+  const aliasesHint = useId();
   const [folderId, setFolderId] = useState(
     value.folderId || (prop ? "" : value.type || "character"),
   );
@@ -393,8 +399,24 @@ function ComponentForm({
   const duplicate = components.some(
     (c) =>
       c.id !== value.id &&
-      c.name.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
+      (prop ? [c.name] : componentNames(c)).some(
+        (candidate) =>
+          candidate.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
+      ),
   );
+  const cleanedAliases = cleanComponentAliases(aliases, name);
+  const aliasConflict =
+    !prop &&
+    components.some(
+      (component) =>
+        component.id !== value.id &&
+        componentNames(component).some((candidate) =>
+          cleanedAliases.some(
+            (alias) =>
+              alias.toLocaleLowerCase() === candidate.toLocaleLowerCase(),
+          ),
+        ),
+    );
   return (
     <Wrapper
       {...(inline
@@ -425,7 +447,7 @@ function ComponentForm({
         }}
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim() && !duplicate)
+          if (name.trim() && !duplicate && !aliasConflict)
             onSubmit({
               ...value,
               name: name.trim(),
@@ -437,7 +459,7 @@ function ComponentForm({
                     ),
                     category: "Objects",
                   }
-                : {}),
+                : { aliases: cleanedAliases }),
               type:
                 folderId === "place"
                   ? "place"
@@ -524,6 +546,29 @@ function ComponentForm({
               : t("Компонент с таким названием уже есть.")}
           </p>
         )}
+        {!prop && (
+          <label>
+            {t("Алиасы")}
+            <span className="muted">{t("· необязательно")}</span>
+            <textarea
+              rows={2}
+              maxLength={20100}
+              value={aliases}
+              aria-label={t("Алиасы")}
+              onChange={(event) => setAliases(event.target.value)}
+              placeholder={t("Например, Джеффу, Джеффа")}
+              aria-describedby={aliasesHint}
+            />
+            <small className="muted" id={aliasesHint}>
+              {t("Варианты написания через запятую или с новой строки.")}
+            </small>
+          </label>
+        )}
+        {aliasConflict && (
+          <p className="form-error" role="alert">
+            {t("Алиас уже используется другим компонентом.")}
+          </p>
+        )}
         <ThumbnailField
           value={thumbnail}
           onChange={setThumbnail}
@@ -549,7 +594,7 @@ function ComponentForm({
           <button
             className="primary-button"
             aria-keyshortcuts="Control+Enter Meta+Enter"
-            disabled={!name.trim() || duplicate}
+            disabled={!name.trim() || duplicate || aliasConflict}
           >
             {value.id ? t("Сохранить") : t("Создать")}
           </button>
@@ -2224,7 +2269,10 @@ export default function MinimalApp({ onLogout }) {
     const duplicate = current.components.find(
       (c) =>
         c.id !== fields.id &&
-        c.name.toLocaleLowerCase() === fields.name.toLocaleLowerCase(),
+        componentNames(c).some(
+          (candidate) =>
+            candidate.toLocaleLowerCase() === fields.name.toLocaleLowerCase(),
+        ),
     );
     if (duplicate) {
       setMessage("Компонент с таким названием уже есть.");
@@ -2237,6 +2285,7 @@ export default function MinimalApp({ onLogout }) {
     }
     const next = {
       ...fields,
+      aliases: cleanComponentAliases(fields.aliases, fields.name),
       id: fields.id || uid(),
       color: fields.color || (fields.type === "place" ? "#738598" : "#8a799a"),
     };

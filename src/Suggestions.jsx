@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shapes } from "lucide-react";
 import { SCENE_TIMES } from "./scene-times.js";
+import { componentNameCandidates } from "./component-names.js";
 function componentMatches(before, position, format, components) {
   const matches = [];
   const lower = before.toLocaleLowerCase();
-  for (const component of components) {
-    const text = component.name.trim();
+  for (const { component, text } of componentNameCandidates(components).sort(
+    (a, b) => Number(a.alias) - Number(b.alias),
+  )) {
     if (!text) continue;
     const name = text.toLocaleLowerCase();
     for (
@@ -185,6 +187,7 @@ export default function Suggestions({
           item.insertLeadingSpace,
           item.component?.id,
           item.component?.color,
+          item.component?.thumbnail,
         ]),
       ]);
     const position = (items, c) => {
@@ -482,14 +485,27 @@ export default function Suggestions({
           className={i === popup.index ? "selected" : ""}
           onClick={() => acceptRef.current?.(item)}
         >
+          {popup.context.format === "character" &&
+            item.component?.thumbnail && (
+              <img
+                className="suggestion-thumbnail"
+                src={item.component.thumbnail}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+              />
+            )}
           <span className="suggestion-label">{item.text}</span>
-          {item.component && (
-            <Shapes
-              className="suggestion-icon"
-              size={14}
-              aria-label={t("Компонент")}
-            />
-          )}
+          {item.component &&
+            !(
+              popup.context.format === "character" && item.component.thumbnail
+            ) && (
+              <Shapes
+                className="suggestion-icon"
+                size={14}
+                aria-label={t("Компонент")}
+              />
+            )}
           {i === popup.index && <kbd>Ctrl + Enter</kbd>}
         </button>
       ))}

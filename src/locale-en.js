@@ -2,6 +2,12 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  Алиасы: "Aliases",
+  "Например, Джеффу, Джеффа": "For example, Jeff, Jeffrey",
+  "Варианты написания через запятую или с новой строки.":
+    "Alternative spellings, separated by commas or new lines.",
+  "Алиас уже используется другим компонентом.":
+    "This alias is already used by another component.",
   Рация: "Radio",
   "Купить рацию за 100 монет": "Buy radio for 100 coins",
   "Рация приобретена. Микрофон можно включать многократно.":

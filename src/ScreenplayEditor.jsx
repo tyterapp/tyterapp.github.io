@@ -34,6 +34,8 @@ import {
 import { propRanges } from "./prop-matches.js";
 import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
+import { characterThumbnailDecorations } from "./character-thumbnails.js";
+import { cleanComponentAliases } from "./component-names.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
@@ -575,6 +577,29 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     () => components.filter((component) => component.enabled !== false),
     [components],
   );
+  const componentScenes = useMemo(
+    () =>
+      JSON.stringify(
+        (content?.content || [])
+          .filter((block) => block.attrs?.format === "scene")
+          .map((block) => [block.attrs.blockId, sceneLetter(block)]),
+      ),
+    [content],
+  );
+  const characterThumbnails = useMemo(
+    () =>
+      new Map(
+        components
+          .filter(
+            (component) => component.enabled !== false && component.thumbnail,
+          )
+          .map((component) => [
+            component.id,
+            { thumbnail: component.thumbnail, key: makeId() },
+          ]),
+      ),
+    [components],
+  );
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [sceneVariantMenu, setSceneVariantMenu] = useState(null);
   const [caretReady, setCaretReady] = useState(false);
@@ -607,6 +632,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   });
   propsRef.current = {
     components,
+    characterThumbnails,
     outlineCards,
     onEditOutlineCard,
     onSceneVariant,
@@ -760,7 +786,12 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         return false;
       },
       decorations(state) {
-        const decorations = [];
+        const decorations = plainOnly
+          ? []
+          : characterThumbnailDecorations(
+              state.doc,
+              propsRef.current.characterThumbnails,
+            );
         const visibleShots = new Set();
         if (minimal)
           for (const range of propRanges(
@@ -1267,7 +1298,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           .setMeta(componentLinksKey, true)
           .setMeta("addToHistory", false),
       );
-  }, [editor, components]);
+  }, [editor, components, componentScenes]);
   useEffect(() => {
     if (!editor || !content) return;
     const serialized = JSON.stringify(content);
@@ -1689,6 +1720,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       renameEntity(id, name) {
         if (!editor || !name) return 0;
+        const component = propsRef.current.components.find(
+          (item) => item.id === id,
+        );
+        const aliases = new Set(
+          cleanComponentAliases(component?.aliases, component?.name).map(
+            (alias) => alias.toLocaleLowerCase(),
+          ),
+        );
         const ranges = [];
         editor.state.doc.descendants((node, pos) => {
           if (
@@ -1708,18 +1747,27 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               marks: node.marks,
             });
         });
-        if (!ranges.length) return 0;
+        const replacements = ranges.filter(
+          (range) =>
+            !aliases.has(
+              editor.state.doc
+                .textBetween(range.from, range.to)
+                .trim()
+                .toLocaleLowerCase(),
+            ),
+        );
+        if (!replacements.length) return 0;
         const transaction = editor.state.tr;
         transaction.setMeta(SKIP_COMPONENT_LINKS, true);
         transaction.setMeta("skipWritingReward", true);
-        for (const range of ranges.reverse())
+        for (const range of replacements.reverse())
           transaction.replaceWith(
             range.from,
             range.to,
             editor.schema.text(name, range.marks),
           );
         editor.view.dispatch(transaction);
-        return ranges.length;
+        return replacements.length;
       },
       renameProp(prop, name) {
         if (!editor || !name) return 0;

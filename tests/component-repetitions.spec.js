@@ -174,8 +174,9 @@ test("creating a component links existing repeats, rich text and scene/character
   const roundTrip = await page.evaluate(async () => {
     const project = JSON.parse(localStorage.getItem("tyter.projects.v1"))[0];
     const { exportTYT, readTYT } = await import("/src/tyt-format.js");
+    const { validateImport } = await import("/src/data.js");
     const copy = readTYT(await (await exportTYT(project)).text());
-    return { before: project.content, after: copy.content };
+    return { before: validateImport(project).content, after: copy.content };
   });
   expect(roundTrip.after).toEqual(roundTrip.before);
   await page.reload();

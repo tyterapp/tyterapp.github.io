@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEdition } from "./edition.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
+import { componentNames } from "./component-names.js";
 export default function ComponentsPanel({
   document,
   activeId,
@@ -158,7 +159,7 @@ export default function ComponentsPanel({
           const items = document.components.filter(
             (c) =>
               (c.folderId || c.type) === folder.id &&
-              `${c.name} ${c.description}`
+              `${componentNames(c).join(" ")} ${c.description}`
                 .toLocaleLowerCase()
                 .includes(query.trim().toLocaleLowerCase()),
           );
@@ -278,7 +279,7 @@ export default function ComponentsPanel({
       </div>
       {query.trim() &&
         !document.components.some((c) =>
-          `${c.name} ${c.description}`
+          `${componentNames(c).join(" ")} ${c.description}`
             .toLocaleLowerCase()
             .includes(query.trim().toLocaleLowerCase()),
         ) && <p className="sidebar-empty">{t("Ничего не найдено")}</p>}
