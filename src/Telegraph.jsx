@@ -1,22 +1,52 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "./i18n.js";
 import { createMorseKeyer, MORSE_DASH } from "./morse.js";
+import { createTelegraphAudio } from "./telegraph-audio.js";
 import "./telegraph.css";
 
 export default function Telegraph({ language, onText }) {
   const [pressed, setPressed] = useState(false);
+  const [heldDash, setHeldDash] = useState(false);
   const [tape, setTape] = useState([]);
+  const [offset, setOffset] = useState(0);
   const [code, setCode] = useState("");
   const [text, setText] = useState("");
+  const element = useRef(null);
   const active = useRef(null),
     audio = useRef(null),
-    keyer = useRef(null);
+    keyer = useRef(null),
+    dashTimer = useRef(null);
   const insert = useRef(onText);
   insert.current = onText;
+  useLayoutEffect(() => {
+    const node = element.current;
+    const column = node.closest(".editor-column");
+    const bars = [
+      ...column.querySelectorAll(".focus-format-hint, .screenplay-format-bar"),
+    ];
+    const fit = () => {
+      const bar = bars.find((candidate) => candidate.getClientRects().length);
+      const bottom = bar
+        ? column.getBoundingClientRect().bottom -
+          bar.getBoundingClientRect().top +
+          22
+        : 22;
+      node.style.bottom = `${bottom}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(column);
+    bars.forEach((bar) => observer.observe(bar));
+    window.addEventListener("resize", fit);
+    window.visualViewport?.addEventListener("resize", fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", fit);
+      window.visualViewport?.removeEventListener("resize", fit);
+    };
+  }, []);
   useEffect(() => {
-    const sound = new Audio("/audio/telegraph/morse-code.mp3");
-    sound.preload = "auto";
-    sound.loop = true;
+    const sound = createTelegraphAudio();
     audio.current = sound;
     const input = createMorseKeyer({
       language,
@@ -26,7 +56,13 @@ export default function Telegraph({ language, onText }) {
         return true;
       },
       onSignal(symbol) {
-        setTape((previous) => [...previous.slice(-63), { symbol, gap: 6 }]);
+        setTape((previous) => {
+          const last = previous.at(-1);
+          const x = last
+            ? last.x + (last.symbol === "-" ? 18 : 6) + last.gap
+            : 12;
+          return [...previous.slice(-63), { symbol, gap: 6, x }];
+        });
       },
       onBoundary(kind) {
         setTape((previous) =>
@@ -41,11 +77,11 @@ export default function Telegraph({ language, onText }) {
     });
     keyer.current = input;
     const cancel = () => {
+      clearTimeout(dashTimer.current);
       active.current = null;
       setPressed(false);
       input.cancel();
-      sound.pause();
-      sound.currentTime = 0;
+      sound.stop();
     };
     const visibility = () => {
       if (document.hidden) cancel();
@@ -53,12 +89,11 @@ export default function Telegraph({ language, onText }) {
     window.addEventListener("blur", cancel);
     document.addEventListener("visibilitychange", visibility);
     return () => {
+      clearTimeout(dashTimer.current);
       input.dispose();
       keyer.current = null;
       active.current = null;
-      sound.pause();
-      sound.removeAttribute("src");
-      sound.load();
+      sound.dispose();
       audio.current = null;
       window.removeEventListener("blur", cancel);
       document.removeEventListener("visibilitychange", visibility);
@@ -67,36 +102,37 @@ export default function Telegraph({ language, onText }) {
   const begin = (id) => {
     if (active.current !== null || !keyer.current?.press()) return;
     active.current = id;
+    setHeldDash(false);
     setPressed(true);
-    if (audio.current) {
-      audio.current.currentTime = 0;
-      audio.current.play().catch(() => {});
-    }
+    dashTimer.current = setTimeout(() => setHeldDash(true), MORSE_DASH);
+    audio.current?.start();
   };
   const end = (id, cancel = false) => {
     if (active.current !== id) return;
+    clearTimeout(dashTimer.current);
     active.current = null;
     setPressed(false);
-    audio.current?.pause();
-    if (audio.current) audio.current.currentTime = 0;
+    audio.current?.stop();
     if (cancel) keyer.current?.cancel();
     else keyer.current?.release();
   };
-  const widths = tape.map((signal) => (signal.symbol === "-" ? 18 : 6));
-  const total = tape.reduce(
-    (sum, signal, index) => sum + widths[index] + signal.gap,
-    0,
-  );
-  let x = Math.min(12, 256 - total - (pressed ? 18 : 0));
-  const bars = tape.map((signal, index) => {
-    const bar = (
-      <rect key={index} x={x} y="11" width={widths[index]} height="22" />
-    );
-    x += widths[index] + signal.gap;
-    return bar;
-  });
+  const last = tape.at(-1);
+  const endX = last ? last.x + (last.symbol === "-" ? 18 : 6) : 12;
+  const nextX = last ? endX + last.gap : 12;
+  const right = pressed ? nextX + 18 : endX;
+  useLayoutEffect(() => {
+    // Keep committed marks anchored. Pauses and key release never rewind the tape.
+    setOffset((previous) => Math.min(previous, 268 - right));
+  }, [right]);
+  const signals = pressed
+    ? [...tape, { x: nextX, symbol: heldDash ? "-" : ".", live: true }]
+    : tape;
   return (
-    <section className="focus-telegraph" aria-label={t("Телеграф")}>
+    <section
+      ref={element}
+      className="focus-telegraph"
+      aria-label={t("Телеграф")}
+    >
       <button
         type="button"
         className="telegraph-key"
@@ -142,7 +178,7 @@ export default function Telegraph({ language, onText }) {
         <img
           src="/telegraph/normal.png"
           width="280"
-          height="162"
+          height="164"
           alt=""
           draggable="false"
         />
@@ -150,7 +186,7 @@ export default function Telegraph({ language, onText }) {
           className="telegraph-pressed"
           src="/telegraph/pressed.png"
           width="280"
-          height="162"
+          height="164"
           alt=""
           draggable="false"
         />
@@ -169,20 +205,24 @@ export default function Telegraph({ language, onText }) {
         aria-label={`${t("Сигналы Морзе")}${code ? `: ${code}` : ""}`}
       >
         <path className="telegraph-baseline" d="M0 22h280" />
-        {bars}
-        {pressed && (
-          <rect
-            className="telegraph-live-signal"
-            x={x}
-            y="11"
-            width="6"
-            height="22"
-            style={{ "--telegraph-dash-time": `${MORSE_DASH}ms` }}
-          />
-        )}
+        <g
+          className="telegraph-signals"
+          style={{ transform: `translateX(${offset}px)` }}
+        >
+          {signals.map((signal) => (
+            <rect
+              key={signal.x}
+              className={`telegraph-signal${signal.live ? " telegraph-live-signal" : ""}`}
+              x={signal.x}
+              y="11"
+              width={signal.symbol === "-" ? 18 : 6}
+              height="22"
+            />
+          ))}
+        </g>
       </svg>
       <output
-        className="telegraph-output"
+        className="telegraph-output visually-hidden"
         aria-live="polite"
         aria-label={t("Введено телеграфом")}
       >

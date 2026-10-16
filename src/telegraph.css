@@ -2,7 +2,7 @@
   position: absolute;
   z-index: 30;
   left: 50%;
-  bottom: 96px;
+  bottom: 22px;
   transform: translateX(-50%);
   width: 280px;
   max-width: calc(100% - 24px);
@@ -21,6 +21,9 @@
   user-select: none;
   -webkit-touch-callout: none;
   border-radius: 8px;
+}
+.telegraph-key:active:not(:disabled) {
+  scale: 1;
 }
 .telegraph-key img {
   grid-area: 1 / 1;
@@ -51,33 +54,29 @@
   stroke: var(--ui-border);
   fill: none;
 }
-.telegraph-live-signal {
-  animation: telegraph-signal var(--telegraph-dash-time) linear forwards;
+.telegraph-signals {
+  transition: transform 120ms ease-out;
 }
-@keyframes telegraph-signal {
-  to {
-    width: 18px;
-  }
+.telegraph-signal {
+  transition: width 80ms linear;
 }
-.telegraph-output {
-  display: block;
-  min-height: 18px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-align: right;
-  font:
-    12px/18px "Screenplay Courier Cyrillic",
-    monospace;
-}
-.minimal-app[data-mobile] .focus-telegraph {
-  bottom: calc(126px + env(safe-area-inset-bottom, 0px));
+.minimal-app[data-mobile].focus-mode:has(.focus-telegraph)
+  :is(
+    .focus-mode-toggle,
+    .focus-typewriter-button,
+    .focus-telegraph-button,
+    .scroll-top-button
+  ) {
+  top: 8px;
+  bottom: auto;
 }
 .minimal-app[data-mobile][data-keyboard] .focus-telegraph {
   visibility: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
-  .telegraph-live-signal {
-    animation: none;
+  .telegraph-signals,
+  .telegraph-signal {
+    transition: none;
   }
 }
 @media print {

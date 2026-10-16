@@ -7,6 +7,10 @@ import {
   MORSE_WORD_GAP,
 } from "../src/morse.js";
 import { grantPro } from "./helpers/pro-access.js";
+import {
+  createTelegraphAudio,
+  TELEGRAPH_FREQUENCY,
+} from "../src/telegraph-audio.js";
 
 test("Morse alphabets decode Latin, Cyrillic, digits and punctuation independently", () => {
   const codes = {
@@ -73,14 +77,66 @@ async function open(
         localStorage.setItem("tyter.onboarding.v1", "done");
         sessionStorage.setItem("telegraph-seeded", "true");
       }
-      window.telegraphAudio = { plays: 0, pauses: 0, source: "" };
+      window.telegraphAudio = {
+        starts: 0,
+        stops: 0,
+        frequencies: [],
+        types: [],
+        mediaPlays: 0,
+        closed: 0,
+      };
       HTMLMediaElement.prototype.play = function () {
-        window.telegraphAudio.plays++;
-        window.telegraphAudio.source = this.src;
+        window.telegraphAudio.mediaPlays++;
         return Promise.resolve();
       };
-      HTMLMediaElement.prototype.pause = function () {
-        window.telegraphAudio.pauses++;
+      window.AudioContext = class {
+        state = "running";
+        currentTime = 0;
+        destination = {};
+        createOscillator() {
+          return {
+            frequency: { value: 0 },
+            type: "",
+            connect(node) {
+              return node;
+            },
+            disconnect() {},
+            start() {
+              window.telegraphAudio.starts++;
+              window.telegraphAudio.frequencies.push(this.frequency.value);
+              window.telegraphAudio.types.push(this.type);
+            },
+            stop() {
+              window.telegraphAudio.stops++;
+            },
+          };
+        }
+        createGain() {
+          return {
+            gain: {
+              value: 0,
+              cancelScheduledValues() {},
+              setValueAtTime(value) {
+                this.value = value;
+              },
+              linearRampToValueAtTime(value) {
+                this.value = value;
+              },
+            },
+            connect() {
+              return this;
+            },
+            disconnect() {},
+          };
+        }
+        resume() {
+          this.state = "running";
+          return Promise.resolve();
+        }
+        close() {
+          window.telegraphAudio.closed++;
+          return Promise.resolve();
+        }
       };
     },
     { doc, language, theme },
@@ -96,7 +152,12 @@ async function open(
   await expect(page.locator(".focus-telegraph-button")).toBeVisible();
   await page.locator(".focus-telegraph-button").click();
   await expect(page.locator(".telegraph-key")).toBeVisible();
-  if (clock) await page.clock.install();
+  if (clock) {
+    const time = Date.now();
+    await page.clock.install({ time });
+    // Browser assertions must not add wall-clock time to a Morse press.
+    await page.clock.pauseAt(time + 1000);
+  }
 }
 const editorJSON = (page) =>
   page.locator(".screenplay-editor").evaluate((node) => node.editor.getJSON());
@@ -106,6 +167,17 @@ const first = (page) =>
       .locator(".screenplay-editor")
       .evaluate((node) => node.editor.state.doc.firstChild.textContent),
   );
+const formatGap = (page) =>
+  page.locator(".focus-telegraph").evaluate((node) => {
+    const bar = [
+      ...node
+        .closest(".editor-column")
+        .querySelectorAll(".focus-format-hint, .screenplay-format-bar"),
+    ].find((candidate) => candidate.getClientRects().length);
+    return (
+      bar.getBoundingClientRect().top - node.getBoundingClientRect().bottom
+    );
+  });
 async function signal(page, symbol = ".", keyboard = false) {
   const key = page.locator(".telegraph-key");
   if (keyboard) {
@@ -132,13 +204,14 @@ async function letter(page, code, keyboard = false) {
   await page.clock.fastForward(MORSE_LETTER_GAP);
 }
 
-test("English HI enters the first scene with mouse taps; feedback and sound use the supplied assets", async ({
+test("English HI enters the first scene with mouse taps; a held key sustains one tone without sample repetition", async ({
   page,
 }, info) => {
   await open(page);
   const snapshot = await editorJSON(page);
   await expect(page.locator(".focus-telegraph")).toHaveCSS("width", "280px");
   await expect(page.locator(".telegraph-tape")).toHaveCSS("width", "280px");
+  expect(await formatGap(page)).toBeCloseTo(22, 0);
   await expect(page.locator(".telegraph-key img").first()).toHaveJSProperty(
     "naturalWidth",
     280,
@@ -148,35 +221,39 @@ test("English HI enters the first scene with mouse taps; feedback and sound use 
   await letter(page, "..");
   await first(page).toBe("HI");
   await expect(page.locator(".telegraph-output")).toHaveText("HI");
+  await expect(page.locator(".telegraph-output")).toHaveCSS(
+    "clip-path",
+    "inset(50%)",
+  );
+  await expect(page.locator(".telegraph-output")).toHaveCSS(
+    "position",
+    "absolute",
+  );
   expect((await editorJSON(page)).content[1]).toEqual(snapshot.content[1]);
   expect((await editorJSON(page)).content[0].attrs.format).toBe("scene");
   const audio = await page.evaluate(() => window.telegraphAudio);
-  expect(audio.plays).toBe(6);
-  expect(audio.pauses).toBeGreaterThanOrEqual(6);
-  expect(audio.source).toContain("/audio/telegraph/morse-code.mp3");
-  const sound = await page.request.get("/audio/telegraph/morse-code.mp3");
-  expect(sound.ok()).toBe(true);
-  expect((await sound.body()).length).toBe(16467);
-  const decodedAudio = await page.evaluate(async () => {
-    const context = new AudioContext();
-    try {
-      const buffer = await context.decodeAudioData(
-        await (await fetch("/audio/telegraph/morse-code.mp3")).arrayBuffer(),
-      );
-      return {
-        duration: buffer.duration,
-        audible: buffer
-          .getChannelData(0)
-          .some((sample) => Math.abs(sample) > 0.01),
-      };
-    } finally {
-      await context.close();
-    }
-  });
-  expect(decodedAudio.duration).toBeGreaterThan(0);
-  expect(decodedAudio.audible).toBe(true);
+  expect(audio.starts).toBe(6);
+  expect(audio.stops).toBe(6);
+  expect(audio.frequencies).toEqual(Array(6).fill(TELEGRAPH_FREQUENCY));
+  expect(audio.types).toEqual(Array(6).fill("sine"));
+  expect(audio.mediaPlays).toBe(0);
   await page.clock.runFor(400);
   await page.screenshot({ path: info.outputPath("telegraph-hi.png") });
+  const key = page.locator(".telegraph-key");
+  const box = await key.boundingBox();
+  await page.mouse.move(box.x + 140, box.y + 60);
+  await page.mouse.down();
+  await page.clock.fastForward(5000);
+  await expect(page.locator(".telegraph-live-signal")).toHaveCSS(
+    "width",
+    "18px",
+  );
+  const held = await page.evaluate(() => window.telegraphAudio);
+  expect(held.starts).toBe(7);
+  expect(held.stops).toBe(6);
+  expect(held.frequencies).toEqual(Array(7).fill(TELEGRAPH_FREQUENCY));
+  await key.dispatchEvent("pointercancel", { pointerId: 1 });
+  await page.mouse.up();
   await page.locator(".focus-telegraph-button").click();
   await expect(page.locator(".focus-telegraph")).toHaveCount(0);
   await expect(page.locator(".screenplay-editor")).toBeFocused();
@@ -196,8 +273,50 @@ test("Russian key handles held dashes, keyboard taps, word pauses and cancels pe
   await letter(page, "--..");
   await first(page).toBe("МИР З");
   await page.clock.runFor(400);
+  const positions = async () => {
+    // CSS transitions use the rendering clock even while Morse timers are paused.
+    await expect
+      .poll(() =>
+        page.locator(".telegraph-signals").evaluate((node) => {
+          const actual = new DOMMatrix(getComputedStyle(node).transform).m41;
+          const target = new DOMMatrix(node.style.transform).m41;
+          return Math.abs(actual - target);
+        }),
+      )
+      .toBe(0);
+    return page.locator(".telegraph-signal").evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        x: node.getBoundingClientRect().x,
+        width: node.getBoundingClientRect().width,
+      })),
+    );
+  };
+  const beforePause = await positions();
+  await page.clock.fastForward(MORSE_WORD_GAP);
+  await page.clock.runFor(200);
+  expect(await positions()).toEqual(beforePause);
   await page.screenshot({ path: info.outputPath("telegraph-russian.png") });
-  await signal(page, ".");
+  const key = page.locator(".telegraph-key");
+  await key.dispatchEvent("pointerdown", { pointerId: 11, button: 0 });
+  await page.clock.runFor(MORSE_DASH - 100);
+  const beforeRelease = await positions();
+  await expect(page.locator(".telegraph-live-signal")).toHaveCSS(
+    "width",
+    "6px",
+  );
+  await page.locator(".telegraph-live-signal").evaluate((node) => {
+    window.telegraphHeldMark = node;
+  });
+  await key.dispatchEvent("pointerup", { pointerId: 11, button: 0 });
+  await page.clock.runFor(160);
+  expect(await positions()).toEqual(beforeRelease);
+  expect(
+    await page.evaluate(
+      () =>
+        window.telegraphHeldMark ===
+        document.querySelector(".telegraph-signals").lastElementChild,
+    ),
+  ).toBe(true);
   await page.locator(".focus-telegraph-button").click();
   await page.clock.fastForward(2000);
   await first(page).toBe("МИР З");
@@ -270,6 +389,15 @@ test.describe("touch", () => {
       .locator(".focus-telegraph")
       .evaluate((node) => node.scrollWidth - node.clientWidth);
     expect(overflow).toBe(0);
+    expect(await formatGap(page)).toBeCloseTo(22, 0);
+    for (const selector of [
+      ".focus-mode-toggle",
+      ".focus-typewriter-button",
+      ".focus-telegraph-button",
+    ]) {
+      const button = await page.locator(selector).boundingBox();
+      expect(button.y + button.height).toBeLessThan(bounds.y);
+    }
     await page.clock.runFor(400);
     await page.screenshot({ path: info.outputPath("telegraph-mobile.png") });
     await page.locator(".focus-mode-toggle").click();
@@ -317,5 +445,38 @@ test("real-time input keeps the caret above the key and restores normal fullscre
     geometry.scrollTop + 8,
   );
   expect(geometry.bottom).toBeLessThan(geometry.keyTop);
+  expect(await formatGap(page)).toBeCloseTo(22, 0);
   await page.screenshot({ path: info.outputPath("telegraph-real-time.png") });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => formatGap(page)).toBeCloseTo(22, 0);
+});
+
+test("release before the audio context resumes cannot start a delayed tone", async () => {
+  let resume,
+    starts = 0,
+    closed = 0;
+  class SuspendedContext {
+    state = "suspended";
+    resume() {
+      return new Promise((resolve) => {
+        resume = resolve;
+      });
+    }
+    createOscillator() {
+      starts++;
+      throw new Error("A cancelled press must not create a voice");
+    }
+    close() {
+      closed++;
+      return Promise.resolve();
+    }
+  }
+  const sound = createTelegraphAudio(SuspendedContext);
+  sound.start();
+  sound.stop();
+  resume();
+  await Promise.resolve();
+  expect(starts).toBe(0);
+  sound.dispose();
+  expect(closed).toBe(1);
 });
