@@ -4,6 +4,7 @@ import { Search, X, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { FORMATS } from "./FormatBar.jsx";
 import { SettingsSwitch } from "./DocumentSettings.jsx";
 import { searchMatchKey } from "./document-search.js";
+import { scriptVersionSwatchStyle } from "./script-version-colors.js";
 export default function DocumentSearch({
   hideFormat = false,
   matches,
@@ -143,7 +144,10 @@ export default function DocumentSearch({
               {((allVersions && match.versionLabel) || match.variant) && (
                 <span className="search-result-context">
                   {allVersions && match.versionLabel && (
-                    <span className="search-version-badge">
+                    <span
+                      className="search-version-badge"
+                      style={scriptVersionSwatchStyle(match.versionId)}
+                    >
                       {match.versionLabel}
                     </span>
                   )}
@@ -152,7 +156,7 @@ export default function DocumentSearch({
                       className={`search-variant-badge${match.variants.length > 1 ? " has-variants" : ""}`}
                       aria-label={t("Варианты сцены")}
                     >
-                      {t("Вариант {0}", match.variant)}
+                      {match.variant}
                       {match.variants.length > 1
                         ? ` · ${match.variants.join(" / ")}`
                         : ""}

@@ -9,3 +9,14 @@ export const SCRIPT_VERSIONS = [
   { id: "salmon", label: "v8 Salmon", hue: 35, chroma: 0.012 },
   { id: "cherry", label: "v9 Cherry", hue: 5, chroma: 0.012 },
 ];
+
+export function scriptVersionSwatchStyle(id) {
+  const version =
+    SCRIPT_VERSIONS.find((entry) => entry.id === id) || SCRIPT_VERSIONS[0];
+  return {
+    "--version-hue": version.hue,
+    "--version-swatch-lightness":
+      version.id === "white" ? 1 : version.id === "cherry" ? 0.82 : 0.92,
+    "--version-swatch-chroma": version.id === "white" ? 0 : 0.08,
+  };
+}

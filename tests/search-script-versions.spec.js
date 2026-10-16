@@ -170,6 +170,51 @@ for (const theme of ["light", "dark"])
       "v2 Blue",
       "v3 Pink",
     ]);
+    await expect(cards(page).locator(".search-variant-badge")).toHaveText([
+      "A · A / F",
+      "F · A / F",
+      "A · A / F",
+      "F · A / F",
+      "A",
+    ]);
+    const badgeColours = await page
+      .locator(".search-version-badge")
+      .evaluateAll((nodes) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext("2d");
+        const luminance = (colour) => {
+          context.fillStyle = colour;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data]
+            .slice(0, 3)
+            .map((value) => value / 255)
+            .map((value) =>
+              value <= 0.04045
+                ? value / 12.92
+                : ((value + 0.055) / 1.055) ** 2.4,
+            )
+            .reduce(
+              (total, value, index) =>
+                total + value * [0.2126, 0.7152, 0.0722][index],
+              0,
+            );
+        };
+        return nodes.map((node) => {
+          const style = getComputedStyle(node);
+          const bg = luminance(style.backgroundColor),
+            fg = luminance(style.color);
+          return {
+            background: style.backgroundColor,
+            contrast: (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05),
+          };
+        });
+      });
+    expect(new Set(badgeColours.map((colour) => colour.background)).size).toBe(
+      3,
+    );
+    for (const colour of badgeColours)
+      expect(colour.contrast).toBeGreaterThan(7);
     await page
       .locator(".search-drawer")
       .screenshot({ path: info.outputPath("all-versions.png") });

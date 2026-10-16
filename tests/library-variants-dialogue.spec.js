@@ -92,7 +92,9 @@ test("search reveals inactive variants, highlights selected results and navigate
   await page.getByLabel("Поиск по тексту", { exact: true }).fill("маяк");
   const cards = page.locator(".search-result-card");
   await expect(cards).toHaveCount(5);
-  await expect(cards.last()).toContainText("Вариант F");
+  await expect(cards.last().locator(".search-variant-badge")).toHaveText(
+    "F · A / B / F",
+  );
   await cards.last().click();
   await expect(page.locator('p[data-block-id="scene"]')).toHaveAttribute(
     "data-scene-variant",
@@ -112,7 +114,9 @@ test("search reveals inactive variants, highlights selected results and navigate
     .getByRole("combobox", { name: "Формат текста", exact: true })
     .selectOption("action");
   await expect(cards).toHaveCount(2);
-  await expect(cards.first()).toContainText("Вариант B");
+  await expect(cards.first().locator(".search-variant-badge")).toHaveText(
+    "B · A / B / F",
+  );
   await cards.last().click();
   await expect(
     page.locator('p[data-block-id="f-action"] .search-from-card'),

@@ -478,8 +478,8 @@ test("mobile search and comments open hidden scene variants and character readin
   await sheet(page)
     .getByRole("textbox", { name: "Поиск по тексту", exact: true })
     .fill("Альтернативная");
-  await expect(sheet(page).locator(".search-result-card")).toContainText(
-    "Вариант F",
+  await expect(sheet(page).locator(".search-variant-badge")).toHaveText(
+    "F · A / F",
   );
   await sheet(page).locator(".search-result-card").click();
   await expect(sheet(page)).toHaveCount(0);

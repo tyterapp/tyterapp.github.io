@@ -1,6 +1,7 @@
 import AppSelect from "./AppSelect.jsx";
 import { Trash2 } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
+import { scriptVersionSwatchStyle } from "./script-version-colors.js";
 import {
   SCRIPT_VERSIONS,
   scriptVersionId,
@@ -43,16 +44,7 @@ export default function ScriptVersionPicker({
               <span
                 aria-hidden="true"
                 className="script-version-swatch"
-                style={{
-                  "--version-hue": version.hue,
-                  "--version-swatch-lightness":
-                    version.id === "white"
-                      ? 1
-                      : version.id === "cherry"
-                        ? 0.82
-                        : 0.92,
-                  "--version-swatch-chroma": version.id === "white" ? 0 : 0.08,
-                }}
+                style={scriptVersionSwatchStyle(version.id)}
               />
             ),
             label: (
