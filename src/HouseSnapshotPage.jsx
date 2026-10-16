@@ -13,7 +13,7 @@ export default function HouseSnapshotPage() {
     readHouseSnapshot(location.hash),
   );
   useEffect(() => {
-    document.title = `${t("Снимок домика")} — Tyter`;
+    document.title = `${t("Снимок домика")} — Tyter · OiiA`;
     const update = () => setSnapshot(readHouseSnapshot(location.hash));
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
@@ -24,7 +24,7 @@ export default function HouseSnapshotPage() {
         <header>
           <h1>{t("Снимок домика")}</h1>
           <a className="house-snapshot-brand" href="/">
-            Tyter
+            Tyter · OiiA
           </a>
         </header>
         {snapshot ? (
