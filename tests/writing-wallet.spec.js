@@ -231,6 +231,11 @@ const purchase = (page) =>
     name: "Купить доктора сценария за 20 монет",
     exact: true,
   });
+const openDoctorShop = async (page) => {
+  await openShop(page);
+  await expect(purchase(page)).toHaveCount(0);
+  await shop(page).getByRole("button", { name: "Разное", exact: true }).click();
+};
 
 for (const theme of ["light", "dark"]) {
   test(`${theme}: the shop inside coins purchases the doctor once, persists, and closes with Escape`, async ({
@@ -240,7 +245,7 @@ for (const theme of ["light", "dark"]) {
     await expect(
       page.getByRole("button", { name: "Доктор сценария", exact: true }),
     ).toHaveCount(0);
-    await openShop(page);
+    await openDoctorShop(page);
     await expect(purchase(page)).toBeEnabled();
     await purchase(page).click();
     await expect(purchase(page)).toHaveCount(0);
@@ -252,7 +257,7 @@ for (const theme of ["light", "dark"]) {
     await expect(shop(page)).toHaveCount(0);
     await expect(page.locator(".writing-timer-balance")).toBeFocused();
     await page.reload();
-    await openShop(page);
+    await openDoctorShop(page);
     await expect(purchase(page)).toHaveCount(0);
     const wallet = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
@@ -269,7 +274,7 @@ test("320px: the shop stays inside the viewport and unaffordable purchases are d
 }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await open(page, { theme: "dark", coins: 19 });
-  await openShop(page);
+  await openDoctorShop(page);
   await expect(purchase(page)).toBeDisabled();
   await expect(shop(page)).toContainText("100 написанных символов = 10 монет");
   const bounds = await shop(page).boundingBox();
@@ -291,8 +296,8 @@ test("two tabs buying simultaneously spend only one doctor price", async ({
   await open(page, { coins: 40 });
   const second = await context.newPage();
   await open(second, { seed: false });
-  await openShop(page);
-  await openShop(second);
+  await openDoctorShop(page);
+  await openDoctorShop(second);
   const firstButton = await purchase(page).elementHandle();
   const secondButton = await purchase(second).elementHandle();
   await Promise.all([
@@ -353,9 +358,12 @@ for (const theme of ["light", "dark"]) {
     await page.keyboard.press("Escape");
     await expect(room).toHaveCount(0);
     await expect(houseButton).toBeFocused();
-    await openShop(page);
+    await openDoctorShop(page);
     await purchase(page).click();
     await expect(purchase(page)).toHaveCount(0);
+    await shop(page)
+      .getByRole("button", { name: "Назад к категориям", exact: true })
+      .click();
     for (const [name, item] of [
       ["Скины", "Классическая кошка"],
       ["Декор", "Уютный коврик"],

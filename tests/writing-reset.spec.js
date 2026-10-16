@@ -177,13 +177,14 @@ test("reset confirms at the top, persists zero after reload, leaves script text 
       exact: true,
     }),
   ).toBeDisabled();
+  await expect(shop(page).locator(".writing-shop-category")).toHaveCount(1);
+  await shop(page).getByRole("button", { name: "Разное", exact: true }).click();
   await expect(
     shop(page).getByRole("button", {
       name: "Купить доктора сценария за 20 монет",
       exact: true,
     }),
   ).toBeDisabled();
-  await expect(shop(page).locator(".writing-shop-category")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(shop(page)).toHaveCount(0);
   await page.locator(".screenplay-editor p").last().click();
@@ -191,6 +192,7 @@ test("reset confirms at the top, persists zero after reload, leaves script text 
   await page.keyboard.insertText("а".repeat(200));
   await expect(page.locator(".writing-timer-balance-content")).toHaveText("20");
   await openWritingShop(page);
+  await shop(page).getByRole("button", { name: "Разное", exact: true }).click();
   await shop(page)
     .getByRole("button", {
       name: "Купить доктора сценария за 20 монет",

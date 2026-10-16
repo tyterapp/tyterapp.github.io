@@ -118,23 +118,23 @@ export default function WritingShop({
       setBuying("");
     }
   };
+  const doctor = {
+    id: "doctor",
+    owned: timer.hasDoctor,
+    price: DOCTOR_PRICE,
+    name: text("Доктор сценария", "Script doctor"),
+    icon: BriefcaseMedical,
+    description: text(
+      "Проверяет ошибки и сценарный формат.",
+      "Checks errors and screenplay formatting.",
+    ),
+    label: text(
+      "Купить доктора сценария за 20 монет",
+      "Buy script doctor for 20 coins",
+    ),
+    purchase: timer.purchaseDoctor,
+  };
   const products = [
-    {
-      id: "doctor",
-      owned: timer.hasDoctor,
-      price: DOCTOR_PRICE,
-      name: text("Доктор сценария", "Script doctor"),
-      icon: BriefcaseMedical,
-      description: text(
-        "Проверяет ошибки и сценарный формат.",
-        "Checks errors and screenplay formatting.",
-      ),
-      label: text(
-        "Купить доктора сценария за 20 монет",
-        "Buy script doctor for 20 coins",
-      ),
-      purchase: timer.purchaseDoctor,
-    },
     {
       id: "house",
       owned: timer.hasHouse,
@@ -277,6 +277,7 @@ export default function WritingShop({
           <div className="writing-shop-list">
             {category === "misc" && (
               <>
+                {!recording && !doctor.owned && productTile(doctor)}
                 {!recording && productTile(lighter)}
                 <WritingRadio
                   owned={timer.hasRadio}
@@ -335,7 +336,8 @@ export default function WritingShop({
           ((!selected &&
             products.some((product) => timer.coins < product.price)) ||
             (category === "misc" &&
-              ((!lighter.owned && timer.coins < LIGHTER_PRICE) ||
+              ((!doctor.owned && timer.coins < DOCTOR_PRICE) ||
+                (!lighter.owned && timer.coins < LIGHTER_PRICE) ||
                 (!timer.hasRadio && timer.coins < RADIO_PRICE) ||
                 (!timer.hasTikiTok && timer.coins < TIKITOK_PRICE)))) && (
             <p className="writing-shop-hint">

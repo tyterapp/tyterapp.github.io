@@ -105,13 +105,6 @@ export default function WritingRadio({
           {t(dictation.error)}
         </p>
       )}
-      {!active && (
-        <p className="writing-radio-note">
-          {t(
-            "Речь распознаёт браузер; он может передавать звук своему сервису. Для диктовки может понадобиться интернет.",
-          )}
-        </p>
-      )}
       {owned && !active && (
         <p className="writing-radio-note">
           {t(

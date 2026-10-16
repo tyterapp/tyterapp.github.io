@@ -34,8 +34,6 @@ export default {
     "Choose an insertion point in the screenplay.",
   "Позиция вставки изменилась. Включите рацию снова.":
     "The insertion point changed. Turn on the radio again.",
-  "Речь распознаёт браузер; он может передавать звук своему сервису. Для диктовки может понадобиться интернет.":
-    "Your browser recognizes speech and may send audio to its service. Dictation may need an internet connection.",
   "Закрытие магазина выключает микрофон. Язык диктовки соответствует RU / ENG.":
     "Closing the shop turns off the microphone. Dictation follows the RU / ENG language setting.",
   "Сжечь последнюю страницу": "Burn the last page",
