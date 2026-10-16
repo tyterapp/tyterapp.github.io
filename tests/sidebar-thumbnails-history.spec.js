@@ -250,6 +250,38 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
     .first()
     .hover();
   await expect(page.locator(".thumbnail-preview img")).toBeVisible();
+  await page.getByRole("button", { name: "Компоненты", exact: true }).click();
+  const previewSettings = page.locator(".component-preview-settings");
+  await previewSettings.locator("summary").click();
+  const previewSwitch = previewSettings.getByRole("switch", {
+    name: "Миниатюры при наведении",
+    exact: true,
+  });
+  await expect(previewSwitch).toBeChecked();
+  await previewSwitch.uncheck();
+  await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+  await expect(
+    page.locator('[data-component-preview="cat"] img'),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Закрыть компоненты" }).click();
+  await page.locator('.screenplay-editor [data-prop-id="window"]').hover();
+  await page.waitForTimeout(300);
+  await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+  await page.getByRole("button", { name: "Реквизит", exact: true }).click();
+  await page.locator('[data-prop-preview="window"] img').hover();
+  await page.waitForTimeout(300);
+  await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  await page.getByRole("button", { name: "Компоненты", exact: true }).click();
+  await previewSettings.locator("summary").click();
+  await expect(previewSwitch).not.toBeChecked();
+  await previewSwitch.focus();
+  await page.keyboard.press("Space");
+  await expect(previewSwitch).toBeChecked();
+  await page.getByRole("button", { name: "Закрыть компоненты" }).click();
+  await page.locator('.screenplay-editor [data-prop-id="window"]').hover();
+  await expect(page.locator(".thumbnail-preview img")).toBeVisible();
   await page.screenshot({ path: info.outputPath("thumbnail-preview.png") });
   const payload = await page.evaluate(async () => {
     const { browserRequest } = await import("/src/browser-files.js");

@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 
 const STORAGE = "tyter.editor-preferences.v1";
-const defaults = { theme: "light", typewriter: false, doctorFlies: false };
+const defaults = {
+  theme: "light",
+  typewriter: false,
+  doctorFlies: false,
+  thumbnailPreviews: true,
+};
 export function readEditorPreferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE));
@@ -9,6 +14,7 @@ export function readEditorPreferences() {
       theme: saved?.theme === "dark" ? "dark" : "light",
       typewriter: saved?.typewriter === true,
       doctorFlies: saved?.doctorFlies === true,
+      thumbnailPreviews: saved?.thumbnailPreviews !== false,
     };
   } catch {
     return { ...defaults };

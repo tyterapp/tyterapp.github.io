@@ -2,6 +2,9 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  Настройки: "Settings",
+  "Миниатюры при наведении": "Thumbnails on hover",
+  "Компоненты и реквизит": "Components and props",
   Алиасы: "Aliases",
   "Например, Джеффу, Джеффа": "For example, Jeff, Jeffrey",
   "Варианты написания через запятую или с новой строки.":

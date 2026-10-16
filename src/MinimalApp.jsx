@@ -2844,7 +2844,7 @@ export default function MinimalApp({ onLogout }) {
       }}
     >
       <TooltipLayer />
-      {!focusMode && (
+      {!focusMode && preferences.thumbnailPreviews && (
         <ThumbnailPreviewLayer
           components={current.components.filter((c) => c.enabled !== false)}
           props={current.props || EMPTY_PROPS}
@@ -4118,6 +4118,10 @@ export default function MinimalApp({ onLogout }) {
           {componentsOpen && (
             <ComponentsPanel
               key={writingScope}
+              thumbnailPreviews={preferences.thumbnailPreviews}
+              onThumbnailPreviews={(thumbnailPreviews) =>
+                setPreferences({ thumbnailPreviews })
+              }
               onExportLibrary={() =>
                 saveBlob(
                   exportComponentLibrary(current),
