@@ -2546,25 +2546,11 @@ kbd {
 .component-group {
   margin-top: 14px;
 }
-.component-preview-settings > summary {
-  min-height: 44px;
-  cursor: pointer;
-  list-style: none;
-  color: var(--ui-muted);
-}
-.component-preview-settings > summary:focus-visible {
-  outline: 2px solid var(--ui-accent);
-  outline-offset: -2px;
-  border-radius: 6px;
+.component-preview-settings {
+  flex: 0 0 auto;
 }
 .component-preview-settings .settings-switch-row {
   margin-inline: 0;
-}
-.component-preview-settings > summary::-webkit-details-marker {
-  display: none;
-}
-.component-preview-settings[open] > summary > svg:last-child {
-  transform: rotate(180deg);
 }
 .folder-toggle {
   display: flex;

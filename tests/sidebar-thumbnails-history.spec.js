@@ -252,11 +252,11 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
   await expect(page.locator(".thumbnail-preview img")).toBeVisible();
   await page.getByRole("button", { name: "Компоненты", exact: true }).click();
   const previewSettings = page.locator(".component-preview-settings");
-  await previewSettings.locator("summary").click();
   const previewSwitch = previewSettings.getByRole("switch", {
     name: "Миниатюры при наведении",
     exact: true,
   });
+  await expect(previewSwitch).toBeVisible();
   await expect(previewSwitch).toBeChecked();
   await previewSwitch.uncheck();
   await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
@@ -274,7 +274,7 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
   await page.reload();
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await page.getByRole("button", { name: "Компоненты", exact: true }).click();
-  await previewSettings.locator("summary").click();
+  await expect(previewSwitch).toBeVisible();
   await expect(previewSwitch).not.toBeChecked();
   await previewSwitch.focus();
   await page.keyboard.press("Space");
