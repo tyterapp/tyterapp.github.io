@@ -47,6 +47,7 @@ export function pastedScreenplaySlice(
       const marks = node.marks.filter(
         (mark) =>
           mark.type.name !== "comment" &&
+          mark.type.name !== "scriptRevision" &&
           (mark.type.name !== "entity" || ids.has(mark.attrs.id)),
       );
       if (node.isText) nodes.push(node.mark(marks));
@@ -56,6 +57,7 @@ export function pastedScreenplaySlice(
             node.type.name === "paragraph"
               ? {
                   ...node.attrs,
+                  scriptRevision: null,
                   // A duplicate must never steal the original scene's card/variant ID,
                   // including when it is inserted before the original in the document.
                   blockId: uid(),

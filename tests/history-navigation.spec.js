@@ -91,15 +91,13 @@ async function open(page, theme, mobile = false) {
             "настроек кадров",
             "восстановления",
           ].entries()) {
-            transaction
-              .objectStore("revisions")
-              .add({
-                documentId,
-                snapshot,
-                label,
-                area: "screenplay",
-                createdAt: Date.now() - 60000 - i * 60000,
-              });
+            transaction.objectStore("revisions").add({
+              documentId,
+              snapshot,
+              label,
+              area: "screenplay",
+              createdAt: Date.now() - 60000 - i * 60000,
+            });
           }
           transaction.oncomplete = () => {
             database.close();
@@ -137,9 +135,6 @@ for (const theme of ["light", "dark"]) {
       });
       const cards = page.locator(".history-card");
       const preview = cards.first().locator(".history-card-preview");
-      const achievement = page.locator(".history-achievement");
-      const deleted = page.locator(".history-deletions li");
-      const disclosure = page.locator(".history-deletions-heading");
       await expect(current).toHaveAttribute("aria-pressed", "true");
       await expect(page.locator(".history-card strong")).toHaveCount(0);
       await expect(cards.first()).not.toContainText("До изменения");
@@ -152,12 +147,13 @@ for (const theme of ["light", "dark"]) {
       }));
       expect(collapsed.height).toBeLessThanOrEqual(collapsed.line * 3 + 1);
       expect(collapsed.contentHeight).toBeGreaterThan(collapsed.height);
-      await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-      await expect(achievement).toBeHidden();
-      await expect(deleted).toBeHidden();
+      await expect(page.locator(".history-deletions")).toHaveCount(0);
+      await expect(page.locator(".history-drawer")).not.toContainText(
+        "Удалённые копии за сегодня",
+      );
       await page
         .locator(".history-drawer")
-        .screenshot({ path: info.outputPath("history-collapsed.png") });
+        .screenshot({ path: info.outputPath("history.png") });
 
       await cards.first().click();
       await expect(current).toHaveAttribute("aria-pressed", "false");
@@ -192,16 +188,6 @@ for (const theme of ["light", "dark"]) {
         }),
       ).toHaveCount(0);
 
-      await disclosure.click();
-      await expect(disclosure).toHaveAttribute("aria-expanded", "true");
-      await expect(achievement).toBeVisible();
-      await expect(deleted).toHaveText(/v2 Blue/);
-      const before = await disclosure.boundingBox();
-      expect(before.height).toBeGreaterThanOrEqual(mobile ? 44 : 40);
-      expect(before.x).toBeGreaterThanOrEqual(0);
-      expect(before.x + before.width).toBeLessThanOrEqual(mobile ? 320 : 1440);
-      await disclosure.click();
-      await expect(achievement).toBeHidden();
       await page
         .getByRole("button", { name: "Закрыть историю", exact: true })
         .click();
@@ -212,7 +198,7 @@ for (const theme of ["light", "dark"]) {
       await page
         .getByRole("button", { name: "История изменений", exact: true })
         .click();
-      await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+      await expect(page.locator(".history-deletions")).toHaveCount(0);
       await expect(current).toHaveAttribute("aria-pressed", "true");
     });
   }

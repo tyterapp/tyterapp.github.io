@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { screenplayLayout } from "./document-layout.js";
+import { pageRevisionColors } from "./script-revisions.js";
 
 const pageKey = new PluginKey("screenplay-pages");
 const pageMeasurements = new WeakMap();
@@ -102,9 +103,12 @@ export function useScreenplayPagination(
   fontSize,
   fontFamily,
   documentZoom = 100,
+  onRevisionPages,
 ) {
   const callback = useRef(onPageCount);
   callback.current = onPageCount;
+  const revisions = useRef(onRevisionPages);
+  revisions.current = onRevisionPages;
   useEffect(() => {
     if (!editor || !enabled) return;
     const PAGE = pageHeightFor(fontSize);
@@ -168,6 +172,20 @@ export function useScreenplayPagination(
         ),
       );
       callback.current?.(plan.count);
+      if (revisions.current) {
+        const colors = pageRevisionColors(
+          editor.state.doc,
+          plan.starts,
+          plan.count,
+        );
+        revisions.current(
+          colors.map((version, index) => ({
+            version,
+            top: index * PAGE,
+            height: PAGE,
+          })),
+        );
+      }
       if (scroll && scrollTop != null) scroll.scrollTop = scrollTop;
       measuring = false;
       return {
@@ -189,6 +207,7 @@ export function useScreenplayPagination(
       if (transaction.docChanged) schedule();
     };
     editor.on("transaction", changed);
+    editor.view.dom.addEventListener("compositionend", schedule);
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width !== observer.lastWidth) {
@@ -207,6 +226,7 @@ export function useScreenplayPagination(
       cancelAnimationFrame(frame);
       observer.disconnect();
       editor.off("transaction", changed);
+      editor.view.dom.removeEventListener("compositionend", schedule);
       if (!editor.isDestroyed) editor.unregisterPlugin(pageKey);
     };
   }, [editor, enabled, fontSize, fontFamily, documentZoom]);

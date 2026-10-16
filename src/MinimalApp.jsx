@@ -82,6 +82,7 @@ import BurningPaper from "./BurningPaper.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
 import TypewriterIcon from "./TypewriterIcon.jsx";
+import { cleanRevisionRound, revisionPageStyle } from "./script-revisions.js";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
 import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
@@ -729,6 +730,23 @@ export default function MinimalApp({ onLogout }) {
     format: "scene",
   });
   const [pageCount, setPageCount] = useState(1);
+  const [pageRevisionState, setPageRevisionState] = useState({
+    scope: null,
+    pages: [],
+  });
+  const revisionPages =
+    pageRevisionState.scope === writingScope ? pageRevisionState.pages : [];
+  const changeRevisionPages = useCallback(
+    (pages) => {
+      setPageRevisionState((previous) =>
+        previous.scope === writingScope &&
+        JSON.stringify(previous.pages) === JSON.stringify(pages)
+          ? previous
+          : { scope: writingScope, pages },
+      );
+    },
+    [writingScope],
+  );
   const [saveState, setSaveState] = useState("saving");
   const [busy, setBusy] = useState("");
   const { notice, setMessage, dismissMessage } = useAppMessage(
@@ -3366,6 +3384,23 @@ export default function MinimalApp({ onLogout }) {
               }}
             >
               {!historyRevision && !notesOpen && (
+                <div className="revision-page-backgrounds" aria-hidden="true">
+                  {revisionPages.map((page, index) => (
+                    <div
+                      key={index}
+                      className="revision-page-background"
+                      data-page={index + 1}
+                      data-revision-color={page.version}
+                      style={{
+                        top: page.top,
+                        height: page.height,
+                        ...revisionPageStyle(page.version),
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {!historyRevision && !notesOpen && (
                 <div className="page-guides" aria-hidden="true">
                   {Array.from(
                     {
@@ -3499,6 +3534,14 @@ export default function MinimalApp({ onLogout }) {
                   })}
                   activeComment={commentsOpen ? activeComment : null}
                   onPageCount={setPageCount}
+                  revision={{
+                    version: activeScriptVersion.id,
+                    round: cleanRevisionRound(
+                      current.revisionRound,
+                      activeScriptVersion.id,
+                    ),
+                  }}
+                  onRevisionPages={changeRevisionPages}
                   fontSize={fontSize}
                   documentZoom={documentZoom}
                   fontFamily={fontFamily}
@@ -3877,8 +3920,6 @@ export default function MinimalApp({ onLogout }) {
               notes={notesOpen}
               version={historyVersion}
               selectedId={historyRevision?.id}
-              deletions={writingTimer.deletions}
-              achievements={writingTimer.achievements}
               onSelect={(revision) => {
                 setHistoryRevision(revision);
                 if (revision)

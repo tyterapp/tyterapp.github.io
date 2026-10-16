@@ -41,6 +41,7 @@ export function snapshotOf(document) {
   return {
     title: document.title,
     scriptVersion: scriptVersionId(document),
+    revisionRound: document.revisionRound,
     content: document.content,
     notes: document.notes || null,
     sceneVariants: document.sceneVariants || {},

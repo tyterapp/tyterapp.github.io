@@ -383,7 +383,7 @@ test("320px: copy deletion has touch controls and the warning fits the screen", 
   await expect(notice(page)).toHaveCount(0);
 });
 
-test("only confirmed deletions enter today's history; deleting the last copy awards Scavenger once", async ({
+test("deleting the last copy awards Scavenger once without showing deleted copies in history", async ({
   page,
 }) => {
   await open(page);
@@ -418,25 +418,26 @@ test("only confirmed deletions enter today's history; deleting the last copy awa
   await page
     .getByRole("button", { name: "История изменений", exact: true })
     .click();
-  const journal = page.locator(".history-deletions");
-  const disclosure = journal.getByRole("button", {
-    name: /Удалённые копии за сегодня/,
-  });
-  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-  await expect(journal.locator(".history-achievement")).toBeHidden();
-  await expect(journal.locator("ul")).toBeHidden();
-  await disclosure.click();
-  await expect(disclosure).toHaveAttribute("aria-expanded", "true");
-  await expect(journal.locator(".history-achievement")).toBeVisible();
-  await expect(journal).toContainText("Ачивка «Мусорщик»");
-  await expect(journal.locator("li")).toHaveCount(2);
-  await expect(journal).toContainText("v2 Blue");
-  await expect(journal).toContainText("v3 Pink");
-  await disclosure.click();
-  await expect(journal.locator("ul")).toBeHidden();
+  await expect(page.locator(".history-deletions")).toHaveCount(0);
+  await expect(page.locator(".history-drawer")).not.toContainText(
+    "Удалённые копии за сегодня",
+  );
   await page
     .getByRole("button", { name: "Закрыть историю", exact: true })
     .click();
+  await page.locator(".writing-timer-balance").click();
+  await page
+    .locator("#writing-coins")
+    .getByRole("button", { name: "Достижения", exact: true })
+    .click();
+  const achievement = page.locator('#writing-coins [data-earned="true"]');
+  await expect(achievement).toContainText("Мусорщик");
+  await expect(achievement).toContainText("10 монет один раз");
+  await expect(achievement).toContainText("Получено");
+  await page
+    .getByRole("button", { name: "Закрыть монеты", exact: true })
+    .click();
+  await page.clock.runFor(300);
   await choose(page, "blue");
   await remove("v2 Blue");
   await expect.poll(async () => (await wallet(page)).deletions?.length).toBe(3);

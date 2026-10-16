@@ -262,8 +262,12 @@ test("editing, search, outline and an imported component library stay in the sel
     const white = switchScriptVersion(imported, "white");
     return {
       active: imported.scriptVersion,
-      blue: imported.content.content[1].content[0].text,
-      white: white.content.content[1].content[0].text,
+      blue: imported.content.content[1].content
+        .map((part) => part.text || "\n")
+        .join(""),
+      white: white.content.content[1].content
+        .map((part) => part.text || "\n")
+        .join(""),
       blueCards: imported.outline.cards,
       whiteCards: white.outline.cards,
       blueComponents: imported.components,
@@ -388,7 +392,7 @@ test("switching screenplay version from a comment preview restores the working s
 });
 
 for (const theme of ["light", "dark"]) {
-  test(`${theme}: all version colours are faint, the menu works with keyboard and the header fits mobile`, async ({
+  test(`${theme}: version colours stay behind the paper, the menu works with keyboard and the header fits mobile`, async ({
     page,
   }, info) => {
     await open(page, theme);
@@ -425,6 +429,9 @@ for (const theme of ["light", "dark"]) {
         };
         return {
           background: pixel(getComputedStyle(paper).backgroundColor),
+          canvas: pixel(
+            getComputedStyle(paper.closest(".minimal-scroll")).backgroundColor,
+          ),
           text: pixel(
             getComputedStyle(paper.querySelector(".screenplay-editor")).color,
           ),
@@ -443,7 +450,7 @@ for (const theme of ["light", "dark"]) {
       if (theme === "light")
         expect(Math.min(...colour.background)).toBeGreaterThan(235);
       else expect(Math.max(...colour.background)).toBeLessThan(65);
-      colours.push(colour.background.join(","));
+      colours.push(colour.canvas.join(","));
     }
     expect(new Set(colours).size).toBe(9);
     await choose(page, "blue");

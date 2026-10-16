@@ -113,8 +113,7 @@ export default {
     "10 coins for every 100 characters written",
   "Ежедневная монета, стрики и бонус за каждые 5 дней подряд":
     "Daily coin, streaks and a bonus for every 5 consecutive days",
-  "Достижения и история удалённых копий":
-    "Achievements and deleted copy history",
+  Достижения: "Achievements",
   "Доктор сценария: проверка формата и отключаемые мухи":
     "Script doctor: formatting checks and optional flies",
   "20 монет": "20 coins",

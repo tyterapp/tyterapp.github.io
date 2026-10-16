@@ -23,6 +23,9 @@ import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { preparePageBurn } from "./burning-page.js";
+import { ScriptRevisionMark } from "./screenplay-revisions.js";
+import { revisionAttributes, revisionFromElement } from "./script-revisions.js";
+import { useMobileRevisionPages } from "./mobile-revision-pages.js";
 import {
   createDictationTarget,
   dictationPreviewPlugin,
@@ -222,6 +225,25 @@ function normalizeContent(content) {
     return {
       ...block,
       type: "paragraph",
+      ...(Array.isArray(block.content)
+        ? {
+            content: block.content.flatMap((part) => {
+              if (part.type !== "text" || !/[\r\n]/.test(part.text))
+                return [part];
+              return part.text.split(/\r\n?|\n/).flatMap((text, index) => [
+                ...(index
+                  ? [
+                      {
+                        type: "hardBreak",
+                        ...(part.marks?.length ? { marks: part.marks } : {}),
+                      },
+                    ]
+                  : []),
+                ...(text ? [{ ...part, text }] : []),
+              ]);
+            }),
+          }
+        : {}),
       attrs: {
         ...block.attrs,
         format: FORMATS.includes(block.attrs?.format)
@@ -282,6 +304,12 @@ const ScreenplayParagraph = Node.create({
                   : "A",
               }
             : {},
+      },
+      scriptRevision: {
+        default: null,
+        parseHTML: revisionFromElement,
+        renderHTML: (attributes) =>
+          revisionAttributes(attributes.scriptRevision),
       },
     };
   },
@@ -534,6 +562,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     comments = [],
     activeComment = null,
     onPageCount,
+    revision = null,
+    onRevisionPages,
     fontSize = 12,
     documentZoom = 100,
     fontFamily = "courier",
@@ -604,6 +634,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
     comments,
     activeComment,
+    revision,
+    onRevisionPages,
   };
   const lastEmitted = useRef(null);
   const writingComposition = useRef({});
@@ -637,6 +669,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       ScreenplayParagraph,
       CommentMark,
       EntityMark,
+      ScriptRevisionMark.configure({
+        getRevision: () => propsRef.current.revision,
+      }),
       ScreenplayBehavior.configure({
         onComments: (selection) => propsRef.current.onComments?.(selection),
         minimal,
@@ -1196,6 +1231,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     editor,
     minimal && !continuous,
     onPageCount,
+    fontSize,
+    fontFamily,
+    documentZoom,
+    (pages) => propsRef.current.onRevisionPages?.(pages),
+  );
+  useMobileRevisionPages(
+    editor,
+    minimal && continuous && !!revision,
+    (pages) => propsRef.current.onRevisionPages?.(pages),
     fontSize,
     fontFamily,
     documentZoom,

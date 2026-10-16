@@ -4,7 +4,8 @@ import { cleanSceneVariants, SCENE_VARIANTS } from "./scene-variants.js";
 import { cleanCommentOptions } from "./comment-options.js";
 import { commentSceneIndex } from "./comment-scenes.js";
 import { cleanNotes, sharedNotes } from "./notes.js";
-import { cleanScriptVersions } from "./script-versions.js";
+import { cleanScriptVersions, scriptVersionId } from "./script-versions.js";
+import { cleanRevisionRound, cleanRevisionStamp } from "./script-revisions.js";
 import { cleanSceneShots } from "./shot-info.js";
 
 const FORMATS = new Set([
@@ -66,6 +67,7 @@ export function createProject(title = "Untitled") {
     outline: { columns: [], cards: [] },
     sceneVariants: {},
     sceneShots: {},
+    revisionRound: 0,
     settings: { ...DEFAULT_SETTINGS },
     metadata: {
       fontSize: 12,
@@ -381,7 +383,17 @@ export function validateImport(input, options = {}) {
       const children = (
         Array.isArray(node.content) ? node.content : []
       ).flatMap((part) => {
-        if (part?.type === "hardBreak") return [{ type: "hardBreak" }];
+        if (part?.type === "hardBreak") {
+          const marks = (Array.isArray(part.marks) ? part.marks : []).flatMap(
+            (mark) => {
+              const stamp =
+                mark?.type === "scriptRevision" &&
+                cleanRevisionStamp(mark.attrs);
+              return stamp ? [{ type: "scriptRevision", attrs: stamp }] : [];
+            },
+          );
+          return [{ type: "hardBreak", ...(marks.length ? { marks } : {}) }];
+        }
         if (
           part?.type !== "text" ||
           typeof part.text !== "string" ||
@@ -390,6 +402,10 @@ export function validateImport(input, options = {}) {
           return [];
         const marks = (Array.isArray(part.marks) ? part.marks : []).flatMap(
           (mark) => {
+            if (mark?.type === "scriptRevision") {
+              const stamp = cleanRevisionStamp(mark.attrs);
+              return stamp ? [{ type: "scriptRevision", attrs: stamp }] : [];
+            }
             if (mark?.type === "comment" && typeof mark.attrs?.id === "string")
               return [
                 { type: "comment", attrs: { id: cleanId(mark.attrs.id) } },
@@ -430,6 +446,9 @@ export function validateImport(input, options = {}) {
             SCENE_VARIANTS.includes(node.attrs.sceneVariant)
               ? node.attrs.sceneVariant
               : null,
+          ...(cleanRevisionStamp(node.attrs?.scriptRevision)
+            ? { scriptRevision: cleanRevisionStamp(node.attrs.scriptRevision) }
+            : {}),
         },
         ...(children.length ? { content: children } : {}),
       };
@@ -476,6 +495,10 @@ export function validateImport(input, options = {}) {
       ? source.cover
       : null,
     content: { type: "doc", content },
+    revisionRound: cleanRevisionRound(
+      source.revisionRound,
+      scriptVersionId(source),
+    ),
     ...(typeof source.componentLibraryId === "string"
       ? { componentLibraryId: cleanId(source.componentLibraryId) }
       : {}),

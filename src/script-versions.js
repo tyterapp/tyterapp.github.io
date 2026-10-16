@@ -1,19 +1,12 @@
-export const SCRIPT_VERSIONS = [
-  { id: "white", label: "v1 White", hue: 0, chroma: 0 },
-  { id: "blue", label: "v2 Blue", hue: 240, chroma: 0.012 },
-  { id: "pink", label: "v3 Pink", hue: 350, chroma: 0.012 },
-  { id: "yellow", label: "v4 Yellow", hue: 105, chroma: 0.016 },
-  { id: "green", label: "v5 Green", hue: 145, chroma: 0.012 },
-  { id: "goldenrod", label: "v6 Goldenrod", hue: 85, chroma: 0.016 },
-  { id: "buff", label: "v7 Buff", hue: 65, chroma: 0.012 },
-  { id: "salmon", label: "v8 Salmon", hue: 35, chroma: 0.012 },
-  { id: "cherry", label: "v9 Cherry", hue: 5, chroma: 0.012 },
-];
+import { SCRIPT_VERSIONS } from "./script-version-colors.js";
+import { cleanRevisionRound, nextRevisionRound } from "./script-revisions.js";
+export { SCRIPT_VERSIONS };
 const ids = new Set(SCRIPT_VERSIONS.map((version) => version.id));
 // These fields belong to a writing version. The file ID, title and quota remain
 // properties of the containing document, so it stays a single local file.
 const fields = [
   "content",
+  "revisionRound",
   "sceneVariants",
   "sceneShots",
   "outline",
@@ -101,6 +94,9 @@ export function switchScriptVersion(document, id) {
     [previous]: scriptVersionSnapshot(document),
   };
   const next = scriptVersionSnapshot(versions[id] || document);
+  next.revisionRound = versions[id]
+    ? cleanRevisionRound(next.revisionRound, id)
+    : nextRevisionRound(document);
   if (!versions[id])
     next.componentLibraryId =
       globalThis.crypto?.randomUUID?.() ||
@@ -122,7 +118,7 @@ export function cleanScriptVersions(source, cleanSnapshot) {
       continue;
     // A broken dormant version must not silently disappear during import.
     versions[id] = scriptVersionSnapshot(
-      cleanSnapshot(source.scriptVersions[id]),
+      cleanSnapshot({ ...source.scriptVersions[id], scriptVersion: id }),
     );
   }
   return { scriptVersion: active, scriptVersions: versions };
