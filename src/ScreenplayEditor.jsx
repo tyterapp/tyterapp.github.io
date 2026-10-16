@@ -1363,8 +1363,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   useImperativeHandle(
     ref,
     () => ({
-      focus() {
-        editor?.commands.focus();
+      focus(position) {
+        editor?.commands.focus(position);
       },
       focusEnd() {
         editor?.commands.focus("end");

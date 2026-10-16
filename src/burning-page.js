@@ -1,4 +1,5 @@
 import { closeHistory } from "@tiptap/pm/history";
+import { TextSelection } from "@tiptap/pm/state";
 import { measuredScreenplayPages } from "./pagination.js";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
 
@@ -169,6 +170,7 @@ export function preparePageBurn(
               }),
             ),
           );
+          tr.setSelection(TextSelection.atStart(tr.doc));
         } else tr.delete(from, before.content.size);
         tr.setMeta("skipWritingReward", true);
         if (!tr.docChanged) return false;

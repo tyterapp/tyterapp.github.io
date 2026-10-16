@@ -205,6 +205,34 @@ async function completeBurn(page) {
   await expect(page.getByRole("alert")).toHaveCount(0);
 }
 
+async function expectInitialSceneCaret(page) {
+  const editor = page.locator(".screenplay-editor");
+  await expect(editor).toBeFocused();
+  await expect
+    .poll(() =>
+      editor.evaluate((element) => {
+        const { selection } = element.editor.state;
+        const anchor = window.getSelection()?.anchorNode;
+        const paragraph = (
+          anchor?.nodeType === Node.ELEMENT_NODE
+            ? anchor
+            : anchor?.parentElement
+        )?.closest("p");
+        return {
+          position: selection.from,
+          empty: selection.empty,
+          format: selection.$from.parent.attrs.format,
+          firstLine: paragraph === element.querySelector("p"),
+        };
+      }),
+    )
+    .toEqual({ position: 1, empty: true, format: "scene", firstLine: true });
+  await expect(page.locator(".format-bar-button").first()).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+}
+
 test("purchase burns only the last rendered page with WebGL, hides flies then restores them gradually, and supports repeat use and undo", async ({
   page,
 }, info) => {
@@ -417,13 +445,14 @@ for (const [width, options] of [
       "scene",
       "action",
     ]);
+    await expectInitialSceneCaret(page);
     expect((await wallet(page)).coins).toBe(50);
   });
 }
 
 test("single page is cleared, undo restores it, achievement appears once and English labels work", async ({
   page,
-}) => {
+}, info) => {
   const doc = createProject("Одна страница");
   doc.content = {
     type: "doc",
@@ -449,6 +478,15 @@ test("single page is cleared, undo restores it, achievement appears once and Eng
   expect(
     (await json(page)).content.every((node) => !node.content?.length),
   ).toBe(true);
+  await expectInitialSceneCaret(page);
+  await page.screenshot({ path: info.outputPath("first-page-caret.png") });
+  await page.keyboard.insertText("INT. NEW ROOM — DAY");
+  expect((await json(page)).content[0].content[0].text).toBe(
+    "INT. NEW ROOM — DAY",
+  );
+  expect((await json(page)).content[1].content?.length || 0).toBe(0);
+  await page.locator(".screenplay-editor").press("Control+z");
+  await expectInitialSceneCaret(page);
   await page.locator(".screenplay-editor").press("Control+z");
   expect(await json(page)).toEqual(before);
   await page.getByRole("button", { name: "Монеты: 50", exact: true }).click();

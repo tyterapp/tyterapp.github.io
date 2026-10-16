@@ -810,7 +810,15 @@ export default function MinimalApp({ onLogout }) {
   const writingTimer = useWritingTimer(setMessage);
   const [burningPage, setBurningPage] = useState(null);
   const burnInProgress = useRef(false);
+  const burnFocus = useRef(null);
   const [burnSequence, setBurnSequence] = useState(0);
+  useLayoutEffect(() => {
+    if (burningPage || !burnFocus.current) return;
+    const position = burnFocus.current;
+    burnFocus.current = null;
+    // Return focus only after React removes inert from the document.
+    editorRef.current?.focus(position);
+  }, [burningPage]);
   const dictation = useSpeechDictation({
     enabled:
       writingTimer.hasRadio &&
@@ -1297,9 +1305,9 @@ export default function MinimalApp({ onLogout }) {
   const finishPageBurn = () => {
     if (!burnInProgress.current) return;
     burnInProgress.current = false;
+    burnFocus.current = burningPage?.single ? "start" : "end";
     setBurningPage(null);
     editorRef.current?.setEditable(true);
-    editorRef.current?.focusEnd();
   };
   const changeSceneVariant = (id, letter) => {
     const content = editorRef.current?.getJSON();

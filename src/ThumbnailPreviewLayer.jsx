@@ -58,8 +58,11 @@ export default function ThumbnailPreviewLayer({ components, props }) {
         (item) => item.id === componentId,
       );
       const prop = records.current.props.find((item) => item.id === propId);
+      const characterWithPortrait =
+        component?.type === "character" && component.thumbnail;
       const items = [
-        component?.thumbnail || component?.description?.trim()
+        !characterWithPortrait &&
+        (component?.thumbnail || component?.description?.trim())
           ? component
           : null,
         prop?.thumbnail ? { ...prop, description: "" } : null,

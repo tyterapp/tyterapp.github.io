@@ -208,8 +208,20 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
       .getByRole("button", { name: "Сохранить", exact: true })
       .click();
     await expect(sidebar.locator(`${row} img`)).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await stored(page))[
+            button === "Компоненты" ? "components" : "props"
+          ][0].thumbnail,
+      )
+      .toMatch(/^data:image\/jpeg;base64,/);
+    await page.mouse.move(700, 80);
     await sidebar.locator(`${row} img`).hover();
-    await expect(page.locator(".thumbnail-preview img")).toBeVisible();
+    if (button === "Компоненты") {
+      await page.waitForTimeout(300);
+      await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+    } else await expect(page.locator(".thumbnail-preview img")).toBeVisible();
     await page.mouse.move(700, 80);
     await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
   }
@@ -227,11 +239,14 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
     await page.waitForTimeout(300);
     await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
     await word.hover();
-    await expect(page.locator(".thumbnail-preview img")).toBeVisible();
+    if (selector.includes("cat")) {
+      await page.waitForTimeout(300);
+      await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+    } else await expect(page.locator(".thumbnail-preview img")).toBeVisible();
     await page.mouse.move(700, 80);
   }
   await page
-    .locator('.screenplay-editor [data-entity-id="cat"]')
+    .locator('.screenplay-editor [data-prop-id="window"]')
     .first()
     .hover();
   await expect(page.locator(".thumbnail-preview img")).toBeVisible();

@@ -113,7 +113,7 @@ async function open(page, { theme = "light", width = 1440 } = {}) {
       id: "mary",
       name: "Мэри",
       type: "character",
-      description: "",
+      description: "Персонаж без портрета",
       color: "#8a799a",
     },
     {
@@ -206,6 +206,22 @@ for (const theme of ["light", "dark"])
     await expect(portrait).toHaveCSS("width", "24px");
     await expect(portrait).toHaveCSS("height", "24px");
     await expect(portrait).toHaveCSS("border-radius", "4px");
+    for (const target of [
+      portrait,
+      line(page, "name").locator('[data-entity-id="jeff"]').last(),
+      line(page, "mentions").locator('[data-entity-id="jeff"]').first(),
+    ]) {
+      await target.hover();
+      await page.waitForTimeout(300);
+      await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+    }
+    await line(page, "no-photo").locator('[data-entity-id="mary"]').hover();
+    await expect(page.locator(".thumbnail-preview")).toContainText(
+      "Персонаж без портрета",
+    );
+    await expect(page.locator(".thumbnail-preview img")).toHaveCount(0);
+    await page.mouse.move(1400, 80);
+    await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
     await expect(
       line(page, "no-photo").locator(".character-thumbnail"),
     ).toHaveCount(0);
@@ -215,6 +231,9 @@ for (const theme of ["light", "dark"])
     const height = (await line(page, "format").boundingBox()).height;
     const nameHeight = (await line(page, "name").boundingBox()).height;
     const panel = await componentEditor(page);
+    await panel.locator('[data-component-id="jeff"] .component-item').hover();
+    await page.waitForTimeout(300);
+    await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
     const aliases = panel.getByLabel("Алиасы", { exact: true });
     expect(
       await aliases.evaluate((node) =>
