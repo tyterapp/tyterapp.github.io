@@ -538,6 +538,15 @@ test("F stays independent when other variants are first opened; switching does n
 test("full screen hides UI, keeps readable hints, accepts typing and restores the caret", async ({
   page,
 }, info) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "tyter.writing-timer.v1",
+      JSON.stringify({
+        coins: 0,
+        purchases: { "script-doctor": { purchasedAt: Date.now(), cost: 20 } },
+      }),
+    ),
+  );
   await open(page);
   await expect(
     page.getByRole("button", { name: "Доктор сценария", exact: true }),

@@ -46,6 +46,10 @@
 }
 .scene-shot-button.has-thumbnail {
   padding: 0;
+  background: transparent;
+}
+.scene-shot-button.has-thumbnail:hover {
+  background: var(--ui-accent-soft);
 }
 .scene-shot-thumbnail {
   display: block;

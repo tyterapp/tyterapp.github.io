@@ -295,6 +295,7 @@
   margin-left: 24px;
 }
 .focus-mode-toggle,
+.focus-typewriter-button,
 .scroll-top-button {
   position: absolute;
   z-index: 30;
@@ -307,9 +308,17 @@
 }
 .focus-mode-toggle:hover,
 .focus-mode-toggle:focus-visible,
+.focus-typewriter-button:hover,
+.focus-typewriter-button:focus-visible,
 .scroll-top-button.is-visible:hover,
 .scroll-top-button.is-visible:focus-visible {
   opacity: 1;
+}
+.focus-typewriter-button {
+  right: 68px;
+}
+.focus-mode .scroll-top-button {
+  right: 116px;
 }
 .scroll-top-button {
   right: 68px;
@@ -353,7 +362,7 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px 16px;
-  max-width: calc(100% - 140px);
+  max-width: calc(100% - 328px);
   width: max-content;
   padding: 8px 12px;
   border-radius: 6px;
@@ -538,6 +547,7 @@
 @media print {
   .doctor-drawer,
   .focus-mode-toggle,
+  .focus-typewriter-button,
   .scroll-top-button,
   .focus-format-hint,
   .modal-backdrop {

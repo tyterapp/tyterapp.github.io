@@ -268,6 +268,7 @@ export default {
   "У персонажа пока нет реплик": "This character has no dialogue yet",
   "Открыть во весь экран": "Enter full screen",
   "Выйти из полноэкранного режима": "Exit full screen",
+  "Печатная машинка": "Typewriter",
   "Библиотеки компонентов": "Component libraries",
   "Закрыть библиотеки": "Close libraries",
   "Экспорт библиотеки компонентов": "Export component library",

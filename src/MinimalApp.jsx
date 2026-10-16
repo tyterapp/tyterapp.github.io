@@ -81,6 +81,7 @@ import DoctorFlies from "./DoctorFlies.jsx";
 import BurningPaper from "./BurningPaper.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
+import TypewriterIcon from "./TypewriterIcon.jsx";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
 import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
@@ -3610,6 +3611,17 @@ export default function MinimalApp({ onLogout }) {
             view === "screenplay" && (
               <>
                 <ScrollToTop containerRef={columnRef} />
+                {focusMode && (
+                  <button
+                    type="button"
+                    className="icon-button focus-typewriter-button"
+                    aria-label={t("Печатная машинка")}
+                    data-tooltip={t("Печатная машинка")}
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    <TypewriterIcon />
+                  </button>
+                )}
                 <button
                   className="icon-button focus-mode-toggle"
                   aria-label={t(

@@ -92,6 +92,7 @@
       .minimal-footer,
       .writing-timer,
       .focus-mode-toggle,
+      .focus-typewriter-button,
       .scroll-top-button
     ) {
     visibility: hidden;
