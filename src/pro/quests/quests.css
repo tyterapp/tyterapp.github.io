@@ -599,6 +599,7 @@
       .writing-timer,
       .focus-mode-toggle,
       .focus-typewriter-button,
+      .focus-telegraph-button,
       .scroll-top-button
     ) {
     visibility: hidden;

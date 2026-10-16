@@ -22,10 +22,12 @@ export function scrollToText(
         ? targetElement.getBoundingClientRect()
         : view.coordsAtPos(position);
       const viewport = scroller.getBoundingClientRect();
-      const footer = scroller
+      const footerElement = scroller
         .closest(".editor-column")
-        ?.querySelector(".minimal-footer")
-        ?.getBoundingClientRect();
+        ?.querySelector(".minimal-footer");
+      const footer = footerElement?.getClientRects().length
+        ? footerElement.getBoundingClientRect()
+        : null;
       const top =
         Math.max(0, viewport.top, window.visualViewport?.offsetTop || 0) + 16;
       let bottom =

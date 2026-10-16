@@ -1369,6 +1369,30 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       focusEnd() {
         editor?.commands.focus("end");
       },
+      insertTelegraphText(text) {
+        if (
+          !editor ||
+          editor.isDestroyed ||
+          !editor.isEditable ||
+          editor.view.composing ||
+          !text
+        )
+          return false;
+        editor.view.dispatch(
+          editor.state.tr.insertText(text).setMeta("telegraph", true),
+        );
+        scrollToText(
+          editor.view,
+          editor.state.selection.from,
+          searchScrollFrame,
+          true,
+          {
+            ensureRoom: true,
+            avoidSelector: ".focus-telegraph",
+          },
+        );
+        return true;
+      },
       focusBlankSpace(x, y) {
         if (!editor || editor.isDestroyed) return false;
         const blocks = editor.view.dom.querySelectorAll(".screenplay-block");

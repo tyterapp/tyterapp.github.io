@@ -34,6 +34,7 @@ export function offlineEditorPlugin() {
         "icons",
         "oiia",
         "tikitok",
+        "telegraph",
       ]) {
         try {
           await collect(directory);

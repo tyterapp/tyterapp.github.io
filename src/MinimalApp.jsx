@@ -87,6 +87,8 @@ import BurningPaper from "./BurningPaper.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
 import TypewriterIcon from "./TypewriterIcon.jsx";
+import TelegraphIcon from "./TelegraphIcon.jsx";
+import Telegraph from "./Telegraph.jsx";
 import { cleanRevisionRound, revisionPageStyle } from "./script-revisions.js";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
@@ -728,6 +730,11 @@ export default function MinimalApp({ onLogout }) {
   const handledSearchSelection = useRef(0);
   const [searchCount, setSearchCount] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
+  const [telegraphOpen, setTelegraphOpen] = useState(false);
+  useEffect(() => {
+    if (!focusMode) setTelegraphOpen(false);
+  }, [focusMode]);
+  useEffect(() => setTelegraphOpen(false), [writingScope, notesOpen, view]);
   const [characterView, setCharacterView] = useState(null);
   const [libraryDialog, setLibraryDialog] = useState(null);
   const checkedFolderLibraries = useRef(false);
@@ -3786,15 +3793,36 @@ export default function MinimalApp({ onLogout }) {
               <>
                 <ScrollToTop containerRef={columnRef} />
                 {focusMode && (
-                  <button
-                    type="button"
-                    className="icon-button focus-typewriter-button"
-                    aria-label={t("Печатная машинка")}
-                    data-tooltip={t("Печатная машинка")}
-                    onMouseDown={(event) => event.preventDefault()}
-                  >
-                    <TypewriterIcon />
-                  </button>
+                  <>
+                    {!notesOpen && (
+                      <button
+                        type="button"
+                        className="icon-button focus-telegraph-button"
+                        aria-label={t("Телеграф")}
+                        data-tooltip={t("Телеграф")}
+                        aria-pressed={telegraphOpen}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setTelegraphOpen((value) => !value);
+                          if (telegraphOpen)
+                            requestAnimationFrame(() =>
+                              editorRef.current?.focus(),
+                            );
+                        }}
+                      >
+                        <TelegraphIcon />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="icon-button focus-typewriter-button"
+                      aria-label={t("Печатная машинка")}
+                      data-tooltip={t("Печатная машинка")}
+                      onMouseDown={(event) => event.preventDefault()}
+                    >
+                      <TypewriterIcon />
+                    </button>
+                  </>
                 )}
                 <button
                   className="icon-button focus-mode-toggle"
@@ -3883,6 +3911,20 @@ export default function MinimalApp({ onLogout }) {
               ))}
             </div>
           )}
+          {focusMode &&
+            telegraphOpen &&
+            !notesOpen &&
+            !historyRevision &&
+            !characterView &&
+            !libraryDialog &&
+            view === "screenplay" &&
+            !!documents.length && (
+              <Telegraph
+                key={`${writingScope}:${language}`}
+                language={language}
+                onText={(text) => editorRef.current?.insertTelegraphText(text)}
+              />
+            )}
         </div>
         <MobileSheet
           mobile={mobile}

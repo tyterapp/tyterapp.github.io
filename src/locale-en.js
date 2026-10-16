@@ -2,6 +2,12 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  Телеграф: "Telegraph",
+  "Ключ телеграфа": "Telegraph key",
+  "Сигналы Морзе": "Morse signals",
+  "Введено телеграфом": "Entered with the telegraph",
+  "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Space или Enter.":
+    "A short press is a dot; a long press is a dash. Pauses separate letters and words. You can use Space or Enter.",
   Настройки: "Settings",
   "Миниатюры при наведении": "Thumbnails on hover",
   "Компоненты и реквизит": "Components and props",

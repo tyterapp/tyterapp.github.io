@@ -216,7 +216,12 @@
     z-index: 39;
   }
   .minimal-app[data-mobile]
-    :is(.focus-mode-toggle, .focus-typewriter-button, .scroll-top-button) {
+    :is(
+      .focus-mode-toggle,
+      .focus-typewriter-button,
+      .focus-telegraph-button,
+      .scroll-top-button
+    ) {
     bottom: calc(66px + env(safe-area-inset-bottom, 0px));
     right: 8px;
     z-index: 39;
@@ -230,6 +235,9 @@
     right: 60px;
   }
   .minimal-app[data-mobile].focus-mode .scroll-top-button {
+    right: 164px;
+  }
+  .minimal-app[data-mobile] .focus-telegraph-button {
     right: 112px;
   }
   .minimal-app[data-mobile][data-keyboard]
@@ -237,6 +245,7 @@
       .writing-timer,
       .focus-mode-toggle,
       .focus-typewriter-button,
+      .focus-telegraph-button,
       .scroll-top-button
     ) {
     visibility: hidden;
