@@ -261,6 +261,102 @@ test("English HI enters the first scene with mouse taps; a held key sustains one
   await first(page).not.toBe("HI");
 });
 
+test("Ctrl+M keys the open telegraph from the editor, handles either release order and ignores repeats and other forms", async ({
+  page,
+}) => {
+  await open(page);
+  const editor = page.locator(".screenplay-editor");
+  const key = page.locator(".telegraph-key");
+  await editor.evaluate((node) => node.editor.commands.focus("start"));
+  await page.clock.runFor(20);
+  await expect(editor).toBeFocused();
+  await expect(key).toHaveAttribute("aria-keyshortcuts", /Control\+M/);
+
+  await page.keyboard.down("Control");
+  await page.keyboard.down("m");
+  await expect(key).toHaveAttribute("aria-pressed", "true");
+  await page.clock.fastForward(70);
+  await page.keyboard.up("m");
+  await page.keyboard.up("Control");
+  await page.clock.fastForward(MORSE_LETTER_GAP + 20);
+  await first(page).toBe("E");
+  await expect(editor).toBeFocused();
+
+  await page.keyboard.down("Control");
+  await page.keyboard.down("m");
+  await page.clock.fastForward(MORSE_DASH + 80);
+  await page.keyboard.down("m"); // Operating-system auto-repeat.
+  expect((await page.evaluate(() => window.telegraphAudio)).starts).toBe(2);
+  await page.keyboard.up("Control");
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.up("m");
+  await page.clock.fastForward(MORSE_LETTER_GAP + 20);
+  await first(page).toBe("ET");
+
+  // Physical M is Ь on a Russian keyboard, regardless of the UI alphabet.
+  const russianM = { key: "ь", code: "KeyM", ctrlKey: true };
+  await editor.dispatchEvent("keydown", russianM);
+  await expect(key).toHaveAttribute("aria-pressed", "true");
+  await page.clock.fastForward(70);
+  await editor.dispatchEvent("keyup", russianM);
+  await page.clock.fastForward(MORSE_LETTER_GAP + 20);
+  await first(page).toBe("ETE");
+
+  for (const modifier of ["altKey", "shiftKey", "metaKey", "isComposing"])
+    await editor.dispatchEvent("keydown", { ...russianM, [modifier]: true });
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+
+  await page.evaluate(() => {
+    const dialog = document.createElement("dialog");
+    dialog.id = "shortcut-other-form";
+    dialog.innerHTML =
+      '<input id="shortcut-other-input" aria-label="Other form" />';
+    document.body.append(dialog);
+    dialog.showModal();
+  });
+  await page.keyboard.press("Control+m");
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  await page.evaluate(() => {
+    const dialog = document.getElementById("shortcut-other-form");
+    dialog.close();
+    const input = dialog.querySelector("input");
+    document.body.append(input);
+    input.focus();
+  });
+  await page.keyboard.press("Control+m");
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  expect((await page.evaluate(() => window.telegraphAudio)).starts).toBe(3);
+  await page.evaluate(() =>
+    document
+      .querySelectorAll("#shortcut-other-form, #shortcut-other-input")
+      .forEach((node) => node.remove()),
+  );
+
+  await editor.evaluate((node) => node.editor.commands.focus());
+  await page.clock.runFor(20);
+  await page.keyboard.down("Control");
+  await page.keyboard.down("m");
+  await page.clock.fastForward(70);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await page.keyboard.up("m");
+  await page.keyboard.up("Control");
+  await page.clock.fastForward(2000);
+  await first(page).toBe("ETE");
+
+  await page.keyboard.down("Control");
+  await page.keyboard.down("m");
+  await page.clock.fastForward(MORSE_DASH + 80);
+  await page.locator(".focus-telegraph-button").click();
+  await page.keyboard.up("m");
+  await page.keyboard.up("Control");
+  await page.clock.fastForward(2000);
+  await first(page).toBe("ETE");
+  await page.keyboard.press("Control+m");
+  const audio = await page.evaluate(() => window.telegraphAudio);
+  expect(audio.starts).toBe(5);
+  expect(audio.stops).toBe(5);
+});
+
 test("Russian key handles held dashes, keyboard taps, word pauses and cancels pending input on close", async ({
   page,
 }, info) => {

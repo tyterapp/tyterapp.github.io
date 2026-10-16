@@ -6,8 +6,8 @@ export default {
   "Ключ телеграфа": "Telegraph key",
   "Сигналы Морзе": "Morse signals",
   "Введено телеграфом": "Entered with the telegraph",
-  "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Space или Enter.":
-    "A short press is a dot; a long press is a dash. Pauses separate letters and words. You can use Space or Enter.",
+  "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Ctrl+M или Space/Enter на кнопке телеграфа.":
+    "A short press is a dot; a long press is a dash. Pauses separate letters and words. Use Ctrl+M, or Space/Enter on the telegraph key.",
   Настройки: "Settings",
   "Миниатюры при наведении": "Thumbnails on hover",
   "Компоненты и реквизит": "Components and props",

@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { t } from "./i18n.js";
 import { createMorseKeyer, MORSE_DASH } from "./morse.js";
 import { createTelegraphAudio } from "./telegraph-audio.js";
@@ -99,15 +105,15 @@ export default function Telegraph({ language, onText }) {
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [language]);
-  const begin = (id) => {
+  const begin = useCallback((id) => {
     if (active.current !== null || !keyer.current?.press()) return;
     active.current = id;
     setHeldDash(false);
     setPressed(true);
     dashTimer.current = setTimeout(() => setHeldDash(true), MORSE_DASH);
     audio.current?.start();
-  };
-  const end = (id, cancel = false) => {
+  }, []);
+  const end = useCallback((id, cancel = false) => {
     if (active.current !== id) return;
     clearTimeout(dashTimer.current);
     active.current = null;
@@ -115,7 +121,47 @@ export default function Telegraph({ language, onText }) {
     audio.current?.stop();
     if (cancel) keyer.current?.cancel();
     else keyer.current?.release();
-  };
+  }, []);
+  useEffect(() => {
+    const isM = (event) =>
+      event.code === "KeyM" || event.key.toLowerCase() === "m";
+    const down = (event) => {
+      if (
+        !event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.isComposing ||
+        !isM(event) ||
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        ) ||
+        (event.target instanceof Element &&
+          event.target.closest("input, textarea, select, [contenteditable]") &&
+          !event.target.closest(".screenplay-editor"))
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) begin("shortcut");
+    };
+    const up = (event) => {
+      if (
+        active.current !== "shortcut" ||
+        !(isM(event) || (event.key === "Control" && !event.ctrlKey))
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      end("shortcut");
+    };
+    document.addEventListener("keydown", down, true);
+    document.addEventListener("keyup", up, true);
+    return () => {
+      document.removeEventListener("keydown", down, true);
+      document.removeEventListener("keyup", up, true);
+    };
+  }, [begin, end]);
   const last = tape.at(-1);
   const endX = last ? last.x + (last.symbol === "-" ? 18 : 6) : 12;
   const nextX = last ? endX + last.gap : 12;
@@ -138,6 +184,7 @@ export default function Telegraph({ language, onText }) {
         className="telegraph-key"
         aria-label={t("Ключ телеграфа")}
         aria-pressed={pressed}
+        aria-keyshortcuts="Control+M Space Enter"
         aria-describedby="telegraph-instructions"
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -193,7 +240,7 @@ export default function Telegraph({ language, onText }) {
       </button>
       <span id="telegraph-instructions" className="visually-hidden">
         {t(
-          "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Space или Enter.",
+          "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Ctrl+M или Space/Enter на кнопке телеграфа.",
         )}
       </span>
       <svg
