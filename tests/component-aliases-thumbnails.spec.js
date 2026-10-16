@@ -203,8 +203,8 @@ for (const theme of ["light", "dark"])
     await open(page, { theme });
     const portrait = line(page, "name").locator(".character-thumbnail");
     await expect(portrait).toHaveCount(1);
-    await expect(portrait).toHaveCSS("width", "24px");
-    await expect(portrait).toHaveCSS("height", "24px");
+    await expect(portrait).toHaveCSS("width", "18px");
+    await expect(portrait).toHaveCSS("height", "18px");
     await expect(portrait).toHaveCSS("border-radius", "4px");
     for (const target of [
       portrait,
@@ -389,6 +389,14 @@ test("320px: character thumbnails fit mobile suggestions and Ctrl+3 uses the sam
   page,
 }, info) => {
   await open(page, { theme: "dark", width: 320 });
+  await expect(line(page, "name").locator(".character-thumbnail")).toHaveCSS(
+    "width",
+    "18px",
+  );
+  await expect(line(page, "name").locator(".character-thumbnail")).toHaveCSS(
+    "height",
+    "18px",
+  );
   await expect(line(page, "name").locator(".character-thumbnail")).toHaveCSS(
     "border-radius",
     "4px",
