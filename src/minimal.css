@@ -2663,6 +2663,28 @@ kbd {
 .search-summary {
   margin: 3px 0 12px;
 }
+.search-all-versions {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+.search-result-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.search-result-context .search-variant-badge {
+  margin: 0;
+}
+.search-version-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  font-size: 11px;
+}
 .search-format-filter {
   display: flex;
   flex-direction: column;

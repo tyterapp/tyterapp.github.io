@@ -3,9 +3,21 @@ import {
   sceneLetter,
   sceneVariantLetters,
 } from "./scene-variants.js";
+import { SCRIPT_VERSIONS, scriptVersionId } from "./script-versions.js";
 
 export const matchesSearchFormat = (format, filter = "all") =>
   filter === "all" || (format || "action") === filter;
+
+export const searchMatchKey = (match) =>
+  match
+    ? JSON.stringify([
+        match.versionId,
+        match.sceneId,
+        match.variant,
+        match.blockId,
+        match.at,
+      ])
+    : "";
 
 export const searchBlockText = (node) =>
   node.type === "hardBreak"
@@ -70,4 +82,26 @@ export function documentSearchMatches(document, query, format = "all") {
     i = end;
   }
   return results;
+}
+
+// Search only existing copies, in catalogue order. The active copy lives in
+// the document itself, even if an older snapshot of it is still present.
+export function scriptSearchMatches(
+  document,
+  query,
+  format = "all",
+  allVersions = false,
+) {
+  if (!query.trim()) return [];
+  const active = scriptVersionId(document);
+  return SCRIPT_VERSIONS.flatMap(({ id, label }) => {
+    if (id !== active && !allVersions) return [];
+    const source = id === active ? document : document.scriptVersions?.[id];
+    if (!source) return [];
+    return documentSearchMatches(source, query, format).map((match) => ({
+      ...match,
+      versionId: id,
+      versionLabel: label,
+    }));
+  });
 }

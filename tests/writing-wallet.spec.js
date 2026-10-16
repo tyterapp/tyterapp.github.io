@@ -276,7 +276,9 @@ test("320px: the shop stays inside the viewport and unaffordable purchases are d
   await open(page, { theme: "dark", coins: 19 });
   await openDoctorShop(page);
   await expect(purchase(page)).toBeDisabled();
-  await expect(shop(page)).toContainText("100 написанных символов = 10 монет");
+  await expect(shop(page)).not.toContainText(
+    "100 написанных символов = 10 монет",
+  );
   const bounds = await shop(page).boundingBox();
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);

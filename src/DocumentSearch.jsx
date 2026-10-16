@@ -1,7 +1,9 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef } from "react";
-import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { FORMATS } from "./FormatBar.jsx";
+import { SettingsSwitch } from "./DocumentSettings.jsx";
+import { searchMatchKey } from "./document-search.js";
 export default function DocumentSearch({
   hideFormat = false,
   matches,
@@ -9,6 +11,8 @@ export default function DocumentSearch({
   onQuery,
   format,
   onFormat,
+  allVersions = false,
+  onAllVersions,
   index,
   onSelect,
   onClose,
@@ -72,6 +76,17 @@ export default function DocumentSearch({
           </select>
         </label>
       )}
+      {onAllVersions && (
+        <div className="search-all-versions">
+          <SettingsSwitch
+            label={t("Искать во всех версиях")}
+            icon={Copy}
+            role="switch"
+            checked={allVersions}
+            onChange={onAllVersions}
+          />
+        </div>
+      )}
       <div className="search-summary">
         <span className="search-count">
           {matches.length
@@ -106,10 +121,11 @@ export default function DocumentSearch({
             end = Math.min(match.text.length, match.at + match.length + 80);
           return (
             <button
-              key={`${match.sceneId}-${match.variant}-${match.blockId}-${match.at}`}
+              key={searchMatchKey(match)}
               ref={i === index ? active : null}
               className={`search-result-card${i === index ? " active" : ""}`}
               aria-pressed={i === index}
+              data-script-version={match.versionId}
               onClick={() => onSelect(i, "card")}
             >
               <span className="search-result-meta">
@@ -124,15 +140,24 @@ export default function DocumentSearch({
                 </span>
                 <span>{i + 1}</span>
               </span>
-              {match.variant && (
-                <span
-                  className={`search-variant-badge${match.variants.length > 1 ? " has-variants" : ""}`}
-                  aria-label={t("Варианты сцены")}
-                >
-                  {t("Вариант {0}", match.variant)}
-                  {match.variants.length > 1
-                    ? ` · ${match.variants.join(" / ")}`
-                    : ""}
+              {((allVersions && match.versionLabel) || match.variant) && (
+                <span className="search-result-context">
+                  {allVersions && match.versionLabel && (
+                    <span className="search-version-badge">
+                      {match.versionLabel}
+                    </span>
+                  )}
+                  {match.variant && (
+                    <span
+                      className={`search-variant-badge${match.variants.length > 1 ? " has-variants" : ""}`}
+                      aria-label={t("Варианты сцены")}
+                    >
+                      {t("Вариант {0}", match.variant)}
+                      {match.variants.length > 1
+                        ? ` · ${match.variants.join(" / ")}`
+                        : ""}
+                    </span>
+                  )}
                 </span>
               )}
               <span>

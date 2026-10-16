@@ -482,7 +482,7 @@ test("mobile search and comments open hidden scene variants and character readin
     "Вариант F",
   );
   await sheet(page).locator(".search-result-card").click();
-  await sheet(page).getByRole("button", { name: "Закрыть поиск" }).click();
+  await expect(sheet(page)).toHaveCount(0);
   await expect(page.locator('[data-block-id="action-f"]')).toBeVisible();
   const variant = page.getByRole("combobox", {
     name: "Вариант сцены 1",

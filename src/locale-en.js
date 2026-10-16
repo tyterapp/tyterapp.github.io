@@ -898,6 +898,7 @@ export default {
   "Настройки экспорта": "Export settings",
   "Нумерация сцен": "Scene numbers",
   "Варианты сцен": "Scene variants",
+  "Искать во всех версиях": "Search all versions",
   "Увеличить домик до 200%": "Expand house to 200%",
   "Уменьшить домик до 100%": "Collapse house to 100%",
   "Сделать снимок домика": "Take a house snapshot",

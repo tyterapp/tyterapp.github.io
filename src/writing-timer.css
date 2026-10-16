@@ -537,7 +537,6 @@
   background: var(--radio-red-hover);
   color: oklch(1 0 0);
 }
-.writing-shop-hint,
 .writing-shop-error {
   margin: 12px 4px 0;
   color: var(--ui-muted);

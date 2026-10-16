@@ -1395,7 +1395,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           scrollToText(editor.view, match.from, searchScrollFrame, fromCard);
         return matches.length;
       },
-      focusSearchMatch(match, { fromCard = false, scroll = true } = {}) {
+      focusSearchMatch(
+        match,
+        { fromCard = false, scroll = true, onComplete } = {},
+      ) {
         if (!editor || !match) return false;
         let range = null;
         editor.state.doc.descendants((node, pos) => {
@@ -1409,9 +1412,13 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             };
         });
         if (!range || range.to > editor.state.doc.content.size) return false;
-        if (!fromCard) editor.commands.setTextSelection(range);
+        editor.commands.setTextSelection(fromCard ? range.from : range);
+        if (fromCard) editor.view.dom.focus({ preventScroll: true });
         if (scroll)
-          scrollToText(editor.view, range.from, searchScrollFrame, fromCard);
+          scrollToText(editor.view, range.from, searchScrollFrame, fromCard, {
+            onComplete,
+          });
+        else onComplete?.();
         return true;
       },
       focusComment(id, blockId, sceneId) {

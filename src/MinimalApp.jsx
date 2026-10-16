@@ -70,7 +70,11 @@ import {
 } from "./scene-variants.js";
 import { activeSceneForBlock, commentSceneIndex } from "./comment-scenes.js";
 import { cleanCommentOptions } from "./comment-options.js";
-import { documentSearchMatches } from "./document-search.js";
+import {
+  documentSearchMatches,
+  searchMatchKey,
+  scriptSearchMatches,
+} from "./document-search.js";
 import CharacterDialogue from "./CharacterDialogue.jsx";
 import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
 import AppMessage, { useAppMessage } from "./AppMessage.jsx";
@@ -671,10 +675,12 @@ export default function MinimalApp({ onLogout }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [searchFormat, setSearchFormat] = useState("all");
+  const [searchAllVersions, setSearchAllVersions] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const [searchCardSelection, setSearchCardSelection] = useState(null);
   const searchCardRequest = useRef(0);
   const handledSearchCardRequest = useRef(0);
+  const handledSearchSelection = useRef(0);
   const [searchCount, setSearchCount] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
   const [characterView, setCharacterView] = useState(null);
@@ -1602,7 +1608,7 @@ export default function MinimalApp({ onLogout }) {
     document.addEventListener("keydown", onUndoRedo, true);
     return () => document.removeEventListener("keydown", onUndoRedo, true);
   }, [activeId, writingScope, notesOpen]);
-  const switchDocument = (doc) => {
+  const switchDocument = (doc, { keepSearch = false } = {}) => {
     setNotesOpen(false);
     componentHistory.current = { undo: [], redo: [] };
     setQuestOverlay(false);
@@ -1619,9 +1625,12 @@ export default function MinimalApp({ onLogout }) {
     setRename(null);
     setCommentQuote(null);
     setActiveComment(null);
-    setSearchText("");
-    setSearchIndex(0);
-    setSearchCardSelection(null);
+    if (!keepSearch) {
+      setSearchText("");
+      setSearchAllVersions(false);
+      setSearchIndex(0);
+      setSearchCardSelection(null);
+    }
     setPageCount(1);
     setHistoryRevision(null);
   };
@@ -1655,14 +1664,16 @@ export default function MinimalApp({ onLogout }) {
     pendingCommentFocus.current = null;
     return outgoing;
   };
-  const activateVersionDocument = (next) => {
+  const activateVersionDocument = (next, { keepSearch = false } = {}) => {
     componentHistory.current = { undo: [], redo: [] };
-    showSidebar(null);
-    switchDocument(current);
-    setView(view);
+    showSidebar(keepSearch ? "search" : null);
+    switchDocument(current, { keepSearch });
+    setView(keepSearch ? "screenplay" : view);
     setSceneTarget(null);
-    setSearchFormat("all");
-    setSearchCount(0);
+    if (!keepSearch) {
+      setSearchFormat("all");
+      setSearchCount(0);
+    }
     setSelection({ format: "scene" });
     update(() => next);
   };
@@ -1884,8 +1895,17 @@ export default function MinimalApp({ onLogout }) {
     setActiveComment(comment.id);
   };
   const searchMatches = useMemo(
-    () => documentSearchMatches(current, searchText, searchFormat),
-    [current.content, current.sceneVariants, searchText, searchFormat],
+    () =>
+      scriptSearchMatches(current, searchText, searchFormat, searchAllVersions),
+    [
+      current.content,
+      current.sceneVariants,
+      current.scriptVersion,
+      current.scriptVersions,
+      searchText,
+      searchFormat,
+      searchAllVersions,
+    ],
   );
   const doctorFindings = useMemo(
     () => (writingTimer.hasDoctor ? inspectDocumentScript(current) : []),
@@ -1914,6 +1934,9 @@ export default function MinimalApp({ onLogout }) {
     searchFormat,
   ).findIndex(
     (match) =>
+      activeSearchMatch?.versionId === activeScriptVersion.id &&
+      match.sceneId === activeSearchMatch?.sceneId &&
+      match.variant === activeSearchMatch?.variant &&
       match.blockId === activeSearchMatch?.blockId &&
       match.at === activeSearchMatch?.at,
   );
@@ -1922,9 +1945,44 @@ export default function MinimalApp({ onLogout }) {
     if (!searchOpen || !searchMatches.length) return;
     if (searchIndex >= searchMatches.length) {
       setSearchIndex(0);
+      setSearchCardSelection(null);
       return;
     }
     const match = searchMatches[searchIndex];
+    const selected =
+      searchCardSelection?.index === searchIndex &&
+      searchCardSelection.key === searchMatchKey(match);
+    const fromCard = selected && searchCardSelection.fromCard;
+    const explicitNavigation =
+      selected &&
+      handledSearchSelection.current !== searchCardSelection.request;
+    // Updating search results while typing must not move the user's caret or
+    // open another copy when the edited occurrence no longer matches.
+    if (
+      !explicitNavigation &&
+      document.activeElement?.closest(".screenplay-editor")
+    )
+      return;
+    if (match.versionId !== activeScriptVersion.id) {
+      // Listing results must never activate or create a copy. Only explicit
+      // result navigation can switch to an existing, still available version.
+      if (
+        !explicitNavigation ||
+        busy ||
+        !filesReady ||
+        (versionDeletionRef.current?.documentId === current.id &&
+          versionDeletionRef.current.versionId === match.versionId)
+      )
+        return;
+      const outgoing = prepareVersionDocument();
+      if (!outgoing.scriptVersions?.[match.versionId]) return;
+      flushOutlineHistory(writingScope).catch(() => {});
+      activateVersionDocument(switchScriptVersion(outgoing, match.versionId), {
+        keepSearch: true,
+      });
+      return;
+    }
+    if (fromCard && view !== "screenplay") setView("screenplay");
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
     const next = match.sceneId
@@ -1934,9 +1992,9 @@ export default function MinimalApp({ onLogout }) {
       editorRef.current?.restoreContent(next.content);
       update(() => next);
     }
-    const fromCard = searchCardSelection?.index === searchIndex;
     const request = JSON.stringify([
       current.id,
+      match.versionId,
       searchText,
       searchFormat,
       match.sceneId,
@@ -1948,7 +2006,20 @@ export default function MinimalApp({ onLogout }) {
     const scroll = handledSearchCardRequest.current !== request;
     const frame = requestAnimationFrame(() => {
       handledSearchCardRequest.current = request;
-      editorRef.current?.focusSearchMatch(match, { fromCard, scroll });
+      const focused = editorRef.current?.focusSearchMatch(match, {
+        fromCard,
+        scroll,
+        onComplete:
+          fromCard && mobile
+            ? () => {
+                setSearchOpen(false);
+                setSearchCardSelection(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }
+            : undefined,
+      });
+      if (focused && selected)
+        handledSearchSelection.current = searchCardSelection.request;
     });
     return () => cancelAnimationFrame(frame);
   }, [searchOpen, searchMatches, searchIndex, searchCardSelection, current.id]);
@@ -3562,7 +3633,10 @@ export default function MinimalApp({ onLogout }) {
                   searchFormat={searchFormat}
                   searchIndex={visibleSearchIndex}
                   searchCardIndex={
-                    searchOpen && searchCardSelection
+                    searchOpen &&
+                    searchCardSelection?.fromCard &&
+                    searchCardSelection.key ===
+                      searchMatchKey(activeSearchMatch)
                       ? visibleSearchIndex
                       : null
                   }
@@ -3833,6 +3907,12 @@ export default function MinimalApp({ onLogout }) {
               matches={searchMatches}
               query={searchText}
               format={searchFormat}
+              allVersions={searchAllVersions}
+              onAllVersions={(value) => {
+                setSearchAllVersions(value);
+                setSearchIndex(0);
+                setSearchCardSelection(null);
+              }}
               onFormat={(value) => {
                 setSearchFormat(value);
                 setSearchIndex(0);
@@ -3846,14 +3926,12 @@ export default function MinimalApp({ onLogout }) {
               index={searchIndex}
               onSelect={(index, source) => {
                 setSearchIndex(index);
-                setSearchCardSelection(
-                  source === "card"
-                    ? {
-                        index,
-                        request: ++searchCardRequest.current,
-                      }
-                    : null,
-                );
+                setSearchCardSelection({
+                  index,
+                  key: searchMatchKey(searchMatches[index]),
+                  fromCard: source === "card",
+                  request: ++searchCardRequest.current,
+                });
               }}
               onClose={() => {
                 setSearchOpen(false);

@@ -332,21 +332,6 @@ export default function WritingShop({
               ))}
           </div>
         )}
-        {!recording &&
-          ((!selected &&
-            products.some((product) => timer.coins < product.price)) ||
-            (category === "misc" &&
-              ((!doctor.owned && timer.coins < DOCTOR_PRICE) ||
-                (!lighter.owned && timer.coins < LIGHTER_PRICE) ||
-                (!timer.hasRadio && timer.coins < RADIO_PRICE) ||
-                (!timer.hasTikiTok && timer.coins < TIKITOK_PRICE)))) && (
-            <p className="writing-shop-hint">
-              {text(
-                "100 написанных символов = 10 монет. Таймер тоже приносит монеты.",
-                "100 written characters = 10 coins. Timers earn coins too.",
-              )}
-            </p>
-          )}
         {error && (
           <p className="writing-shop-error" role="alert">
             {error}
