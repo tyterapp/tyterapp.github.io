@@ -108,6 +108,10 @@ test("snapshot links are short, versioned and exclude document or account data; 
     { version: 2, takenAt: 1 },
     { version: 1, takenAt: -1 },
     { version: 1, takenAt: "2026-10-14" },
+    { version: 1, takenAt: 1, skin: "https://example.com/other.png", frame: 0 },
+    { version: 1, takenAt: 1, skin: "oiia", frame: 4 },
+    { version: 1, takenAt: 1, skin: "oiia", frame: -1 },
+    { version: 1, takenAt: 1, frame: 0 },
   ]) {
     expect(
       readHouseSnapshot("#snapshot=" + btoa(JSON.stringify(invalid))),

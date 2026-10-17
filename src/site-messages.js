@@ -124,10 +124,12 @@ export default {
   "200 монет": "200 coins",
   "Домик oiia, увеличение, снимок PNG и ссылка на снимок":
     "oiia house, expansion, PNG snapshot and snapshot link",
+  "Скин ОииА: анимация питомца во время набора":
+    "OiiA skin: pet animation while typing",
   "Зажигалка: многократное сжигание последней страницы":
     "Lighter: reusable last-page burning",
   "Сброс монет, покупок и достижений":
     "Reset coins, purchases and achievements",
-  "Монеты зарабатываются в редакторе. Покупки за монеты доступны в обоих тарифах. Скины, декор и локации пока представлены как анонсы. Для первого запуска офлайн-режима откройте редактор с интернетом; карта требует подключения.":
-    "Earn coins in the editor. Coin purchases are available on both plans. Skins, decor and locations are currently previews. Open the editor online once to enable offline writing; maps require an internet connection.",
+  "Монеты зарабатываются в редакторе. Покупки за монеты доступны в обоих тарифах. Скин ОииА доступен в магазине; декор и локации пока представлены как анонсы. Для первого запуска офлайн-режима откройте редактор с интернетом; карта требует подключения.":
+    "Earn coins in the editor. Coin purchases are available on both plans. The OiiA skin is available in the shop; decor and locations are currently previews. Open the editor online once to enable offline writing; maps require an internet connection.",
 };

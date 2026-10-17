@@ -1,5 +1,5 @@
 // Published room artwork is immutable: new artwork gets a new version and URL.
-// The current house has one room layer; its descriptor is the complete scene.
+import { findHouseSkin, HOUSE_SKIN_PLACEMENT } from "./house-skins.js";
 export const HOUSE_ROOM = Object.freeze({
   version: 1,
   image: "/oiia/house-snapshot-v1.png",
@@ -12,12 +12,28 @@ function validSnapshot(value) {
     value?.version === HOUSE_ROOM.version &&
     Number.isSafeInteger(value.takenAt) &&
     value.takenAt >= 0 &&
-    value.takenAt <= 8640000000000000
+    value.takenAt <= 8640000000000000 &&
+    ((value.skin == null && value.frame == null) ||
+      (findHouseSkin(value.skin) &&
+        Number.isInteger(value.frame) &&
+        value.frame >= 0 &&
+        value.frame < findHouseSkin(value.skin).frames.length))
   );
 }
 
+function snapshotDescriptor(value) {
+  return validSnapshot(value)
+    ? {
+        version: value.version,
+        takenAt: value.takenAt,
+        ...(value.skin ? { skin: value.skin, frame: value.frame } : {}),
+      }
+    : null;
+}
+
 export function houseSnapshotLink(snapshot, base = globalThis.location?.href) {
-  if (!validSnapshot(snapshot)) throw new Error("Invalid house snapshot");
+  const descriptor = snapshotDescriptor(snapshot);
+  if (!descriptor) throw new Error("Invalid house snapshot");
   let origin = "https://tyterapp.github.io";
   try {
     const address = new URL(base);
@@ -26,9 +42,7 @@ export function houseSnapshotLink(snapshot, base = globalThis.location?.href) {
     // Installed apps share the public viewer instead of a private desktop URL.
   }
   const url = new URL("/house", origin);
-  const encoded = btoa(
-    JSON.stringify({ version: snapshot.version, takenAt: snapshot.takenAt }),
-  )
+  const encoded = btoa(JSON.stringify(descriptor))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
@@ -44,9 +58,7 @@ export function readHouseSnapshot(hash) {
     const snapshot = JSON.parse(
       atob(encoded.replace(/-/g, "+").replace(/_/g, "/")),
     );
-    return validSnapshot(snapshot)
-      ? { version: snapshot.version, takenAt: snapshot.takenAt }
-      : null;
+    return snapshotDescriptor(snapshot);
   } catch {
     return null;
   }
@@ -56,17 +68,37 @@ export function houseSnapshotFilename(snapshot) {
   return `oiia-house-${new Date(snapshot.takenAt).toISOString().replace(/[:.]/g, "-")}.png`;
 }
 
-export async function captureHouseSnapshot(image, takenAt = Date.now()) {
-  const snapshot = { version: HOUSE_ROOM.version, takenAt };
-  if (!image || !validSnapshot(snapshot))
-    throw new Error("House image is unavailable");
+export async function captureHouseSnapshot(
+  image,
+  takenAt = Date.now(),
+  pet = null,
+) {
+  const snapshot = snapshotDescriptor({
+    version: HOUSE_ROOM.version,
+    takenAt,
+    ...pet,
+  });
+  if (!image || !snapshot) throw new Error("House image is unavailable");
   await image.decode();
   if (!image.naturalWidth || !image.naturalHeight)
     throw new Error("House image is unavailable");
   const canvas = document.createElement("canvas");
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
-  canvas.getContext("2d").drawImage(image, 0, 0);
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0);
+  if (snapshot.skin) {
+    const sprite = new Image();
+    sprite.src = findHouseSkin(snapshot.skin).frames[snapshot.frame];
+    await sprite.decode();
+    context.drawImage(
+      sprite,
+      canvas.width * HOUSE_SKIN_PLACEMENT.x,
+      canvas.height * HOUSE_SKIN_PLACEMENT.y,
+      canvas.width * HOUSE_SKIN_PLACEMENT.width,
+      canvas.height * HOUSE_SKIN_PLACEMENT.height,
+    );
+  }
   const blob = await new Promise((resolve) =>
     canvas.toBlob(resolve, "image/png"),
   );

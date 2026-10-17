@@ -23,12 +23,8 @@ import {
 import { MoneyIcon } from "./WritingTimerIcons.jsx";
 import LighterIcon from "./LighterIcon.jsx";
 import WritingRadio from "./WritingRadio.jsx";
-import {
-  CatIcon,
-  DecorIcon,
-  HouseIcon,
-  SkinsIcon,
-} from "./WritingHouseIcons.jsx";
+import WritingSkins from "./WritingSkins.jsx";
+import { DecorIcon, HouseIcon, SkinsIcon } from "./WritingHouseIcons.jsx";
 
 export default function WritingShop({
   timer,
@@ -55,8 +51,6 @@ export default function WritingShop({
       id: "skins",
       name: text("Скины", "Skins"),
       icon: SkinsIcon,
-      item: text("Классическая кошка", "Classic cat"),
-      itemIcon: CatIcon,
     },
     {
       id: "decor",
@@ -297,7 +291,15 @@ export default function WritingShop({
                 {!recording && productTile(tikitok)}
               </>
             )}
-            {!recording && (
+            {category === "skins" && (
+              <WritingSkins
+                timer={timer}
+                buying={buying}
+                closing={closing}
+                onPurchase={purchase}
+              />
+            )}
+            {!recording && category !== "skins" && (
               <div className="writing-shop-product writing-shop-preview">
                 <span className="writing-shop-product-icon">
                   <selected.itemIcon size={24} />

@@ -6,6 +6,9 @@ import {
   purchaseWalletDoctor,
   walletHasHouse,
   purchaseWalletHouse,
+  walletHouseSkin,
+  purchaseWalletSkin,
+  selectWalletSkin,
   walletHasLighter,
   purchaseWalletLighter,
   walletHasRadio,
@@ -121,6 +124,7 @@ export function useWritingTimer(onComplete) {
   const [state, setState] = useState(readWritingTimer);
   const [now, setNow] = useState(Date.now);
   const [writingReward, setWritingReward] = useState(0);
+  const [writingActivity, setWritingActivity] = useState(0);
   const latest = useRef(state);
   const complete = useRef(onComplete);
   complete.current = onComplete;
@@ -246,6 +250,8 @@ export function useWritingTimer(onComplete) {
             "purchase-lighter",
             "purchase-radio",
             "purchase-tikitok",
+            "purchase-skin",
+            "select-skin",
             "burn",
             "writing",
             "version-deletion",
@@ -262,11 +268,15 @@ export function useWritingTimer(onComplete) {
                     ? purchaseWalletRadio(next, time)
                     : action === "purchase-tikitok"
                       ? purchaseWalletTikiTok(next, time)
-                      : action === "burn"
-                        ? recordWalletBurn(next, time)
-                        : action === "writing"
-                          ? recordWalletWriting(next, payload)
-                          : recordWalletDeletion(next, payload, time);
+                      : action === "purchase-skin"
+                        ? purchaseWalletSkin(next, payload, time)
+                        : action === "select-skin"
+                          ? selectWalletSkin(next, payload)
+                          : action === "burn"
+                            ? recordWalletBurn(next, time)
+                            : action === "writing"
+                              ? recordWalletWriting(next, payload)
+                              : recordWalletDeletion(next, payload, time);
           next = update.wallet;
           const { wallet: _wallet, ...outcome } = update;
           result = outcome;
@@ -299,6 +309,7 @@ export function useWritingTimer(onComplete) {
             if (
               action === "idea" ||
               action === "reset-progress" ||
+              action === "select-skin" ||
               action.startsWith("purchase-")
             )
               return { ok: false, reason: "storage", coins: current.coins };
@@ -419,8 +430,19 @@ export function useWritingTimer(onComplete) {
     [change],
   );
   const resetProgress = useCallback(() => change("reset-progress"), [change]);
+  const purchaseSkin = useCallback(
+    (id) => change("purchase-skin", null, null, id),
+    [change],
+  );
+  const selectSkin = useCallback(
+    (id) => change("select-skin", null, null, id),
+    [change],
+  );
   const recordWriting = useCallback(
-    (activity) => change("writing", null, null, activity),
+    (activity) => {
+      if (activity?.characters > 0) setWritingActivity((value) => value + 1);
+      return change("writing", null, null, activity);
+    },
     [change],
   );
   const confirmVersionDeletion = useCallback(
@@ -436,12 +458,16 @@ export function useWritingTimer(onComplete) {
     now,
     coins: state.coins,
     writingReward,
+    writingActivity,
     streak: state.streak || null,
     claimVisit,
     hasDoctor: walletHasDoctor(state),
     purchaseDoctor,
     hasHouse: walletHasHouse(state),
     purchaseHouse,
+    houseSkin: walletHouseSkin(state),
+    purchaseSkin,
+    selectSkin,
     hasLighter: walletHasLighter(state),
     purchaseLighter,
     hasRadio: walletHasRadio(state),

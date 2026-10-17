@@ -1,4 +1,5 @@
 import { localDay } from "./daily-streak.js";
+import { HOUSE_SKINS, findHouseSkin } from "./house-skins.js";
 
 export const DOCTOR_PRODUCT = "script-doctor";
 export const DOCTOR_PRICE = 20;
@@ -103,6 +104,7 @@ export function cleanWalletExtras(value) {
       [LIGHTER_PRODUCT, LIGHTER_PRICE],
       [RADIO_PRODUCT, RADIO_PRICE],
       [TIKITOK_PRODUCT, TIKITOK_PRICE],
+      ...HOUSE_SKINS.map((skin) => [skin.product, skin.price]),
     ].flatMap(([id, cost]) => {
       const purchase = value?.purchases?.[id];
       return Number.isFinite(purchase?.purchasedAt) && purchase.purchasedAt >= 0
@@ -148,6 +150,10 @@ export function cleanWalletExtras(value) {
     : [];
   return {
     ...(Object.keys(purchases).length ? { purchases } : {}),
+    ...(purchases[HOUSE_PRODUCT] &&
+    purchases[findHouseSkin(value?.houseSkin)?.product]
+      ? { houseSkin: value.houseSkin }
+      : {}),
     ...(validDay(value?.progressResetDay)
       ? { progressResetDay: value.progressResetDay }
       : {}),
@@ -192,6 +198,38 @@ export function walletHasHouse(wallet) {
 
 export function purchaseWalletHouse(wallet, now = Date.now()) {
   return purchaseWalletProduct(wallet, HOUSE_PRODUCT, HOUSE_PRICE, now);
+}
+
+export function walletHasSkin(wallet, id) {
+  const skin = findHouseSkin(id);
+  return (
+    !!skin && Number.isFinite(wallet?.purchases?.[skin.product]?.purchasedAt)
+  );
+}
+
+export function walletHouseSkin(wallet) {
+  return walletHasHouse(wallet) && walletHasSkin(wallet, wallet.houseSkin)
+    ? wallet.houseSkin
+    : null;
+}
+
+export function purchaseWalletSkin(wallet, id, now = Date.now()) {
+  const skin = findHouseSkin(id);
+  if (!skin) return { wallet, ok: false, reason: "product" };
+  if (!walletHasHouse(wallet))
+    return { wallet, ok: false, reason: "ownership" };
+  const result = purchaseWalletProduct(wallet, skin.product, skin.price, now);
+  return result.ok && result.wallet.houseSkin !== id
+    ? { ...result, wallet: { ...result.wallet, houseSkin: id } }
+    : result;
+}
+
+export function selectWalletSkin(wallet, id) {
+  if (!walletHasHouse(wallet) || (id !== null && !walletHasSkin(wallet, id)))
+    return { wallet, ok: false, reason: "ownership" };
+  if (walletHouseSkin(wallet) === id) return { wallet, ok: true };
+  const { houseSkin: _previous, ...rest } = wallet;
+  return { wallet: id === null ? rest : { ...rest, houseSkin: id }, ok: true };
 }
 
 export function walletHasLighter(wallet) {

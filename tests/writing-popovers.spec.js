@@ -251,7 +251,18 @@ for (const theme of ["light", "dark"]) {
     await open(page, theme);
     await openWritingShop(page);
     await expect.poll(() => overflow(page)).toBeLessThanOrEqual(1);
-    expect((await shop(page).boundingBox()).height).toBeGreaterThan(360);
+    expect(
+      await shop(page).evaluate((node) => {
+        const header = node.querySelector(".writing-shop-header");
+        const content = node.querySelector(".writing-popover-scroll");
+        return (
+          node.clientHeight -
+          header.getBoundingClientRect().height -
+          parseFloat(getComputedStyle(header).marginBottom) -
+          content.scrollHeight
+        );
+      }),
+    ).toBeCloseTo(0, 0);
     await page.screenshot({ path: info.outputPath("full-shop-desktop.png") });
     await page.setViewportSize({ width: 390, height: 1100 });
     await expect(page.locator(".minimal-app")).toHaveAttribute(

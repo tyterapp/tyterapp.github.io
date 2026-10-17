@@ -10,8 +10,18 @@ import {
 } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import { captureHouseSnapshot, HOUSE_ROOM } from "./house-snapshot.js";
+import {
+  findHouseSkin,
+  HOUSE_SKIN_PLACEMENT,
+  HOUSE_SKIN_IDLE_MS,
+} from "./house-skins.js";
 
-export default function WritingHouse({ closing, onClose }) {
+export default function WritingHouse({
+  closing,
+  onClose,
+  skinId,
+  writingActivity = 0,
+}) {
   const language = useLanguage();
   const closeRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
@@ -19,6 +29,9 @@ export default function WritingHouse({ closing, onClose }) {
   const [capturing, setCapturing] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [frame, setFrame] = useState(0);
+  const skin = findHouseSkin(skinId);
+  const activity = useRef({ skinId, writingActivity });
   const imageRef = useRef(null),
     scrollRef = useRef(null),
     photoRef = useRef(null),
@@ -28,6 +41,28 @@ export default function WritingHouse({ closing, onClose }) {
   const sizeLabel = t(
     expanded ? "Уменьшить домик до 100%" : "Увеличить домик до 200%",
   );
+  useEffect(() => {
+    skin?.frames.forEach((src) => {
+      const image = new Image();
+      image.src = src;
+    });
+  }, [skin]);
+  useEffect(() => {
+    const previous = activity.current;
+    activity.current = { skinId, writingActivity };
+    if (closing || previous.skinId !== skinId) {
+      setFrame(0);
+      return;
+    }
+    if (!skin || previous.writingActivity === writingActivity) return;
+    setFrame(
+      (value) =>
+        (value + 1 + Math.floor(Math.random() * (skin.frames.length - 1))) %
+        skin.frames.length,
+    );
+    const timeout = setTimeout(() => setFrame(0), HOUSE_SKIN_IDLE_MS);
+    return () => clearTimeout(timeout);
+  }, [skinId, skin, writingActivity, closing]);
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
     return () => {
@@ -54,7 +89,11 @@ export default function WritingHouse({ closing, onClose }) {
     setError("");
     setFeedback("");
     try {
-      const result = await captureHouseSnapshot(imageRef.current);
+      const result = await captureHouseSnapshot(
+        imageRef.current,
+        Date.now(),
+        skin ? { skin: skin.id, frame } : null,
+      );
       if (request !== captureRequest.current) return;
       if (photoUrl.current) URL.revokeObjectURL(photoUrl.current);
       photoUrl.current = URL.createObjectURL(result.blob);
@@ -143,15 +182,37 @@ export default function WritingHouse({ closing, onClose }) {
         <div id="writing-house-canvas" className="writing-house-canvas">
           <img
             ref={imageRef}
+            className="writing-house-room"
             src={HOUSE_ROOM.image}
             alt={
-              language === "en"
-                ? "An empty room ready for your future pet"
-                : "Пустая комната для будущего питомца"
+              skin
+                ? language === "en"
+                  ? "Room with OiiA"
+                  : "Домик с ОииА"
+                : language === "en"
+                  ? "An empty room ready for your future pet"
+                  : "Пустая комната для будущего питомца"
             }
             width={HOUSE_ROOM.width}
             height={HOUSE_ROOM.height}
           />
+          {skin && (
+            <img
+              className="writing-house-pet"
+              src={skin.frames[frame]}
+              data-skin={skin.id}
+              data-frame={frame}
+              alt=""
+              draggable="false"
+              width="137"
+              height="76"
+              style={{
+                left: `${HOUSE_SKIN_PLACEMENT.x * 100}%`,
+                top: `${HOUSE_SKIN_PLACEMENT.y * 100}%`,
+                width: `${HOUSE_SKIN_PLACEMENT.width * 100}%`,
+              }}
+            />
+          )}
         </div>
         {capturing && (
           <p className="writing-house-photo-status" role="status">

@@ -94,6 +94,10 @@ export default function WritingTimer({
       } else if (
         event.type === "pointerdown" &&
         !tikiTokOpen &&
+        !(
+          houseOpen &&
+          event.target.closest?.(".minimal-scroll, .screenplay-format-bar")
+        ) &&
         !ref.current?.contains(event.target)
       )
         closePanel(false);
@@ -188,7 +192,12 @@ export default function WritingTimer({
       onMouseDown={(event) => event.preventDefault()}
     >
       {houseOpen && (
-        <WritingHouse closing={panelClosing} onClose={closePanel} />
+        <WritingHouse
+          closing={panelClosing}
+          onClose={closePanel}
+          skinId={timer.houseSkin}
+          writingActivity={timer.writingActivity}
+        />
       )}
       {tikiTokOpen && (
         <WritingTikiTok closing={panelClosing} onClose={closePanel} />

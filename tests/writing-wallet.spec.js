@@ -367,14 +367,21 @@ for (const theme of ["light", "dark"]) {
       .getByRole("button", { name: "Назад к категориям", exact: true })
       .click();
     for (const [name, item] of [
-      ["Скины", "Классическая кошка"],
+      ["Скины", "ОииА"],
       ["Декор", "Уютный коврик"],
       ["Локации", "Тихий сад"],
       ["Разное", "Подарочная коробка"],
     ]) {
       await shop(page).getByRole("button", { name, exact: true }).click();
       await expect(shop(page)).toContainText(item);
-      await shop(page).getByText(item, { exact: true }).click();
+      if (name === "Скины")
+        await expect(
+          shop(page).getByRole("button", {
+            name: "Купить ОииА за 50 монет",
+            exact: true,
+          }),
+        ).toBeDisabled();
+      else await shop(page).getByText(item, { exact: true }).click();
       await expect(page.locator(".writing-timer-balance-content")).toHaveText(
         "0",
       );

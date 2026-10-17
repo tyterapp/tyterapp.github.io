@@ -203,6 +203,7 @@
   .writing-popover-scroll
   :is(
     .writing-shop-category,
+    .writing-shop-skin,
     .writing-shop-buy,
     .writing-shop-reset
   ):focus-visible {
@@ -318,6 +319,7 @@
   overflow-x: auto;
 }
 .writing-house-canvas {
+  position: relative;
   width: 100%;
   margin-inline: auto;
 }
@@ -413,7 +415,7 @@
   .writing-coins-achievement-status {
   color: var(--ui-accent);
 }
-.writing-house-canvas > img {
+.writing-house-canvas > .writing-house-room {
   display: block;
   width: 100%;
   height: auto;
@@ -421,7 +423,7 @@
   outline: 1px solid oklch(0 0 0 / 0.1);
   outline-offset: -1px;
 }
-[data-theme="dark"] .writing-house-canvas > img {
+[data-theme="dark"] .writing-house-canvas > .writing-house-room {
   outline-color: oklch(1 0 0 / 0.1);
 }
 .writing-shop-product-icon {
@@ -430,6 +432,64 @@
   height: 40px;
   place-items: center;
   color: var(--ui-muted);
+}
+.writing-house-pet {
+  position: absolute;
+  display: block;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+.writing-shop-product-icon > img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+}
+.minimal-app .writing-shop-skin {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    scale 120ms ease;
+}
+.minimal-app .writing-shop-skin:hover:enabled {
+  background: var(--ui-accent-soft);
+}
+.minimal-app .writing-shop-skin:active:enabled {
+  scale: 0.96;
+}
+.minimal-app .writing-shop-skin.is-selected {
+  background: var(--ui-accent-soft);
+}
+.writing-shop-skin > strong {
+  font-size: 13px;
+}
+.writing-shop-skin-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.writing-shop-skin.is-selected .writing-shop-skin-status {
+  color: var(--ui-accent);
+}
+.minimal-app .writing-shop-skin:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .writing-shop-product-copy > strong {
   font-size: 13px;
@@ -674,6 +734,7 @@
   .minimal-app .writing-timer-balance,
   .minimal-app .writing-shop-buy,
   .minimal-app .writing-shop-category,
+  .minimal-app .writing-shop-skin,
   .minimal-app .writing-shop-reset {
     transition: none;
   }
