@@ -839,6 +839,7 @@ export default {
   "Сохранено на устройстве": "Saved on device",
   Сохранить: "Save",
   "Сохранить изменения": "Save changes",
+  "Сохранить копию TYT · Pro": "Save a TYT copy · Pro",
   "Сохранить файл": "Save file",
   "Сочетания для работы в редакторе. Действия с компонентами и реквизитом используют выделенный текст.":
     "Shortcuts for the editor. Component and prop actions use selected text.",

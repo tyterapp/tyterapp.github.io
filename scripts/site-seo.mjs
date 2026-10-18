@@ -1,6 +1,11 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { BLOG_ARTICLES } from "../src/site-content.js";
+import {
+  HOUSE_SNAPSHOT_SCENES,
+  houseSnapshotScene,
+  houseSnapshotRoute,
+} from "../src/house-snapshot.js";
 
 const origin = "https://tyterapp.github.io";
 const escape = (value) =>
@@ -11,6 +16,8 @@ const escape = (value) =>
     .replaceAll(">", "&gt;");
 export function pageMetadata(html, route = "") {
   const article = BLOG_ARTICLES.find(({ slug }) => route === `blog/${slug}`);
+  const houseScene = houseSnapshotScene(`/${route}`);
+  const house = route === "house" || !!houseScene;
   const pages = {
     "": [
       "Tyter — сценарий без хаоса",
@@ -40,7 +47,10 @@ export function pageMetadata(html, route = "") {
       "Tyter PRO — вход в редактор",
       "Вход в PRO-редактор Tyter по email и ключу. Ваши сценарии сохраняются локально.",
     ],
-    house: ["Домик oiia — Tyter", "Снимок домика пользователя Tyter."],
+    house: [
+      "Снимок домика — Tyter · OiiA",
+      "Домик и питомец OiiA в Tyter. Посмотрите снимок и скачайте PNG.",
+    ],
     404: [
       "Страница не найдена — Tyter",
       "Проверьте адрес или вернитесь к своей истории в Tyter.",
@@ -48,8 +58,16 @@ export function pageMetadata(html, route = "") {
   };
   const [title, description] = article
     ? [`${article.title[0]} — Tyter`, article.summary[0]]
-    : pages[route] || pages.free;
-  const url = origin + (route ? `/${route}` : "/");
+    : pages[house ? "house" : route] || pages.free;
+  const url =
+    origin +
+    (houseScene ? houseSnapshotRoute(houseScene) : route ? `/${route}` : "/");
+  const cover = house
+    ? `${origin}${houseSnapshotRoute(houseScene || HOUSE_SNAPSHOT_SCENES[0])}cover.png`
+    : null;
+  const imageAlt = houseScene?.skin
+    ? "Домик с котиком OiiA в Tyter"
+    : "Домик OiiA в Tyter";
   html = html.replace(
     /<title>[\s\S]*?<\/title>/,
     `<title>${escape(title)}</title>`,
@@ -65,6 +83,19 @@ export function pageMetadata(html, route = "") {
     "og:type": article ? "article" : "website",
     "twitter:title": title,
     "twitter:description": description,
+    ...(cover
+      ? {
+          "og:image": cover,
+          "og:image:secure_url": cover,
+          "og:image:type": "image/png",
+          "og:image:width": "1200",
+          "og:image:height": "630",
+          "og:image:alt": imageAlt,
+          "twitter:card": "summary_large_image",
+          "twitter:image": cover,
+          "twitter:image:alt": imageAlt,
+        }
+      : {}),
   }))
     html = html.replace(
       new RegExp(

@@ -5,6 +5,7 @@ import LandingPage from "./LandingPage.jsx";
 import NotFoundPage from "./NotFoundPage.jsx";
 import WebProApp from "./WebProApp.jsx";
 import HouseSnapshotPage from "./HouseSnapshotPage.jsx";
+import { houseSnapshotScene } from "./house-snapshot.js";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
 import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
 import { EditionContext } from "./edition.js";
@@ -30,10 +31,12 @@ const pathname = location.pathname.replace(/\/+$/, "") || "/";
 if (!desktop && pathname === "/pay") location.replace("/beta");
 const webPro = ["/pro", "/beta"].includes(pathname);
 const editor = desktop || ["/free", "/app"].includes(pathname) || webPro;
+const housePage = pathname === "/house" || !!houseSnapshotScene(pathname);
 document.documentElement.dataset.theme = readEditorPreferences().theme;
 const article = BLOG_ARTICLES.find(({ slug }) => pathname === `/blog/${slug}`);
 const notFound =
   !editor &&
+  !housePage &&
   !["/", "/pay", ...SITE_ROUTES.map((path) => `/${path}`)].includes(pathname);
 if (!editor) {
   document.documentElement.classList.add("site-mode");
@@ -56,7 +59,7 @@ createRoot(document.getElementById("root")).render(
       <App />
     ) : notFound ? (
       <NotFoundPage />
-    ) : pathname === "/house" ? (
+    ) : housePage ? (
       <HouseSnapshotPage />
     ) : pathname === "/help" ? (
       <HelpPage />

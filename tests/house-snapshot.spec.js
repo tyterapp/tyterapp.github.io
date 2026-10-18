@@ -95,7 +95,9 @@ test("snapshot links are short, versioned and exclude document or account data; 
     "https://tyterapp.github.io/beta?private=secret#proof",
   );
   expect(link.length).toBeLessThan(200);
-  expect(link).toMatch(/^https:\/\/tyterapp.github.io\/house#snapshot=/);
+  expect(link).toMatch(
+    /^https:\/\/tyterapp.github.io\/house\/v1\/empty\/#snapshot=/,
+  );
   expect(link).not.toContain("private");
   expect(readHouseSnapshot(new URL(link).hash)).toEqual({
     version: 1,

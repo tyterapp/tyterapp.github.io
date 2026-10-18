@@ -59,6 +59,7 @@ await buildElectron({
       "desktop/main-pro.cjs",
       "desktop/remote-code.cjs",
       "desktop/local-store.cjs",
+      "desktop/save-copy.cjs",
       "desktop/preload.cjs",
       "desktop/activate.html",
       "desktop/activation.js",

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("tyterDesktop", {
   edition: "pro",
   request: (endpoint, body) =>
     ipcRenderer.invoke("tyter:request", endpoint, body),
+  saveCopy: (copy) => ipcRenderer.invoke("tyter:save-copy", copy),
   activateLicense: (key) => ipcRenderer.invoke("tyter:activate-license", key),
   activationStatus: () => ipcRenderer.invoke("tyter:activation-status"),
   retryActivation: () => ipcRenderer.invoke("tyter:retry-activation"),

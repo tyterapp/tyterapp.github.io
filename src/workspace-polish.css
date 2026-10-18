@@ -64,11 +64,6 @@
   color: var(--ui-text);
   border: 0;
 }
-:root[data-theme="dark"] .word-suggestions kbd {
-  background: var(--ui-soft);
-  color: var(--ui-text);
-  border-color: var(--ui-border);
-}
 .app-select-row {
   display: flex;
   align-items: stretch;

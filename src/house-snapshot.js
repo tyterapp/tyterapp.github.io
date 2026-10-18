@@ -1,5 +1,9 @@
 // Published room artwork is immutable: new artwork gets a new version and URL.
-import { findHouseSkin, HOUSE_SKIN_PLACEMENT } from "./house-skins.js";
+import {
+  findHouseSkin,
+  HOUSE_SKINS,
+  HOUSE_SKIN_PLACEMENT,
+} from "./house-skins.js";
 export const HOUSE_ROOM = Object.freeze({
   version: 1,
   image: "/oiia/house-snapshot-v1.png",
@@ -31,6 +35,35 @@ function snapshotDescriptor(value) {
     : null;
 }
 
+export const HOUSE_SNAPSHOT_SCENES = Object.freeze([
+  Object.freeze({ version: HOUSE_ROOM.version, takenAt: 0 }),
+  ...HOUSE_SKINS.flatMap((skin) =>
+    skin.frames.map((_, frame) =>
+      Object.freeze({
+        version: HOUSE_ROOM.version,
+        takenAt: 0,
+        skin: skin.id,
+        frame,
+      }),
+    ),
+  ),
+]);
+
+export function houseSnapshotRoute(snapshot) {
+  if (!validSnapshot(snapshot)) throw new Error("Invalid house snapshot");
+  return `/house/v${snapshot.version}/${snapshot.skin ? `${snapshot.skin}/${snapshot.frame}` : "empty"}/`;
+}
+
+export function houseSnapshotScene(pathname) {
+  if (typeof pathname !== "string") return null;
+  const route = pathname.replace(/\/+$/, "") + "/";
+  return (
+    HOUSE_SNAPSHOT_SCENES.find(
+      (scene) => houseSnapshotRoute(scene) === route,
+    ) || null
+  );
+}
+
 export function houseSnapshotLink(snapshot, base = globalThis.location?.href) {
   const descriptor = snapshotDescriptor(snapshot);
   if (!descriptor) throw new Error("Invalid house snapshot");
@@ -41,7 +74,7 @@ export function houseSnapshotLink(snapshot, base = globalThis.location?.href) {
   } catch {
     // Installed apps share the public viewer instead of a private desktop URL.
   }
-  const url = new URL("/house", origin);
+  const url = new URL(houseSnapshotRoute(descriptor), origin);
   const encoded = btoa(JSON.stringify(descriptor))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -62,6 +95,17 @@ export function readHouseSnapshot(hash) {
   } catch {
     return null;
   }
+}
+
+export function readHouseSnapshotLocation({ pathname, hash }) {
+  const scene = houseSnapshotScene(pathname);
+  if (pathname.replace(/\/+$/, "") !== "/house" && !scene) return null;
+  if (!hash) return scene ? { ...scene, takenAt: Date.now() } : null;
+  const snapshot = readHouseSnapshot(hash);
+  return snapshot &&
+    (!scene || houseSnapshotRoute(snapshot) === houseSnapshotRoute(scene))
+    ? snapshot
+    : null;
 }
 
 export function houseSnapshotFilename(snapshot) {

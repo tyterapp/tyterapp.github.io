@@ -42,6 +42,11 @@ import { shotScenes, updateShotSettings } from "./shot-info.js";
 import { OutlineIcon } from "./StoryIcons.jsx";
 import { exportTYT } from "./tyt-format.js";
 import {
+  chooseTytCopyTarget,
+  rememberTytFileName,
+  tytCopyFileName,
+} from "./tyt-copy.js";
+import {
   chooseLocalDirectory,
   directoryComponentLibraries,
 } from "./browser-files.js";
@@ -144,6 +149,7 @@ import {
   sessionExportSnapshot,
 } from "./local-files.js";
 import ScreenplayEditor from "./ScreenplayEditor.jsx";
+import EditorFirstVisit from "./EditorFirstVisit.jsx";
 import { createProject, uid, validateImport } from "./data.js";
 import {
   exportPDF,
@@ -664,6 +670,17 @@ export default function MinimalApp({ onLogout }) {
   const [emptyDocument] = useState(newDocument);
   const current =
     documents.find((d) => d.id === activeId) || documents[0] || emptyDocument;
+  const [introDocumentId, setIntroDocumentId] = useState(() => {
+    try {
+      return !initial.hasSaved &&
+        !localStorage.getItem("tyter.onboarding.v1") &&
+        !localStorage.getItem("tyter.editor-intro.v1")
+        ? current.id
+        : null;
+    } catch {
+      return null;
+    }
+  });
   const activeScriptVersion = scriptVersion(current);
   const writingScope = scriptScopeId(current);
   const documentsRef = useRef(documents);
@@ -674,6 +691,8 @@ export default function MinimalApp({ onLogout }) {
     exportMenuRef = useRef(null),
     importRef = useRef(null);
   const imagePasteRef = useRef(null);
+  const quickExportRef = useRef(null);
+  const copyInProgress = useRef(false);
   const componentHistory = useRef({
     undo: [],
     redo: [],
@@ -777,6 +796,22 @@ export default function MinimalApp({ onLogout }) {
     }
   });
   const [filesReady, setFilesReady] = useState(false);
+  const showEditorIntro =
+    filesReady &&
+    !tourOpen &&
+    current.id === introDocumentId &&
+    view === "screenplay" &&
+    !notesOpen &&
+    !historyRevision &&
+    !current.content.content.some((block) =>
+      block.content?.some((part) => part.text),
+    );
+  useEffect(() => {
+    if (!showEditorIntro) return;
+    try {
+      localStorage.setItem("tyter.editor-intro.v1", "seen");
+    } catch {}
+  }, [showEditorIntro]);
   const [diskAvailable, setDiskAvailable] = useState(false);
   const [diskState, setDiskState] = useState("loading");
   const diskRevision = useRef(0);
@@ -1220,19 +1255,28 @@ export default function MinimalApp({ onLogout }) {
       }
       if (
         (e.ctrlKey || e.metaKey) &&
-        !e.shiftKey &&
         !e.altKey &&
+        !e.isComposing &&
         (e.code === "KeyS" || e.key.toLowerCase() === "s")
       ) {
         e.preventDefault();
-        writeStorage();
+        if (e.shiftKey) {
+          e.stopPropagation();
+          if (
+            !e.repeat &&
+            !window.document.querySelector(
+              'dialog[open], [role="dialog"][aria-modal="true"]',
+            )
+          )
+            quickExportRef.current?.();
+        } else writeStorage();
       }
     };
     window.document.addEventListener("pointerdown", outside);
-    window.document.addEventListener("keydown", keys);
+    window.document.addEventListener("keydown", keys, true);
     return () => {
       window.document.removeEventListener("pointerdown", outside);
-      window.document.removeEventListener("keydown", keys);
+      window.document.removeEventListener("keydown", keys, true);
     };
   }, [writeStorage, showSidebar, view]);
   const update = useCallback(
@@ -1251,6 +1295,12 @@ export default function MinimalApp({ onLogout }) {
   );
   const changeContent = useCallback(
     (content, anchors, activity) => {
+      if (
+        content.content.some((block) =>
+          block.content?.some((part) => part.text),
+        )
+      )
+        setIntroDocumentId(null);
       update((d) => ({
         ...d,
         content,
@@ -1669,6 +1719,7 @@ export default function MinimalApp({ onLogout }) {
     return () => document.removeEventListener("keydown", onUndoRedo, true);
   }, [activeId, writingScope, notesOpen]);
   const switchDocument = (doc, { keepSearch = false } = {}) => {
+    setIntroDocumentId(null);
     setNotesOpen(false);
     componentHistory.current = { undo: [], redo: [] };
     setQuestOverlay(false);
@@ -2708,6 +2759,38 @@ export default function MinimalApp({ onLogout }) {
       setBusy("");
     }
   };
+  quickExportRef.current = async () => {
+    if (!filesReady || !documents.length || busy || copyInProgress.current)
+      return;
+    if (!IS_PRO) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    copyInProgress.current = true;
+    setMenu(null);
+    setBusy("tyt-copy");
+    setMessage("");
+    // Freeze the active file before opening a dialog or waiting for persistence.
+    const snapshot = structuredClone(documentsRef.current);
+    const source = snapshot.find((doc) => doc.id === current.id);
+    try {
+      const target = await chooseTytCopyTarget(tytCopyFileName(source));
+      writeStorage();
+      await flushOutlineHistory();
+      const document =
+        (await sessionExportSnapshot(snapshot, source.id)) || source;
+      const result = await target.write(await exportTYT(document));
+      if (result?.name) rememberTytFileName(source, result.name);
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("TYT copy failed", error);
+        setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+      }
+    } finally {
+      copyInProgress.current = false;
+      setBusy("");
+    }
+  };
   const downloadShotReport = async (format = "pdf") => {
     if (!["pdf", "xlsx", "xml", "csv"].includes(format)) return;
     setBusy("shot-report");
@@ -2771,6 +2854,7 @@ export default function MinimalApp({ onLogout }) {
       }
       setDocuments((list) => [doc, ...list]);
       switchDocument(doc);
+      if (/\.tyt$/i.test(file.name)) rememberTytFileName(doc, file.name);
       if (/\.pdf$/i.test(file.name))
         setMessage(
           "PDF импортирован. Проверьте типы абзацев: они определены по расположению текста.",
@@ -3094,7 +3178,6 @@ export default function MinimalApp({ onLogout }) {
           </span>
         </button>
         <div className="header-switches">
-          <LanguageSwitch />
           <div
             className="document-view-toggle"
             role="group"
@@ -3120,6 +3203,7 @@ export default function MinimalApp({ onLogout }) {
               {t("Аутлайн")}
             </button>
           </div>
+          <LanguageSwitch />
         </div>
         {mobile && (
           <>
@@ -3557,6 +3641,7 @@ export default function MinimalApp({ onLogout }) {
                   )}
                 </div>
               )}
+              {showEditorIntro && <EditorFirstVisit />}
               {historyRevision ? (
                 <HistoryPreview
                   revision={historyRevision}
@@ -4160,10 +4245,6 @@ export default function MinimalApp({ onLogout }) {
           {componentsOpen && (
             <ComponentsPanel
               key={writingScope}
-              thumbnailPreviews={preferences.thumbnailPreviews}
-              onThumbnailPreviews={(thumbnailPreviews) =>
-                setPreferences({ thumbnailPreviews })
-              }
               onExportLibrary={() =>
                 saveBlob(
                   exportComponentLibrary(current),

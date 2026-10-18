@@ -14,6 +14,7 @@ import {
   FileOutput,
   ListOrdered,
   Copy,
+  Images,
 } from "lucide-react";
 import { documentFont, documentFonts } from "./document-fonts.js";
 import AppSelect from "./AppSelect.jsx";
@@ -172,6 +173,15 @@ export default function DocumentSettings({
               language === "en"
                 ? t("Язык проверки — английский")
                 : t("Язык проверки — русский")
+            }
+          />
+          <SettingsSwitch
+            label={t("Миниатюры при наведении")}
+            icon={Images}
+            role="switch"
+            checked={preferences.thumbnailPreviews !== false}
+            onChange={(thumbnailPreviews) =>
+              onPreferences({ thumbnailPreviews })
             }
           />
           <div className="settings-field">

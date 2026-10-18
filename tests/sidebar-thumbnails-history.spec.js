@@ -104,8 +104,10 @@ test("left tools open left sidebars and disappear completely in outline", async 
   const mobile = await page
     .getByRole("complementary", { name: "Реквизит сценария" })
     .boundingBox();
-  expect(mobile.x).toBe(64);
+  expect(mobile.x).toBe(0);
   expect(mobile.x + mobile.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
   await expect(tools).toBeVisible();
   for (const name of [
@@ -148,10 +150,13 @@ test("graph targets cover full height, adapt from 32 to 88 pixels and select far
     "aria-label",
     "Знакомство: драматичность 0 из 10",
   );
+  await page
+    .getByRole("button", { name: "Закрыть карточку", exact: true })
+    .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(async () => (await target.boundingBox()).width)
-    .toBeLessThan(88);
+    .toBeLessThanOrEqual(88);
   await expect
     .poll(async () => {
       const bounds = await target.boundingBox();
@@ -163,7 +168,7 @@ test("graph targets cover full height, adapt from 32 to 88 pixels and select far
     .toBeLessThanOrEqual(1);
   const narrow = await target.boundingBox();
   expect(narrow.width).toBeGreaterThanOrEqual(32);
-  expect(narrow.width).toBeLessThan(88);
+  expect(narrow.width).toBeLessThanOrEqual(88);
   const next = await graph
     .getByRole("button", { name: "Возвращение: драматичность 10 из 10" })
     .locator(".drama-hit-area")
@@ -251,7 +256,13 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
     .hover();
   await expect(page.locator(".thumbnail-preview img")).toBeVisible();
   await page.getByRole("button", { name: "Компоненты", exact: true }).click();
-  const previewSettings = page.locator(".component-preview-settings");
+  await expect(
+    page.locator(".components-drawer").getByRole("switch"),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Настройки документа", exact: true })
+    .click();
+  const previewSettings = page.locator(".settings-drawer");
   const previewSwitch = previewSettings.getByRole("switch", {
     name: "Миниатюры при наведении",
     exact: true,
@@ -260,10 +271,8 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
   await expect(previewSwitch).toBeChecked();
   await previewSwitch.uncheck();
   await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
-  await expect(
-    page.locator('[data-component-preview="cat"] img'),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Закрыть компоненты" }).click();
+  await expect(previewSettings).not.toContainText("Компоненты и реквизит");
+  await page.getByRole("button", { name: "Закрыть настройки" }).click();
   await page.locator('.screenplay-editor [data-prop-id="window"]').hover();
   await page.waitForTimeout(300);
   await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
@@ -273,13 +282,15 @@ test("component and prop thumbnails persist in TYT and preview only on mouse hov
   await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".screenplay-editor")).toBeVisible();
-  await page.getByRole("button", { name: "Компоненты", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Настройки документа", exact: true })
+    .click();
   await expect(previewSwitch).toBeVisible();
   await expect(previewSwitch).not.toBeChecked();
   await previewSwitch.focus();
   await page.keyboard.press("Space");
   await expect(previewSwitch).toBeChecked();
-  await page.getByRole("button", { name: "Закрыть компоненты" }).click();
+  await page.getByRole("button", { name: "Закрыть настройки" }).click();
   await page.locator('.screenplay-editor [data-prop-id="window"]').hover();
   await expect(page.locator(".thumbnail-preview img")).toBeVisible();
   await page.screenshot({ path: info.outputPath("thumbnail-preview.png") });

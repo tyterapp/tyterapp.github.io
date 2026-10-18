@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import { SITE_ROUTES } from "../src/site-content.js";
 import { pageMetadata, writeSiteSeo } from "./site-seo.mjs";
+import { writeHouseSocialPages } from "./house-social-pages.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "site-dist");
 await build({ root, mode: "production", build: { outDir: output } });
@@ -25,4 +26,5 @@ for (const page of [
   );
 }
 await writeFile(path.join(output, "404.html"), pageMetadata(html, "404"));
+await writeHouseSocialPages(output);
 console.log("Сайт готов: " + output);

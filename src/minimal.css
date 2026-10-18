@@ -599,6 +599,37 @@ kbd {
   color: #353338;
   caret-color: #6e627b;
 }
+.editor-first-visit {
+  position: relative;
+  z-index: 1;
+  margin-block-end: 28px;
+  font-family: var(--script-font-family, "Courier New", monospace);
+  font-size: var(--script-font-size, 12pt);
+  line-height: 1.5;
+  color: var(--ui-text, #353338);
+  user-select: none;
+}
+.editor-first-visit h2 {
+  margin: 0 0 20px;
+  font: inherit;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.editor-first-visit p {
+  margin: 0 0 12px;
+  text-wrap: pretty;
+}
+.editor-first-visit p:last-child {
+  margin-block-end: 0;
+}
+.editor-first-visit strong {
+  white-space: nowrap;
+}
+@media print {
+  .editor-first-visit {
+    display: none;
+  }
+}
 .minimal-app .screenplay-editor .screenplay-block {
   margin: 0 0 var(--block-gap, 20px);
   min-height: 20px;
@@ -1413,22 +1444,6 @@ kbd {
 }
 .word-suggestions .suggestion-icon {
   flex-shrink: 0;
-}
-.word-suggestions kbd {
-  flex-shrink: 0;
-  margin-left: 0;
-  font-size: 12px;
-  background: #fff8;
-  color: #a198ae;
-  border-color: #e8e3ec;
-}
-.suggestion-hint {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px var(--suggestion-inset) 3px;
-  color: #b9b2c1;
-  font-size: 11px;
 }
 .minimal-selection {
   background: #fff;
@@ -2545,12 +2560,6 @@ kbd {
 }
 .component-group {
   margin-top: 14px;
-}
-.component-preview-settings {
-  flex: 0 0 auto;
-}
-.component-preview-settings .settings-switch-row {
-  margin-inline: 0;
 }
 .folder-toggle {
   display: flex;

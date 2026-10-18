@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createWebProHandler } from "./web-pro.mjs";
 import { SITE_ROUTES } from "../src/site-content.js";
+import { houseSnapshotScene } from "../src/house-snapshot.js";
 const site = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -50,7 +51,7 @@ createServer(async (req, res) => {
                 "/pro",
                 "/beta",
                 ...SITE_ROUTES.map((path) => `/${path}`),
-              ].includes(pathname)
+              ].includes(pathname) || houseSnapshotScene(pathname)
             ? pathname.slice(1) + "/index.html"
             : pathname.slice(1);
       const target = path.resolve(site, relative);

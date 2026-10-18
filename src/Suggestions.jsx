@@ -219,12 +219,12 @@ export default function Suggestions({
       const viewportTop = visual?.offsetTop || 0;
       const viewportBottom =
         viewportTop + (visual?.height || window.innerHeight);
-      const width = Math.min(296, window.innerWidth - 24);
+      const width = Math.min(264, window.innerWidth - 24);
       const maxHeight = Math.max(
         74,
         viewportBottom - Math.max(60, viewportTop + 12) - 42,
       );
-      const height = Math.min(items.length * 34 + 30, maxHeight);
+      const height = Math.min(items.length * 34 + 8, maxHeight);
       setPopup((previous) => {
         const sameContext =
           previous && signature(previous.context) === signature(c);
@@ -506,13 +506,8 @@ export default function Suggestions({
                 aria-label={t("Компонент")}
               />
             )}
-          {i === popup.index && <kbd>Ctrl + Enter</kbd>}
         </button>
       ))}
-      <div className="suggestion-hint">
-        <span>Shift + ↑ ↓</span>
-        <span>{t("Ctrl+Enter вставить · Esc закрыть")}</span>
-      </div>
     </div>,
     document.body,
   );

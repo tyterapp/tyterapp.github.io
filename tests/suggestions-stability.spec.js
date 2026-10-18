@@ -53,8 +53,15 @@ async function open(
   );
   await page.goto("/beta");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
-  await page.locator('[data-block-id="first"]').click();
-  await page.keyboard.press("End");
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator(".screenplay-editor").evaluate((node) => {
+    const editor = node.editor;
+    editor
+      .chain()
+      .focus()
+      .setTextSelection(editor.state.doc.firstChild.nodeSize - 1)
+      .run();
+  });
   await page.keyboard.press("Enter");
   await page.keyboard.press("Control+1");
   await expect(popup(page)).toBeVisible();

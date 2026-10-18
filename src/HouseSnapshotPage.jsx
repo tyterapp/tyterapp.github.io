@@ -3,7 +3,7 @@ import { Download, ExternalLink } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import {
   HOUSE_ROOM,
-  readHouseSnapshot,
+  readHouseSnapshotLocation,
   houseSnapshotFilename,
   captureHouseSnapshot,
 } from "./house-snapshot.js";
@@ -11,7 +11,7 @@ import {
 export default function HouseSnapshotPage() {
   useLanguage();
   const [snapshot, setSnapshot] = useState(() =>
-    readHouseSnapshot(location.hash),
+    readHouseSnapshotLocation(location),
   );
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(false);
@@ -43,9 +43,13 @@ export default function HouseSnapshotPage() {
   }, [snapshot]);
   useEffect(() => {
     document.title = `${t("Снимок домика")} — Tyter · OiiA`;
-    const update = () => setSnapshot(readHouseSnapshot(location.hash));
+    const update = () => setSnapshot(readHouseSnapshotLocation(location));
     window.addEventListener("hashchange", update);
-    return () => window.removeEventListener("hashchange", update);
+    window.addEventListener("popstate", update);
+    return () => {
+      window.removeEventListener("hashchange", update);
+      window.removeEventListener("popstate", update);
+    };
   }, []);
   return (
     <main className="house-snapshot-page">

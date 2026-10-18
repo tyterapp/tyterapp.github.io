@@ -8,7 +8,6 @@ import {
   FolderPlus,
   Plus,
   Search,
-  Images,
   Shapes,
   Trash2,
   X,
@@ -16,7 +15,6 @@ import {
 import { useEdition } from "./edition.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
 import { componentNames } from "./component-names.js";
-import { SettingsSwitch } from "./DocumentSettings.jsx";
 export default function ComponentsPanel({
   document,
   activeId,
@@ -30,8 +28,6 @@ export default function ComponentsPanel({
   renderEditor,
   onExportLibrary,
   onImportLibrary,
-  thumbnailPreviews = true,
-  onThumbnailPreviews,
 }) {
   const language = useLanguage();
   const { isPro: IS_PRO } = useEdition();
@@ -158,16 +154,6 @@ export default function ComponentsPanel({
           {t(" / 10 компонентов")}
         </p>
       )}
-      <div className="component-preview-settings">
-        <SettingsSwitch
-          label={t("Миниатюры при наведении")}
-          hint={t("Компоненты и реквизит")}
-          icon={Images}
-          role="switch"
-          checked={thumbnailPreviews}
-          onChange={onThumbnailPreviews}
-        />
-      </div>
       <div className="component-folders">
         {folders.map((folder) => {
           const items = document.components.filter(

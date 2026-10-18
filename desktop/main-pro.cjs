@@ -12,8 +12,10 @@ const {
   Menu,
   clipboard,
   safeStorage,
+  dialog,
 } = require("electron");
 const { createLocalStore } = require("./local-store.cjs");
+const { saveTytCopy } = require("./save-copy.cjs");
 const { DEFAULT_CODES_URL, verifyRemoteCode } = require("./remote-code.cjs");
 const APP_URL = "tyter://app/";
 const codesUrl =
@@ -199,6 +201,12 @@ app.whenReady().then(async () => {
     if (!verified || event.senderFrame.url === APP_URL + "activate.html")
       throw new Error("Сначала активируйте Tyter Pro.");
     return localStore(endpoint, body);
+  });
+  ipcMain.handle("tyter:save-copy", (event, copy) => {
+    trusted(event);
+    if (!verified || event.senderFrame.url === APP_URL + "activate.html")
+      throw new Error("Сначала активируйте Tyter Pro.");
+    return saveTytCopy(dialog, mainWindow, copy);
   });
   ipcMain.handle("tyter:activation-status", (event) => {
     trusted(event, true);

@@ -82,9 +82,7 @@ test("all tools and comments are on the left, the mode switch stays right and ex
       .getByRole("button", { name: "Комментарии" }),
   ).toHaveCount(0);
   const header = await page.locator(".minimal-header").boundingBox();
-  const toggle = await page
-    .getByRole("group", { name: "Режим документа" })
-    .boundingBox();
+  const toggle = await page.locator(".language-switch").boundingBox();
   expect(header.x + header.width - toggle.x - toggle.width).toBeLessThanOrEqual(
     24,
   );
@@ -106,21 +104,29 @@ test("all tools and comments are on the left, the mode switch stays right and ex
   }
   await page.screenshot({ path: info.outputPath("left-rail.png") });
   await page.setViewportSize({ width: 390, height: 720 });
+  await page
+    .getByRole("button", { name: "Открыть инструменты", exact: true })
+    .click();
   await rail.getByRole("button", { name: "Скачать сценарий" }).click();
   const menu = page.locator(".rail-export-menu");
   await expect(menu).toBeVisible();
   const bounds = await menu.boundingBox();
-  expect(bounds.x).toBeGreaterThanOrEqual(64);
+  expect(bounds.x).toBeGreaterThanOrEqual(8);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(720);
   await page.screenshot({ path: info.outputPath("mobile-export.png") });
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Открыть инструменты", exact: true })
+    .click();
   await rail.getByRole("button", { name: "Комментарии", exact: true }).click();
   const mobileDrawer = await page.locator(".comments-drawer").boundingBox();
-  expect(mobileDrawer.x).toBe(64);
+  expect(mobileDrawer.x).toBe(0);
   expect(mobileDrawer.x + mobileDrawer.width).toBeLessThanOrEqual(390);
-  expect((await page.locator(".minimal-header").boundingBox()).height).toBe(64);
+  expect(
+    (await page.locator(".minimal-header").boundingBox()).height,
+  ).toBeGreaterThanOrEqual(100);
 });
 
 test("Alt+1 and Alt+2 switch views from the editor and outline inputs, while Free remains gated", async ({

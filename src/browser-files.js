@@ -1,6 +1,7 @@
 import { tytPayload, readTYT } from "./tyt-format.js";
 import { importRevisions, listRevisions } from "./history.js";
 import { friendlyTytName } from "./local-file-names.js";
+import { rememberTytFileName } from "./tyt-copy.js";
 
 const DATABASE = "tyter.local-files.v1";
 let directory = null;
@@ -201,6 +202,7 @@ async function saveNamedDocument(folder, mapping, entries, document) {
     if (index < 0) entries.push(saved);
     else entries[index] = saved;
     mapping.names.set(document.id, saved.name);
+    rememberTytFileName(document, saved.name);
     if (
       primary &&
       primary.name !== saved.name &&
