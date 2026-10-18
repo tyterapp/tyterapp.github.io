@@ -179,14 +179,6 @@
   .revision-page-background[data-revision-color="white"] {
     background: transparent;
   }
-  .minimal-app[data-script-version]:not([data-script-version="white"]):not(
-      .notes-mode
-    )
-    .minimal-scroll {
-    background: oklch(
-      0.9 calc(var(--script-version-chroma) * 1.5) var(--script-version-hue)
-    );
-  }
   .minimal-app[data-script-version]:not([data-script-version="white"])
     .script-paper:not(.notes-paper) {
     box-shadow:
@@ -198,16 +190,6 @@
     background: oklch(
       from var(--dark-sheet) calc(l + 0.04)
         calc(var(--revision-page-chroma) * 2) var(--revision-page-hue)
-    );
-  }
-  :root[data-theme="dark"]
-    .minimal-app[data-script-version]:not([data-script-version="white"]):not(
-      .notes-mode
-    )
-    .minimal-scroll {
-    background: oklch(
-      from var(--dark-canvas) calc(l - 0.025)
-        calc(var(--script-version-chroma) * 1.5) var(--script-version-hue)
     );
   }
   :root[data-theme="dark"]

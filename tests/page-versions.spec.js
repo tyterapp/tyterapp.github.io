@@ -132,6 +132,44 @@ const caret = (page) =>
 const text = (page, id) =>
   page.locator(`.screenplay-editor [data-block-id="${id}"]`);
 
+for (const theme of ["light", "dark"]) {
+  test(`canvas stays neutral when the caret changes page versions in ${theme} theme`, async ({
+    page,
+  }, info) => {
+    await open(page, { theme });
+    const app = page.locator(".minimal-app");
+    const canvas = page.locator(".minimal-scroll");
+    const sheets = page.locator(".revision-page-background");
+    const sheetColours = () =>
+      sheets.evaluateAll((nodes) =>
+        nodes.map((node) => getComputedStyle(node).backgroundColor),
+      );
+
+    await choose(page, 1, "white");
+    await text(page, "target-1").click();
+    await expect(app).toHaveAttribute("data-script-version", "white");
+    const neutralCanvas = await canvas.evaluate(
+      (node) => getComputedStyle(node).backgroundColor,
+    );
+    await choose(page, 1, "blue");
+    await text(page, "target-1").click();
+    await expect(app).toHaveAttribute("data-script-version", "blue");
+    await expect(canvas).toHaveCSS("background-color", neutralCanvas);
+    const colours = await sheetColours();
+    expect(colours).toHaveLength(2);
+    expect(colours[0]).not.toBe(colours[1]);
+    expect(colours.every((colour) => colour !== "rgba(0, 0, 0, 0)")).toBe(true);
+
+    await text(page, "target-2").click();
+    await expect(app).toHaveAttribute("data-script-version", "pink");
+    await expect(canvas).toHaveCSS("background-color", neutralCanvas);
+    expect(await sheetColours()).toEqual(colours);
+    await page.screenshot({
+      path: info.outputPath(`neutral-canvas-${theme}.png`),
+    });
+  });
+}
+
 test("page pickers isolate edits and retain the mixed selection after reload and TYT copy", async ({
   page,
 }) => {
