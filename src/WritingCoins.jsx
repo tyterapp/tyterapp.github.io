@@ -63,8 +63,8 @@ export default function WritingCoins({
       reward: 0,
       name: text("После прочтения сжечь", "Burn after reading"),
       description: text(
-        "Сожгите последнюю страницу сценария с помощью зажигалки.",
-        "Burn the last screenplay page with your lighter.",
+        "Сожгите выбранную версию последней страницы с помощью зажигалки.",
+        "Burn the selected version of the last page with your lighter.",
       ),
     },
   ];

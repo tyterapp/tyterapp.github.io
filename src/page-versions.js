@@ -915,13 +915,14 @@ export function selectedPageVersions(document) {
 }
 
 export function pageVersionSources(document, { allVersions = false } = {}) {
-  return checkedPages(document).flatMap((page, index) =>
-    SCRIPT_VERSIONS.filter(
-      ({ id }) =>
-        (id === page.active && page.to > page.from) ||
-        (allVersions && id !== page.active && page.versions[id]),
-    ).map(({ id }) => sourceEntry(document, page, index, id)),
-  );
+  return checkedPages(document).flatMap((page, index) => {
+    // Collapsed ranges retain recovery data for undo/history, but are no
+    // longer pages of the current document and must never enter search.
+    if (page.to <= page.from) return [];
+    return SCRIPT_VERSIONS.filter(
+      ({ id }) => id === page.active || (allVersions && page.versions[id]),
+    ).map(({ id }) => sourceEntry(document, page, index, id));
+  });
 }
 
 // Plans are local offsets measured from each standalone Slice content doc.
@@ -1033,6 +1034,83 @@ export function splitPageVersion(document, pageId, perVersionStarts) {
         ...records,
         ...nextPages.slice(index + 1),
       ],
+    },
+  };
+}
+
+// Burning may remove White too. A saved alternative keeps the page alive;
+// only a page with no remaining alternatives is physically removed/reset.
+export function burnPageVersion(document, pageId) {
+  const page = checkedPages(document).find(({ id }) => id === pageId);
+  if (!page || page.to <= page.from) return null;
+  const fallback = SCRIPT_VERSIONS.find(
+    ({ id }) => id !== page.active && page.versions[id],
+  )?.id;
+  if (fallback) {
+    const next = switchPageVersion(document, pageId, fallback);
+    return {
+      ...next,
+      pageVersions: {
+        ...next.pageVersions,
+        pages: next.pageVersions.pages.map((item) =>
+          item.id !== pageId
+            ? item
+            : {
+                ...item,
+                versions: Object.fromEntries(
+                  Object.entries(item.versions).filter(
+                    ([id]) => id !== page.active,
+                  ),
+                ),
+              },
+        ),
+      },
+    };
+  }
+  const single =
+    checkedPages(document).filter((item) => item.to > item.from).length === 1;
+  const before = nodeOf(document);
+  const transform = new Transform(before);
+  if (single) {
+    transform.replaceWith(
+      0,
+      before.content.size,
+      ["scene", "action"].map((format) =>
+        pageVersionSchema.nodes.paragraph.create({
+          ...emptyBlock().attrs,
+          format,
+        }),
+      ),
+    );
+  } else transform.delete(page.from, page.to);
+  let next = mapPageVersionRanges(
+    document,
+    transform.mapping,
+    transform.doc.toJSON(),
+  );
+  next = restoreOwnedSceneData(
+    next,
+    pageId,
+    pageVersionSlice(document, pageId),
+    emptySlice(),
+  );
+  return {
+    ...next,
+    pageVersions: {
+      ...next.pageVersions,
+      pages: single
+        ? next.pageVersions.pages.map((item) =>
+            item.id === pageId
+              ? {
+                  ...item,
+                  from: 0,
+                  to: transform.doc.content.size,
+                  active: "white",
+                  versions: {},
+                }
+              : item,
+          )
+        : next.pageVersions.pages.filter((item) => item.id !== pageId),
     },
   };
 }

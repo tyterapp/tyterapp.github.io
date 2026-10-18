@@ -288,6 +288,52 @@ test("search cards show page colour and geometry; selecting a result changes onl
     .screenshot({ path: info.outputPath("page-version-search.png") });
 });
 
+test("all-version search drops removed pages immediately and after reload while keeping versions of current pages", async ({
+  page,
+}) => {
+  await open(page);
+  await page.keyboard.press("Control+f");
+  const query = page.getByLabel("Поиск по тексту", { exact: true });
+  const allVersions = page.getByRole("switch", {
+    name: "Искать во всех версиях",
+    exact: true,
+  });
+  await query.fill("маяк");
+  await allVersions.check();
+  await expect(cards(page)).toHaveCount(4);
+  await text(page, "target-2").click();
+  await page.locator(".screenplay-editor").evaluate((node) => {
+    const { editor } = node;
+    let from;
+    editor.state.doc.forEach((block, position) => {
+      if (block.attrs.blockId === "scene-2") from = position;
+    });
+    editor.commands.setTextSelection({
+      from,
+      to: editor.state.doc.content.size,
+    });
+  });
+  await page.keyboard.press("Backspace");
+  await expect(picker(page, 2)).toHaveCount(0);
+  await expect(cards(page)).toHaveCount(2);
+  await expect(cards(page, 1, "blue")).toHaveCount(1);
+  await expect(cards(page, 1, "white")).toHaveCount(1);
+  await query.fill("второй");
+  await expect(cards(page)).toHaveCount(0);
+
+  await expect(page.locator('.save-status [role="status"]')).toHaveText(
+    "Сохранено на устройстве",
+  );
+  await page.reload();
+  await expect(picker(page, 1)).toBeVisible();
+  await page.keyboard.press("Control+f");
+  await query.fill("маяк");
+  await allVersions.check();
+  await expect(cards(page)).toHaveCount(2);
+  await query.fill("второй");
+  await expect(cards(page)).toHaveCount(0);
+});
+
 test("overflowing the first page adds page pickers and preserves the second page's identity and text", async ({
   page,
 }) => {

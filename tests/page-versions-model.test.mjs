@@ -732,12 +732,14 @@ test("a deleted tail retains dormant copies without adding a phantom selected or
     pageVersionAt(doc, schema.nodeFromJSON(doc.content).content.size).id,
     doc.pageVersions.pages[1].id,
   );
-  const dormant = pageVersionSources(doc, { allVersions: true }).find(
-    (entry) => entry.pageId === tailId,
+  assert.equal(
+    pageVersionSources(doc, { allVersions: true }).some(
+      (entry) => entry.pageId === tailId,
+    ),
+    false,
   );
-  assert.equal(dormant.versionId, "white");
-  assert.equal(dormant.pageNumber, 3);
-  assert.equal(dormant.content.content[0].content[0].text, "Third page");
+  const dormant = pageVersionSlice(doc, tailId, "white");
+  assert.equal(dormant.slice.content[0].content[0].text, "Third page");
   doc = readTYT(JSON.stringify(tytPayload(doc)));
   assert.equal(selectedPageVersions(doc).length, 2);
   doc = switchPageVersion(doc, tailId, "white");
@@ -767,10 +769,12 @@ test("restoring a dormant deleted middle page gives its text back to its own ran
     selectedPageVersions(doc).map((entry) => entry.pageNumber),
     [1, 2],
   );
-  const dormant = pageVersionSources(doc, { allVersions: true }).find(
-    (entry) => entry.pageId === middleId && entry.versionId === "white",
+  assert.equal(
+    pageVersionSources(doc, { allVersions: true }).some(
+      (entry) => entry.pageId === middleId,
+    ),
+    false,
   );
-  assert.equal(dormant.pageNumber, 2);
   doc = switchPageVersion(doc, middleId, "white");
   assert.equal(textOf(doc), "First pageSecond pageThird page");
   assert.equal(doc.pageVersions.pages[2].id, nextId);

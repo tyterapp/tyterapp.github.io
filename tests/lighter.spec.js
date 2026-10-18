@@ -10,6 +10,11 @@ import {
 import { grantPro } from "./helpers/pro-access.js";
 import { scriptVersionSnapshot } from "../src/script-versions.js";
 import { selectAppOption } from "./helpers/app-select.js";
+import {
+  ensurePageVersions,
+  switchPageVersion,
+  rebasePageVersionContent,
+} from "../src/page-versions.js";
 
 const paragraph = (id, format, text, marks) => ({
   type: "paragraph",
@@ -203,6 +208,84 @@ async function completeBurn(page) {
   });
   await expect(page.locator(".script-paper")).toHaveCSS("mask-image", "none");
   await expect(page.getByRole("alert")).toHaveCount(0);
+}
+
+for (const active of ["white", "blue"]) {
+  test(`burning the first page's ${active} version opens another saved version and undo restores the full catalogue`, async ({
+    page,
+  }) => {
+    let doc = createProject("Версии первой страницы");
+    doc.content.content = [
+      paragraph("heading", "scene", "ИНТ. КОМНАТА — ДЕНЬ"),
+      paragraph("text", "action", "Белая версия страницы."),
+    ];
+    doc = ensurePageVersions(doc);
+    const pageId = doc.pageVersions.pages[0].id;
+    for (const [version, text] of [
+      ["blue", "Синяя версия страницы."],
+      ["pink", "Розовая версия страницы."],
+    ]) {
+      doc = switchPageVersion(doc, pageId, version);
+      const content = structuredClone(doc.content);
+      content.content[1].content[0].text = text;
+      doc = rebasePageVersionContent(doc, content);
+    }
+    doc = switchPageVersion(doc, pageId, active);
+    await open(page, {
+      doc,
+      owned: true,
+      flies: false,
+      reduced: true,
+      width: active === "blue" ? 320 : 1440,
+    });
+    const before = await json(page);
+    const picker = page.getByRole("combobox", {
+      name: "Версия страницы 1",
+      exact: true,
+    });
+    await useLighter(page);
+    await completeBurn(page);
+    await expect(picker).toContainText(
+      active === "white" ? "v2 Blue" : "v1 White",
+    );
+    await expect(page.locator('[data-block-id="text"]')).toHaveText(
+      active === "white" ? "Синяя версия страницы." : "Белая версия страницы.",
+    );
+    await page.locator(".screenplay-editor").press("Control+z");
+    expect(await json(page)).toEqual(before);
+    await expect(picker).toContainText(
+      active === "white" ? "v1 White" : "v2 Blue",
+    );
+    await page.locator(".screenplay-editor").press("Control+Shift+z");
+    await expect(picker).toContainText(
+      active === "white" ? "v2 Blue" : "v1 White",
+    );
+    await page.keyboard.press("Control+f");
+    const query = page.getByLabel("Поиск по тексту", { exact: true });
+    await page
+      .getByRole("switch", { name: "Искать во всех версиях", exact: true })
+      .check();
+    await query.fill(active === "white" ? "Белая" : "Синяя");
+    await expect(page.locator(".search-result-card")).toHaveCount(0);
+    await query.fill("Розовая");
+    await expect(page.locator(".search-result-card")).toHaveCount(1);
+    await page.locator(".search-result-card").click();
+    await expect(page.locator('[data-block-id="text"]')).toHaveText(
+      "Розовая версия страницы.",
+    );
+    await expect(page.locator('.save-status [role="status"]')).toHaveText(
+      "Сохранено на устройстве",
+    );
+    expect((await wallet(page)).coins).toBe(50);
+    await page.reload();
+    await expect(picker).toContainText("v3 Pink");
+    await page.keyboard.press("Control+f");
+    await page
+      .getByRole("switch", { name: "Искать во всех версиях", exact: true })
+      .check();
+    await query.fill(active === "white" ? "Белая" : "Синяя");
+    await expect(page.locator(".search-result-card")).toHaveCount(0);
+  });
 }
 
 async function expectInitialSceneCaret(page) {

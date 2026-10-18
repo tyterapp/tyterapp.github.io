@@ -112,6 +112,7 @@ import {
   restorePageVersion,
 } from "./page-versions.js";
 import { preparePageVersionLayout } from "./page-version-layout.js";
+import { applyPageVersionChanges } from "./page-version-history.js";
 import { SCRIPT_VERSIONS, scriptVersion } from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
@@ -1421,25 +1422,31 @@ export default function MinimalApp({ onLogout }) {
     [current.id],
   );
   const changeContent = useCallback(
-    (content, anchors, activity, mapping) => {
+    (content, anchors, activity, mapping, versionChanges) => {
       if (
         content.content.some((block) =>
           block.content?.some((part) => part.text),
         )
       )
         setIntroDocumentId(null);
-      update((d) => ({
-        ...(mapping
-          ? mapPageVersionRanges(d, mapping, content)
-          : rebasePageVersionContent(d, content)),
-        content,
-        comments: anchors
-          ? d.comments.map((c) => ({
-              ...c,
-              anchor: anchors[c.id] ?? c.anchor,
-            }))
-          : d.comments,
-      }));
+      update((d) => {
+        const next = applyPageVersionChanges(
+          mapping
+            ? mapPageVersionRanges(d, mapping, content)
+            : rebasePageVersionContent(d, content),
+          versionChanges,
+        );
+        return {
+          ...next,
+          content,
+          comments: anchors
+            ? next.comments.map((c) => ({
+                ...c,
+                anchor: anchors[c.id] ?? c.anchor,
+              }))
+            : next.comments,
+        };
+      });
       if (activity?.wordDelta) dailyQuests.recordWords(activity.wordDelta);
     },
     [update, dailyQuests.recordWords],
@@ -1455,14 +1462,13 @@ export default function MinimalApp({ onLogout }) {
       return;
     burnInProgress.current = true;
     try {
-      const beforeContent = editorRef.current?.getJSON();
-      const burn = editorRef.current?.preparePageBurn();
+      const latest = prepareVersionDocument();
+      const beforeContent = latest.content;
+      const burn = editorRef.current?.preparePageBurn(latest);
       if (!burn) {
         burnInProgress.current = false;
         return;
       }
-      const latest =
-        documentsRef.current.find((doc) => doc.id === current.id) || current;
       const commit = () => {
         historyWritten.current.set(`${writingScope}:screenplay`, Date.now());
         if (!burn.commit()) return false;

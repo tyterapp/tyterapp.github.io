@@ -2,6 +2,8 @@ import { closeHistory } from "@tiptap/pm/history";
 import { TextSelection } from "@tiptap/pm/state";
 import { measuredScreenplayPages } from "./pagination.js";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
+import { burnPageVersion } from "./page-versions.js";
+import { pageVersionStateStep } from "./page-version-history.js";
 
 const textNodes = (element) => {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
@@ -90,7 +92,12 @@ function pageTexture(editor, pages, from, region) {
 
 export function preparePageBurn(
   editor,
-  { fontSize = 12, documentZoom = 100, forcedStarts = [] } = {},
+  {
+    fontSize = 12,
+    documentZoom = 100,
+    forcedStarts = [],
+    versionDocument,
+  } = {},
 ) {
   if (!editor || editor.isDestroyed || editor.view.composing) return null;
   const before = editor.state.doc;
@@ -98,6 +105,12 @@ export function preparePageBurn(
     measuredScreenplayPages(editor) ||
     canonicalScreenplayPages(editor, fontSize, documentZoom, { forcedStarts });
   try {
+    const page = versionDocument?.pageVersions?.pages
+      .filter((item) => item.to > item.from)
+      .at(-1);
+    const nextDocument = page
+      ? burnPageVersion(versionDocument, page.id)
+      : null;
     const from = pages.starts.at(-1);
     const paper = editor.view.dom.closest(".script-paper");
     const scroller = paper.closest(".minimal-scroll");
@@ -158,7 +171,25 @@ export function preparePageBurn(
         used = true;
         // One independent undo step, with normal comment-anchor mapping and persistence.
         const tr = closeHistory(editor.state.tr);
-        if (single) {
+        if (nextDocument) {
+          const after = editor.schema.nodeFromJSON(nextDocument.content);
+          const start = before.content.findDiffStart(after.content);
+          if (start !== null) {
+            const end = before.content.findDiffEnd(after.content);
+            const overlap = Math.max(0, start - Math.min(end.a, end.b));
+            tr.replace(
+              start,
+              end.a + overlap,
+              after.slice(start, end.b + overlap),
+            );
+          }
+          tr.step(pageVersionStateStep(versionDocument, nextDocument));
+          tr.setSelection(
+            single
+              ? TextSelection.atStart(tr.doc)
+              : TextSelection.atEnd(tr.doc),
+          );
+        } else if (single) {
           // A fresh empty scene and action, within this document/version only.
           tr.replaceWith(
             0,

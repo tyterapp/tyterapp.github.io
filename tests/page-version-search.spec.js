@@ -112,7 +112,7 @@ test("search uses each page's selected version and all-version results retain pa
   expect(scriptSearchMatches(document, " ", "all", true)).toEqual([]);
 });
 
-test("live edits replace stale active caches; inactive scene alternatives keep their owning page", () => {
+test("live edits replace stale active caches; inactive scene alternatives keep their owning page version", () => {
   let document = mixedFixture();
   document = replaceText(
     document,
@@ -141,10 +141,7 @@ test("live edits replace stale active caches; inactive scene alternatives keep t
     matches
       .filter(({ variant }) => variant === "F")
       .map(({ pageNumber, versionId }) => [pageNumber, versionId]),
-  ).toEqual([
-    [2, "white"],
-    [2, "pink"],
-  ]);
+  ).toEqual([[2, "pink"]]);
   expect(
     matches.find(
       ({ versionId, blockId }) =>
@@ -152,6 +149,46 @@ test("live edits replace stale active caches; inactive scene alternatives keep t
     ).text,
   ).toContain("Latest");
 });
+
+for (const deletedIndex of [0, 1]) {
+  test(`all-version search excludes deleted page ${deletedIndex + 1} and archived document text`, () => {
+    let document = mixedFixture();
+    const deleted = document.pageVersions.pages[deletedIndex];
+    const surviving = document.pageVersions.pages[1 - deletedIndex];
+    const transaction = new Transform(
+      pageVersionSchema.nodeFromJSON(document.content),
+    ).delete(deleted.from, deleted.to);
+    document = mapPageVersionRanges(
+      document,
+      transaction.mapping,
+      transaction.doc.toJSON(),
+    );
+    document.pageVersions.legacyVersions.green = {
+      content: {
+        type: "doc",
+        content: [paragraph("action", "Archived beacon from history.", "old")],
+      },
+    };
+    const before = JSON.stringify(document);
+    const results = scriptSearchMatches(document, "beacon", "all", true);
+    expect(
+      results.map(({ pageId, pageNumber, versionId }) => [
+        pageId,
+        pageNumber,
+        versionId,
+      ]),
+    ).toEqual([
+      [surviving.id, 1, "white"],
+      [surviving.id, 1, surviving.active],
+    ]);
+    expect(scriptSearchMatches(document, "Archived", "all", true)).toEqual([]);
+    expect(JSON.stringify(document)).toBe(before);
+    // Excluding an old page from search must not destroy its recovery data.
+    expect(
+      document.pageVersions.pages[deletedIndex].versions.white,
+    ).toBeTruthy();
+  });
+}
 
 test("split paragraphs keep absolute caret offsets and cross-page phrases appear once", () => {
   let document = createProject("Split page search");

@@ -154,8 +154,8 @@ export default function WritingShop({
     icon: LighterIcon,
     useIcon: Flame,
     description: text(
-      "Сжигает последнюю страницу сценария. Покупка разовая, использование многократное.",
-      "Burns the last screenplay page. Buy once, use repeatedly.",
+      "Сжигает выбранную версию последней страницы. Другие версии сохраняются. Покупка разовая, использование многократное.",
+      "Burns the selected version of the last page. Other versions are kept. Buy once, use repeatedly.",
     ),
     label: text("Купить зажигалку за 50 монет", "Buy lighter for 50 coins"),
     purchase: timer.purchaseLighter,

@@ -25,6 +25,7 @@ import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
 import { preparePageBurn } from "./burning-page.js";
+import { pageVersionChanges } from "./page-version-history.js";
 import { ScriptRevisionMark } from "./screenplay-revisions.js";
 import { revisionAttributes, revisionFromElement } from "./script-revisions.js";
 import { useMobileRevisionPages } from "./mobile-revision-pages.js";
@@ -1198,13 +1199,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       propsRef.current.onChange?.(
         json,
         anchors,
-        propsRef.current.trackWritingActivity
+        propsRef.current.trackWritingActivity &&
+          !pageVersionChanges(transaction).length
           ? {
               wordDelta:
                 getWordCount(json) - getWordCount(transaction.before.toJSON()),
             }
           : undefined,
         transaction.mapping,
+        pageVersionChanges(transaction),
       );
       if (propsRef.current.trackWritingActivity) {
         const characters = writtenCharacters(
@@ -1735,10 +1738,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       getJSON() {
         return editor?.getJSON();
       },
-      preparePageBurn() {
+      preparePageBurn(versionDocument) {
         return preparePageBurn(editor, {
           fontSize,
           documentZoom,
+          versionDocument,
           forcedStarts:
             propsRef.current.pageVersions?.pages
               .slice(1)
