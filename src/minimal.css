@@ -625,6 +625,40 @@ kbd {
 .editor-first-visit strong {
   white-space: nowrap;
 }
+.intro-inline-icon,
+.intro-flame {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.18em;
+}
+.intro-inline-icon > svg,
+.intro-inline-icon .script-doctor-icon,
+.intro-inline-icon .doctor-case,
+.intro-flame > svg,
+.intro-flame-player,
+.intro-flame-player > svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+.intro-flame-player {
+  position: absolute;
+  inset: 0;
+}
+.intro-flame-player svg path {
+  stroke: currentColor;
+}
+.intro-flame.is-ready .intro-flame-fallback {
+  visibility: hidden;
+}
+.word-suggestions .suggestion-action {
+  border-top: 1px solid var(--ui-border);
+  margin-top: 4px;
+  padding-top: 8px;
+}
 @media print {
   .editor-first-visit {
     display: none;
@@ -1444,6 +1478,18 @@ kbd {
 }
 .word-suggestions .suggestion-icon {
   flex-shrink: 0;
+}
+.word-suggestions kbd {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--ui-soft, #f1eef5);
+  color: var(--ui-muted, #81788c);
+  font:
+    11px/1.3 Inter,
+    sans-serif;
 }
 .minimal-selection {
   background: #fff;

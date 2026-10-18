@@ -1,6 +1,65 @@
 .script-version-picker {
   flex: 0 0 auto;
 }
+.page-version-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.page-version-control {
+  position: absolute;
+  left: 28px;
+  pointer-events: auto;
+}
+.minimal-app .page-version-control .script-version-trigger {
+  min-width: 0;
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ui-muted);
+  font:
+    12px/1.2 "Screenplay Courier Cyrillic",
+    monospace;
+  gap: 4px;
+}
+.script-version-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.minimal-app .page-version-control .script-version-trigger:hover {
+  color: var(--ui-text);
+  background: var(--ui-hover);
+}
+.mobile-page-version-bar {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--ui-canvas, var(--ui-soft));
+  box-shadow: 0 1px 0 var(--ui-border);
+}
+.mobile-page-version-bar > .app-select-trigger {
+  flex: 1;
+  min-width: 0;
+}
+.mobile-page-version-bar .script-version-picker {
+  order: initial;
+  flex-basis: auto;
+}
+@media print {
+  .page-version-controls,
+  .mobile-page-version-bar {
+    display: none;
+  }
+}
 .app-select-version-delete {
   transition:
     color 140ms ease,
@@ -157,22 +216,5 @@
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.12),
       0 5px 24px oklch(0 0 0 / 0.3);
-  }
-}
-@media (max-width: 820px) {
-  .minimal-app[data-script-version] .minimal-header {
-    height: auto;
-    min-height: 108px;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    padding-block: 8px;
-  }
-  .script-version-picker {
-    order: 4;
-    flex-basis: 100%;
-  }
-  .script-version-trigger {
-    max-width: 100%;
   }
 }

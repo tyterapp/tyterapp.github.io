@@ -213,7 +213,10 @@ test("PDF, Word and Final Draft downloads honor all four independent scene label
         .transform[4];
       const labels = new Map();
       for (const item of items.filter(
-        (item) => item.height === 9 && item.transform[4] < headingX - 10,
+        (item) =>
+          item.height === 9 &&
+          item.transform[4] < headingX - 10 &&
+          item.transform[5] < 740,
       )) {
         const y = item.transform[5];
         labels.set(y, [...(labels.get(y) || []), item.str]);

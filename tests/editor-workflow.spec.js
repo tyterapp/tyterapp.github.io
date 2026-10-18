@@ -245,14 +245,16 @@ for (const language of ["ru", "en"]) {
     await page.locator('[data-block-id="first"]').click();
     const suggestions = page.locator(".word-suggestions");
     await expect(suggestions).toBeVisible();
-    expect((await suggestions.boundingBox()).width).toBe(264);
-    await expect(suggestions).not.toContainText(/Ctrl|Shift|Esc|↑|↓/);
+    expect((await suggestions.boundingBox()).width).toBe(248);
+    await expect(suggestions.locator("kbd")).toHaveText("Ctrl + Enter");
+    await expect(suggestions).not.toContainText(/Shift|Esc|↑|↓/);
     await expect(suggestions.getByRole("option")).toHaveCount(4);
     await page.keyboard.press("Shift+ArrowDown");
     await page.keyboard.press("Control+Enter");
     await page.keyboard.insertText(language === "ru" ? "ДОМ — " : "HOUSE — ");
     await expect(suggestions.getByRole("option")).toHaveCount(12);
-    await expect(suggestions).not.toContainText(/Ctrl|Shift|Esc|↑|↓/);
+    await expect(suggestions.locator("kbd")).toHaveText("Ctrl + Enter");
+    await expect(suggestions).not.toContainText(/Shift|Esc|↑|↓/);
     await suggestions.screenshot({ path: info.outputPath("suggestions.png") });
     await page.keyboard.press("Shift+ArrowDown");
     await page.keyboard.press("Control+Enter");
@@ -291,7 +293,7 @@ for (const language of ["ru", "en"]) {
         ? "Как быстрее работать с текстом?"
         : "How to work with text faster?",
     );
-    await expect(tips.locator("p")).toHaveCount(6);
+    await expect(tips.locator("p")).toHaveCount(7);
     await expect(tips.locator("p").nth(0)).toHaveText(
       language === "ru"
         ? "Чтобы стереть всё слово перед курсором, используй сочетание клавиш CTRL + Backspace."

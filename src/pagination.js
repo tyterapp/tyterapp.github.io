@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { screenplayLayout } from "./document-layout.js";
 import { pageRevisionColors } from "./script-revisions.js";
+import { forcedScreenplayPlan } from "./pagination-forced.js";
 
 const pageKey = new PluginKey("screenplay-pages");
 const pageMeasurements = new WeakMap();
@@ -18,7 +19,17 @@ export function screenplayPagePlan({
   posAtDOM,
   paper,
   fontSize,
+  forcedStarts = [],
 }) {
+  if (forcedStarts.some((at) => at > 0 && at < doc.content.size))
+    return forcedScreenplayPlan({
+      doc,
+      nodeDOM,
+      posAtDOM,
+      paper,
+      fontSize,
+      forcedStarts,
+    });
   const PAGE = pageHeightFor(fontSize),
     MARGIN = screenplayLayout(fontSize).top;
   const paperRect = paper.getBoundingClientRect();
@@ -104,11 +115,14 @@ export function useScreenplayPagination(
   fontFamily,
   documentZoom = 100,
   onRevisionPages,
+  getPageVersions,
 ) {
   const callback = useRef(onPageCount);
   callback.current = onPageCount;
   const revisions = useRef(onRevisionPages);
   revisions.current = onRevisionPages;
+  const versionState = useRef(getPageVersions);
+  versionState.current = getPageVersions;
   useEffect(() => {
     if (!editor || !enabled) return;
     const PAGE = pageHeightFor(fontSize);
@@ -146,6 +160,11 @@ export function useScreenplayPagination(
         posAtDOM: (text, offset) => editor.view.posAtDOM(text, offset),
         paper,
         fontSize,
+        forcedStarts:
+          versionState
+            .current?.()
+            ?.pages?.slice(1)
+            .map((page) => page.from) || [],
       });
       const gaps = plan.breaks.map(({ kind, pos, size, gap }) =>
         kind === "node"
@@ -181,6 +200,8 @@ export function useScreenplayPagination(
         revisions.current(
           colors.map((version, index) => ({
             version,
+            from: plan.starts[index],
+            to: plan.starts[index + 1] ?? editor.state.doc.content.size,
             top: index * PAGE,
             height: PAGE,
           })),

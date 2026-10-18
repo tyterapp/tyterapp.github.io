@@ -1,9 +1,46 @@
 import { t, useLanguage, getLanguage } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Shapes } from "lucide-react";
+import { Shapes, ArrowLeftRight } from "lucide-react";
 import { SCENE_TIMES } from "./scene-times.js";
-import { componentNameCandidates } from "./component-names.js";
+import { componentNameCandidates, componentNames } from "./component-names.js";
+
+const characters = (components) =>
+  components.filter(
+    (component) =>
+      component.enabled !== false &&
+      component.type === "character" &&
+      component.name?.trim(),
+  );
+
+function currentCharacter(editor, components) {
+  const { selection } = editor.state;
+  if (!selection.empty || selection.$from.parent.attrs.format !== "character")
+    return null;
+  const line = selection.$from.parent.textContent;
+  const leading = line.length - line.trimStart().length;
+  const value = line.trimStart();
+  for (const component of characters(components))
+    for (const name of componentNames(component).sort(
+      (a, b) => b.length - a.length,
+    )) {
+      if (
+        value.slice(0, name.length).toLocaleLowerCase() !==
+        name.toLocaleLowerCase()
+      )
+        continue;
+      if (!/^\s*(?:\([^)]*\))?\s*$/u.test(value.slice(name.length))) continue;
+      const from = selection.$from.start() + leading;
+      return {
+        component,
+        name,
+        from,
+        to: from + name.length,
+        suffix: value.slice(name.length),
+      };
+    }
+  return null;
+}
 function componentMatches(before, position, format, components) {
   const matches = [];
   const lower = before.toLocaleLowerCase();
@@ -77,8 +114,35 @@ function context(editor, components) {
     "",
     "\n",
   );
-  if (/^[\p{L}\p{M}\p{N}]/u.test(after)) return null;
   const format = selection.$from.parent.attrs.format;
+  const existing =
+    format === "character" ? currentCharacter(editor, components) : null;
+  if (existing) {
+    const matches = componentMatches(
+      existing.name,
+      existing.to,
+      format,
+      characters(components),
+    );
+    return {
+      prefix: existing.name,
+      from: existing.from,
+      to: existing.to,
+      caretTo: selection.to,
+      format,
+      currentCharacterId: existing.component.id,
+      hasCharacterSuffix: !!existing.suffix,
+      components: [
+        ...matches,
+        {
+          action: "change-character",
+          text: t("Поменять персонажа"),
+          from: existing.from,
+        },
+      ],
+    };
+  }
+  if (/^[\p{L}\p{M}\p{N}]/u.test(after)) return null;
   const matches = componentMatches(before, selection.from, format, components);
   if (format === "scene") {
     const headings = sceneWords(
@@ -175,8 +239,10 @@ export default function Suggestions({
     if (!editor) return;
     let frame,
       dismissed = null,
-      acceptedAt = null;
-    const key = (c) => `${c.from}:${c.to}:${c.format}:${c.prefix}`;
+      acceptedAt = null,
+      replacement = null;
+    const key = (c) =>
+      `${c.from}:${c.to}:${c.caretTo ?? c.to}:${c.format}:${c.prefix}:${c.mode || "default"}`;
     const signature = (c) =>
       JSON.stringify([
         key(c),
@@ -188,6 +254,7 @@ export default function Suggestions({
           item.component?.id,
           item.component?.color,
           item.component?.thumbnail,
+          item.action,
         ]),
       ]);
     const position = (items, c) => {
@@ -200,7 +267,7 @@ export default function Suggestions({
         setPopup(null);
         return;
       }
-      const rect = editor.view.coordsAtPos(c.to),
+      const rect = editor.view.coordsAtPos(c.caretTo ?? c.to),
         viewport = editor.view.dom
           .closest(".minimal-scroll")
           ?.getBoundingClientRect();
@@ -219,7 +286,7 @@ export default function Suggestions({
       const viewportTop = visual?.offsetTop || 0;
       const viewportBottom =
         viewportTop + (visual?.height || window.innerHeight);
-      const width = Math.min(264, window.innerWidth - 24);
+      const width = Math.min(248, window.innerWidth - 24);
       const maxHeight = Math.max(
         74,
         viewportBottom - Math.max(60, viewportTop + 12) - 42,
@@ -253,16 +320,29 @@ export default function Suggestions({
       });
     };
     const refresh = () => {
-      const c = config.current.disabled
+      let c = config.current.disabled
         ? null
         : context(editor, config.current.components);
+      if (replacement && c && key(c) === replacement.key)
+        c = {
+          ...c,
+          mode: "change-character",
+          components: characters(config.current.components).map(
+            (component) => ({
+              text: component.name,
+              component,
+              from: c.from,
+            }),
+          ),
+        };
+      else replacement = null;
       if (!c) {
         dismissed = null;
         acceptedAt = null;
         setPopup(null);
         return;
       }
-      if (key(c) === dismissed || c.to === acceptedAt) {
+      if (key(c) === dismissed || (c.caretTo ?? c.to) === acceptedAt) {
         setPopup(null);
         return;
       }
@@ -275,14 +355,42 @@ export default function Suggestions({
       frame = requestAnimationFrame(refresh);
     };
     scheduleRef.current = schedule;
+    const showCharacters = (c) => {
+      replacement = { key: key(c) };
+      dismissed = null;
+      acceptedAt = null;
+      const items = characters(config.current.components).map((component) => ({
+        text: component.name,
+        component,
+        from: c.from,
+      }));
+      position(items, { ...c, mode: "change-character", components: items });
+      return true;
+    };
     const accept = (item) => {
       const current = popupRef.current;
       if (!current || editor.view.composing) return false;
-      const c = context(editor, config.current.components);
+      let c = context(editor, config.current.components);
+      if (c && replacement?.key === key(c))
+        c = {
+          ...c,
+          mode: "change-character",
+          components: characters(config.current.components).map(
+            (component) => ({ text: component.name, component, from: c.from }),
+          ),
+        };
       if (!c || signature(c) !== signature(current.context)) {
         setPopup(null);
         return false;
       }
+      if (
+        item.action === "change-character" ||
+        (c.currentCharacterId &&
+          c.caretTo < c.to &&
+          !c.mode &&
+          item.component?.id === c.currentCharacterId)
+      )
+        return showCharacters(c);
       const text = matchCase(item.text, item.typedPrefix || c.prefix, c.format),
         marks = item.component
           ? [
@@ -297,7 +405,13 @@ export default function Suggestions({
           : [];
       const leadingSpace =
         (item.insertLeadingSpace ?? c.insertLeadingSpace) ? " " : "";
-      acceptedAt = item.from + leadingSpace.length + text.length + 1;
+      const replacingCharacter =
+        c.mode === "change-character" || c.hasCharacterSuffix;
+      acceptedAt =
+        item.from +
+        leadingSpace.length +
+        text.length +
+        (replacingCharacter ? 0 : 1);
       editor
         .chain()
         .focus()
@@ -321,15 +435,20 @@ export default function Suggestions({
               text,
               marks,
             },
-            {
-              type: "text",
-              text: " ",
-              marks: [],
-            },
+            ...(!replacingCharacter
+              ? [
+                  {
+                    type: "text",
+                    text: " ",
+                    marks: [],
+                  },
+                ]
+              : []),
           ],
         )
         .run();
       setPopup(null);
+      replacement = null;
       return true;
     };
     const move = (direction) => {
@@ -367,7 +486,10 @@ export default function Suggestions({
           return true;
         }
         if (event.key === "Escape") {
-          dismissed = key(current.context);
+          dismissed = key(
+            context(editor, config.current.components) || current.context,
+          );
+          replacement = null;
           setPopup(null);
           return true;
         }
@@ -405,13 +527,13 @@ export default function Suggestions({
       if (event.key === "Escape") {
         const c =
           current?.context || context(editor, config.current.components);
-        if (c) dismissed = key(c);
+        if (c) dismissed = key(context(editor, config.current.components) || c);
         cancelAnimationFrame(frame);
         setPopup(null);
+        replacement = null;
         return;
       }
       if (
-        !current ||
         !editor.isFocused ||
         event.isComposing ||
         !event.ctrlKey ||
@@ -421,6 +543,15 @@ export default function Suggestions({
         !["Tab", "Enter"].includes(event.key)
       )
         return;
+      if (!current && !config.current.disabled) {
+        const c = context(editor, config.current.components);
+        if (!c?.currentCharacterId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        showCharacters(c);
+        return;
+      }
+      if (!current) return;
       event.preventDefault();
       event.stopPropagation();
       accept(current.items[current.index]);
@@ -482,7 +613,7 @@ export default function Suggestions({
           role="option"
           aria-selected={i === popup.index}
           key={`${item.component?.id || "word"}-${item.text}`}
-          className={i === popup.index ? "selected" : ""}
+          className={`${i === popup.index ? "selected" : ""}${item.action ? " suggestion-action" : ""}`}
           onClick={() => acceptRef.current?.(item)}
         >
           {popup.context.format === "character" &&
@@ -496,6 +627,8 @@ export default function Suggestions({
               />
             )}
           <span className="suggestion-label">{item.text}</span>
+          {i === popup.index && <kbd>Ctrl + Enter</kbd>}
+          {item.action && <ArrowLeftRight size={14} aria-hidden="true" />}
           {item.component &&
             !(
               popup.context.format === "character" && item.component.thumbnail

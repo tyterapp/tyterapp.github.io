@@ -8,6 +8,9 @@ import { cleanScriptVersions, scriptVersionId } from "./script-versions.js";
 import { cleanRevisionRound, cleanRevisionStamp } from "./script-revisions.js";
 import { cleanSceneShots } from "./shot-info.js";
 import { cleanComponentAliases } from "./component-names.js";
+import { cleanPageVersions } from "./page-versions.js";
+import { cleanComponentRelationships } from "./component-relationships.js";
+import { componentExtraData } from "./component-data-extras.js";
 
 const FORMATS = new Set([
   "scene",
@@ -61,6 +64,7 @@ export function createProject(title = "Untitled") {
       content: [paragraph("scene", "INT. — DAY"), paragraph("action", "")],
     },
     components: [],
+    relationships: [],
     props: [],
     propFolders: [],
     collapsedPropFolders: [],
@@ -581,6 +585,7 @@ export function validateImport(input, options = {}) {
       list(source.components)
         .filter((item) => cleanText(item.name).trim())
         .map((item) => ({
+          ...componentExtraData(item),
           id: cleanId(item.id),
           name: cleanText(item.name, 200).trim(),
           aliases: cleanComponentAliases(
@@ -597,6 +602,7 @@ export function validateImport(input, options = {}) {
           typeof item.librarySource.componentId === "string"
             ? {
                 librarySource: {
+                  ...componentExtraData(item.librarySource),
                   libraryId: cleanId(item.librarySource.libraryId),
                   componentId: cleanId(item.librarySource.componentId),
                   name: cleanText(item.librarySource.name, 160),
@@ -612,10 +618,18 @@ export function validateImport(input, options = {}) {
               : null,
         })),
     ),
+    relationships: cleanComponentRelationships(source.relationships),
+    ...(source.graphLayout && typeof source.graphLayout === "object"
+      ? {
+          graphLayout: componentExtraData({ graphLayout: source.graphLayout })
+            .graphLayout,
+        }
+      : {}),
     props: uniqueItems(
       list(source.props)
         .filter((item) => cleanText(item.name).trim())
         .map((item) => ({
+          ...componentExtraData(item, { prop: true }),
           id: cleanId(item.id),
           name: cleanText(item.name, 200).trim(),
           category: CATEGORIES.has(item.category) ? item.category : "Objects",
@@ -709,6 +723,12 @@ export function validateImport(input, options = {}) {
         ),
       ),
     );
+  if (!options.scriptSnapshot && source.pageVersions) {
+    document.pageVersions = cleanPageVersions(
+      { ...source, content: document.content },
+      (snapshot) => validateImport(snapshot, { scriptSnapshot: true }),
+    );
+  }
   return document;
 }
 

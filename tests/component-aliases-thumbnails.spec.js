@@ -231,9 +231,11 @@ for (const theme of ["light", "dark"])
     const height = (await line(page, "format").boundingBox()).height;
     const nameHeight = (await line(page, "name").boundingBox()).height;
     const panel = await componentEditor(page);
+    await panel.getByRole("button", { name: "Назад", exact: true }).click();
     await panel.locator('[data-component-id="jeff"] .component-item').hover();
     await page.waitForTimeout(300);
     await expect(page.locator(".thumbnail-preview")).toHaveCount(0);
+    await panel.locator('[data-component-id="jeff"] .component-item').click();
     const aliases = panel.getByLabel("Алиасы", { exact: true });
     expect(
       await aliases.evaluate((node) =>
@@ -246,7 +248,7 @@ for (const theme of ["light", "dark"])
     ).toBe(true);
     await aliases.fill("Джеффри");
     await expect(panel.getByRole("alert")).toContainText(
-      "Алиас уже используется",
+      "Алиасы уже используются:",
     );
     await expect(
       panel.getByRole("button", { name: "Сохранить", exact: true }),

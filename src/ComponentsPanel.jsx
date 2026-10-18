@@ -1,7 +1,9 @@
-import { t, useLanguage, languageLocale } from "./i18n.js";
-import { useEffect, useRef, useState } from "react";
+import { t, useLanguage } from "./i18n.js";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ChevronDown,
+  ChevronRight,
   Download,
   LibraryBig,
   Link2,
@@ -15,6 +17,7 @@ import {
 import { useEdition } from "./edition.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
 import { componentNames } from "./component-names.js";
+import "./component-detail.css";
 export default function ComponentsPanel({
   document,
   activeId,
@@ -29,12 +32,15 @@ export default function ComponentsPanel({
   onExportLibrary,
   onImportLibrary,
 }) {
-  const language = useLanguage();
+  useLanguage();
   const { isPro: IS_PRO } = useEdition();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
-  const active = useRef(null);
+  const previousActive = useRef(null);
+  const rowButtons = useRef(new Map());
+  const list = useRef(null);
+  const listScroll = useRef(0);
   const folders = [
     {
       id: "character",
@@ -49,14 +55,57 @@ export default function ComponentsPanel({
     ...(document.componentFolders || []),
   ];
   const collapsed = document.collapsedComponentFolders || [];
+  const selected = document.components.find(
+    (component) => component.id === activeId,
+  );
+  useLayoutEffect(() => {
+    if (selected || !list.current) return;
+    const element = list.current;
+    element.scrollTop = listScroll.current;
+    const rememberScroll = () => { listScroll.current = element.scrollTop; };
+    element.addEventListener("scroll", rememberScroll);
+    return () => element.removeEventListener("scroll", rememberScroll);
+  }, [!!selected]);
   useEffect(() => {
-    setQuery("");
-    requestAnimationFrame(() =>
-      active.current?.scrollIntoView({
-        block: "nearest",
-      }),
+    if (activeId) {
+      previousActive.current = activeId;
+      return;
+    }
+    const button = rowButtons.current.get(previousActive.current);
+    if (!button) return;
+    button.focus({ preventScroll: true });
+    previousActive.current = null;
+  }, [activeId]);
+  if (selected)
+    return (
+      <aside
+        className="components-drawer component-detail-drawer"
+        aria-label={t("Компоненты сценария")}
+        data-component-id={selected.id}
+      >
+        <div className="drawer-heading component-detail-heading">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Назад")}
+            data-tooltip={t("Назад")}
+            onClick={onCloseEdit}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <h2>{selected.name}</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Закрыть компоненты")}
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="component-detail-scroll">{renderEditor(selected)}</div>
+      </aside>
     );
-  }, [activeId, document.collapsedComponentFolders]);
   return (
     <aside className="components-drawer" aria-label={t("Компоненты сценария")}>
       <div className="drawer-heading">
@@ -154,7 +203,7 @@ export default function ComponentsPanel({
           {t(" / 10 компонентов")}
         </p>
       )}
-      <div className="component-folders">
+      <div className="component-folders" ref={list}>
         {folders.map((folder) => {
           const items = document.components.filter(
             (c) =>
@@ -207,23 +256,23 @@ export default function ComponentsPanel({
               {!closed && (
                 <div>
                   {items.map((component) => (
-                    <div
-                      key={component.id}
-                      ref={activeId === component.id ? active : null}
-                      data-component-id={component.id}
-                    >
+                    <div key={component.id} data-component-id={component.id}>
                       <div
                         className={`component-row${activeId === component.id ? " active" : ""}`}
                       >
                         <button
+                          type="button"
                           className="component-item"
+                          ref={(button) => {
+                            if (button)
+                              rowButtons.current.set(component.id, button);
+                            else rowButtons.current.delete(component.id);
+                          }}
                           data-component-preview={component.id}
-                          aria-expanded={activeId === component.id}
-                          onClick={() =>
-                            activeId === component.id
-                              ? onCloseEdit()
-                              : onEdit(component)
-                          }
+                          onClick={() => {
+                            listScroll.current = list.current?.scrollTop || 0;
+                            onEdit(component);
+                          }}
                         >
                           {component.thumbnail ? (
                             <ThumbnailImage
@@ -256,14 +305,13 @@ export default function ComponentsPanel({
                               )}
                             />
                           )}
-                          <ChevronDown
+                          <ChevronRight
                             size={16}
                             className="component-arrow"
                             aria-hidden="true"
                           />
                         </button>
                       </div>
-                      {activeId === component.id && renderEditor(component)}
                     </div>
                   ))}
                   {!items.length && (

@@ -2,6 +2,14 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Версия страницы {0}": "Page {0} version",
+  "Поменять персонажа": "Change character",
+  "Алиасы уже используются:": "Aliases already in use:",
+  "Расширения компонента слишком большие.":
+    "Component extensions are too large.",
+  "Некорректные расширения компонента.": "Invalid component extensions.",
+  "Открыть компонент «{0}»": "Open component “{0}”",
+  "Страница {0}": "Page {0}",
   Телеграф: "Telegraph",
   "Ключ телеграфа": "Telegraph key",
   "Сигналы Морзе": "Morse signals",

@@ -9,9 +9,12 @@ export function useMobileRevisionPages(
   fontSize,
   fontFamily,
   documentZoom,
+  getPageVersions,
 ) {
   const callback = useRef(onPages);
   callback.current = onPages;
+  const versionState = useRef(getPageVersions);
+  versionState.current = getPageVersions;
   useEffect(() => {
     if (!editor || !enabled) return;
     let frame,
@@ -46,6 +49,8 @@ export function useMobileRevisionPages(
       callback.current?.(
         colors.map((version, index) => ({
           version,
+          from: starts[index],
+          to: starts[index + 1] ?? editor.state.doc.content.size,
           top: tops[index],
           height: Math.max(
             0,
@@ -62,7 +67,13 @@ export function useMobileRevisionPages(
         !editor.view.dom.getClientRects().length
       )
         return;
-      const pages = canonicalScreenplayPages(editor, fontSize, documentZoom);
+      const pages = canonicalScreenplayPages(editor, fontSize, documentZoom, {
+        forcedStarts:
+          versionState
+            .current?.()
+            ?.pages?.slice(1)
+            .map((page) => page.from) || [],
+      });
       try {
         cachedStarts = pages.starts;
         paint(cachedStarts);

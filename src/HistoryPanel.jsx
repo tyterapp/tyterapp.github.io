@@ -38,7 +38,7 @@ export default function HistoryPanel({
     notes
       ? revisionArea(entry) === "notes" ||
         (revisionArea(entry) === "screenplay" && entry.label?.includes("замет"))
-      : scriptVersionId(entry.snapshot) === scriptVersion &&
+      : (!scriptVersion || scriptVersionId(entry.snapshot) === scriptVersion) &&
         revisionArea(entry) !== "notes" &&
         (IS_PRO || revisionArea(entry) === "screenplay"),
   );

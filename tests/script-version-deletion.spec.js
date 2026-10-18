@@ -48,7 +48,7 @@ function fixture(active = "white") {
   return doc;
 }
 const picker = (page) =>
-  page.getByRole("combobox", { name: "Версии сценария", exact: true });
+  page.getByRole("combobox", { name: "Версия страницы 1", exact: true });
 const blueDelete = (page) =>
   page.getByRole("button", { name: "Удалить копию v2 Blue", exact: true });
 const notice = (page) => page.locator(".version-deletion-message");
@@ -210,8 +210,8 @@ for (const theme of ["light", "dark"])
     await expect
       .poll(
         async () =>
-          (await stored(page))?.scriptVersions?.blue?.sceneShots?.scene?.A
-            ?.name,
+          (await stored(page))?.pageVersions?.legacyVersions?.blue?.sceneShots
+            ?.scene?.A?.name,
       )
       .toBe("Синий кадр");
     await choose(page, "blue");
@@ -269,11 +269,11 @@ test("the close button confirms deletion immediately and the slot can create a n
   );
   await page.evaluate(() => window.dispatchEvent(new Event("tyter:save-now")));
   await expect
-    .poll(async () => (await stored(page))?.scriptVersion)
+    .poll(async () => (await stored(page))?.pageVersions?.pages?.[0]?.active)
     .toBe("blue");
 });
 
-test("undo lasts 15 seconds, then the copy and its history are removed", async ({
+test("undo lasts 15 seconds, then only the page copy is removed while shared document history remains", async ({
   page,
 }) => {
   await open(page);
@@ -338,7 +338,10 @@ test("undo lasts 15 seconds, then the copy and its history are removed", async (
   await page.clock.runFor(201);
   await expect(notice(page)).toHaveCount(0);
   await expect
-    .poll(async () => (await stored(page))?.scriptVersions?.blue)
+    .poll(
+      async () =>
+        (await stored(page))?.pageVersions?.pages?.[0]?.versions?.blue,
+    )
     .toBeUndefined();
   const history = await page.evaluate(
     () =>
@@ -358,8 +361,15 @@ test("undo lasts 15 seconds, then the copy and its history are removed", async (
         };
       }),
   );
-  expect(history.map((row) => row.label).sort()).toEqual(
-    ["Белая история", "Изменение заметок", "Общие заметки"].sort(),
+  expect(history.map((row) => row.label)).toEqual(
+    expect.arrayContaining([
+      "Синяя история",
+      "Синий аутлайн",
+      "Белая история",
+      "Общие заметки",
+      "Изменение заметок",
+      "Старая синяя история",
+    ]),
   );
 });
 

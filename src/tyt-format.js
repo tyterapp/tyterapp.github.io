@@ -39,6 +39,7 @@ export function readTYT(text) {
           ...item.snapshot,
           scriptVersion: scriptVersionId(item.snapshot),
           scriptVersions: {},
+          pageVersions: item.snapshot.pageVersions,
         }),
       ),
     }));

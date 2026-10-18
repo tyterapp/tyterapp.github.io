@@ -1,8 +1,10 @@
-import { t, useLanguage, languageLocale } from "./i18n.js";
-import { useEffect, useRef, useState } from "react";
+import { t, useLanguage } from "./i18n.js";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Box,
   ChevronDown,
+  ChevronRight,
   Plus,
   Search,
   X,
@@ -12,6 +14,7 @@ import {
 } from "lucide-react";
 import { propOccurrences } from "./prop-matches.js";
 import { ThumbnailImage } from "./ThumbnailField.jsx";
+import "./component-detail.css";
 export default function PropsPanel({
   document,
   activeId,
@@ -25,7 +28,7 @@ export default function PropsPanel({
   onDeleteFolder,
   renderEditor,
 }) {
-  const language = useLanguage();
+  useLanguage();
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -38,20 +41,64 @@ export default function PropsPanel({
     (folder) =>
       folder.name.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
   );
-  const active = useRef(null);
+  const previousActive = useRef(null);
+  const rowButtons = useRef(new Map());
+  const list = useRef(null);
+  const listScroll = useRef(0);
+  const selected = document.props.find((item) => item.id === activeId);
+  useLayoutEffect(() => {
+    if (selected || !list.current) return;
+    const element = list.current;
+    element.scrollTop = listScroll.current;
+    const rememberScroll = () => { listScroll.current = element.scrollTop; };
+    element.addEventListener("scroll", rememberScroll);
+    return () => element.removeEventListener("scroll", rememberScroll);
+  }, [!!selected]);
   useEffect(() => {
-    setQuery("");
-    requestAnimationFrame(() =>
-      active.current?.scrollIntoView({
-        block: "nearest",
-      }),
-    );
-  }, [activeId, document.collapsedPropFolders]);
+    if (activeId) {
+      previousActive.current = activeId;
+      return;
+    }
+    const button = rowButtons.current.get(previousActive.current);
+    if (!button) return;
+    button.focus({ preventScroll: true });
+    previousActive.current = null;
+  }, [activeId]);
   const items = document.props.filter((item) =>
     `${item.name} ${item.description}`
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
   );
+  if (selected)
+    return (
+      <aside
+        className="components-drawer props-drawer component-detail-drawer"
+        aria-label={t("Реквизит сценария")}
+        data-prop-id={selected.id}
+      >
+        <div className="drawer-heading component-detail-heading">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Назад")}
+            data-tooltip={t("Назад")}
+            onClick={onCloseEdit}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <h2>{selected.name}</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Закрыть реквизит")}
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="component-detail-scroll">{renderEditor(selected)}</div>
+      </aside>
+    );
   return (
     <aside
       className="components-drawer props-drawer"
@@ -130,7 +177,7 @@ export default function PropsPanel({
           onChange={(e) => setQuery(e.target.value)}
         />
       </label>
-      <div className="component-folders">
+      <div className="component-folders" ref={list}>
         {folders.map((folder) => {
           const grouped = items.filter(
             (item) => (item.folderId || "") === folder.id,
@@ -173,21 +220,22 @@ export default function PropsPanel({
               </div>
               {!closed &&
                 grouped.map((item) => (
-                  <div
-                    key={item.id}
-                    ref={item.id === activeId ? active : null}
-                    data-prop-id={item.id}
-                  >
+                  <div key={item.id} data-prop-id={item.id}>
                     <div
                       className={`component-row${item.id === activeId ? " active" : ""}`}
                     >
                       <button
+                        type="button"
                         className="component-item"
+                        ref={(button) => {
+                          if (button) rowButtons.current.set(item.id, button);
+                          else rowButtons.current.delete(item.id);
+                        }}
                         data-prop-preview={item.id}
-                        aria-expanded={item.id === activeId}
-                        onClick={() =>
-                          item.id === activeId ? onCloseEdit() : onEdit(item)
-                        }
+                        onClick={() => {
+                          listScroll.current = list.current?.scrollTop || 0;
+                          onEdit(item);
+                        }}
                       >
                         {item.thumbnail ? (
                           <ThumbnailImage
@@ -205,10 +253,13 @@ export default function PropsPanel({
                             {propOccurrences(document.content, item.name)}
                           </small>
                         </span>
-                        <ChevronDown size={16} className="component-arrow" />
+                        <ChevronRight
+                          size={16}
+                          className="component-arrow"
+                          aria-hidden="true"
+                        />
                       </button>
                     </div>
-                    {item.id === activeId && renderEditor(item)}
                   </div>
                 ))}
             </section>

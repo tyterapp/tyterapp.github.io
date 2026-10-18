@@ -1,5 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import LanguageSwitch from "./LanguageSwitch.jsx";
+import AppSelect from "./AppSelect.jsx";
 import {
   useCallback,
   useEffect,
@@ -64,6 +65,7 @@ import ScriptDoctor from "./ScriptDoctor.jsx";
 import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
 import { inspectDocumentScript } from "./script-doctor.js";
 import ComponentsPanel from "./ComponentsPanel.jsx";
+import ComponentRelationships from "./ComponentRelationships.jsx";
 import FormatBar, { FORMATS } from "./FormatBar.jsx";
 import {
   useEditorPreferences,
@@ -102,15 +104,15 @@ import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
 import { useDailyQuests } from "./pro/quests/index.js";
 import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
 import {
-  SCRIPT_VERSIONS,
-  scriptScopeId,
-  scriptVersion,
-  scriptVersionId,
-  isScriptVersionCopy,
-  removeScriptVersion,
-  restoreScriptVersion,
-  switchScriptVersion,
-} from "./script-versions.js";
+  pageVersionAt,
+  mapPageVersionRanges,
+  rebasePageVersionContent,
+  switchPageVersion,
+  removePageVersion,
+  restorePageVersion,
+} from "./page-versions.js";
+import { preparePageVersionLayout } from "./page-version-layout.js";
+import { SCRIPT_VERSIONS, scriptVersion } from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
   exportComponentLibrary,
@@ -132,6 +134,7 @@ import {
   importRevisions,
   snapshotOf,
   snapshotForArea,
+  restoreSnapshotForArea,
   revisionArea,
 } from "./history.js";
 import { pageHeightFor } from "./pagination.js";
@@ -390,6 +393,8 @@ function ComponentForm({
   onSubmit,
   onDelete,
   onClose,
+  onOpenComponent,
+  onDraftChange,
 }) {
   const language = useLanguage();
   const [name, setName] = useState(value.name || "");
@@ -397,9 +402,12 @@ function ComponentForm({
   const [quantity, setQuantity] = useState(value.quantity || 1);
   const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
   const [aliases, setAliases] = useState(
-    cleanComponentAliases(value.aliases, value.name).join("\n"),
+    typeof value.aliases === "string"
+      ? value.aliases
+      : cleanComponentAliases(value.aliases, value.name).join("\n"),
   );
   const aliasesHint = useId();
+  const aliasesError = useId();
   const [folderId, setFolderId] = useState(
     value.folderId || (prop ? "" : value.type || "character"),
   );
@@ -413,18 +421,52 @@ function ComponentForm({
       ),
   );
   const cleanedAliases = cleanComponentAliases(aliases, name);
-  const aliasConflict =
-    !prop &&
-    components.some(
-      (component) =>
-        component.id !== value.id &&
-        componentNames(component).some((candidate) =>
-          cleanedAliases.some(
-            (alias) =>
-              alias.toLocaleLowerCase() === candidate.toLocaleLowerCase(),
-          ),
-        ),
-    );
+  const aliasConflicts = prop
+    ? []
+    : [
+        ...new Map(
+          components
+            .filter((component) => component.id !== value.id)
+            .map((component) => ({
+              component,
+              aliases: cleanedAliases.filter((alias) =>
+                componentNames(component).some(
+                  (candidate) =>
+                    alias.toLocaleLowerCase() === candidate.toLocaleLowerCase(),
+                ),
+              ),
+            }))
+            .filter((entry) => entry.aliases.length)
+            .map((entry) => [entry.component.id, entry]),
+        ).values(),
+      ];
+  const draft = {
+    ...value,
+    name,
+    description,
+    quantity,
+    thumbnail,
+    aliases,
+    folderId,
+    type:
+      folderId === "place"
+        ? "place"
+        : folderId === "character"
+          ? "character"
+          : value.type || "character",
+  };
+  useEffect(() => {
+    onDraftChange?.(draft);
+  }, [
+    value,
+    name,
+    description,
+    quantity,
+    thumbnail,
+    aliases,
+    folderId,
+    onDraftChange,
+  ]);
   return (
     <Wrapper
       {...(inline
@@ -455,7 +497,7 @@ function ComponentForm({
         }}
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim() && !duplicate && !aliasConflict)
+          if (name.trim() && !duplicate && !aliasConflicts.length)
             onSubmit({
               ...value,
               name: name.trim(),
@@ -565,17 +607,44 @@ function ComponentForm({
               aria-label={t("Алиасы")}
               onChange={(event) => setAliases(event.target.value)}
               placeholder={t("Например, Джеффу, Джеффа")}
-              aria-describedby={aliasesHint}
+              aria-invalid={aliasConflicts.length > 0 || undefined}
+              aria-describedby={`${aliasesHint}${aliasConflicts.length ? ` ${aliasesError}` : ""}`}
             />
             <small className="muted" id={aliasesHint}>
               {t("Варианты написания через запятую или с новой строки.")}
             </small>
           </label>
         )}
-        {aliasConflict && (
-          <p className="form-error" role="alert">
-            {t("Алиас уже используется другим компонентом.")}
-          </p>
+        {aliasConflicts.length > 0 && (
+          <div
+            className="form-error component-alias-conflicts"
+            role="alert"
+            id={aliasesError}
+          >
+            <p>{t("Алиасы уже используются:")}</p>
+            <ul>
+              {aliasConflicts.map(({ component, aliases: occupied }) => (
+                <li key={component.id}>
+                  <span>{occupied.join(", ")} → </span>
+                  {onOpenComponent ? (
+                    <button
+                      type="button"
+                      className="component-alias-conflict-link"
+                      aria-label={t("Открыть компонент «{0}»", component.name)}
+                      onClick={() => {
+                        onDraftChange?.(draft);
+                        onOpenComponent(component);
+                      }}
+                    >
+                      {component.name}
+                    </button>
+                  ) : (
+                    component.name
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <ThumbnailField
           value={thumbnail}
@@ -602,7 +671,7 @@ function ComponentForm({
           <button
             className="primary-button"
             aria-keyshortcuts="Control+Enter Meta+Enter"
-            disabled={!name.trim() || duplicate || aliasConflict}
+            disabled={!name.trim() || duplicate || aliasConflicts.length > 0}
           >
             {value.id ? t("Сохранить") : t("Создать")}
           </button>
@@ -681,8 +750,7 @@ export default function MinimalApp({ onLogout }) {
       return null;
     }
   });
-  const activeScriptVersion = scriptVersion(current);
-  const writingScope = scriptScopeId(current);
+  const writingScope = current.id;
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
   const editorRef = useRef(null),
@@ -693,6 +761,9 @@ export default function MinimalApp({ onLogout }) {
   const imagePasteRef = useRef(null);
   const quickExportRef = useRef(null);
   const copyInProgress = useRef(false);
+  const [pageEditorEpoch, setPageEditorEpoch] = useState(0);
+  const [editorReadyEpoch, setEditorReadyEpoch] = useState(0);
+  const pendingPageFocus = useRef(null);
   const componentHistory = useRef({
     undo: [],
     redo: [],
@@ -817,11 +888,31 @@ export default function MinimalApp({ onLogout }) {
   const diskRevision = useRef(0);
   const folderConnecting = useRef(false);
   const [componentDialog, setComponentDialog] = useState(null);
+  const entityDrafts = useRef(new Map());
+  const entityDraftKey = (value, prop = false) =>
+    `${current.id}:${prop ? "prop" : "component"}:${value.id || "new"}`;
+  const entityFormValue = (value, prop = false) => ({
+    ...value,
+    ...entityDrafts.current.get(entityDraftKey(value, prop)),
+  });
+  const rememberEntityDraft = (value, draft, prop = false) => {
+    entityDrafts.current.set(entityDraftKey(value, prop), draft);
+  };
+  const clearEntityDraft = (value, prop = false) => {
+    entityDrafts.current.delete(entityDraftKey(value, prop));
+  };
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [rename, setRename] = useState(null);
   const [selection, setSelection] = useState({
     format: "scene",
   });
+  const activePage = pageVersionAt(current, selection?.from || 0);
+  const activeVersionPages = (current.pageVersions?.pages || []).filter(
+    (page) => page.to > page.from,
+  );
+  const activeScriptVersion =
+    SCRIPT_VERSIONS.find((version) => version.id === activePage?.active) ||
+    scriptVersion(current);
   const [pageCount, setPageCount] = useState(1);
   const [pageRevisionState, setPageRevisionState] = useState({
     scope: null,
@@ -836,6 +927,38 @@ export default function MinimalApp({ onLogout }) {
         JSON.stringify(previous.pages) === JSON.stringify(pages)
           ? previous
           : { scope: writingScope, pages },
+      );
+      if (
+        !pages.length ||
+        !editorRef.current?.measurePages ||
+        document.fonts.status !== "loaded"
+      )
+        return;
+      const starts = pages.map((page) => page.from).filter(Number.isInteger);
+      if (!starts.length) return;
+      setDocuments((list) =>
+        list.map((doc) => {
+          if (doc.id !== current.id) return doc;
+          const next = preparePageVersionLayout(doc, starts, (content) =>
+            editorRef.current.measurePages(content),
+          );
+          if (!doc.pageVersions && next.pageVersions && next !== doc) {
+            const tracked = historyTracked.current.get(doc.id);
+            // Initial migration changes storage representation, not the user's
+            // work. Preserve an outstanding edit by advancing only an exact
+            // baseline that already matches the document before migration.
+            if (tracked?.signature === JSON.stringify(snapshotOf(doc))) {
+              const snapshot = snapshotOf(next);
+              historyTracked.current.set(doc.id, {
+                snapshot,
+                signature: JSON.stringify(snapshot),
+              });
+            }
+          }
+          return next === doc
+            ? doc
+            : { ...next, updatedAt: new Date().toISOString() };
+        }),
       );
     },
     [writingScope],
@@ -1141,18 +1264,13 @@ export default function MinimalApp({ onLogout }) {
         area,
       );
       update((document) => {
-        const restored = {
-          ...document,
-          ...(notesOpen
-            ? { notes: structuredClone(entry.snapshot.notes || null) }
-            : structuredClone(snapshotForArea(entry.snapshot, area))),
-        };
+        const restored = restoreSnapshotForArea(document, entry.snapshot, area);
         const snapshot = snapshotOf(restored);
         notesHistoryTracked.current.set(document.id, {
           notes: restored.notes || null,
           signature: JSON.stringify(restored.notes || null),
         });
-        historyTracked.current.set(scriptScopeId(document), {
+        historyTracked.current.set(document.id, {
           snapshot,
           signature: JSON.stringify(snapshot),
         });
@@ -1283,18 +1401,27 @@ export default function MinimalApp({ onLogout }) {
     (fn) =>
       setDocuments((list) =>
         list.map((d) =>
-          d.id === current.id && scriptVersionId(d) === activeScriptVersion.id
-            ? {
-                ...fn(d),
-                updatedAt: new Date().toISOString(),
-              }
+          d.id === current.id
+            ? (() => {
+                let next = fn(d);
+                if (
+                  next.pageVersions === d.pageVersions &&
+                  next.content !== d.content
+                )
+                  next = {
+                    ...next,
+                    pageVersions: rebasePageVersionContent(d, next.content)
+                      .pageVersions,
+                  };
+                return { ...next, updatedAt: new Date().toISOString() };
+              })()
             : d,
         ),
       ),
-    [current.id, activeScriptVersion.id],
+    [current.id],
   );
   const changeContent = useCallback(
-    (content, anchors, activity) => {
+    (content, anchors, activity, mapping) => {
       if (
         content.content.some((block) =>
           block.content?.some((part) => part.text),
@@ -1302,7 +1429,9 @@ export default function MinimalApp({ onLogout }) {
       )
         setIntroDocumentId(null);
       update((d) => ({
-        ...d,
+        ...(mapping
+          ? mapPageVersionRanges(d, mapping, content)
+          : rebasePageVersionContent(d, content)),
         content,
         comments: anchors
           ? d.comments.map((c) => ({
@@ -1748,7 +1877,7 @@ export default function MinimalApp({ onLogout }) {
   const liveVersionDocument = () => {
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
-    return {
+    const live = {
       ...latest,
       ...(notesOpen
         ? {
@@ -1759,6 +1888,13 @@ export default function MinimalApp({ onLogout }) {
           }
         : { content: editorRef.current?.getJSON() || latest.content }),
     };
+    return notesOpen
+      ? live
+      : {
+          ...live,
+          pageVersions: rebasePageVersionContent(latest, live.content)
+            .pageVersions,
+        };
   };
   const prepareVersionDocument = () => {
     let outgoing = liveVersionDocument();
@@ -1775,31 +1911,47 @@ export default function MinimalApp({ onLogout }) {
     pendingCommentFocus.current = null;
     return outgoing;
   };
-  const activateVersionDocument = (next, { keepSearch = false } = {}) => {
+  const activateVersionDocument = (
+    next,
+    { keepSearch = false, pageId } = {},
+  ) => {
     componentHistory.current = { undo: [], redo: [] };
     showSidebar(keepSearch ? "search" : null);
-    switchDocument(current, { keepSearch });
-    setView(keepSearch ? "screenplay" : view);
+    setNotesOpen(false);
+    setIntroDocumentId(null);
+    setMenu(null);
+    setView("screenplay");
+    setHistoryRevision(null);
     setSceneTarget(null);
     if (!keepSearch) {
       setSearchFormat("all");
       setSearchCount(0);
     }
-    setSelection({ format: "scene" });
+    const page = next.pageVersions?.pages.find((entry) => entry.id === pageId);
+    if (!keepSearch) pendingPageFocus.current = page?.from ?? 0;
+    setPageEditorEpoch((epoch) => epoch + 1);
     update(() => next);
   };
-  const changeScriptVersion = (id) => {
+  const changeScriptVersion = (id, pageId = activePage?.id) => {
     setNotesOpen(false);
+    const target = current.pageVersions?.pages.find(
+      (page) => page.id === pageId,
+    );
     if (
-      id === activeScriptVersion.id ||
+      !target ||
+      id === target.active ||
       busy ||
       !filesReady ||
       (versionDeletionRef.current?.documentId === current.id &&
-        versionDeletionRef.current.versionId === id)
+        versionDeletionRef.current.versionId === id &&
+        versionDeletionRef.current.pageId === pageId)
     )
       return;
     flushOutlineHistory(writingScope).catch(() => {});
-    activateVersionDocument(switchScriptVersion(prepareVersionDocument(), id));
+    activateVersionDocument(
+      switchPageVersion(prepareVersionDocument(), pageId, id),
+      { pageId },
+    );
   };
   const confirmVersionDeletion = useCallback(
     (id) => {
@@ -1812,8 +1964,10 @@ export default function MinimalApp({ onLogout }) {
         );
         const lastCopy =
           !!document &&
-          !SCRIPT_VERSIONS.some((version) =>
-            isScriptVersionCopy(document, version.id),
+          !document.pageVersions?.pages.some(
+            (page) =>
+              page.active !== "white" ||
+              Object.keys(page.versions).some((id) => id !== "white"),
           );
         const reward = writingTimer.confirmVersionDeletion({
           id: pending.id,
@@ -1825,7 +1979,12 @@ export default function MinimalApp({ onLogout }) {
         pending.confirmation = pending.flush
           .then(() => historyFlushRef.current(pending.scope))
           .then(() =>
-            deleteScriptVersionRevisions(pending.documentId, pending.versionId),
+            pending.pageId
+              ? undefined
+              : deleteScriptVersionRevisions(
+                  pending.documentId,
+                  pending.versionId,
+                ),
           )
           .catch(() =>
             setMessage("Не удалось очистить историю удалённой копии."),
@@ -1875,10 +2034,12 @@ export default function MinimalApp({ onLogout }) {
     const activate =
       pending.wasActive &&
       current.id === pending.documentId &&
-      scriptVersionId(live) === pending.fallback;
+      live.pageVersions?.pages.find((page) => page.id === pending.pageId)
+        ?.active === pending.fallback;
     const source = activate ? prepareVersionDocument() : live;
-    const restored = restoreScriptVersion(
+    const restored = restorePageVersion(
       source,
+      pending.pageId,
       pending.versionId,
       pending.snapshot,
       { activate },
@@ -1891,7 +2052,7 @@ export default function MinimalApp({ onLogout }) {
       );
       return;
     }
-    if (activate) activateVersionDocument(restored);
+    if (activate) activateVersionDocument(restored, { pageId: pending.pageId });
     else
       setDocuments((list) =>
         list.map((doc) =>
@@ -1901,20 +2062,22 @@ export default function MinimalApp({ onLogout }) {
         ),
       );
   };
-  const deleteScriptVersionCopy = (id) => {
+  const deleteScriptVersionCopy = (id, pageId = activePage?.id) => {
     if (versionDeletionRef.current || busy || !filesReady) return;
     const live =
-      id === activeScriptVersion.id
+      id ===
+      current.pageVersions?.pages.find((page) => page.id === pageId)?.active
         ? prepareVersionDocument()
         : liveVersionDocument();
-    const removed = removeScriptVersion(live, id);
+    const removed = removePageVersion(live, pageId, id);
     if (!removed) return;
-    const scope = `${current.id}::script::${id}`;
+    const scope = current.id;
     const pending = {
       id: uid(),
       documentId: current.id,
       versionId: id,
-      label: SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id,
+      pageId,
+      label: `${t("Страница {0}", live.pageVersions.pages.findIndex((page) => page.id === pageId) + 1)} · ${SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id}`,
       snapshot: removed.snapshot,
       wasActive: removed.wasActive,
       fallback: removed.fallback,
@@ -1925,7 +2088,8 @@ export default function MinimalApp({ onLogout }) {
     versionDeletionRef.current = pending;
     setVersionDeletion(pending);
     setMessage("");
-    if (removed.wasActive) activateVersionDocument(removed.document);
+    if (removed.wasActive)
+      activateVersionDocument(removed.document, { pageId });
     else update(() => removed.document);
   };
   useEffect(() => {
@@ -2013,6 +2177,7 @@ export default function MinimalApp({ onLogout }) {
       current.sceneVariants,
       current.scriptVersion,
       current.scriptVersions,
+      current.pageVersions,
       searchText,
       searchFormat,
       searchAllVersions,
@@ -2045,7 +2210,10 @@ export default function MinimalApp({ onLogout }) {
     searchFormat,
   ).findIndex(
     (match) =>
-      activeSearchMatch?.versionId === activeScriptVersion.id &&
+      (!activeSearchMatch?.pageId ||
+        current.pageVersions?.pages.find(
+          (page) => page.id === activeSearchMatch.pageId,
+        )?.active === activeSearchMatch.versionId) &&
       match.sceneId === activeSearchMatch?.sceneId &&
       match.variant === activeSearchMatch?.variant &&
       match.blockId === activeSearchMatch?.blockId &&
@@ -2074,7 +2242,10 @@ export default function MinimalApp({ onLogout }) {
       document.activeElement?.closest(".screenplay-editor")
     )
       return;
-    if (match.versionId !== activeScriptVersion.id) {
+    const matchPage = current.pageVersions?.pages.find(
+      (page) => page.id === match.pageId,
+    );
+    if (matchPage && match.versionId !== matchPage.active) {
       // Listing results must never activate or create a copy. Only explicit
       // result navigation can switch to an existing, still available version.
       if (
@@ -2082,15 +2253,24 @@ export default function MinimalApp({ onLogout }) {
         busy ||
         !filesReady ||
         (versionDeletionRef.current?.documentId === current.id &&
-          versionDeletionRef.current.versionId === match.versionId)
+          versionDeletionRef.current.versionId === match.versionId &&
+          versionDeletionRef.current.pageId === match.pageId)
       )
         return;
       const outgoing = prepareVersionDocument();
-      if (!outgoing.scriptVersions?.[match.versionId]) return;
+      if (
+        !outgoing.pageVersions?.pages.find((page) => page.id === match.pageId)
+          ?.versions?.[match.versionId]
+      )
+        return;
       flushOutlineHistory(writingScope).catch(() => {});
-      activateVersionDocument(switchScriptVersion(outgoing, match.versionId), {
-        keepSearch: true,
-      });
+      activateVersionDocument(
+        switchPageVersion(outgoing, match.pageId, match.versionId),
+        {
+          keepSearch: true,
+          pageId: match.pageId,
+        },
+      );
       return;
     }
     if (fromCard && view !== "screenplay") setView("screenplay");
@@ -2105,6 +2285,7 @@ export default function MinimalApp({ onLogout }) {
     }
     const request = JSON.stringify([
       current.id,
+      match.pageId,
       match.versionId,
       searchText,
       searchFormat,
@@ -2133,7 +2314,14 @@ export default function MinimalApp({ onLogout }) {
         handledSearchSelection.current = searchCardSelection.request;
     });
     return () => cancelAnimationFrame(frame);
-  }, [searchOpen, searchMatches, searchIndex, searchCardSelection, current.id]);
+  }, [
+    searchOpen,
+    searchMatches,
+    searchIndex,
+    searchCardSelection,
+    current.id,
+    editorReadyEpoch,
+  ]);
   const closeTour = useCallback(() => {
     setTourOpen(false);
     try {
@@ -2355,6 +2543,7 @@ export default function MinimalApp({ onLogout }) {
       id: fields.id || uid(),
       color: fields.color || (fields.type === "place" ? "#738598" : "#8a799a"),
     };
+    clearEntityDraft(value);
     if (
       fields.id &&
       current.components.some((c) => c.id === fields.id && c.name !== next.name)
@@ -2588,6 +2777,7 @@ export default function MinimalApp({ onLogout }) {
           }
         : {}),
     };
+    clearEntityDraft(value, true);
     update((d) => ({
       ...d,
       props: value.id
@@ -2612,6 +2802,7 @@ export default function MinimalApp({ onLogout }) {
   const deleteProp = (id) => {
     const prop = current.props.find((item) => item.id === id);
     if (!prop) return;
+    clearEntityDraft(prop, true);
     const beforeContent = editorRef.current?.getJSON() || current.content;
     editorRef.current?.removeEntity(id);
     const afterContent = editorRef.current?.getJSON() || current.content;
@@ -2634,6 +2825,7 @@ export default function MinimalApp({ onLogout }) {
   const deleteComponent = (id) => {
     const component = current.components.find((item) => item.id === id);
     if (!component) return;
+    clearEntityDraft(component);
     const beforeContent = editorRef.current?.getJSON() || current.content;
     editorRef.current?.removeEntity(id);
     const afterContent = editorRef.current?.getJSON() || current.content;
@@ -2734,6 +2926,15 @@ export default function MinimalApp({ onLogout }) {
       ...document,
       settings: { ...document.settings, ...patch },
     }));
+  const exportPageDocument = (document) => {
+    if (notesOpen || !editorRef.current?.measurePages) return document;
+    const starts = editorRef.current.measurePages(document.content, {
+      locked: true,
+    });
+    return preparePageVersionLayout(document, starts, (content) =>
+      editorRef.current.measurePages(content),
+    );
+  };
   const download = async (format) => {
     setMobileToolsOpen(false);
     setMenu(null);
@@ -2742,9 +2943,10 @@ export default function MinimalApp({ onLogout }) {
     writeStorage();
     try {
       await flushOutlineHistory();
-      const document =
+      const savedDocument =
         (await sessionExportSnapshot(documentsRef.current, current.id)) ||
         structuredClone(current);
+      const document = exportPageDocument(savedDocument);
       const blob = await {
         pdf: exportPDF,
         docx: exportDOCX,
@@ -2777,8 +2979,9 @@ export default function MinimalApp({ onLogout }) {
       const target = await chooseTytCopyTarget(tytCopyFileName(source));
       writeStorage();
       await flushOutlineHistory();
-      const document =
-        (await sessionExportSnapshot(snapshot, source.id)) || source;
+      const document = exportPageDocument(
+        (await sessionExportSnapshot(snapshot, source.id)) || source,
+      );
       const result = await target.write(await exportTYT(document));
       if (result?.name) rememberTytFileName(source, result.name);
     } catch (error) {
@@ -2797,9 +3000,10 @@ export default function MinimalApp({ onLogout }) {
     setMessage("");
     writeStorage();
     try {
-      const document =
+      const savedDocument =
         (await sessionExportSnapshot(documentsRef.current, current.id)) ||
         structuredClone(current);
+      const document = exportPageDocument(savedDocument);
       const exporter = {
         pdf: exportShotReportPDF,
         xlsx: exportShotReportXLSX,
@@ -2870,6 +3074,40 @@ export default function MinimalApp({ onLogout }) {
   const documentZoom = clampDocumentZoom(current.metadata?.documentZoom);
   const sheet = screenplayLayout(fontSize);
   const pageHeight = pageHeightFor(fontSize);
+  const visiblePages = (
+    revisionPages.length
+      ? revisionPages
+      : Array.from(
+          {
+            length: Math.max(1, activeVersionPages.length || pageCount),
+          },
+          (_, index) => ({
+            from: activeVersionPages[index]?.from || 0,
+            top: index * pageHeight,
+            height: pageHeight,
+          }),
+        )
+  ).map((physical, index) => ({
+    ...physical,
+    number: index + 1,
+    page: pageVersionAt(current, physical.from || 0),
+  }));
+  const renderPageVersionPicker = (page, number) => (
+    <ScriptVersionPicker
+      page={page}
+      pageNumber={number}
+      disabled={!page || !filesReady || !!busy || deleting}
+      onChange={(id) => changeScriptVersion(id, page?.id)}
+      onDelete={(id) => deleteScriptVersionCopy(id, page?.id)}
+      pendingDeletion={
+        versionDeletion?.documentId === current.id &&
+        versionDeletion.pageId === page?.id
+          ? versionDeletion.versionId
+          : null
+      }
+      deleting={!!versionDeletion}
+    />
+  );
   const changeMetadata = (fields) => {
     update((d) => ({
       ...d,
@@ -3128,20 +3366,6 @@ export default function MinimalApp({ onLogout }) {
             </div>
           )}
         </div>
-        {!!documents.length && (
-          <ScriptVersionPicker
-            document={current}
-            disabled={!filesReady || !!busy || deleting}
-            onChange={changeScriptVersion}
-            onDelete={deleteScriptVersionCopy}
-            pendingDeletion={
-              versionDeletion?.documentId === current.id
-                ? versionDeletion.versionId
-                : null
-            }
-            deleting={!!versionDeletion}
-          />
-        )}
         <button
           className={`save-status ${saveState === "error" || diskState === "error" ? "save-error" : ""}`}
           aria-label={t("Открыть папку сценариев")}
@@ -3561,9 +3785,48 @@ export default function MinimalApp({ onLogout }) {
               !documents.length && filesReady ? { display: "none" } : undefined
             }
           >
+            {mobile &&
+              !notesOpen &&
+              !historyRevision &&
+              activeVersionPages.length > 0 && (
+                <div className="mobile-page-version-bar">
+                  <AppSelect
+                    label={t("Страница")}
+                    value={activePage?.id || activeVersionPages[0].id}
+                    options={activeVersionPages.map((page, index) => ({
+                      value: page.id,
+                      label: t("Страница {0}", index + 1),
+                    }))}
+                    onChange={(id) => {
+                      const page = activeVersionPages.find(
+                        (entry) => entry.id === id,
+                      );
+                      if (page) editorRef.current?.focusPosition(page.from + 1);
+                    }}
+                  />
+                  {renderPageVersionPicker(
+                    activePage || current.pageVersions.pages[0],
+                    Math.max(0, activeVersionPages.indexOf(activePage)) + 1,
+                  )}
+                </div>
+              )}
             <article
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}${notesOpen ? " notes-paper" : ""}`}
               onMouseDownCapture={(event) => {
+                if (
+                  showEditorIntro &&
+                  event.button === 0 &&
+                  event.target.closest(
+                    ".editor-first-visit, .screenplay-editor",
+                  )
+                ) {
+                  event.preventDefault();
+                  setIntroDocumentId(null);
+                  requestAnimationFrame(() =>
+                    editorRef.current?.focusPosition(1),
+                  );
+                  return;
+                }
                 if (
                   historyRevision ||
                   event.button !== 0 ||
@@ -3587,7 +3850,7 @@ export default function MinimalApp({ onLogout }) {
                 zoom: documentZoom / 100,
                 "--document-zoom": documentZoom / 100,
                 "--script-font-size": `${mobile ? (fontSize * documentZoom) / 100 : fontSize}pt`,
-                "--script-font-family": documentFont(fontFamily).family,
+                "--script-font-family": `"open-arrow", ${documentFont(fontFamily).family}`,
                 "--page-margin": `${sheet.top}px`,
                 "--paper-width": `${sheet.width}px`,
                 "--paper-left": `${sheet.left}px`,
@@ -3604,21 +3867,42 @@ export default function MinimalApp({ onLogout }) {
             >
               {!historyRevision && !notesOpen && (
                 <div className="revision-page-backgrounds" aria-hidden="true">
-                  {revisionPages.map((page, index) => (
+                  {visiblePages.map((physical, index) => (
                     <div
                       key={index}
                       className="revision-page-background"
                       data-page={index + 1}
-                      data-revision-color={page.version}
+                      data-revision-color={physical.page?.active || "white"}
                       style={{
-                        top: page.top,
-                        height: page.height,
-                        ...revisionPageStyle(page.version),
+                        top: physical.top,
+                        height: physical.height,
+                        ...revisionPageStyle(physical.page?.active || "white"),
                       }}
                     />
                   ))}
                 </div>
               )}
+              {!mobile &&
+                !historyRevision &&
+                !notesOpen &&
+                view === "screenplay" && (
+                  <div className="page-version-controls">
+                    {visiblePages.map((physical) => (
+                      <div
+                        className="page-version-control"
+                        key={physical.number}
+                        data-page-version-id={physical.page?.id}
+                        data-page-number={physical.number}
+                        style={{ top: physical.top + 20 }}
+                      >
+                        {renderPageVersionPicker(
+                          physical.page,
+                          physical.number,
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               {!historyRevision && !notesOpen && (
                 <div className="page-guides" aria-hidden="true">
                   {Array.from(
@@ -3678,9 +3962,30 @@ export default function MinimalApp({ onLogout }) {
                 />
               ) : filesReady && documents.length ? (
                 <ScreenplayEditor
-                  key={writingScope}
+                  key={`${writingScope}:${pageEditorEpoch}`}
                   ref={editorRef}
                   documentId={writingScope}
+                  pageVersions={current.pageVersions}
+                  onReady={(editor) => {
+                    setEditorReadyEpoch((epoch) => epoch + 1);
+                    if (pendingPageFocus.current == null) return;
+                    const position = pendingPageFocus.current;
+                    pendingPageFocus.current = null;
+                    editor.commands.setTextSelection(
+                      Math.max(
+                        1,
+                        Math.min(
+                          editor.state.doc.content.size - 1,
+                          position +
+                            (editor.state.doc.nodeAt(position)?.isTextblock
+                              ? 1
+                              : 0),
+                        ),
+                      ),
+                    );
+                    editor.view.focus();
+                    editor.commands.scrollIntoView();
+                  }}
                   autoFocus={
                     !mobile &&
                     filesReady &&
@@ -4178,7 +4483,9 @@ export default function MinimalApp({ onLogout }) {
             <HistoryPanel
               key={writingScope}
               documentId={current.id}
-              scriptVersion={activeScriptVersion.id}
+              scriptVersion={
+                current.pageVersions ? null : activeScriptVersion.id
+              }
               notes={notesOpen}
               version={historyVersion}
               selectedId={historyRevision?.id}
@@ -4297,16 +4604,34 @@ export default function MinimalApp({ onLogout }) {
               }
               onDeleteFolder={(folder) => setFolderToDelete(folder)}
               renderEditor={(component) => (
-                <ComponentForm
-                  key={component.id}
-                  inline
-                  value={component}
-                  components={current.components}
-                  folders={current.componentFolders}
-                  onSubmit={saveComponent}
-                  onDelete={deleteComponent}
-                  onClose={() => setComponentDialog(null)}
-                />
+                <>
+                  <ComponentForm
+                    key={component.id}
+                    inline
+                    value={entityFormValue(component)}
+                    components={current.components}
+                    folders={current.componentFolders}
+                    onDraftChange={(draft) =>
+                      rememberEntityDraft(component, draft)
+                    }
+                    onOpenComponent={editComponent}
+                    onSubmit={saveComponent}
+                    onDelete={deleteComponent}
+                    onClose={() => {
+                      clearEntityDraft(component);
+                      setComponentDialog(null);
+                    }}
+                  />
+                  <ComponentRelationships
+                    key={`relationships:${component.id}`}
+                    document={current}
+                    component={component}
+                    onChange={(relationships) =>
+                      update((d) => ({ ...d, relationships }))
+                    }
+                    onOpenComponent={editComponent}
+                  />
+                </>
               )}
             />
           )}
@@ -4360,12 +4685,18 @@ export default function MinimalApp({ onLogout }) {
                   key={prop.id}
                   inline
                   prop
-                  value={prop}
+                  value={entityFormValue(prop, true)}
                   components={current.props}
                   folders={current.propFolders}
+                  onDraftChange={(draft) =>
+                    rememberEntityDraft(prop, draft, true)
+                  }
                   onSubmit={saveProp}
                   onDelete={deleteProp}
-                  onClose={() => setPropDialog(null)}
+                  onClose={() => {
+                    clearEntityDraft(prop, true);
+                    setPropDialog(null);
+                  }}
                 />
               )}
             />
@@ -4385,16 +4716,23 @@ export default function MinimalApp({ onLogout }) {
                 <ComponentForm
                   key={`${component.id}:${component.name}`}
                   inline
-                  value={component}
+                  value={entityFormValue(component)}
                   components={current.components}
                   folders={current.componentFolders}
+                  onDraftChange={(draft) =>
+                    rememberEntityDraft(component, draft)
+                  }
+                  onOpenComponent={editComponent}
                   onSubmit={saveComponent}
                   onDelete={(id) => {
                     deleteComponent(id);
                     setAnnotations(null);
                     showSidebar("props");
                   }}
-                  onClose={() => setAnnotations(null)}
+                  onClose={() => {
+                    clearEntityDraft(component);
+                    setAnnotations(null);
+                  }}
                 />
               )}
               renderProp={(prop) => (
@@ -4402,16 +4740,22 @@ export default function MinimalApp({ onLogout }) {
                   key={`${prop.id}:${prop.name}`}
                   inline
                   prop
-                  value={prop}
+                  value={entityFormValue(prop, true)}
                   components={current.props}
                   folders={current.propFolders}
+                  onDraftChange={(draft) =>
+                    rememberEntityDraft(prop, draft, true)
+                  }
                   onSubmit={saveProp}
                   onDelete={(id) => {
                     deleteProp(id);
                     setAnnotations(null);
                     showSidebar("components");
                   }}
-                  onClose={() => setAnnotations(null)}
+                  onClose={() => {
+                    clearEntityDraft(prop, true);
+                    setAnnotations(null);
+                  }}
                 />
               )}
             />
@@ -4431,23 +4775,34 @@ export default function MinimalApp({ onLogout }) {
       />
       {componentDialog && !componentDialog.id && (
         <ComponentForm
-          value={componentDialog}
+          value={entityFormValue(componentDialog)}
           components={current.components}
           folders={current.componentFolders}
+          onDraftChange={(draft) => rememberEntityDraft(componentDialog, draft)}
+          onOpenComponent={editComponent}
           onSubmit={saveComponent}
           onDelete={deleteComponent}
-          onClose={() => setComponentDialog(null)}
+          onClose={() => {
+            clearEntityDraft(componentDialog);
+            setComponentDialog(null);
+          }}
         />
       )}
       {propDialog && !propDialog.id && IS_PRO && (
         <ComponentForm
           prop
-          value={propDialog}
+          value={entityFormValue(propDialog, true)}
           components={current.props}
           folders={current.propFolders}
+          onDraftChange={(draft) =>
+            rememberEntityDraft(propDialog, draft, true)
+          }
           onSubmit={saveProp}
           onDelete={deleteProp}
-          onClose={() => setPropDialog(null)}
+          onClose={() => {
+            clearEntityDraft(propDialog, true);
+            setPropDialog(null);
+          }}
         />
       )}
       {rename !== null && (

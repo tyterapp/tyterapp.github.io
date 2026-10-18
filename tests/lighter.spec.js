@@ -540,12 +540,25 @@ for (const [fontSize, documentZoom] of [
       desktop.content[1].content[1].text.length,
     );
     expect(await json(page)).toEqual(desktop);
+    await page
+      .locator(".mobile-page-version-bar")
+      .getByRole("combobox", { name: "Страница", exact: true })
+      .click();
+    await page.getByRole("option", { name: "Страница 1", exact: true }).click();
     await selectAppOption(
       page,
-      page.getByRole("combobox", { name: "Версии сценария" }),
+      page.getByRole("combobox", { name: "Версия страницы 1", exact: true }),
       "blue",
     );
-    expect(await json(page)).toEqual(other.content);
+    const mixed = await json(page);
+    const allText = (content) =>
+      content.content
+        .flatMap((block) =>
+          (block.content || []).map((part) => part.text || "\n"),
+        )
+        .join("");
+    expect(allText(mixed).startsWith(allText(other.content))).toBe(true);
+    expect(allText(mixed)).toContain(allText(desktop).slice(-200));
   });
 }
 

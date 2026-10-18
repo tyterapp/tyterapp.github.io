@@ -1,0 +1,74 @@
+.component-detail-drawer .component-detail-heading {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin: -4px -4px 16px;
+}
+.component-detail-drawer .component-detail-heading .icon-button {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  margin: 0;
+}
+.component-detail-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.component-detail-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  margin-right: -16px;
+  margin-left: -6px;
+  padding-top: 4px;
+  padding-left: 6px;
+  padding-right: 8px;
+  padding-bottom: 16px;
+}
+.component-detail-drawer .component-editor.minimal-dialog {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.component-detail-drawer .component-editor > .dialog-heading {
+  display: none;
+}
+.component-alias-conflicts p {
+  margin: 0 0 2px;
+}
+.component-alias-conflicts ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.component-alias-conflict-link {
+  min-height: 32px;
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+@media screen and (max-width: 831px) {
+  .component-alias-conflict-link {
+    min-height: 44px;
+  }
+  .component-detail-drawer .component-detail-heading {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+  .component-detail-drawer .component-detail-heading .icon-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

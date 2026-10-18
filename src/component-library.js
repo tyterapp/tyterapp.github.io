@@ -1,4 +1,6 @@
 import { uid, validateImport } from "./data.js";
+import { mergeComponentExtraData } from "./component-data-extras.js";
+import { mergeLibraryRelationships } from "./component-library-relationships.js";
 
 const FORMAT = "tyter-component-library";
 export function libraryFromDocument(document, selected) {
@@ -12,6 +14,14 @@ export function libraryFromDocument(document, selected) {
         ? document.components.filter((c) => selected.includes(c.id))
         : document.components,
       folders: document.componentFolders || [],
+      relationships: (document.relationships || []).filter(
+        (relationship) =>
+          !selected ||
+          selected.includes(relationship.sourceComponentId) ||
+          selected.includes(relationship.targetComponentId),
+      ),
+      ...(document.graphLayout ? { graphLayout: document.graphLayout } : {}),
+      extensionsVersion: 1,
       updatedAt: new Date().toISOString(),
     }),
   );
@@ -33,6 +43,8 @@ export function readComponentLibrary(text) {
       name: input.document?.title,
       components: input.document?.components,
       folders: input.document?.componentFolders,
+      relationships: input.document?.relationships,
+      graphLayout: input.document?.graphLayout,
     };
   if (
     input?.format !== FORMAT ||
@@ -46,6 +58,8 @@ export function readComponentLibrary(text) {
     title: input.name,
     components: input.components,
     componentFolders: input.folders,
+    relationships: input.relationships,
+    graphLayout: input.graphLayout,
     content: {
       type: "doc",
       content: [
@@ -62,6 +76,9 @@ export function readComponentLibrary(text) {
       ({ librarySource, enabled, ...component }) => component,
     ),
     folders: validated.componentFolders,
+    relationships: validated.relationships,
+    ...(validated.graphLayout ? { graphLayout: validated.graphLayout } : {}),
+    extensionsVersion: 1,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -112,7 +129,12 @@ export function mergeComponentLibrary(document, library, selected) {
       continue;
     }
     const imported = {
+      ...(existing >= 0 ? components[existing] : {}),
       ...original,
+      ...mergeComponentExtraData(
+        existing >= 0 ? components[existing] : {},
+        original,
+      ),
       id: existing >= 0 ? components[existing].id : uid(),
       folderId: folderMap.get(original.folderId) || null,
       enabled: true,
@@ -130,8 +152,40 @@ export function mergeComponentLibrary(document, library, selected) {
       added++;
     }
   }
+  const { relationships, endpoints } = mergeLibraryRelationships(
+    document,
+    library,
+    selected,
+    components,
+    uid,
+  );
+  const graphLayout = library.graphLayout
+    ? mergeComponentExtraData(
+        { graphLayout: document.graphLayout || {} },
+        {
+          graphLayout: {
+            ...library.graphLayout,
+            ...(library.graphLayout.characterPositions
+              ? {
+                  characterPositions: Object.fromEntries(
+                    Object.entries(library.graphLayout.characterPositions)
+                      .filter(([id]) => endpoints.has(id))
+                      .map(([id, position]) => [endpoints.get(id), position]),
+                  ),
+                }
+              : {}),
+          },
+        },
+      ).graphLayout
+    : document.graphLayout;
   return {
-    document: { ...document, components, componentFolders: folders },
+    document: {
+      ...document,
+      components,
+      componentFolders: folders,
+      relationships,
+      ...(graphLayout ? { graphLayout } : {}),
+    },
     added,
     updated,
     skipped,

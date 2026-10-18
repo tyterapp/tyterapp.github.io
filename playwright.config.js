@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/legacy/**", "**/pages/**"],
+  testIgnore: ["**/legacy/**", "**/pages/**", "**/*.test.mjs"],
   fullyParallel: true,
   workers: 2,
   timeout: 30000,

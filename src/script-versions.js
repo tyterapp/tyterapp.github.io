@@ -11,6 +11,8 @@ const fields = [
   "sceneShots",
   "outline",
   "components",
+  "relationships",
+  "graphLayout",
   "componentLibraryId",
   "componentFolders",
   "collapsedComponentFolders",

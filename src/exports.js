@@ -3,6 +3,7 @@ import { textMatches, propOccurrences } from "./prop-matches.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 import { documentFileStem } from "./local-file-names.js";
 import { sceneLetter } from "./scene-variants.js";
+import { isArrowOnly, splitArrowRun, wrapMeasuredText } from "./arrow-text.js";
 import {
   SHOT_FIELDS,
   FORMAT_NAMES,
@@ -12,7 +13,14 @@ import {
   durationLabel,
 } from "./shot-info.js";
 import { getLanguage, t } from "./i18n.js";
-import { scriptVersion } from "./script-versions.js";
+import {
+  screenplayExportPages,
+  continuesExportParagraph,
+} from "./export-page-versions.js";
+import {
+  SCRIPT_VERSIONS,
+  scriptVersionExportStyle,
+} from "./script-version-colors.js";
 import { croppedShotImage } from "./shot-image.js";
 
 export const hasTitlePage = (document) =>
@@ -109,16 +117,18 @@ const styledText = (block) => {
 };
 const styledRuns = (block) => {
   const spec = FORMAT[block.attrs?.format] || FORMAT.action;
-  return (block.content || []).map((part) => {
-    const marks = new Set((part.marks || []).map((m) => m.type));
-    const text = part.type === "hardBreak" ? "\n" : part.text || "";
-    return {
-      text: spec.upper ? text.toLocaleUpperCase() : text,
-      bold: !!spec.bold || marks.has("bold"),
-      italic: marks.has("italic"),
-      underline: marks.has("underline"),
-    };
-  });
+  return (block.content || [])
+    .map((part) => {
+      const marks = new Set((part.marks || []).map((m) => m.type));
+      const text = part.type === "hardBreak" ? "\n" : part.text || "";
+      return {
+        text: spec.upper ? text.toLocaleUpperCase() : text,
+        bold: !!spec.bold || marks.has("bold"),
+        italic: marks.has("italic"),
+        underline: marks.has("underline"),
+      };
+    })
+    .flatMap(splitArrowRun);
 };
 const exportSceneLabel = (document, block, number) =>
   [
@@ -129,37 +139,147 @@ const exportSceneLabel = (document, block, number) =>
   ]
     .filter((value) => value !== null)
     .join(" ");
+
+function drawPdfVersionIcon(pdf, style, x, y, size = 10) {
+  pdf.setFillColor(style.color);
+  pdf.setDrawColor(style.ink);
+  pdf.setLineWidth(0.45);
+  const middle = size / 2;
+  if (style.shape === "circle" || style.shape === "ellipse") {
+    pdf.ellipse(
+      x + middle,
+      y + middle,
+      middle * 0.8,
+      middle * (style.shape === "circle" ? 0.8 : 0.55),
+      "FD",
+    );
+    return;
+  }
+  const polygon = (count, start = -Math.PI / 2) =>
+    Array.from({ length: count }, (_, index) => {
+      const angle = start + (index * Math.PI * 2) / count;
+      return [
+        middle + Math.cos(angle) * middle * 0.9,
+        middle + Math.sin(angle) * middle * 0.9,
+      ];
+    });
+  const points =
+    style.shape === "cross"
+      ? [
+          [3, 0],
+          [7, 0],
+          [7, 3],
+          [10, 3],
+          [10, 7],
+          [7, 7],
+          [7, 10],
+          [3, 10],
+          [3, 7],
+          [0, 7],
+          [0, 3],
+          [3, 3],
+        ].map(([a, b]) => [(a / 10) * size, (b / 10) * size])
+      : style.shape === "star"
+        ? polygon(10).map(([a, b], index) =>
+            index % 2
+              ? [middle + (a - middle) * 0.45, middle + (b - middle) * 0.45]
+              : [a, b],
+          )
+        : polygon(
+            { triangle: 3, diamond: 4, hexagon: 6, pentagon: 5, octagon: 8 }[
+              style.shape
+            ] || 4,
+          );
+  pdf.lines(
+    points
+      .slice(1)
+      .map((point, index) => [
+        point[0] - points[index][0],
+        point[1] - points[index][1],
+      ]),
+    x + points[0][0],
+    y + points[0][1],
+    [1, 1],
+    "FD",
+    true,
+  );
+}
 export function exportFDX(document) {
+  const layout = screenplayLayout(document.metadata?.fontSize);
+  const plan = screenplayExportPages(document);
   const titlePage = hasTitlePage(document)
-    ? `<TitlePage><Content>${Array.from({ length: 8 }, () => '<Paragraph Type="General"><Text></Text></Paragraph>').join("")}${[document.title, "Сценарий", document.metadata.author, document.metadata.year, document.metadata.email].map((text) => `<Paragraph Type="General" Alignment="Center"><Text Font="Courier Final Draft" Size="12">${xml(text)}</Text></Paragraph>`).join("")}</Content></TitlePage>`
+    ? `<TitlePage><HeaderAndFooter HeaderVisible="No" FooterVisible="No"/><Content>${Array.from({ length: 8 }, () => '<Paragraph Type="General"><Text></Text></Paragraph>').join("")}${[document.title, "Сценарий", document.metadata.author, document.metadata.year, document.metadata.email].map((text) => `<Paragraph Type="General" Alignment="Center"><Text Font="Courier Final Draft" Size="12">${xml(text)}</Text></Paragraph>`).join("")}</Content></TitlePage>`
     : "";
   let sceneNumber = 0;
-  const paragraphs = document.content.content
-    .map((block) => {
-      const spec = FORMAT[block.attrs?.format] || FORMAT.action;
-      const label =
-        block.attrs?.format === "scene"
-          ? exportSceneLabel(document, block, ++sceneNumber)
-          : "";
-      const text =
-        styledRuns(block)
-          .map((run) => {
-            const style = [
-              run.bold && "Bold",
-              run.italic && "Italic",
-              run.underline && "Underline",
-            ]
-              .filter(Boolean)
-              .join("+");
-            return `<Text${style ? ` Style="${style}"` : ""}>${xml(run.text)}</Text>`;
-          })
-          .join("") || "<Text></Text>";
-      return `    <Paragraph Type="${spec.fdx}"${label ? ` Number="${xml(label)}"` : ""}>${text}</Paragraph>`;
-    })
+  const paragraphs = plan.pages
+    .flatMap((page, pageIndex) =>
+      page.content.content.map((block, blockIndex, blocks) => {
+        const spec = FORMAT[block.attrs?.format] || FORMAT.action;
+        const geometry = screenplayBlockLayout(
+          block.attrs?.format || "action",
+          blocks[blockIndex + 1]?.attrs?.format,
+        );
+        const previous = blocks[blockIndex - 1];
+        const previousGeometry = previous
+          ? screenplayBlockLayout(
+              previous.attrs?.format || "action",
+              block.attrs?.format,
+            )
+          : null;
+        const contentWidth = (layout.width - layout.left - layout.right) * 0.75;
+        const left = layout.left * 0.75 + contentWidth * geometry.left;
+        const right = left + contentWidth * geometry.width;
+        const spaceBefore = previousGeometry
+          ? Math.max(previousGeometry.after, geometry.before) * 0.75
+          : 0;
+        const continuation =
+          blockIndex === 0 &&
+          continuesExportParagraph(page, plan.pages[pageIndex - 1]);
+        const label =
+          block.attrs?.format === "scene" && !continuation
+            ? exportSceneLabel(document, block, ++sceneNumber)
+            : "";
+        const revision =
+          SCRIPT_VERSIONS.findIndex(
+            (version) => version.id === page.versionId,
+          ) + 1;
+        const text =
+          styledRuns(block)
+            .map((run) => {
+              const style = [
+                !run.arrow && run.bold && "Bold",
+                !run.arrow && run.italic && "Italic",
+                run.underline && "Underline",
+              ]
+                .filter(Boolean)
+                .join("+");
+              return `<Text RevisionID="${revision}" Color="#000000000000" Font="${run.arrow ? "Open Arrow" : "Courier Final Draft"}" Size="${layout.fontSize}"${style ? ` Style="${style}"` : ""}>${xml(run.text)}</Text>`;
+            })
+            .join("") || `<Text RevisionID="${revision}"></Text>`;
+        return `    <Paragraph Type="${spec.fdx}" Alignment="${isArrowOnly(blockText(block)) ? "Center" : spec.align === "right" ? "Right" : "Left"}" FirstIndent="0.00" LeftIndent="${(left / 72).toFixed(4)}" RightIndent="${(right / 72).toFixed(4)}" SpaceBefore="${spaceBefore}" Spacing="1"${label ? ` Number="${xml(label)}"` : ""}${pageIndex > 0 && blockIndex === 0 ? ' StartsNewPage="Yes"' : ""}>${text}</Paragraph>`;
+      }),
+    )
     .join("\n");
+  // Final Draft's native per-page revision field follows RevisionID in the
+  // selected page, without inserting version labels into the screenplay text.
+  const fdxColor = (color) =>
+    `#${color
+      .replace(/^#/, "")
+      .match(/../g)
+      .map((pair) => pair + pair)
+      .join("")
+      .toUpperCase()}`;
+  const revisions = `<Revisions ActiveSet="1" Location="${((layout.width * 0.75) / 72 - 0.5).toFixed(2)}" RevisionMode="No" RevisionsShown="All" ShowAllMarks="No" ShowAllSets="Yes" ShowPageColor="Yes">${SCRIPT_VERSIONS.map(
+    (version, index) => {
+      const style = scriptVersionExportStyle(version.id);
+      return `<Revision ID="${index + 1}" Name="${xml(version.label)}" Color="${fdxColor(style.ink)}" PageColor="${fdxColor(style.background)}" FullRevision="Yes" Mark="" Style=""/>`;
+    },
+  ).join("")}</Revisions>`;
+  const header = `<HeaderAndFooter FooterVisible="No" HeaderFirstPage="Yes" HeaderVisible="Yes" StartingPage="1"><Header><Paragraph Alignment="Left" LeftIndent="0.50" RightIndent="-0.50" SpaceBefore="0" Spacing="1"><DynamicLabel Type="Last Revised" Font="Courier Final Draft" Size="9"/><Text Font="Courier Final Draft" Size="9">&#9;</Text><DynamicLabel Type="Page #" Font="Courier Final Draft" Size="9"/><Tabstops><Tabstop Position="${((layout.width * 0.75) / 72 - 1).toFixed(2)}" Type="Right"/></Tabstops></Paragraph></Header><Footer/></HeaderAndFooter>`;
+  const pageLayout = `<PageLayout BackgroundColor="#FFFFFFFFFFFF" ForegroundColor="#000000000000" TopMargin="${layout.top * 0.75}" BottomMargin="${layout.bottom * 0.75}" HeaderMargin="24" FooterMargin="36" DocumentLeading="Normal"><PageSize Width="${((layout.width * 0.75) / 72).toFixed(4)}" Height="${((layout.height * 0.75) / 72).toFixed(4)}"/></PageLayout>`;
   return new Blob(
     [
-      `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<FinalDraft DocumentType="Script" Template="No" Version="3">\n  <Content>\n${paragraphs}\n  </Content>\n${titlePage}\n</FinalDraft>\n`,
+      `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<FinalDraft DocumentType="Script" Template="No" Version="3">\n  <Content>\n${paragraphs}\n  </Content>\n${header}\n${pageLayout}\n${revisions}\n${titlePage}\n</FinalDraft>\n`,
     ],
     { type: "application/xml;charset=utf-8" },
   );
@@ -213,6 +333,11 @@ export function importFDX(text, title) {
   });
   return doc;
 }
+async function openArrowFontData() {
+  const response = await fetch("/fonts/OpenArrow-Regular.ttf");
+  if (!response.ok) throw new Error("Не удалось загрузить шрифт стрелок.");
+  return new Uint8Array(await response.arrayBuffer());
+}
 export async function exportDOCX(document) {
   const {
     Document,
@@ -220,13 +345,18 @@ export async function exportDOCX(document) {
     Paragraph,
     TextRun,
     Footer,
+    Header,
     PageNumber,
     AlignmentType,
     LineRuleType,
     ImageRun,
     TabStopType,
     Tab,
+    SectionType,
   } = await import("docx");
+  const plan = screenplayExportPages(document);
+  const layout = screenplayLayout(document.metadata?.fontSize);
+  const contentWidth = (layout.width - layout.left - layout.right) * 0.75;
   const image = hasTitlePage(document) ? await posterImage(document) : null;
   const titleParagraph = (text, options = {}) =>
     new Paragraph({
@@ -329,76 +459,162 @@ export async function exportDOCX(document) {
       ]
     : [];
   let sceneNumber = 0;
-  const paragraphs = document.content.content.map((block, index, blocks) => {
-    const isScene = block.attrs?.format === "scene";
-    const label = isScene
-      ? exportSceneLabel(document, block, ++sceneNumber)
-      : "";
-    const spec = FORMAT[block.attrs?.format] || FORMAT.action;
-    const nextBlock = blocks[index + 1];
-    const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
-    return new Paragraph({
-      style: block.attrs?.format || "action",
-      alignment:
-        spec.align === "right" ? AlignmentType.RIGHT : AlignmentType.LEFT,
-      indent: {
-        left: Math.round(spec.left * 20),
-        right: Math.round(spec.right * 20),
-        ...(label ? { hanging: 720 } : {}),
-      },
-      ...(label
-        ? {
-            tabStops: [
-              { type: TabStopType.RIGHT, position: -360 },
-              { type: TabStopType.LEFT, position: 0 },
-            ],
-          }
-        : {}),
-      spacing: {
-        after: ["scene", "action"].includes(block.attrs?.format || "action")
-          ? screenplayBlockLayout(block.attrs?.format || "action", nextFormat)
-              .after * 15
-          : spec.after * 20,
-        before: 0,
-        line: 240,
-        lineRule: LineRuleType.EXACT,
-      },
-      keepNext: !!spec.keep,
-      keepLines: true,
-      widowControl: true,
-      children: [
-        ...(label
-          ? [
-              new TextRun({
-                children: [new Tab(), label, new Tab()],
-                font: "Courier New",
-                size: 18,
-                position: 3,
-                bold: false,
-              }),
-            ]
-          : []),
-        ...styledRuns(block).flatMap((run) =>
-          run.text.split("\n").map(
-            (text, i) =>
-              new TextRun({
-                text,
-                ...(i ? { break: 1 } : {}),
-                bold: run.bold,
-                italics: run.italic,
-                ...(run.underline ? { underline: {} } : {}),
-                font: "Courier New",
-                size: 24,
-              }),
+  const paragraphsForPage = (page, pageIndex) =>
+    page.content.content.map((block, index, blocks) => {
+      const isScene = block.attrs?.format === "scene";
+      const continuation =
+        index === 0 &&
+        continuesExportParagraph(page, plan.pages[pageIndex - 1]);
+      const label =
+        isScene && !continuation
+          ? exportSceneLabel(document, block, ++sceneNumber)
+          : "";
+      const spec = FORMAT[block.attrs?.format] || FORMAT.action;
+      const nextBlock = blocks[index + 1];
+      const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
+      const geometry = screenplayBlockLayout(
+        block.attrs?.format || "action",
+        nextFormat,
+      );
+      const previousFormat = blocks[index - 1]?.attrs?.format || "action";
+      const previousGeometry = screenplayBlockLayout(
+        previousFormat,
+        block.attrs?.format || "action",
+      );
+      return new Paragraph({
+        style: block.attrs?.format || "action",
+        alignment: isArrowOnly(blockText(block))
+          ? AlignmentType.CENTER
+          : spec.align === "right"
+            ? AlignmentType.RIGHT
+            : AlignmentType.LEFT,
+        indent: {
+          left: Math.round(
+            (plan.explicit ? contentWidth * geometry.left : spec.left) * 20,
           ),
-        ),
+          right: Math.round(
+            (plan.explicit
+              ? contentWidth * Math.max(0, 1 - geometry.left - geometry.width)
+              : spec.right) * 20,
+          ),
+          ...(label ? { hanging: 720 } : {}),
+        },
+        ...(label
+          ? {
+              tabStops: [
+                { type: TabStopType.RIGHT, position: -360 },
+                { type: TabStopType.LEFT, position: 0 },
+              ],
+            }
+          : {}),
+        spacing: {
+          after: plan.explicit
+            ? 0
+            : ["scene", "action"].includes(block.attrs?.format || "action")
+              ? screenplayBlockLayout(
+                  block.attrs?.format || "action",
+                  nextFormat,
+                ).after * 15
+              : spec.after * 20,
+          before:
+            plan.explicit && index > 0
+              ? Math.max(previousGeometry.after, geometry.before) * 15
+              : 0,
+          line: plan.explicit ? layout.fontSize * layout.lineHeight * 20 : 240,
+          lineRule: LineRuleType.EXACT,
+        },
+        keepNext: !!spec.keep && index < blocks.length - 1,
+        keepLines: true,
+        widowControl: true,
+        children: [
+          ...(label
+            ? [
+                new TextRun({
+                  children: [new Tab(), label, new Tab()],
+                  font: "Courier New",
+                  size: 18,
+                  position: 3,
+                  bold: false,
+                }),
+              ]
+            : []),
+          ...styledRuns(block).flatMap((run) =>
+            run.text.split("\n").map(
+              (text, i) =>
+                new TextRun({
+                  text,
+                  ...(i ? { break: 1 } : {}),
+                  bold: run.arrow ? false : run.bold,
+                  italics: run.arrow ? false : run.italic,
+                  ...(run.underline ? { underline: {} } : {}),
+                  font: run.arrow ? "Open Arrow" : "Courier New",
+                  size: plan.explicit ? layout.fontSize * 2 : 24,
+                }),
+            ),
+          ),
+        ],
+      });
+    });
+  const pageHeader = (page) => {
+    const style = scriptVersionExportStyle(page.versionId);
+    const version =
+      SCRIPT_VERSIONS.find((entry) => entry.id === page.versionId) ||
+      SCRIPT_VERSIONS[0];
+    const sheetWidth = plan.explicit ? layout.width * 0.75 : 612;
+    const left = plan.explicit ? layout.left * 0.75 : 108;
+    return new Header({
+      children: [
+        new Paragraph({
+          indent: { left: Math.round((36 - left) * 20) },
+          spacing: {
+            after: 0,
+            before: 0,
+            line: 180,
+            lineRule: LineRuleType.EXACT,
+          },
+          tabStops: [
+            {
+              type: TabStopType.RIGHT,
+              position: Math.round((sheetWidth - 36 - left) * 20),
+            },
+          ],
+          children: [
+            new TextRun({
+              text: `${page.versionId === "white" ? "○" : style.symbol} `,
+              color: (page.versionId === "white"
+                ? style.ink
+                : style.color
+              ).replace(/^#/, ""),
+              font: "Segoe UI Symbol",
+              size: 18,
+            }),
+            new TextRun({
+              text: version.label,
+              color: style.ink.replace(/^#/, ""),
+              font: "Courier New",
+              size: 18,
+            }),
+            new TextRun({
+              children: [new Tab(), PageNumber.CURRENT],
+              font: "Courier New",
+              size: 18,
+            }),
+          ],
+        }),
       ],
     });
-  });
+  };
   return Packer.toBlob(
     new Document({
       title: document.title,
       creator: document.metadata?.author || "Tyter",
+      fonts: plan.pages.some((page) =>
+        page.content.content.some((block) =>
+          /[\u2190-\u21ff]/u.test(blockText(block)),
+        ),
+      )
+        ? [{ name: "Open Arrow", data: await openArrowFontData() }]
+        : [],
       styles: {
         default: { document: { run: { font: "Courier New", size: 24 } } },
         paragraphStyles: Object.entries(FORMAT).map(([id, spec]) => ({
@@ -411,38 +627,35 @@ export async function exportDOCX(document) {
       },
       sections: [
         ...cover,
-        {
+        ...plan.pages.map((page, pageIndex) => ({
           properties: {
+            type: SectionType.NEXT_PAGE,
             page: {
-              pageNumbers: { start: 1 },
-              size: { width: 12240, height: 15840 },
+              ...(pageIndex === 0 ? { pageNumbers: { start: 1 } } : {}),
+              size: plan.explicit
+                ? {
+                    width: Math.round(layout.width * 15),
+                    height: Math.round(layout.height * 15),
+                  }
+                : { width: 12240, height: 15840 },
               margin: {
-                top: 1440,
-                bottom: 1440,
-                left: 2160,
-                right: 1440,
+                top: plan.explicit ? layout.top * 15 : 1440,
+                bottom: plan.explicit ? layout.bottom * 15 : 1440,
+                left: plan.explicit ? layout.left * 15 : 2160,
+                right: plan.explicit ? layout.right * 15 : 1440,
+                header: 540,
                 footer: 720,
               },
             },
           },
+          headers: { default: pageHeader(page) },
           footers: {
             default: new Footer({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.RIGHT,
-                  children: [
-                    new TextRun({
-                      children: [PageNumber.CURRENT],
-                      font: "Courier New",
-                      size: 20,
-                    }),
-                  ],
-                }),
-              ],
+              children: [],
             }),
           },
-          children: paragraphs,
-        },
+          children: paragraphsForPage(page, pageIndex),
+        })),
       ],
     }),
   );
@@ -457,6 +670,7 @@ async function getFonts(screenplay = false) {
           Italic: "cour_italic.ttf",
           BoldItalic: "cour_bold_italic.ttf",
           Fallback: "cour.ttf",
+          Arrow: "OpenArrow-Regular.ttf",
         }
       : Object.fromEntries(
           ["Regular", "Bold", "Italic", "BoldItalic"].map((style) => [
@@ -511,13 +725,18 @@ export async function exportPDF(document) {
     pdf.addFileToVFS(`Courier-${style}.ttf`, base64);
     pdf.addFont(
       `Courier-${style}.ttf`,
-      style === "Fallback" ? "ScreenplayFallback" : "ScreenplayCourier",
+      style === "Arrow"
+        ? "ScreenplayArrow"
+        : style === "Fallback"
+          ? "ScreenplayFallback"
+          : "ScreenplayCourier",
       {
         Regular: "normal",
         Bold: "bold",
         Italic: "italic",
         BoldItalic: "bolditalic",
         Fallback: "normal",
+        Arrow: "normal",
       }[style],
     );
   }
@@ -584,115 +803,173 @@ export async function exportPDF(document) {
     pdf.addPage([width, height]);
   }
   pdf.setFontSize(fontSize);
+  const plan = screenplayExportPages(document);
   let y = topMargin,
     previousAfter = 0,
-    sceneNumber = 0;
-  const newPage = () => {
-    pdf.addPage();
-    y = topMargin;
-  };
-  document.content.content.forEach((block, index) => {
-    const format = block.attrs?.format || "action";
-    const number = format === "scene" ? ++sceneNumber : null;
-    const label =
-      number !== null ? exportSceneLabel(document, block, number) : "";
-    const spec = FORMAT[format] || FORMAT.action;
-    const nextBlock = document.content.content[index + 1];
-    const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
-    const geometry = screenplayBlockLayout(format, nextFormat);
-    const font = spec.bold ? "bold" : "normal";
-    const text = styledText(block);
-    pdf.setFont("ScreenplayCourier", "normal");
-    const glyphs = pdf.getFont().metadata.cmap.unicode.codeMap;
-    const family =
-      !spec.bold &&
-      [...text].some(
-        (char) => char.codePointAt(0) > 32 && !glyphs[char.codePointAt(0)],
-      )
-        ? "ScreenplayFallback"
-        : "ScreenplayCourier";
-    pdf.setFont(family, font);
-    const lines = pdf.splitTextToSize(
-      text || " ",
-      contentWidth * geometry.width,
+    sceneNumber = 0,
+    printedPage = 0,
+    activePage = plan.pages[0];
+  const decoratePage = () => {
+    const style = scriptVersionExportStyle(activePage.versionId);
+    const version =
+      SCRIPT_VERSIONS.find((entry) => entry.id === activePage.versionId) ||
+      SCRIPT_VERSIONS[0];
+    // Fractions as strings avoid jsPDF rounding subtle light page colours to
+    // two decimal places before a PDF viewer converts them back to sRGB.
+    pdf.setFillColor(
+      ...style.background
+        .slice(1)
+        .match(/../g)
+        .map((pair) => (parseInt(pair, 16) / 255).toFixed(5)),
     );
-    let offset = 0;
-    const runs = styledRuns(block).map((run) => {
-      const from = offset;
-      offset += run.text.length;
-      return { ...run, from, to: offset };
-    });
-    // Adjacent paragraph margins collapse in the editor.
-    const gap = index ? pt(Math.max(previousAfter, geometry.before)) : 0;
-    const blockHeight = lines.length * lineHeight;
-    if (
-      y + gap + blockHeight > bottomEdge &&
-      blockHeight <= bottomEdge - topMargin
-    )
-      newPage();
-    else y += gap;
-    const metrics = pdf.getFont().metadata;
-    const ascent = metrics.hhea.ascender / metrics.head.unitsPerEm;
-    const descent = metrics.hhea.decender / metrics.head.unitsPerEm;
-    const baseline =
-      (lineHeight - (ascent - descent) * fontSize) / 2 + ascent * fontSize;
-    let cursor = 0;
-    for (const [lineIndex, line] of lines.entries()) {
-      if (y + lineHeight > bottomEdge) newPage();
-      if (label && lineIndex === 0) {
-        pdf.setFont("ScreenplayCourier", "normal");
-        pdf.setFontSize(9);
-        pdf.text(label, leftMargin - 18, y + baseline - (fontSize - 9) / 2, {
-          align: "right",
-        });
-        pdf.setFontSize(fontSize);
-      }
-      const start = Math.max(cursor, text.indexOf(line, cursor));
-      const end = start + line.length;
-      cursor = end + (text[end] === "\n" ? 1 : 0);
-      pdf.setFont(family, font);
-      const left =
-        spec.align === "right"
-          ? rightEdge - pdf.getTextWidth(line)
-          : leftMargin + contentWidth * geometry.left;
-      for (const run of runs) {
-        const from = Math.max(start, run.from),
-          to = Math.min(end, run.to);
-        if (to <= from) continue;
-        const part = text.slice(from, to);
-        pdf.setFont(family, font);
-        const x = left + pdf.getTextWidth(line.slice(0, from - start));
-        pdf.setFont(
-          run.bold || run.italic ? "ScreenplayCourier" : family,
-          run.bold
-            ? run.italic
-              ? "bolditalic"
-              : "bold"
-            : run.italic
-              ? "italic"
-              : "normal",
-        );
-        pdf.text(part, x, y + baseline);
-        if (run.underline) {
-          pdf.setLineWidth(0.5);
-          pdf.line(
-            x,
-            y + baseline + 1.5,
-            x + pdf.getTextWidth(part),
-            y + baseline + 1.5,
-          );
-        }
-      }
-      y += lineHeight;
-    }
-    previousAfter = geometry.after;
-  });
-  for (let i = titlePage ? 2 : 1; i <= pdf.getNumberOfPages(); i++) {
-    pdf.setPage(i);
+    pdf.rect(0, 0, width, height, "F");
     pdf.setFont("ScreenplayCourier", "normal");
     pdf.setFontSize(9);
-    pdf.text(`${i - (titlePage ? 1 : 0)}`, width - 36, 32, { align: "right" });
-  }
+    pdf.setTextColor(style.ink);
+    drawPdfVersionIcon(pdf, style, 36, 24, 10);
+    pdf.text(version.label, 51, 32);
+    pdf.setTextColor(0);
+    pdf.setDrawColor(0);
+    pdf.text(String(++printedPage), width - 36, 32, { align: "right" });
+    pdf.setFontSize(fontSize);
+  };
+  const newPage = () => {
+    pdf.addPage([width, height]);
+    y = topMargin;
+    previousAfter = 0;
+    decoratePage();
+  };
+  decoratePage();
+  plan.pages.forEach((page, pageIndex) => {
+    activePage = page;
+    if (pageIndex > 0) newPage();
+    page.content.content.forEach((block, index, blocks) => {
+      const format = block.attrs?.format || "action";
+      const continuation =
+        index === 0 &&
+        continuesExportParagraph(page, plan.pages[pageIndex - 1]);
+      const number = format === "scene" && !continuation ? ++sceneNumber : null;
+      const label =
+        number !== null ? exportSceneLabel(document, block, number) : "";
+      const spec = FORMAT[format] || FORMAT.action;
+      const nextBlock = blocks[index + 1];
+      const nextFormat = nextBlock && (nextBlock.attrs?.format || "action");
+      const geometry = screenplayBlockLayout(format, nextFormat);
+      const font = spec.bold ? "bold" : "normal";
+      const text = styledText(block);
+      pdf.setFont("ScreenplayCourier", "normal");
+      const glyphs = pdf.getFont().metadata.cmap.unicode.codeMap;
+      const family =
+        !spec.bold &&
+        [...text].some(
+          (char) =>
+            char.codePointAt(0) > 32 &&
+            !/[\u2190-\u21ff]/u.test(char) &&
+            !glyphs[char.codePointAt(0)],
+        )
+          ? "ScreenplayFallback"
+          : "ScreenplayCourier";
+      pdf.setFont(family, font);
+      let offset = 0;
+      const runs = styledRuns(block).map((run) => {
+        const from = offset;
+        offset += run.text.length;
+        return { ...run, from, to: offset };
+      });
+      const runFont = (run) =>
+        run.arrow
+          ? ["ScreenplayArrow", "normal"]
+          : [
+              run.bold || run.italic ? "ScreenplayCourier" : family,
+              run.bold
+                ? run.italic
+                  ? "bolditalic"
+                  : "bold"
+                : run.italic
+                  ? "italic"
+                  : "normal",
+            ];
+      const measuredWidth = (start, end) =>
+        runs.reduce((width, run) => {
+          const from = Math.max(start, run.from),
+            to = Math.min(end, run.to);
+          if (to <= from) return width;
+          pdf.setFont(...runFont(run));
+          return width + pdf.getTextWidth(text.slice(from, to));
+        }, 0);
+      pdf.setFont(family, font);
+      const lines = runs.some((run) => run.arrow)
+        ? wrapMeasuredText(text, contentWidth * geometry.width, measuredWidth)
+        : pdf.splitTextToSize(text || " ", contentWidth * geometry.width);
+      pdf.setFont(family, font);
+      // Adjacent paragraph margins collapse in the editor.
+      const gap = index ? pt(Math.max(previousAfter, geometry.before)) : 0;
+      const blockHeight = lines.length * lineHeight;
+      if (
+        y + gap + blockHeight > bottomEdge &&
+        blockHeight <= bottomEdge - topMargin
+      )
+        newPage();
+      else y += gap;
+      const metrics = pdf.getFont().metadata;
+      const ascent = metrics.hhea.ascender / metrics.head.unitsPerEm;
+      const descent = metrics.hhea.decender / metrics.head.unitsPerEm;
+      const baseline =
+        (lineHeight - (ascent - descent) * fontSize) / 2 + ascent * fontSize;
+      let cursor = 0;
+      for (const [lineIndex, line] of lines.entries()) {
+        if (y + lineHeight > bottomEdge) newPage();
+        if (label && lineIndex === 0) {
+          pdf.setFont("ScreenplayCourier", "normal");
+          pdf.setFontSize(9);
+          pdf.text(label, leftMargin - 18, y + baseline - (fontSize - 9) / 2, {
+            align: "right",
+          });
+          pdf.setFontSize(fontSize);
+        }
+        const start = Math.max(cursor, text.indexOf(line, cursor));
+        const end = start + line.length;
+        cursor = end + (text[end] === "\n" ? 1 : 0);
+        pdf.setFont(family, font);
+        const left = isArrowOnly(text)
+          ? leftMargin +
+            contentWidth * geometry.left +
+            (contentWidth * geometry.width - measuredWidth(start, end)) / 2
+          : spec.align === "right"
+            ? rightEdge - measuredWidth(start, end)
+            : leftMargin + contentWidth * geometry.left;
+        for (const run of runs) {
+          const from = Math.max(start, run.from),
+            to = Math.min(end, run.to);
+          if (to <= from) continue;
+          const part = text.slice(from, to);
+          pdf.setFont(family, font);
+          const x = left + measuredWidth(start, from);
+          pdf.setFont(...runFont(run));
+          const metrics = pdf.getFont().metadata;
+          const arrowBaseline =
+            (lineHeight -
+              ((metrics.hhea.ascender - metrics.hhea.decender) /
+                metrics.head.unitsPerEm) *
+                fontSize) /
+              2 +
+            (metrics.hhea.ascender / metrics.head.unitsPerEm) * fontSize;
+          pdf.text(part, x, y + (run.arrow ? arrowBaseline : baseline));
+          if (run.underline) {
+            pdf.setLineWidth(0.5);
+            pdf.line(
+              x,
+              y + baseline + 1.5,
+              x + pdf.getTextWidth(part),
+              y + baseline + 1.5,
+            );
+          }
+        }
+        y += lineHeight;
+      }
+      previousAfter = geometry.after;
+    });
+  });
   return pdf.output("blob");
 }
 export async function exportPropsPDF(document) {
@@ -837,7 +1114,15 @@ export async function exportShotReportPDF(document) {
   write(title, { bold: true, size: 18 });
   y += 8;
   write(document.title || t("Без названия"), { bold: true, size: 12 });
-  write(scriptVersion(document).label, { size: 9 });
+  const selectedVersions = new Set(
+    screenplayExportPages(document).pages.map((page) => page.versionId),
+  );
+  write(
+    SCRIPT_VERSIONS.filter((version) => selectedVersions.has(version.id))
+      .map((version) => version.label)
+      .join(" · "),
+    { size: 9 },
+  );
   write(t("Автоматически · 1 страница = 1 минута"), {
     size: 9,
     color: [107, 100, 118],

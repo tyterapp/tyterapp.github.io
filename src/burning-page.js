@@ -90,13 +90,13 @@ function pageTexture(editor, pages, from, region) {
 
 export function preparePageBurn(
   editor,
-  { fontSize = 12, documentZoom = 100 } = {},
+  { fontSize = 12, documentZoom = 100, forcedStarts = [] } = {},
 ) {
   if (!editor || editor.isDestroyed || editor.view.composing) return null;
   const before = editor.state.doc;
   const pages =
     measuredScreenplayPages(editor) ||
-    canonicalScreenplayPages(editor, fontSize, documentZoom);
+    canonicalScreenplayPages(editor, fontSize, documentZoom, { forcedStarts });
   try {
     const from = pages.starts.at(-1);
     const paper = editor.view.dom.closest(".script-paper");

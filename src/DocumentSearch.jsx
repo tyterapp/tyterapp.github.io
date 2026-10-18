@@ -1,10 +1,11 @@
-import { t, useLanguage, languageLocale } from "./i18n.js";
+import { t, useLanguage } from "./i18n.js";
 import { useEffect, useRef } from "react";
 import { Search, X, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { FORMATS } from "./FormatBar.jsx";
 import { SettingsSwitch } from "./DocumentSettings.jsx";
 import { searchMatchKey } from "./document-search.js";
 import { scriptVersionSwatchStyle } from "./script-version-colors.js";
+import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
 export default function DocumentSearch({
   hideFormat = false,
   matches,
@@ -118,8 +119,9 @@ export default function DocumentSearch({
       <div className="search-results">
         {matches.map((match, i) => {
           const matchedFormat = FORMATS.find(([key]) => key === match.format);
-          const start = Math.max(0, match.at - 50),
-            end = Math.min(match.text.length, match.at + match.length + 80);
+          const at = match.at - (match.textOffset || 0);
+          const start = Math.max(0, at - 50),
+            end = Math.min(match.text.length, at + match.length + 80);
           return (
             <button
               key={searchMatchKey(match)}
@@ -127,6 +129,8 @@ export default function DocumentSearch({
               className={`search-result-card${i === index ? " active" : ""}`}
               aria-pressed={i === index}
               data-script-version={match.versionId}
+              data-page-id={match.pageId}
+              data-page-number={match.pageNumber}
               onClick={() => onSelect(i, "card")}
             >
               <span className="search-result-meta">
@@ -139,15 +143,23 @@ export default function DocumentSearch({
                   />
                   {t(matchedFormat?.[2] || "Текст")}
                 </span>
-                <span>{i + 1}</span>
+                <span className="search-result-page">
+                  {match.pageNumber
+                    ? `${language === "en" ? "Page" : "Стр."} ${match.pageNumber}`
+                    : i + 1}
+                </span>
               </span>
-              {((allVersions && match.versionLabel) || match.variant) && (
+              {(match.versionLabel || match.variant) && (
                 <span className="search-result-context">
-                  {allVersions && match.versionLabel && (
+                  {match.versionLabel && (
                     <span
                       className="search-version-badge"
                       style={scriptVersionSwatchStyle(match.versionId)}
                     >
+                      <ScriptVersionIcon
+                        versionId={match.versionId}
+                        size={13}
+                      />
                       {match.versionLabel}
                     </span>
                   )}
@@ -166,11 +178,9 @@ export default function DocumentSearch({
               )}
               <span>
                 {start > 0 ? "…" : ""}
-                {match.text.slice(start, match.at)}
-                <mark>
-                  {match.text.slice(match.at, match.at + match.length)}
-                </mark>
-                {match.text.slice(match.at + match.length, end)}
+                {match.text.slice(start, at)}
+                <mark>{match.text.slice(at, at + match.length)}</mark>
+                {match.text.slice(at + match.length, end)}
                 {end < match.text.length ? "…" : ""}
               </span>
             </button>

@@ -4,6 +4,7 @@ import {
   sceneVariantLetters,
 } from "./scene-variants.js";
 import { SCRIPT_VERSIONS, scriptVersionId } from "./script-versions.js";
+import { pageVersionSchema, pageVersionSources } from "./page-versions.js";
 
 export const matchesSearchFormat = (format, filter = "all") =>
   filter === "all" || (format || "action") === filter;
@@ -11,11 +12,12 @@ export const matchesSearchFormat = (format, filter = "all") =>
 export const searchMatchKey = (match) =>
   match
     ? JSON.stringify([
+        match.pageId,
         match.versionId,
         match.sceneId,
         match.variant,
         match.blockId,
-        match.at,
+        match.localAt ?? match.at,
       ])
     : "";
 
@@ -37,8 +39,8 @@ export function textSearchRanges(text, query) {
   return ranges;
 }
 
-// Read live text for the active version; its cached snapshot may be older.
-// Always order versions A–F so switching a search result doesn't reorder results.
+// Scene alternatives are searched in a stable A–F order. The active alternative
+// lives in the document; its archived text may be older.
 export function documentSearchMatches(document, query, format = "all") {
   if (!query.trim()) return [];
   const results = [];
@@ -84,8 +86,17 @@ export function documentSearchMatches(document, query, format = "all") {
   return results;
 }
 
-// Search only existing copies, in catalogue order. The active copy lives in
-// the document itself, even if an older snapshot of it is still present.
+function liveMatchPosition(match, blockPositions, sceneLetters) {
+  // An inactive scene alternative is not in the assembled document. Its scene
+  // heading identifies the page whose alternative must be selected first.
+  const hidden =
+    match.sceneId && sceneLetters.get(match.sceneId) !== match.variant;
+  const position = blockPositions.get(hidden ? match.sceneId : match.blockId);
+  return (position ?? 0) + 1 + (hidden ? 0 : match.at);
+}
+
+// Search the assembled text once, so a phrase spanning a page boundary is
+// found too. Dormant alternatives are searched only inside their own page.
 export function scriptSearchMatches(
   document,
   query,
@@ -93,15 +104,72 @@ export function scriptSearchMatches(
   allVersions = false,
 ) {
   if (!query.trim()) return [];
-  const active = scriptVersionId(document);
-  return SCRIPT_VERSIONS.flatMap(({ id, label }) => {
-    if (id !== active && !allVersions) return [];
-    const source = id === active ? document : document.scriptVersions?.[id];
-    if (!source) return [];
-    return documentSearchMatches(source, query, format).map((match) => ({
-      ...match,
-      versionId: id,
-      versionLabel: label,
-    }));
+  const node = pageVersionSchema.nodeFromJSON(document.content);
+  const blockPositions = new Map(),
+    sceneLetters = new Map();
+  node.forEach((block, position) => {
+    blockPositions.set(block.attrs.blockId, position);
+    if (block.attrs.format === "scene")
+      sceneLetters.set(block.attrs.blockId, block.attrs.sceneVariant || "A");
+  });
+  let selected = pageVersionSources(document);
+  // During the first layout pass a new document has no measured page plan yet.
+  if (!selected.length)
+    selected = [
+      {
+        pageId: null,
+        pageNumber: 1,
+        versionId: scriptVersionId(document),
+        active: true,
+        from: 0,
+        to: node.content.size,
+        source: document,
+      },
+    ];
+  const liveByPage = new Map(selected.map(({ pageId }) => [pageId, []]));
+  for (const match of documentSearchMatches(document, query, format)) {
+    const position = liveMatchPosition(match, blockPositions, sceneLetters);
+    const page =
+      selected.find(({ from, to }) => position >= from && position < to) ||
+      selected.at(-1);
+    liveByPage.get(page.pageId).push(match);
+  }
+  const sources =
+    allVersions && document.pageVersions?.pages?.length
+      ? pageVersionSources(document, { allVersions: true })
+      : selected;
+  return sources.flatMap((entry) => {
+    const {
+      pageId,
+      pageNumber,
+      versionId,
+      active,
+      source,
+      firstBlockId,
+      firstBlockOffset = 0,
+    } = entry;
+    const label =
+      SCRIPT_VERSIONS.find(({ id }) => id === versionId)?.label ||
+      SCRIPT_VERSIONS[0].label;
+    const matches = active
+      ? liveByPage.get(pageId) || []
+      : documentSearchMatches(source, query, format);
+    return matches.map((match) => {
+      const first = source.content?.content?.[0];
+      const hidden = match.sceneId && match.variant !== sceneLetter(first);
+      const firstPageBlock = !hidden && match.blockId === firstBlockId;
+      const offset = firstPageBlock ? firstBlockOffset : 0;
+      return {
+        ...match,
+        at: match.at + (active ? 0 : offset),
+        localAt: match.at - (active ? offset : 0),
+        firstPageBlock,
+        ...(!active && offset ? { textOffset: offset } : {}),
+        pageId,
+        pageNumber,
+        versionId,
+        versionLabel: label,
+      };
+    });
   });
 }

@@ -41,10 +41,12 @@
   .minimal-app[data-mobile] .save-status {
     display: none;
   }
-  .minimal-app[data-mobile] .script-version-picker {
-    order: 4;
-    flex: 1 1 100px;
+  .minimal-app[data-mobile] .mobile-page-version-bar .script-version-picker {
+    flex: 0 1 148px;
     min-width: 0;
+  }
+  .minimal-app[data-mobile] .mobile-page-version-bar > .app-select-trigger {
+    min-height: 44px;
   }
   .minimal-app[data-mobile] .script-version-trigger {
     min-width: 0;
@@ -94,6 +96,7 @@
     min-height: 52px;
   }
   .minimal-app[data-mobile][data-keyboard]
+    .minimal-header
     :is(.script-version-picker, .header-switches) {
     display: none;
   }

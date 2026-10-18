@@ -1,0 +1,23 @@
+.script-version-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  fill: oklch(
+    var(--version-swatch-lightness, 1) var(--version-swatch-chroma, 0)
+      var(--version-hue, 0)
+  );
+  stroke: oklch(0.55 0.075 var(--version-hue, 0));
+}
+.script-version-icon[data-version-shape="white"] {
+  stroke: oklch(0.62 0 0);
+}
+.search-result-context .search-version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.search-result-page {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

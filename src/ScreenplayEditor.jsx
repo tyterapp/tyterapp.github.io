@@ -12,6 +12,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { PlainNotes } from "./plain-notes.js";
+import { ArrowTypography } from "./ArrowTypography.js";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
@@ -22,6 +23,7 @@ import { quoteDiff } from "./comment-review.js";
 import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
+import { canonicalScreenplayPages } from "./canonical-pages.js";
 import { preparePageBurn } from "./burning-page.js";
 import { ScriptRevisionMark } from "./screenplay-revisions.js";
 import { revisionAttributes, revisionFromElement } from "./script-revisions.js";
@@ -565,6 +567,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     activeComment = null,
     onPageCount,
     revision = null,
+    pageVersions = null,
     onRevisionPages,
     fontSize = 12,
     documentZoom = 100,
@@ -661,6 +664,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     comments,
     activeComment,
     revision,
+    pageVersions,
     onRevisionPages,
   };
   const lastEmitted = useRef(null);
@@ -693,6 +697,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         trailingNode: false,
       }),
       ScreenplayParagraph,
+      ArrowTypography,
       CommentMark,
       EntityMark,
       ScriptRevisionMark.configure({
@@ -1199,6 +1204,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                 getWordCount(json) - getWordCount(transaction.before.toJSON()),
             }
           : undefined,
+        transaction.mapping,
       );
       if (propsRef.current.trackWritingActivity) {
         const characters = writtenCharacters(
@@ -1266,14 +1272,16 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     fontFamily,
     documentZoom,
     (pages) => propsRef.current.onRevisionPages?.(pages),
+    () => propsRef.current.pageVersions,
   );
   useMobileRevisionPages(
     editor,
-    minimal && continuous && !!revision,
+    minimal && continuous && (!!revision || !!pageVersions),
     (pages) => propsRef.current.onRevisionPages?.(pages),
     fontSize,
     fontFamily,
     documentZoom,
+    () => propsRef.current.pageVersions,
   );
   useEffect(() => {
     if (!editor) return;
@@ -1366,6 +1374,30 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       focus(position) {
         editor?.commands.focus(position);
       },
+      measurePages(content, { locked = false } = {}) {
+        if (!editor || editor.isDestroyed) return [0];
+        const pages = canonicalScreenplayPages(editor, fontSize, documentZoom, {
+          content,
+          forcedStarts: locked
+            ? propsRef.current.pageVersions?.pages
+                ?.slice(1)
+                .map((page) => page.from)
+            : [],
+        });
+        try {
+          return pages.starts;
+        } finally {
+          pages.dispose();
+        }
+      },
+      focusPosition(position) {
+        if (!editor || editor.isDestroyed) return;
+        editor.commands.setTextSelection(
+          Math.max(1, Math.min(editor.state.doc.content.size - 1, position)),
+        );
+        editor.view.focus();
+        editor.commands.scrollIntoView();
+      },
       focusEnd() {
         editor?.commands.focus("end");
       },
@@ -1454,7 +1486,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         match,
         { fromCard = false, scroll = true, onComplete } = {},
       ) {
-        if (!editor || !match) return false;
+        if (!editor || !match || !caretReadyRef.current) return false;
         let range = null;
         editor.state.doc.descendants((node, pos) => {
           if (
@@ -1704,7 +1736,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         return editor?.getJSON();
       },
       preparePageBurn() {
-        return preparePageBurn(editor, { fontSize, documentZoom });
+        return preparePageBurn(editor, {
+          fontSize,
+          documentZoom,
+          forcedStarts:
+            propsRef.current.pageVersions?.pages
+              .slice(1)
+              .map((page) => page.from) || [],
+        });
       },
       createDictationTarget() {
         return createDictationTarget(editor, {

@@ -1,6 +1,7 @@
 import { DOMSerializer } from "@tiptap/pm/model";
 import { screenplayPagePlan } from "./pagination.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
+import { isArrowOnly } from "./arrow-text.js";
 
 const textNodes = (element) => {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
@@ -18,8 +19,14 @@ const textNodes = (element) => {
 
 // Mobile is continuous. Measure its logical screenplay pages in an offscreen,
 // canonical-width copy; never change the live editor or its selection to paginate it.
-export function canonicalScreenplayPages(editor, fontSize, documentZoom) {
+export function canonicalScreenplayPages(
+  editor,
+  fontSize,
+  documentZoom,
+  { content, forcedStarts = [] } = {},
+) {
   const layout = screenplayLayout(fontSize);
+  const doc = content ? editor.schema.nodeFromJSON(content) : editor.state.doc;
   const paper = document.createElement("div");
   const sourcePaper = editor.view.dom.closest(".script-paper");
   const sourceStyle = getComputedStyle(editor.view.dom);
@@ -49,14 +56,12 @@ export function canonicalScreenplayPages(editor, fontSize, documentZoom) {
   const serializer = DOMSerializer.fromSchema(editor.schema);
   const blocks = [],
     positions = new WeakMap();
-  editor.state.doc.forEach((node, pos, index) => {
+  doc.forEach((node, pos, index) => {
     const element = serializer.serializeNode(node);
     const format = node.attrs.format;
     const block = screenplayBlockLayout(
       format,
-      editor.state.doc.child(
-        index + 1 < editor.state.doc.childCount ? index + 1 : index,
-      ).attrs.format,
+      doc.child(index + 1 < doc.childCount ? index + 1 : index).attrs.format,
     );
     Object.assign(element.style, {
       position: "relative",
@@ -66,13 +71,25 @@ export function canonicalScreenplayPages(editor, fontSize, documentZoom) {
       width: `${block.width * 100}%`,
       margin: `${index ? block.before : 0}px 0 ${block.after}px ${block.left * 100}%`,
       fontWeight: ["scene", "character"].includes(format) ? "700" : "400",
-      textAlign: format === "transition" ? "right" : "left",
+      textAlign: isArrowOnly(node.textContent)
+        ? "center"
+        : format === "transition"
+          ? "right"
+          : "left",
       textTransform: ["scene", "character", "transition"].includes(format)
         ? "uppercase"
         : "none",
     });
     // No editor CSS: this copy remains stable at every mobile viewport and zoom.
     element.className = "";
+    // ProseMirror supplies a trailing BR for an empty paragraph. The serializer
+    // does not; without it border-box padding can consume its entire min-height
+    // and make a saved empty page disappear from canonical measurements.
+    if (!node.childCount || node.lastChild?.type.name === "hardBreak") {
+      const trailingBreak = document.createElement("br");
+      trailingBreak.className = "ProseMirror-trailingBreak";
+      element.append(trailingBreak);
+    }
     const offsets = [];
     node.descendants((child, at) => {
       if (child.isText) offsets.push(pos + 1 + at);
@@ -85,22 +102,30 @@ export function canonicalScreenplayPages(editor, fontSize, documentZoom) {
   try {
     const elements = new Map(blocks.map(({ pos, element }) => [pos, element]));
     const plan = screenplayPagePlan({
-      doc: editor.state.doc,
+      doc,
       nodeDOM: (pos) => elements.get(pos),
       posAtDOM: (text, offset) => positions.get(text) + offset,
       paper,
       fontSize,
+      forcedStarts,
     });
     // Apply from the end so splitting a text node cannot shift earlier offsets.
-    for (const { kind, pos, gap, text, offset } of [...plan.breaks].reverse()) {
+    for (const { kind, pos, gap, text, offset, element, after } of [
+      ...plan.breaks,
+    ].reverse()) {
       if (kind === "node") elements.get(pos).style.paddingTop = `${gap}px`;
       else {
-        const tail = text.splitText(offset);
-        positions.set(tail, positions.get(text) + offset);
         const spacer = document.createElement("span");
         spacer.contentEditable = "false";
         Object.assign(spacer.style, { display: "block", height: `${gap}px` });
-        tail.before(spacer);
+        if (kind === "inline") {
+          if (after) element.after(spacer);
+          else element.before(spacer);
+        } else {
+          const tail = text.splitText(offset);
+          positions.set(tail, positions.get(text) + offset);
+          tail.before(spacer);
+        }
       }
     }
     return {

@@ -16,11 +16,23 @@ export const snapshotForArea = (snapshot, area) => {
   if (area === "outline")
     return {
       outline: snapshot.outline || { columns: [], cards: [] },
-      scriptVersion: scriptVersionId(snapshot),
     };
   const { outline, notes, ...screenplay } = snapshot;
   return screenplay;
 };
+
+export function restoreSnapshotForArea(document, snapshot, area) {
+  const restored = {
+    ...document,
+    ...structuredClone(snapshotForArea(snapshot, area)),
+  };
+  // A snapshot created before page versions cannot reuse today's ranges or
+  // alternatives: its text may have entirely different paragraph boundaries.
+  // The editor measures and migrates that restored legacy content on entry.
+  if (area === "screenplay" && !snapshot.pageVersions)
+    restored.pageVersions = undefined;
+  return restored;
+}
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -43,10 +55,13 @@ export function snapshotOf(document) {
     scriptVersion: scriptVersionId(document),
     revisionRound: document.revisionRound,
     content: document.content,
+    ...(document.pageVersions ? { pageVersions: document.pageVersions } : {}),
     notes: document.notes || null,
     sceneVariants: document.sceneVariants || {},
     sceneShots: document.sceneShots || {},
     components: document.components,
+    relationships: document.relationships || [],
+    ...(document.graphLayout ? { graphLayout: document.graphLayout } : {}),
     ...(document.componentLibraryId
       ? { componentLibraryId: document.componentLibraryId }
       : {}),
@@ -65,10 +80,12 @@ export function snapshotOf(document) {
 export function changeLabel(before, after) {
   const names = [
     ["content", "текста"],
+    ["pageVersions", "версий страниц"],
     ["notes", "заметок"],
     ["sceneVariants", "вариантов сцен"],
     ["sceneShots", "настроек кадров"],
     ["components", "компонентов"],
+    ["relationships", "связей персонажей"],
     ["componentFolders", "папок"],
     ["comments", "комментариев"],
     ["metadata", "настроек"],

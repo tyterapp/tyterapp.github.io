@@ -191,6 +191,7 @@ export default function AppSelect({
   disabled = false,
   menuMaxHeight = 320,
   optionHeight = 40,
+  renderValue,
 }) {
   const anchor = useRef(null);
   const id = useId();
@@ -225,8 +226,14 @@ export default function AppSelect({
           }
         }}
       >
-        {current?.icon}
-        <span>{current?.label}</span>
+        {renderValue ? (
+          renderValue(current)
+        ) : (
+          <>
+            {current?.icon}
+            <span>{current?.label}</span>
+          </>
+        )}
         <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && (
