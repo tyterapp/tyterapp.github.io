@@ -76,7 +76,10 @@ function fixture() {
   return replaceText(document, "target-2", "Розовый маяк на второй странице.");
 }
 
-async function open(page, { theme = "dark", width = 1440 } = {}) {
+async function open(
+  page,
+  { theme = "dark", width = 1440, document = fixture() } = {},
+) {
   await grantPro(page);
   await page.setViewportSize({ width, height: 1000 });
   await page.route("**/__tyter_local/**", (route) =>
@@ -104,12 +107,18 @@ async function open(page, { theme = "dark", width = 1440 } = {}) {
         }),
       });
     },
-    { document: fixture(), theme },
+    { document, theme },
   );
   await page.goto("/pro");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await expect(
-    width < 832 ? page.locator(".mobile-page-version-bar") : picker(page, 2),
+    width < 832
+      ? page.locator(".mobile-page-version-bar")
+      : picker(
+          page,
+          document.pageVersions?.pages.filter((page) => page.to > page.from)
+            .length || 1,
+        ),
   ).toBeVisible();
 }
 const picker = (page, number) =>
@@ -334,7 +343,7 @@ test("all-version search drops removed pages immediately and after reload while 
   await expect(cards(page)).toHaveCount(0);
 });
 
-test("overflowing the first page adds page pickers and preserves the second page's identity and text", async ({
+test("overflowing the first page flows into the existing second page's selected version", async ({
   page,
 }) => {
   await open(page);
@@ -345,6 +354,9 @@ test("overflowing the first page adds page pickers and preserves the second page
     .locator('.page-version-control[data-page-number="2"]')
     .getAttribute("data-page-version-id");
   const originalSecondText = await text(page, "target-2").textContent();
+  const before = await page
+    .locator(".screenplay-editor")
+    .evaluate((node) => node.editor.getJSON());
   await text(page, "target-1").click();
   await page.keyboard.press("End");
   await page.keyboard.insertText(
@@ -367,7 +379,7 @@ test("overflowing the first page adds page pickers and preserves the second page
     .poll(async () =>
       Number(await preservedSecond.getAttribute("data-page-number")),
     )
-    .toBeGreaterThan(2);
+    .toBe(2);
   await expect(preservedSecond.getByRole("combobox")).toContainText("v3 Pink");
   await page.keyboard.press("Control+Shift+s");
   await expect
@@ -376,14 +388,113 @@ test("overflowing the first page adds page pickers and preserves the second page
   const payload = await page.evaluate(() => window.savedPageCopies[0]);
   const pages = payload.document.pageVersions.pages;
   expect(pages.length).toBeGreaterThan(2);
-  expect(pages.findIndex(({ id }) => id === originalSecondId)).toBeGreaterThan(
-    1,
-  );
+  expect(pages.findIndex(({ id }) => id === originalSecondId)).toBe(1);
   expect(pages.find(({ id }) => id === originalSecondId).active).toBe("pink");
+  expect(
+    pages
+      .slice(2)
+      .every(
+        (page) => page.active === "pink" && !Object.keys(page.versions).length,
+      ),
+  ).toBe(true);
   expect(JSON.stringify(payload.document.content)).toContain(
     originalSecondText,
   );
+  const after = await page
+    .locator(".screenplay-editor")
+    .evaluate((node) => node.editor.getJSON());
+  await page.locator(".screenplay-editor").press("Control+z");
+  await expect
+    .poll(() =>
+      page
+        .locator(".screenplay-editor")
+        .evaluate((node) => node.editor.getJSON()),
+    )
+    .toEqual(before);
+  await expect(page.locator(".page-version-control")).toHaveCount(2);
+  await expect(picker(page, 2)).toContainText("v3 Pink");
+  await expect(preservedSecond).toHaveAttribute("data-page-number", "2");
+  await page.locator(".screenplay-editor").press("Control+Shift+z");
+  await expect
+    .poll(() =>
+      page
+        .locator(".screenplay-editor")
+        .evaluate((node) => node.editor.getJSON()),
+    )
+    .toEqual(after);
+  await expect(page.locator(".page-version-control")).toHaveCount(
+    pages.filter((page) => page.to > page.from).length,
+  );
+  await expect(preservedSecond).toHaveAttribute("data-page-number", "2");
 });
+
+for (const [version, width] of [
+  ["white", 1440],
+  ["blue", 320],
+]) {
+  test(`${width}px: new pages inherit ${version}, own independent copies, and typing undo/redo preserves the text`, async ({
+    page,
+  }) => {
+    const document = createProject("Новые страницы");
+    document.content.content = [
+      paragraph("scene", "ИНТ. КОМНАТА — ДЕНЬ", "heading"),
+      paragraph("action", "Начало строки. ", "story"),
+    ];
+    await open(page, { document, width });
+    if (version !== "white") await choose(page, 1, version);
+    const editor = page.locator(".screenplay-editor");
+    await text(page, "story").click();
+    await page.keyboard.press("End");
+    const before = await editor.evaluate((node) => node.editor.getJSON());
+    const continuation = "Продолжение одного абзаца без потери текста. ".repeat(
+      190,
+    );
+    await page.keyboard.insertText(continuation.slice(0, 300));
+    await page.keyboard.insertText(continuation.slice(300));
+    await expect
+      .poll(() => page.locator(".revision-page-background").count())
+      .toBeGreaterThan(2);
+    const after = await editor.evaluate((node) => node.editor.getJSON());
+    expect(
+      after.content[1].content.map((part) => part.text || "").join(""),
+    ).toBe("Начало строки. " + continuation);
+    await page.keyboard.press("Control+Shift+s");
+    await expect
+      .poll(() => page.evaluate(() => window.savedPageCopies.length))
+      .toBe(1);
+    const saved = await page.evaluate(() => window.savedPageCopies[0].document);
+    const pages = saved.pageVersions.pages.filter(
+      (page) => page.to > page.from,
+    );
+    expect(pages.every((page) => page.active === version)).toBe(true);
+    expect(
+      pages.slice(1).every((page) => !Object.keys(page.versions).length),
+    ).toBe(true);
+    expect(new Set(pages.map((page) => page.id)).size).toBe(pages.length);
+    await editor.press("Control+z");
+    await expect
+      .poll(() => editor.evaluate((node) => node.editor.getJSON()))
+      .toEqual(before);
+    await expect(page.locator(".revision-page-background")).toHaveCount(1);
+    await editor.press("Control+Shift+z");
+    await expect
+      .poll(() => editor.evaluate((node) => node.editor.getJSON()))
+      .toEqual(after);
+    await expect
+      .poll(() => page.locator(".revision-page-background").count())
+      .toBe(pages.length);
+    await expect(page.locator('.save-status [role="status"]')).toHaveText(
+      "Сохранено на устройстве",
+    );
+    await page.reload();
+    await expect
+      .poll(() => editor.evaluate((node) => node.editor.getJSON()))
+      .toEqual(after);
+    await expect
+      .poll(() => page.locator(".revision-page-background").count())
+      .toBe(pages.length);
+  });
+}
 
 test("320px: page and version controls fit the screen and switch only the chosen page", async ({
   page,

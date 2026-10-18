@@ -113,6 +113,7 @@ import {
 } from "./page-versions.js";
 import { preparePageVersionLayout } from "./page-version-layout.js";
 import { applyPageVersionChanges } from "./page-version-history.js";
+import { isHistoryTransaction } from "@tiptap/pm/history";
 import { SCRIPT_VERSIONS, scriptVersion } from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
 import {
@@ -915,6 +916,7 @@ export default function MinimalApp({ onLogout }) {
     SCRIPT_VERSIONS.find((version) => version.id === activePage?.active) ||
     scriptVersion(current);
   const [pageCount, setPageCount] = useState(1);
+  const pageFlowEdit = useRef(null);
   const [pageRevisionState, setPageRevisionState] = useState({
     scope: null,
     pages: [],
@@ -940,9 +942,32 @@ export default function MinimalApp({ onLogout }) {
       setDocuments((list) =>
         list.map((doc) => {
           if (doc.id !== current.id) return doc;
-          const next = preparePageVersionLayout(doc, starts, (content) =>
-            editorRef.current.measurePages(content),
+          const next = preparePageVersionLayout(
+            doc,
+            starts,
+            (content, options) =>
+              editorRef.current.measurePages(content, options),
           );
+          const pending = pageFlowEdit.current;
+          if (
+            next !== doc &&
+            pending?.content === doc.content &&
+            pending.before.pageVersions &&
+            !pending.recorded &&
+            !isHistoryTransaction(pending.transaction) &&
+            !pending.transaction.getMeta("skipWritingReward") &&
+            !pending.transaction.getMeta("preventUpdate")
+          ) {
+            queueMicrotask(() => {
+              if (pageFlowEdit.current !== pending || pending.recorded) return;
+              pending.recorded =
+                editorRef.current?.recordPageLayout(
+                  pending.before,
+                  next,
+                  pending.transaction,
+                ) || false;
+            });
+          }
           if (!doc.pageVersions && next.pageVersions && next !== doc) {
             const tracked = historyTracked.current.get(doc.id);
             // Initial migration changes storage representation, not the user's
@@ -1422,7 +1447,7 @@ export default function MinimalApp({ onLogout }) {
     [current.id],
   );
   const changeContent = useCallback(
-    (content, anchors, activity, mapping, versionChanges) => {
+    (content, anchors, activity, mapping, versionChanges, transaction) => {
       if (
         content.content.some((block) =>
           block.content?.some((part) => part.text),
@@ -1430,6 +1455,13 @@ export default function MinimalApp({ onLogout }) {
       )
         setIntroDocumentId(null);
       update((d) => {
+        if (transaction)
+          pageFlowEdit.current = {
+            before: d,
+            content,
+            transaction,
+            recorded: false,
+          };
         const next = applyPageVersionChanges(
           mapping
             ? mapPageVersionRanges(d, mapping, content)
@@ -2072,7 +2104,7 @@ export default function MinimalApp({ onLogout }) {
       documentId: current.id,
       versionId: id,
       pageId,
-      label: `${t("Страница {0}", live.pageVersions.pages.findIndex((page) => page.id === pageId) + 1)} · ${SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id}`,
+      label: `${t("Страница {0}", live.pageVersions.pages.filter((page) => page.to > page.from).findIndex((page) => page.id === pageId) + 1)} · ${SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id}`,
       snapshot: removed.snapshot,
       wasActive: removed.wasActive,
       fallback: removed.fallback,
@@ -2926,8 +2958,8 @@ export default function MinimalApp({ onLogout }) {
     const starts = editorRef.current.measurePages(document.content, {
       locked: true,
     });
-    return preparePageVersionLayout(document, starts, (content) =>
-      editorRef.current.measurePages(content),
+    return preparePageVersionLayout(document, starts, (content, options) =>
+      editorRef.current.measurePages(content, options),
     );
   };
   const download = async (format) => {

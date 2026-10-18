@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { screenplayLayout } from "./document-layout.js";
 import { pageRevisionColors } from "./script-revisions.js";
 import { forcedScreenplayPlan } from "./pagination-forced.js";
+import { pageVersionBreaks } from "./page-versions.js";
 
 const pageKey = new PluginKey("screenplay-pages");
 const pageMeasurements = new WeakMap();
@@ -160,11 +161,7 @@ export function useScreenplayPagination(
         posAtDOM: (text, offset) => editor.view.posAtDOM(text, offset),
         paper,
         fontSize,
-        forcedStarts:
-          versionState
-            .current?.()
-            ?.pages?.slice(1)
-            .map((page) => page.from) || [],
+        forcedStarts: pageVersionBreaks(versionState.current?.()),
       });
       const gaps = plan.breaks.map(({ kind, pos, size, gap }) =>
         kind === "node"
@@ -225,7 +222,8 @@ export function useScreenplayPagination(
     // Silent content replacements (scene variants, history) still change the
     // document, but deliberately suppress the editor's public update event.
     const changed = ({ transaction }) => {
-      if (transaction.docChanged) schedule();
+      if (transaction.docChanged || transaction.getMeta("pageVersionLayout"))
+        schedule();
     };
     editor.on("transaction", changed);
     editor.view.dom.addEventListener("compositionend", schedule);

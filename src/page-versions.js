@@ -143,6 +143,16 @@ function checkedPages(document) {
     : [];
 }
 
+// Explicitly selected page copies keep their own start. Automatic continuation
+// pages flow with the preceding page until the user selects their version.
+export function pageVersionBreaks(state) {
+  return (state?.pages || [])
+    .filter((page) => page.to > page.from)
+    .slice(1)
+    .filter((page) => page.flow !== true)
+    .map((page) => page.from);
+}
+
 function ownedSceneIds(entry) {
   return (entry.slice.content || [])
     .filter(
@@ -371,15 +381,19 @@ export function mapPageVersionRanges(document, mapping, newContent) {
     return newContent ? { ...document, content: newContent } : document;
   const content = newContent || document.content;
   const size = pageVersionSchema.nodeFromJSON(content).content.size;
-  const boundaries = pages
+  const live = pages.filter((page) => page.to > page.from);
+  const boundaries = live
     .slice(1)
     .map((page) => Math.max(0, Math.min(size, mapping.map(page.from, -1))));
   let previous = 0;
-  const next = pages.map((page, index) => {
+  let index = 0;
+  const next = pages.map((page) => {
+    if (page.to === page.from) return { ...page, from: previous, to: previous };
     const to =
-      index === pages.length - 1 ? size : Math.max(previous, boundaries[index]);
+      index === live.length - 1 ? size : Math.max(previous, boundaries[index]);
     const result = { ...page, from: previous, to };
     previous = to;
+    index++;
     return result;
   });
   return {
@@ -785,16 +799,24 @@ export function switchPageVersion(document, pageId, versionId) {
       pages: next.pageVersions.pages.map((item, at) => {
         const previous = document.pageVersions.pages[at];
         return at === index
-          ? { ...item, to: page.from + added }
-          : at > index
+          ? { ...item, from: page.from, to: page.from + added }
+          : at < index && previous.to === page.from
             ? {
                 ...item,
-                ...(previous.from === page.from
-                  ? { from: page.from + added }
-                  : {}),
-                ...(previous.to === page.from ? { to: page.from + added } : {}),
+                to: page.from,
+                ...(previous.from === page.from ? { from: page.from } : {}),
               }
-            : item;
+            : at > index
+              ? {
+                  ...item,
+                  ...(previous.from === page.from
+                    ? { from: page.from + added }
+                    : {}),
+                  ...(previous.to === page.from
+                    ? { to: page.from + added }
+                    : {}),
+                }
+              : item;
       }),
     };
   }
@@ -823,6 +845,20 @@ export function switchPageVersion(document, pageId, versionId) {
               }).filter(([id]) => id !== versionId),
             ),
           },
+    ),
+  };
+  const targetIndex = next.pageVersions.pages.findIndex(
+    (item) => item.id === pageId,
+  );
+  const followingIndex = next.pageVersions.pages.findIndex(
+    (item, index) => index > targetIndex && item.to > item.from,
+  );
+  next.pageVersions = {
+    ...next.pageVersions,
+    pages: next.pageVersions.pages.map((item, index) =>
+      index === targetIndex || index === followingIndex
+        ? { ...item, flow: false }
+        : item,
     ),
   };
   next = restoreOwnedSceneData(next, pageId, current, target);
@@ -1303,6 +1339,7 @@ export function cleanPageVersions(source, cleanSnapshot) {
       to: page.to,
       active: page.active,
       versions,
+      ...(typeof page.flow === "boolean" ? { flow: page.flow } : {}),
     };
   });
   const legacyVersions = {};

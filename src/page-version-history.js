@@ -1,4 +1,5 @@
 import { Step, StepResult, StepMap } from "@tiptap/pm/transform";
+import { rebasePageVersionContent } from "./page-versions.js";
 
 const fields = [
   "pageVersions",
@@ -62,10 +63,13 @@ function delta(current, before, after) {
 // A real history step makes the page catalogue and text one undo/redo action.
 // It does not alter the ProseMirror document or its position mapping itself.
 export class PageVersionStateStep extends Step {
-  constructor(before, after) {
+  constructor(before, after, kind = "burn", beforeContent, afterContent) {
     super();
     this.before = before;
     this.after = after;
+    this.kind = kind;
+    this.beforeContent = beforeContent;
+    this.afterContent = afterContent;
   }
   apply(doc) {
     return StepResult.ok(doc);
@@ -74,9 +78,16 @@ export class PageVersionStateStep extends Step {
     return StepMap.empty;
   }
   invert() {
-    return new PageVersionStateStep(this.after, this.before);
+    return new PageVersionStateStep(
+      this.after,
+      this.before,
+      this.kind,
+      this.afterContent,
+      this.beforeContent,
+    );
   }
   map(mapping) {
+    if (this.kind === "pagination") return this;
     const mapped = (state) => ({
       ...state,
       ...(state.pageVersions
@@ -101,17 +112,30 @@ export class PageVersionStateStep extends Step {
           }
         : {}),
     });
-    return new PageVersionStateStep(mapped(this.before), mapped(this.after));
+    return new PageVersionStateStep(
+      mapped(this.before),
+      mapped(this.after),
+      this.kind,
+    );
   }
   toJSON() {
     return {
       stepType: "tyterPageVersionState",
       before: this.before,
       after: this.after,
+      kind: this.kind,
+      beforeContent: this.beforeContent,
+      afterContent: this.afterContent,
     };
   }
   static fromJSON(_schema, json) {
-    return new PageVersionStateStep(json.before, json.after);
+    return new PageVersionStateStep(
+      json.before,
+      json.after,
+      json.kind,
+      json.beforeContent,
+      json.afterContent,
+    );
   }
 }
 Step.jsonID("tyterPageVersionState", PageVersionStateStep);
@@ -121,6 +145,18 @@ export function pageVersionStateStep(before, after) {
   return new PageVersionStateStep(
     clone(Object.fromEntries(changed.map((key) => [key, before[key]]))),
     clone(Object.fromEntries(changed.map((key) => [key, after[key]]))),
+  );
+}
+
+export function pageVersionLayoutStep(before, after) {
+  // Page models are immutable; share inactive slices rather than duplicating
+  // every page copy in the typing history on each automatic line reflow.
+  return new PageVersionStateStep(
+    { pageVersions: before.pageVersions },
+    { pageVersions: after.pageVersions },
+    "pagination",
+    before.content,
+    after.content,
   );
 }
 
@@ -140,7 +176,12 @@ export function applyPageVersionChanges(document, steps = []) {
     ]))
       next[key] =
         key === "pageVersions"
-          ? clone(step.after[key])
+          ? step.kind === "pagination"
+            ? rebasePageVersionContent(
+                { content: step.afterContent, pageVersions: step.after[key] },
+                document.content,
+              ).pageVersions
+            : clone(step.after[key])
           : delta(next[key], step.before[key], step.after[key]);
   }
   return next;

@@ -14,6 +14,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { PlainNotes } from "./plain-notes.js";
 import { ArrowTypography } from "./ArrowTypography.js";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { isHistoryTransaction } from "@tiptap/pm/history";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
@@ -25,7 +26,11 @@ import { committedCharacters, writtenCharacters } from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
 import { preparePageBurn } from "./burning-page.js";
-import { pageVersionChanges } from "./page-version-history.js";
+import {
+  pageVersionChanges,
+  pageVersionLayoutStep,
+} from "./page-version-history.js";
+import { pageVersionBreaks } from "./page-versions.js";
 import { ScriptRevisionMark } from "./screenplay-revisions.js";
 import { revisionAttributes, revisionFromElement } from "./script-revisions.js";
 import { useMobileRevisionPages } from "./mobile-revision-pages.js";
@@ -1200,7 +1205,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         json,
         anchors,
         propsRef.current.trackWritingActivity &&
-          !pageVersionChanges(transaction).length
+          !isHistoryTransaction(transaction) &&
+          !pageVersionChanges(transaction).some(
+            (step) => step.kind !== "pagination",
+          )
           ? {
               wordDelta:
                 getWordCount(json) - getWordCount(transaction.before.toJSON()),
@@ -1208,6 +1216,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           : undefined,
         transaction.mapping,
         pageVersionChanges(transaction),
+        transaction,
       );
       if (propsRef.current.trackWritingActivity) {
         const characters = writtenCharacters(
@@ -1227,6 +1236,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       propsRef.current.onSelection?.(selectionInfo(focusedEditor));
     },
   });
+  useEffect(() => {
+    if (editor && !editor.isDestroyed)
+      editor.view.dispatch(editor.state.tr.setMeta("pageVersionLayout", true));
+  }, [editor, pageVersions]);
   useEffect(() => {
     if (!editor || !caretReady || !autoFocus || !focusPending.current) return;
     const frame = requestAnimationFrame(() => {
@@ -1377,21 +1390,34 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       focus(position) {
         editor?.commands.focus(position);
       },
-      measurePages(content, { locked = false } = {}) {
+      measurePages(content, { locked = false, forcedStarts } = {}) {
         if (!editor || editor.isDestroyed) return [0];
         const pages = canonicalScreenplayPages(editor, fontSize, documentZoom, {
           content,
-          forcedStarts: locked
-            ? propsRef.current.pageVersions?.pages
-                ?.slice(1)
-                .map((page) => page.from)
-            : [],
+          forcedStarts:
+            forcedStarts ??
+            (locked ? pageVersionBreaks(propsRef.current.pageVersions) : []),
         });
         try {
           return pages.starts;
         } finally {
           pages.dispose();
         }
+      },
+      recordPageLayout(before, after, transaction) {
+        if (
+          !editor ||
+          editor.isDestroyed ||
+          !editor.state.doc.eq(editor.schema.nodeFromJSON(after.content))
+        )
+          return false;
+        editor.view.dispatch(
+          editor.state.tr
+            .step(pageVersionLayoutStep(before, after))
+            .setMeta("appendedTransaction", transaction)
+            .setMeta("skipWritingReward", true),
+        );
+        return true;
       },
       focusPosition(position) {
         if (!editor || editor.isDestroyed) return;
@@ -1743,10 +1769,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           fontSize,
           documentZoom,
           versionDocument,
-          forcedStarts:
-            propsRef.current.pageVersions?.pages
-              .slice(1)
-              .map((page) => page.from) || [],
+          forcedStarts: pageVersionBreaks(propsRef.current.pageVersions),
         });
       },
       createDictationTarget() {

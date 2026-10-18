@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
 import { pageRevisionColors } from "./script-revisions.js";
+import { pageVersionBreaks } from "./page-versions.js";
 
 export function useMobileRevisionPages(
   editor,
@@ -68,11 +69,7 @@ export function useMobileRevisionPages(
       )
         return;
       const pages = canonicalScreenplayPages(editor, fontSize, documentZoom, {
-        forcedStarts:
-          versionState
-            .current?.()
-            ?.pages?.slice(1)
-            .map((page) => page.from) || [],
+        forcedStarts: pageVersionBreaks(versionState.current?.()),
       });
       try {
         cachedStarts = pages.starts;
@@ -87,6 +84,7 @@ export function useMobileRevisionPages(
       frame = requestAnimationFrame(measure);
     };
     const changed = ({ transaction }) => {
+      if (transaction.getMeta("pageVersionLayout")) return schedule();
       if (!transaction.docChanged) return;
       if (!cachedStarts || transaction.getMeta("preventUpdate"))
         return schedule();
