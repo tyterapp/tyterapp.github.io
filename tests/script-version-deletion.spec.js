@@ -393,7 +393,7 @@ test("320px: copy deletion has touch controls and the warning fits the screen", 
   await expect(notice(page)).toHaveCount(0);
 });
 
-test("deleting the last copy awards Scavenger once without showing deleted copies in history", async ({
+test("deleting any page version awards Scavenger once without rewarding cancellation or later deletions", async ({
   page,
 }) => {
   await open(page);
@@ -406,6 +406,8 @@ test("deleting the last copy awards Scavenger once without showing deleted copie
     .click();
   await page.clock.runFor(300);
   expect((await wallet(page)).deletions || []).toHaveLength(0);
+  expect((await wallet(page)).coins).toBe(balance);
+  expect((await wallet(page)).achievements?.scavenger).toBeUndefined();
   const remove = async (name) => {
     await picker(page).click();
     await page
@@ -419,8 +421,9 @@ test("deleting the last copy awards Scavenger once without showing deleted copie
   };
   await remove("v2 Blue");
   await expect.poll(async () => (await wallet(page)).deletions?.length).toBe(1);
-  expect((await wallet(page)).coins).toBe(balance);
-  expect((await wallet(page)).achievements?.scavenger).toBeUndefined();
+  await expect.poll(async () => (await wallet(page)).coins).toBe(balance + 10);
+  expect((await wallet(page)).achievements.scavenger.reward).toBe(10);
+  expect((await stored(page)).pageVersions.pages[0].versions.pink).toBeTruthy();
   await remove("v3 Pink");
   await expect.poll(async () => (await wallet(page)).coins).toBe(balance + 10);
   expect((await wallet(page)).deletions).toHaveLength(2);
@@ -442,6 +445,7 @@ test("deleting the last copy awards Scavenger once without showing deleted copie
     .click();
   const achievement = page.locator('#writing-coins [data-earned="true"]');
   await expect(achievement).toContainText("Мусорщик");
+  await expect(achievement).toContainText("Удалите любую версию страницы.");
   await expect(achievement).toContainText("10 монет один раз");
   await expect(achievement).toContainText("Получено");
   await page
@@ -452,4 +456,8 @@ test("deleting the last copy awards Scavenger once without showing deleted copie
   await remove("v2 Blue");
   await expect.poll(async () => (await wallet(page)).deletions?.length).toBe(3);
   expect((await wallet(page)).coins).toBe(balance + 10);
+  await page.reload();
+  await expect(picker(page)).toBeVisible();
+  expect((await wallet(page)).coins).toBe(balance + 10);
+  expect((await wallet(page)).achievements.scavenger.reward).toBe(10);
 });

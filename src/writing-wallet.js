@@ -40,7 +40,6 @@ export function deletionConfirmationReceipt(deletion, now = Date.now()) {
     versionId: deletion.versionId,
     label: deletion.label.slice(0, 180),
     date,
-    lastCopy: deletion.lastCopy === true,
     deletedAt:
       Number.isFinite(deletion.deletedAt) && deletion.deletedAt >= 0
         ? deletion.deletedAt
@@ -338,9 +337,7 @@ export function recordWalletDeletion(wallet, deletion, now = Date.now()) {
   const { date } = receipt;
   if (wallet.deletions?.some((entry) => entry.id === deletion.id))
     return { wallet, ok: true, reward: 0 };
-  const reward =
-    receipt.lastCopy && !wallet.achievements?.[SCAVENGER_ACHIEVEMENT] ? 10 : 0;
-  const { lastCopy: _lastCopy, ...entry } = receipt;
+  const reward = !wallet.achievements?.[SCAVENGER_ACHIEVEMENT] ? 10 : 0;
   return {
     ok: true,
     reward,
@@ -348,7 +345,7 @@ export function recordWalletDeletion(wallet, deletion, now = Date.now()) {
     wallet: {
       ...wallet,
       coins: wallet.coins + reward,
-      deletions: [...(wallet.deletions || []), entry].slice(-5000),
+      deletions: [...(wallet.deletions || []), receipt].slice(-5000),
       ...(reward
         ? {
             achievements: {

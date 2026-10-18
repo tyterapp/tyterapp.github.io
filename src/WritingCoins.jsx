@@ -52,8 +52,8 @@ export default function WritingCoins({
       reward: 10,
       name: text("Мусорщик", "Scavenger"),
       description: text(
-        "Удалите все созданные копии сценария. Достижение приносит 10 монет один раз.",
-        "Delete all created script copies. This achievement awards 10 coins once.",
+        "Удалите любую версию страницы. Достижение приносит 10 монет один раз.",
+        "Delete any page version. This achievement awards 10 coins once.",
       ),
     },
     {

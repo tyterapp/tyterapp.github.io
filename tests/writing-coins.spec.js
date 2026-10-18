@@ -102,6 +102,7 @@ test("coin onboarding shows real rewards and progress; section navigation, keybo
     .getByRole("button", { name: "Достижения", exact: true })
     .click();
   await expect(panel(page)).toContainText("Мусорщик");
+  await expect(panel(page)).toContainText("Удалите любую версию страницы.");
   await expect(panel(page)).toContainText("Ещё не получено");
   await expect(panel(page)).toContainText("+10");
   await page.keyboard.press("Escape");
@@ -274,6 +275,7 @@ test("320px dark mode: the empty wallet, English sections and reduced motion fit
     .getByRole("button", { name: "Achievements", exact: true })
     .click();
   await expect(panel(page)).toContainText("Scavenger");
+  await expect(panel(page)).toContainText("Delete any page version.");
   await expect(panel(page)).toContainText("Not unlocked yet");
   await panel(page).getByRole("button", { name: "Back to coins" }).click();
   await panel(page)

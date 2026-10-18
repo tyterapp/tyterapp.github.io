@@ -1959,22 +1959,11 @@ export default function MinimalApp({ onLogout }) {
       if (!pending || pending.id !== id) return Promise.resolve();
       if (!pending.confirmation) {
         pending.confirmed = true;
-        const document = documentsRef.current.find(
-          (doc) => doc.id === pending.documentId,
-        );
-        const lastCopy =
-          !!document &&
-          !document.pageVersions?.pages.some(
-            (page) =>
-              page.active !== "white" ||
-              Object.keys(page.versions).some((id) => id !== "white"),
-          );
         const reward = writingTimer.confirmVersionDeletion({
           id: pending.id,
           documentId: pending.documentId,
           versionId: pending.versionId,
           label: pending.label,
-          lastCopy,
         });
         pending.confirmation = pending.flush
           .then(() => historyFlushRef.current(pending.scope))

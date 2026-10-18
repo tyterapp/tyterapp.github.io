@@ -133,7 +133,7 @@ test("the house costs 100 coins once, and cleaning preserves both purchases and 
   });
 });
 
-test("confirmed deletions log each copy and award the scavenger achievement once across documents", () => {
+test("the first confirmed page version deletion awards Scavenger once even when other copies remain", () => {
   const first = recordWalletDeletion(
     { coins: 5 },
     {
@@ -145,7 +145,17 @@ test("confirmed deletions log each copy and award the scavenger achievement once
     },
     new Date("2026-10-13T12:00:00Z").getTime(),
   );
-  expect(first.reward).toBe(0);
+  expect(first.reward).toBe(10);
+  expect(first.wallet.coins).toBe(15);
+  expect(first.wallet.achievements.scavenger.reward).toBe(10);
+  expect(
+    recordWalletDeletion(first.wallet, {
+      id: "remove-1",
+      documentId: "doc-a",
+      versionId: "blue",
+      label: "v2 Blue",
+    }).wallet,
+  ).toBe(first.wallet);
   const last = recordWalletDeletion(
     first.wallet,
     {
@@ -157,7 +167,8 @@ test("confirmed deletions log each copy and award the scavenger achievement once
     },
     new Date("2026-10-13T12:10:00Z").getTime(),
   );
-  expect(last.reward).toBe(10);
+  expect(last.reward).toBe(0);
+  expect(last.wallet.achievements).toEqual(first.wallet.achievements);
   expect(last.wallet.coins).toBe(15);
   expect(last.wallet.deletions).toHaveLength(2);
   expect(last.wallet.deletions[1].deletedAt).toBe(
@@ -546,7 +557,7 @@ test("startup recovers a deletion interrupted before its wallet lock completed e
         label: "v2 Blue",
         date: day,
         deletedAt: now,
-        lastCopy: true,
+        lastCopy: false,
       };
       localStorage.setItem(
         `${prefix}${encodeURIComponent(receipt.id)}`,
