@@ -136,6 +136,7 @@ import {
   revisionArea,
 } from "./history.js";
 import { pageHeightFor } from "./pagination.js";
+import { scrollDocumentPages } from "./document-page-scroll.js";
 import {
   screenplayLayout,
   screenplayBlockLayout,
@@ -2938,7 +2939,21 @@ export default function MinimalApp({ onLogout }) {
   );
   useEffect(() => {
     const column = columnRef.current;
-    const zoom = (event) => {
+    const wheel = (event) => {
+      if (event.defaultPrevented) return;
+      if (event.shiftKey) {
+        const delta = event.deltaY || event.deltaX;
+        const scroller = event.target.closest?.(".minimal-scroll");
+        if (
+          delta &&
+          scrollDocumentPages(
+            scroller,
+            Math.sign(delta) * (event.ctrlKey ? 1 : 10),
+          )
+        )
+          event.preventDefault();
+        return;
+      }
       if (!event.ctrlKey || !event.deltaY) return;
       event.preventDefault();
       update((d) => ({
@@ -2952,10 +2967,10 @@ export default function MinimalApp({ onLogout }) {
         },
       }));
     };
-    column?.addEventListener("wheel", zoom, {
+    column?.addEventListener("wheel", wheel, {
       passive: false,
     });
-    return () => column?.removeEventListener("wheel", zoom);
+    return () => column?.removeEventListener("wheel", wheel);
   }, [update]);
   return (
     <div
