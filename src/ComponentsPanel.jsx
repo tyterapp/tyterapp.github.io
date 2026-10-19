@@ -81,6 +81,20 @@ export default function ComponentsPanel({
     button.focus({ preventScroll: true });
     previousActive.current = null;
   }, [activeId]);
+  const reportAction = (
+    <button
+      type="button"
+      className="component-report-export"
+      aria-label={t("Скачать отчёт реквизита")}
+      aria-busy={exporting || undefined}
+      disabled={exporting || !document.components.length}
+      onClick={onExportReport}
+    >
+      <ClipboardList size={18} aria-hidden="true" />
+      <span>{t("Отчёт реквизита")}</span>
+      <small>PDF</small>
+    </button>
+  );
   if (selected)
     return (
       <aside
@@ -108,6 +122,7 @@ export default function ComponentsPanel({
             <X size={18} />
           </button>
         </div>
+        {reportAction}
         <div className="component-detail-scroll">{renderEditor(selected)}</div>
       </aside>
     );
@@ -116,15 +131,6 @@ export default function ComponentsPanel({
       <div className="drawer-heading">
         <h2>{t("Компоненты")}</h2>
         <div className="drawer-tools">
-          <button
-            className="icon-button"
-            aria-label={t("Скачать отчёт реквизита")}
-            data-tooltip={t("Отчёт реквизита · PDF")}
-            disabled={exporting || !document.components.length}
-            onClick={onExportReport}
-          >
-            <ClipboardList size={17} />
-          </button>
           <button
             className="icon-button"
             aria-label={t("Экспорт библиотеки компонентов")}
@@ -159,6 +165,7 @@ export default function ComponentsPanel({
           </button>
         </div>
       </div>
+      {reportAction}
       {adding && (
         <form
           className="new-component-folder"

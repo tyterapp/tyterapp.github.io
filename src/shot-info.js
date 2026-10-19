@@ -1,6 +1,7 @@
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 import { SCENE_TIMES, sceneTimeOfDay } from "./scene-times.js";
+import { cleanStoryboardSettings } from "./storyboard-data.js";
 
 const field = (key, ru, en, example, options) => ({
   key,
@@ -269,7 +270,7 @@ export function cleanShotSettings(source) {
     /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(source.image)
   )
     clean.image = source.image;
-  return clean;
+  return { ...clean, ...cleanStoryboardSettings(source) };
 }
 export function cleanSceneShots(source, content) {
   const clean = {};

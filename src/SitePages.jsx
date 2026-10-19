@@ -164,8 +164,8 @@ export function HelpPage() {
       Shapes,
       text("Чем Free отличается от PRO?", "How do Free and PRO differ?"),
       text(
-        "Free позволяет работать с двумя документами и десятью компонентами на сценарий; история доступна за 14 дней. PRO снимает эти ограничения и добавляет аутлайн, реквизит с отчётами и полный формат TYT.",
-        "Free includes two documents, ten components per script and 14 days of history. PRO removes these limits and adds the outline, props reports and complete TYT project format.",
+        "Free позволяет работать с двумя документами и десятью компонентами на сценарий; история доступна за 14 дней. PRO снимает эти ограничения и добавляет раскадровку, реквизит с отчётами и полный формат TYT.",
+        "Free includes two documents, ten components per script and 14 days of history. PRO removes these limits and adds storyboards, props reports and complete TYT project format.",
       ),
     ],
     [

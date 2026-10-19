@@ -10,12 +10,9 @@ import {
   FolderOpen,
 } from "lucide-react";
 export default function LandingPreview({ panel }) {
-  if (panel === t("Аутлайн · Pro"))
+  if (panel === t("Раскадровка · Pro"))
     return (
-      <div
-        className="landing-outline-preview"
-        aria-label={t("Карточки аутлайна")}
-      >
+      <div className="landing-outline-preview" aria-label={t("Раскадровка")}>
         {[t("Завязка"), t("Развитие"), t("Развязка")].map((act, index) => (
           <section key={act}>
             <strong>
@@ -65,7 +62,7 @@ export default function LandingPreview({ panel }) {
         <div className="landing-tyt-items">
           {[
             t("Сценарий"),
-            t("Аутлайн"),
+            t("Раскадровка"),
             t("Комментарии"),
             t("Компоненты"),
             t("Реквизит"),

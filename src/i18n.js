@@ -33,7 +33,7 @@ export function setLanguage(next) {
   }
   notify();
 }
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && typeof document !== "undefined") {
   document.documentElement.lang = language;
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE) return;

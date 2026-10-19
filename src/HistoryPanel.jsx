@@ -4,22 +4,32 @@ import { History, RotateCcw, X } from "lucide-react";
 import { listRevisions, revisionArea } from "./history.js";
 import { useEdition } from "./edition.js";
 import { scriptVersionId } from "./script-versions.js";
+const getStoryboardPreview = (snapshot) =>
+  (snapshot.content?.content || [])
+    .filter((node) => node.attrs?.format === "scene")
+    .map((node) => (node.content || []).map((part) => part.text || "").join(""))
+    .join(" · ")
+    .slice(0, 180) || t("Раскадровка");
 const preview = (revision, notes = false) =>
-  revisionArea(revision) === "outline"
-    ? (revision.snapshot.outline?.cards || [])
-        .map((card) => `${card.title || t("Без названия")}: ${card.text || ""}`)
-        .join(" · ")
-        .slice(0, 180) || t("Пустой аутлайн")
-    : (
-        (notes ? revision.snapshot.notes?.content : revision.snapshot.content)
-          ?.content || []
-      )
-        .flatMap((block) =>
-          (block.content || []).map((part) => part.text || ""),
+  revisionArea(revision) === "storyboard"
+    ? getStoryboardPreview(revision.snapshot)
+    : revisionArea(revision) === "outline"
+      ? (revision.snapshot.outline?.cards || [])
+          .map(
+            (card) => `${card.title || t("Без названия")}: ${card.text || ""}`,
+          )
+          .join(" · ")
+          .slice(0, 180) || t("Раскадровка")
+      : (
+          (notes ? revision.snapshot.notes?.content : revision.snapshot.content)
+            ?.content || []
         )
-        .join(" ")
-        .trim()
-        .slice(0, 180) || t("Пустой сценарий");
+          .flatMap((block) =>
+            (block.content || []).map((part) => part.text || ""),
+          )
+          .join(" ")
+          .trim()
+          .slice(0, 180) || t("Пустой сценарий");
 export default function HistoryPanel({
   documentId,
   scriptVersion = "white",
@@ -115,8 +125,8 @@ export default function HistoryPanel({
                 {t(
                   notes
                     ? "Заметки"
-                    : revisionArea(entry) === "outline"
-                      ? "Аутлайн"
+                    : ["outline", "storyboard"].includes(revisionArea(entry))
+                      ? "Раскадровка"
                       : "Сценарий",
                 )}
               </span>

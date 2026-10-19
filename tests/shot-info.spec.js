@@ -189,9 +189,7 @@ test("shot settings survive import, remain isolated by variant and script versio
   expect(doc.scriptVersions.blue.sceneShots.scene.A.name).toBe("Синяя версия");
   const clean = validateImport(doc);
   expect(clean.sceneShots).toEqual(doc.sceneShots);
-  expect(clean.scriptVersions.blue.sceneShots).toEqual(
-    doc.scriptVersions.blue.sceneShots,
-  );
+  expect(clean.scriptVersions?.blue).toBeUndefined();
   expect(
     shotScenes(switchSceneVariant(doc, "scene", "F"))[0].settings.name,
   ).toBe("Вечерняя встреча");
@@ -245,350 +243,6 @@ test("shot settings survive import, remain isolated by variant and script versio
   });
   expect(cleanShotLocation({ latitude: 0, longitude: Infinity })).toBeNull();
   expect(cleanShotLocation({ latitude: "0", longitude: 0 })).toBeNull();
-});
-
-for (const theme of ["light", "dark"])
-  test(`${theme}: shot drawer saves per-variant settings, keeps the screenplay view and links to blocks`, async ({
-    page,
-  }, info) => {
-    test.setTimeout(45000);
-    await open(page, { theme });
-    await page.mouse.move(100, 800);
-    await expect(shotButton(page)).toHaveCSS("opacity", "0.2");
-    await expect(shotButton(page).locator("svg")).toHaveCount(1);
-    await expect(shotButton(page).locator("img")).toHaveCount(0);
-    expect((await shotButton(page).boundingBox()).width).toBe(48);
-    expect((await shotButton(page).boundingBox()).height).toBe(48);
-    await shotButton(page).hover();
-    await expect(shotButton(page)).toHaveCSS("opacity", "1");
-    await shotButton(page).click();
-    const panel = drawer(page);
-    await expect(panel).toBeVisible();
-    await expect(panel.locator(".shot-reference img")).toHaveCount(0);
-    await expect(
-      panel.getByRole("button", { name: "Загрузить кадр", exact: true }),
-    ).toBeVisible();
-    await expect(page.locator(".screenplay-editor")).toBeVisible();
-    await expect(
-      panel.getByRole("combobox", { name: "Время суток", exact: true }),
-    ).toContainText("ДЕНЬ · из заголовка");
-    await expect(panel.getByRole("combobox")).toHaveCount(1);
-    for (const field of SHOT_FIELDS.filter(
-      (field) => field.key !== "timeOfDay",
-    ))
-      await expect(
-        panel.locator(`[data-property="${field.key}"] .shot-property-heading`),
-      ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      panel.getByRole("button", { name: "Название шота", exact: true }),
-    ).toHaveAttribute("aria-expanded", "false");
-    for (const name of ["Дата съёмок", "Локация съёмок"])
-      await expect(
-        panel.getByRole("button", { name, exact: true }),
-      ).toHaveAttribute("aria-expanded", "false");
-    await panel
-      .getByRole("button", { name: "Развернуть все свойства", exact: true })
-      .click();
-    await expect(panel.getByRole("combobox")).toHaveCount(SHOT_FIELDS.length);
-    await panel
-      .getByRole("button", { name: "Свернуть все свойства", exact: true })
-      .click();
-    await expect(panel.getByRole("combobox")).toHaveCount(0);
-    await panel
-      .getByRole("button", { name: "Название шота", exact: true })
-      .click();
-    await expect(panel.locator(".shot-name-preview")).toHaveText(
-      "В отчёте: 1-A: untitled 1",
-    );
-    await panel
-      .getByRole("textbox", { name: "Название шота", exact: true })
-      .fill("Встреча у окна");
-    await expect(panel.locator(".shot-name-preview")).toHaveText(
-      "В отчёте: 1-A: Встреча у окна",
-    );
-    await panel
-      .getByRole("button", { name: "Дата съёмок", exact: true })
-      .click();
-    await panel.getByLabel("Дата съёмок", { exact: true }).fill("2026-10-21");
-    await panel
-      .getByRole("button", { name: "Локация съёмок", exact: true })
-      .click();
-    const map = panel.getByRole("region", { name: "Карта локации съёмок" });
-    await expect(map.locator(".leaflet-tile-pane")).toBeAttached();
-    await expect(
-      map.getByRole("link", { name: "OpenStreetMap", exact: true }),
-    ).toBeVisible();
-    await map.click({ position: { x: 210, y: 120 } });
-    await expect(panel.locator(".shot-location-value")).toBeVisible();
-    await panel
-      .getByLabel("Название локации", { exact: true })
-      .fill("Кафе у вокзала");
-    await panel.getByLabel("Широта", { exact: true }).fill("91");
-    await panel.getByLabel("Долгота", { exact: true }).fill("37.618423");
-    await panel
-      .getByRole("button", { name: "Применить координаты", exact: true })
-      .click();
-    await expect(panel.getByRole("alert")).toContainText("Широта");
-    await panel.getByLabel("Широта", { exact: true }).fill("55,751244");
-    await panel
-      .getByRole("button", { name: "Применить координаты", exact: true })
-      .click();
-    await expect(panel.getByRole("alert")).toHaveCount(0);
-    await expect(panel.locator(".shot-location-value")).toContainText(
-      "55.751244, 37.618423",
-    );
-    await panel
-      .getByRole("button", { name: "Формат кадра", exact: true })
-      .click();
-    await selectAppOption(
-      page,
-      panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
-      "2.39",
-    );
-    await panel.locator('input[type="file"]').setInputFiles({
-      name: "my-shot.png",
-      mimeType: "image/png",
-      buffer: await uploadedImage(page),
-    });
-    await expect(
-      panel.getByAltText("Прикреплённый пример кадра"),
-    ).toBeVisible();
-    const original = await panel
-      .getByAltText("Прикреплённый пример кадра")
-      .getAttribute("src");
-    await expect(shotButton(page).locator("img")).toHaveAttribute(
-      "src",
-      original,
-    );
-    await expect(shotButton(page).locator("svg")).toHaveCount(0);
-    for (const [format, ratio] of [
-      ["2.39", 2.39],
-      ["1:1", 1],
-      ["9:16", 9 / 16],
-    ]) {
-      await selectAppOption(
-        page,
-        panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
-        format,
-      );
-      const rect = await panel.locator(".shot-image-frame").boundingBox();
-      expect(rect.width / rect.height).toBeCloseTo(ratio, 2);
-      await expect
-        .poll(async () => {
-          const thumbnail = await shotButton(page)
-            .locator(".scene-shot-thumbnail")
-            .boundingBox();
-          return thumbnail.width / thumbnail.height;
-        })
-        .toBeCloseTo(ratio, 2);
-      await expect(
-        panel.getByAltText("Прикреплённый пример кадра"),
-      ).toHaveAttribute("src", original);
-    }
-    await selectAppOption(
-      page,
-      panel.getByRole("combobox", { name: "Формат кадра", exact: true }),
-      "2.39",
-    );
-    await panel.getByRole("button", { name: /Диалог Мы увидимся/ }).click();
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            getSelection()?.anchorNode?.parentElement?.closest(
-              ".screenplay-block",
-            )?.dataset.blockId,
-        ),
-      )
-      .toBe("dialogue");
-    await panel
-      .locator(".shot-info-scroll")
-      .evaluate((node) => node.scrollTo(0, 0));
-    await page.screenshot({ path: info.outputPath("shot-drawer.png") });
-    await page
-      .getByRole("combobox", { name: "Вариант сцены 1", exact: true })
-      .click();
-    await page.getByRole("option", { name: "F", exact: true }).click();
-    await expect(shotButton(page).locator("img")).toHaveCount(0);
-    await expect(shotButton(page).locator("svg")).toHaveCount(1);
-    for (const name of ["Дата съёмок", "Локация съёмок"])
-      await expect(
-        panel.getByRole("button", { name, exact: true }),
-      ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      panel.getByRole("button", { name: "Название шота", exact: true }),
-    ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      panel.getByRole("button", { name: "Формат кадра", exact: true }),
-    ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      panel.getByRole("combobox", { name: "Время суток", exact: true }),
-    ).toContainText("СУМЕРКИ · из заголовка");
-    await panel
-      .getByRole("button", { name: "Название шота", exact: true })
-      .click();
-    await panel
-      .getByRole("textbox", { name: "Название шота" })
-      .fill("Вечерняя встреча");
-    await expect(panel.locator(".shot-name-preview")).toHaveText(
-      "В отчёте: 1-F: Вечерняя встреча",
-    );
-    await expect
-      .poll(async () => (await stored(page))?.sceneShots?.scene?.F?.name)
-      .toBe("Вечерняя встреча");
-    await page.reload();
-    await shotButton(page).click();
-    await expect(
-      drawer(page).getByRole("textbox", { name: "Название шота" }),
-    ).toHaveValue("Вечерняя встреча");
-    await page
-      .getByRole("combobox", { name: "Вариант сцены 1", exact: true })
-      .click();
-    await page.getByRole("option", { name: "A", exact: true }).click();
-    await expect(
-      drawer(page).getByRole("textbox", { name: "Название шота" }),
-    ).toHaveValue("Встреча у окна");
-    await expect(
-      drawer(page).getByLabel("Дата съёмок", { exact: true }),
-    ).toHaveValue("2026-10-21");
-    await expect(
-      drawer(page).getByLabel("Название локации", { exact: true }),
-    ).toHaveValue("Кафе у вокзала");
-    await expect(
-      drawer(page).getByLabel("Широта", { exact: true }),
-    ).toHaveValue("55.751244");
-    await expect(
-      drawer(page).getByRole("button", { name: "Формат кадра", exact: true }),
-    ).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      drawer(page).getByAltText("Прикреплённый пример кадра"),
-    ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Закрыть информацию о кадре", exact: true })
-      .click();
-    await page.mouse.move(100, 800);
-    await expect(shotButton(page)).toHaveCSS("opacity", "1");
-    await expect(shotButton(page).locator("img")).toHaveAttribute(
-      "src",
-      original,
-    );
-    await shotButton(page).screenshot({
-      path: info.outputPath("shot-thumbnail.png"),
-    });
-    await shotButton(page).click();
-    await expect(
-      drawer(page).getByRole("textbox", { name: "Название шота" }),
-    ).toHaveValue("Встреча у окна");
-    await drawer(page)
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: "replacement-shot.png",
-        mimeType: "image/png",
-        buffer: await uploadedImage(page, true),
-      });
-    await expect(
-      drawer(page).getByAltText("Прикреплённый пример кадра"),
-    ).not.toHaveAttribute("src", original);
-    const replacement = await drawer(page)
-      .getByAltText("Прикреплённый пример кадра")
-      .getAttribute("src");
-    await expect(shotButton(page).locator("img")).toHaveAttribute(
-      "src",
-      replacement,
-    );
-    await drawer(page)
-      .getByRole("button", { name: "Удалить пример кадра", exact: true })
-      .click();
-    await expect(shotButton(page).locator("img")).toHaveCount(0);
-    await expect(shotButton(page).locator("svg")).toHaveCount(1);
-  });
-
-test("320px: shot settings use the mobile sheet and block navigation returns to the text", async ({
-  page,
-}, info) => {
-  await open(page, { width: 320, theme: "dark" });
-  expect((await shotButton(page).boundingBox()).width).toBe(48);
-  expect((await shotButton(page).boundingBox()).height).toBe(48);
-  await shotButton(page).click();
-  await expect(
-    page.getByRole("dialog", { name: "Панель сценария", exact: true }),
-  ).toBeVisible();
-  const rect = await drawer(page).boundingBox();
-  expect(rect.x).toBeGreaterThanOrEqual(0);
-  expect(rect.x + rect.width).toBeLessThanOrEqual(320);
-  await drawer(page)
-    .getByRole("button", { name: "Локация съёмок", exact: true })
-    .click();
-  const map = drawer(page).getByRole("region", {
-    name: "Карта локации съёмок",
-  });
-  await expect(map.locator(".leaflet-tile-pane")).toBeAttached();
-  const mapRect = await map.boundingBox();
-  expect(mapRect.x).toBeGreaterThanOrEqual(0);
-  expect(mapRect.x + mapRect.width).toBeLessThanOrEqual(320);
-  await map.focus();
-  await page.keyboard.press("Enter");
-  await expect(drawer(page).locator(".shot-location-value")).toBeVisible();
-  await drawer(page).getByLabel("Широта", { exact: true }).fill("0");
-  await drawer(page).getByLabel("Долгота", { exact: true }).fill("0");
-  await drawer(page)
-    .getByRole("button", { name: "Применить координаты", exact: true })
-    .click();
-  await expect(drawer(page).locator(".shot-location-value")).toContainText(
-    "0.000000, 0.000000",
-  );
-  await drawer(page)
-    .getByRole("button", { name: "Локация съёмок", exact: true })
-    .click();
-  await drawer(page)
-    .getByRole("button", { name: "Людей в кадре", exact: true })
-    .click();
-  await selectAppOption(
-    page,
-    drawer(page).getByRole("combobox", { name: "Людей в кадре", exact: true }),
-    "2",
-  );
-  await drawer(page)
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "mobile-shot.png",
-      mimeType: "image/png",
-      buffer: await uploadedImage(page),
-    });
-  await expect(
-    drawer(page).getByAltText("Прикреплённый пример кадра"),
-  ).toBeVisible();
-  const original = await drawer(page)
-    .getByAltText("Прикреплённый пример кадра")
-    .getAttribute("src");
-  await page.screenshot({ path: info.outputPath("mobile-shot-sheet.png") });
-  await drawer(page)
-    .getByRole("button", { name: /Диалог Мы увидимся/ })
-    .click();
-  await expect(drawer(page)).toHaveCount(0);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          getSelection()?.anchorNode?.parentElement?.closest(
-            ".screenplay-block",
-          )?.dataset.blockId,
-      ),
-    )
-    .toBe("dialogue");
-  await expect(shotButton(page).locator("img")).toBeVisible();
-  await expect(shotButton(page).locator("img")).toHaveAttribute(
-    "src",
-    original,
-  );
-  expect((await shotButton(page).boundingBox()).width).toBe(48);
-  await shotButton(page).screenshot({
-    path: info.outputPath("mobile-shot-thumbnail.png"),
-  });
-  await shotButton(page).click();
-  await expect(
-    drawer(page).getByAltText("Прикреплённый пример кадра"),
-  ).toHaveAttribute("src", original);
 });
 
 test("adjacent empty scenes keep the square shot controls separated", async ({
@@ -688,7 +342,12 @@ test("PDF shot report includes every scene and stored variant, all settings and 
   });
   await open(page, { doc });
   await shotButton(page).click();
-  await drawer(page)
+  await page
+    .locator(".story-inspector")
+    .getByRole("tab", { name: "Инфо", exact: true })
+    .click();
+  await page
+    .locator(".story-inspector")
     .locator('input[type="file"]')
     .setInputFiles({
       name: "my-shot.png",
@@ -696,8 +355,12 @@ test("PDF shot report includes every scene and stored variant, all settings and 
       buffer: await uploadedImage(page),
     });
   await expect(
-    drawer(page).getByAltText("Прикреплённый пример кадра"),
+    page.locator(".story-inspector").getByAltText("Выбранный слайд"),
   ).toBeVisible();
+  await page
+    .locator(".story-inspector")
+    .getByRole("tab", { name: "DETAILS", exact: true })
+    .click();
   const pending = page.waitForEvent("download");
   await drawer(page)
     .getByRole("button", { name: "PDF-отчёт по всем сценам" })

@@ -12,6 +12,7 @@ import { cleanPageVersions } from "./page-versions.js";
 import { cleanComponentRelationships } from "./component-relationships.js";
 import { ensurePageColors } from "./page-colors.js";
 import { componentExtraData } from "./component-data-extras.js";
+import { migrateStoryboard } from "./storyboard-model.js";
 
 const FORMATS = new Set([
   "scene",
@@ -73,6 +74,7 @@ export function createProject(title = "Untitled") {
     outline: { columns: [], cards: [] },
     sceneVariants: {},
     sceneShots: {},
+    storyboardVersion: 1,
     revisionRound: 0,
     settings: { ...DEFAULT_SETTINGS },
     metadata: {
@@ -733,7 +735,10 @@ export function validateImport(input, options = {}) {
       (snapshot) => validateImport(snapshot, { scriptSnapshot: true }),
     );
   }
-  return options.scriptSnapshot ? document : ensurePageColors(document);
+  if (source.storyboardVersion === 1) document.storyboardVersion = 1;
+  return options.scriptSnapshot
+    ? document
+    : ensurePageColors(migrateStoryboard(document));
 }
 
 export function toFountain(project) {

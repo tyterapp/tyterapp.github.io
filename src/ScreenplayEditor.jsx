@@ -14,12 +14,10 @@ import StarterKit from "@tiptap/starter-kit";
 import { PlainNotes } from "./plain-notes.js";
 import { ArrowTypography } from "./ArrowTypography.js";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
-import { isHistoryTransaction } from "@tiptap/pm/history";
+import { isHistoryTransaction, closeHistory } from "@tiptap/pm/history";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
-import { cardIconSvg } from "./StoryIcons.jsx";
-import { outlineStage, outlineStageStyle } from "./outline-stages.js";
 import { quoteDiff } from "./comment-review.js";
 import { getWordCount } from "./data.js";
 import { committedCharacters, writtenCharacters } from "./writing-activity.js";
@@ -29,6 +27,7 @@ import { preparePageBurn } from "./burning-page.js";
 import {
   pageVersionChanges,
   pageVersionLayoutStep,
+  pageVersionStateStep,
 } from "./page-version-history.js";
 import { pageVersionBreaks } from "./page-versions.js";
 import { ScriptRevisionMark } from "./screenplay-revisions.js";
@@ -47,6 +46,7 @@ import { cleanComponentAliases } from "./component-names.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
+import { storyboardFrames, playSlides } from "./storyboard-data.js";
 import { cropIconSvg } from "./StoryIcons.jsx";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
@@ -900,9 +900,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             if (node.attrs.format === "scene") {
               const number = ++sceneNumber;
               attrs["data-scene-number"] = String(number);
-              const card = propsRef.current.outlineCards.find(
-                (item) => item.blockId === node.attrs.blockId,
-              );
               const shot = shotSettings(
                 { sceneShots: propsRef.current.sceneShots },
                 node.attrs.blockId,
@@ -915,10 +912,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               if (
                 !visual ||
                 visual.image !== shot.image ||
+                visual.frames !== shot.frames ||
+                visual.loop !== shot.playbackLoop ||
                 visual.aspectRatio !== shot.aspectRatio
               ) {
                 visual = {
                   image: shot.image,
+                  frames: shot.frames,
+                  loop: shot.playbackLoop,
                   aspectRatio: shot.aspectRatio,
                   key: ++shotVisuals.current.sequence,
                 };
@@ -965,6 +966,26 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         image.alt = "";
                         image.draggable = false;
                         frame.setAttribute("aria-hidden", "true");
+                        let stop;
+                        button.addEventListener("mouseenter", () => {
+                          stop?.();
+                          stop = playSlides(
+                            shot,
+                            (slide) => {
+                              image.src = slide.image;
+                            },
+                            () => button.isConnected,
+                          );
+                        });
+                        button.stopStorySlides = () => {
+                          stop?.();
+                          stop = null;
+                          image.src = shot.image;
+                        };
+                        button.addEventListener(
+                          "mouseleave",
+                          button.stopStorySlides,
+                        );
                         frame.append(image);
                         button.append(frame);
                       } else button.innerHTML = cropIconSvg(18);
@@ -979,6 +1000,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                     },
                     {
                       key: `shot-${shotScope}-${number}-${visual.key}-${hasShotSettings(shot)}-${propsRef.current.activeShot === node.attrs.blockId}-${language}`,
+                      destroy: (node) => node.stopStorySlides?.(),
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -1025,38 +1047,10 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         }
                       });
                       gutter.append(select);
-                      if (!card) return gutter;
-                      const button = document.createElement("button");
-                      button.type = "button";
-                      button.className = "outline-scene-link";
-                      const stage = outlineStage(card);
-                      button.dataset.productionStage = stage.id;
-                      for (const [name, value] of Object.entries(
-                        outlineStageStyle(card),
-                      ))
-                        button.style.setProperty(name, value);
-                      button.setAttribute(
-                        "aria-label",
-                        t("Открыть карточку {0}", card.title),
-                      );
-                      button.setAttribute(
-                        "data-tooltip",
-                        `${t("Открыть карточку аутлайна")} · ${stage.label}`,
-                      );
-                      button.contentEditable = "false";
-                      button.innerHTML = cardIconSvg(18);
-                      button.addEventListener("mousedown", (event) =>
-                        event.preventDefault(),
-                      );
-                      button.addEventListener("click", (event) => {
-                        event.preventDefault();
-                        propsRef.current.onEditOutlineCard?.(card.id);
-                      });
-                      gutter.append(button);
                       return gutter;
                     },
                     {
-                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${card?.id || ""}-${card?.title || ""}-${card?.color || ""}-${language}`,
+                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${language}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -1176,6 +1170,23 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       setCaretReady(true);
       propsRef.current.onReady?.(createdEditor);
       propsRef.current.onSelection?.(selectionInfo(createdEditor));
+    },
+    onTransaction({ editor: updatedEditor, transaction }) {
+      const changes = pageVersionChanges(transaction);
+      // Tiptap suppresses onUpdate when a resource-only step leaves the text equal.
+      // Forward these steps explicitly, including their native undo/redo inverses.
+      if (
+        changes.some((step) => step.kind !== "pagination") &&
+        transaction.before.eq(updatedEditor.state.doc)
+      )
+        propsRef.current.onChange?.(
+          updatedEditor.getJSON(),
+          undefined,
+          undefined,
+          transaction.mapping,
+          changes,
+          transaction,
+        );
     },
     onUpdate({ editor: updatedEditor, transaction }) {
       rememberCaret(updatedEditor);
@@ -1784,6 +1795,35 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       setEditable(value) {
         editor?.setEditable(value, false);
+      },
+      applyStoryboardChange(beforeDocument, afterDocument, group) {
+        if (!editor || editor.isDestroyed || editor.view.composing)
+          return false;
+        const before = editor.state.doc;
+        const after = editor.schema.nodeFromJSON(
+          normalizeContent(afterDocument.content),
+        );
+        const previous = editor.storyboardGroup;
+        const tr =
+          group && previous?.key === group && Date.now() - previous.time < 750
+            ? editor.state.tr
+            : closeHistory(editor.state.tr);
+        editor.storyboardGroup = { key: group, time: Date.now() };
+        const start = before.content.findDiffStart(after.content);
+        if (start !== null) {
+          const end = before.content.findDiffEnd(after.content);
+          const overlap = Math.max(0, start - Math.min(end.a, end.b));
+          tr.replace(
+            start,
+            end.a + overlap,
+            after.slice(start, end.b + overlap),
+          );
+        }
+        tr.step(pageVersionStateStep(beforeDocument, afterDocument));
+        tr.setMeta("skipWritingReward", true);
+        editor.view.dispatch(tr);
+        if (!group) editor.view.dispatch(closeHistory(editor.state.tr));
+        return true;
       },
       restoreContent(content) {
         if (!editor) return;

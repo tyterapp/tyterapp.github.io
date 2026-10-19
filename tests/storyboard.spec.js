@@ -1,0 +1,480 @@
+import { test, expect } from "@playwright/test";
+import { createCanvas } from "@napi-rs/canvas";
+import fs from "node:fs/promises";
+import { unzipSync, strFromU8 } from "fflate";
+import { createProject } from "../src/data.js";
+import { grantPro } from "./helpers/pro-access.js";
+test.setTimeout(60000);
+const image = (color) => {
+  const c = createCanvas(640, 360),
+    x = c.getContext("2d");
+  x.fillStyle = color;
+  x.fillRect(0, 0, 640, 360);
+  x.fillStyle = "white";
+  x.font = "40px sans-serif";
+  x.fillText(color, 30, 190);
+  return c.toDataURL("image/png");
+};
+const red = image("#a8464c"),
+  blue = image("#3d6fa0"),
+  green = image("#579571");
+const p = (format, text, id) => ({
+  type: "paragraph",
+  attrs: { format, blockId: id },
+  content: [{ type: "text", text }],
+});
+function fixture() {
+  const doc = createProject("История на холме");
+  doc.id = "storyboard-test";
+  doc.components = [
+    { id: "rabbit", name: "ПЯТАЧОК", aliases: ["ПЯТАК"], type: "character" },
+  ];
+  doc.content.content = [
+    p("scene", "ЭКС. ХОЛМ — ДЕНЬ", "one"),
+    p("action", "Два кролика встречаются на холме.", "action-one"),
+    p("character", "ПЯТАЧОК", "character"),
+    p("speech", "Ты слышишь это?", "speech"),
+    p("scene", "ИНТ. ДОМ — НОЧЬ", "two"),
+    p("action", "Тихая комната.", "action-two"),
+    p("scene", "ЭКС. РЕКА — УТРО", "three"),
+    p("action", "Герой возвращается.", "action-three"),
+  ];
+  doc.sceneShots = {
+    one: {
+      A: {
+        frames: [
+          { id: "r", image: red, durationMs: 300, transition: "cut" },
+          { id: "b", image: blue, durationMs: 700, transition: "fade" },
+          { id: "empty", image: "", durationMs: 5000, transition: "cut" },
+        ],
+        drama: 4,
+        act: 1,
+        status: "production",
+        playbackLoop: false,
+      },
+    },
+    two: {
+      A: {
+        frames: [
+          { id: "g", image: green, durationMs: 5000, transition: "cut" },
+        ],
+        drama: 8,
+      },
+    },
+  };
+  return doc;
+}
+async function open(
+  page,
+  { theme = "dark", width = 1600, language = "ru" } = {},
+) {
+  await grantPro(page);
+  await page.setViewportSize({ width, height: 1000 });
+  await page.route("**/__tyter_local/**", (r) => r.fulfill({ status: 404 }));
+  await page.addInitScript(
+    ({ doc, theme, language }) => {
+      if (sessionStorage.getItem("story-seed")) return;
+      sessionStorage.setItem("story-seed", "1");
+      localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
+      localStorage.setItem("tyter.active", doc.id);
+      localStorage.setItem("tyter.onboarding.v1", "done");
+      localStorage.setItem("tyter.editor-intro.v1", "seen");
+      localStorage.setItem("tyter.language.v1", language);
+      localStorage.setItem(
+        "tyter.editor-preferences.v1",
+        JSON.stringify({ theme }),
+      );
+    },
+    { doc: fixture(), theme, language },
+  );
+  await page.goto("/beta");
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+}
+const boardButton = (page) =>
+  page
+    .locator(".document-view-toggle")
+    .getByRole("button", { name: "Раскадровка", exact: true });
+const card = (page, id) => page.locator(`.story-card[data-scene="${id}"]`);
+const panel = (page) => page.locator(".story-inspector");
+async function info(page, detail = false) {
+  await panel(page).getByRole("tab", { name: "Инфо", exact: true }).click();
+  if (detail)
+    await panel(page)
+      .getByRole("tab", { name: "DETAILS", exact: true })
+      .click();
+}
+for (const theme of ["light", "dark"])
+  test(`${theme}: storyboard replaces outline, shares scene structure and stores shot details`, async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await open(page, { theme });
+    await expect(
+      page.getByRole("button", { name: "Аутлайн", exact: true }),
+    ).toHaveCount(0);
+    await boardButton(page).click();
+    await expect(page.locator(".story-card")).toHaveCount(3);
+    await card(page, "one").getByRole("button").click();
+    await panel(page)
+      .getByRole("textbox", { name: "Действие 2", exact: true })
+      .fill("Кролики наблюдают за облаками.");
+    await panel(page)
+      .getByRole("button", { name: "Добавить блок текста", exact: true })
+      .click();
+    await expect(panel(page).locator(".story-structure-block")).toHaveCount(5);
+    await info(page, true);
+    await panel(page).getByLabel("Номер акта", { exact: true }).fill("2");
+    await panel(page)
+      .getByLabel("Статус сцены", { exact: true })
+      .selectOption("post-production");
+    await panel(page).getByLabel("Драматичность", { exact: true }).fill("0");
+    await panel(page)
+      .getByLabel("Описание сцены", { exact: true })
+      .fill("Начало приключения.");
+    await panel(page)
+      .getByRole("button", { name: "График драматургии", exact: true })
+      .click();
+    await expect(
+      panel(page).getByRole("group", { name: "Драматичность сцен от 0 до 10" }),
+    ).toBeVisible();
+    await panel(page)
+      .getByRole("button", { name: "Дата съёмок", exact: true })
+      .click();
+    await panel(page)
+      .getByLabel("Дата съёмок", { exact: true })
+      .fill("2026-12-15");
+    await page.screenshot({ path: `.cache/storyboard-${theme}.png` });
+    await panel(page)
+      .getByRole("button", { name: "Вернуться к сценарию", exact: true })
+      .click();
+    await expect(page.locator(".screenplay-editor")).toContainText(
+      "Кролики наблюдают за облаками.",
+    );
+    await expect(panel(page)).toBeVisible();
+    await panel(page)
+      .getByRole("button", { name: "Посмотреть раскадровку", exact: true })
+      .click();
+    await page.waitForTimeout(700);
+    await page.reload();
+    await boardButton(page).click();
+    await card(page, "one").getByRole("button").click();
+    await info(page, true);
+    await expect(
+      panel(page).getByLabel("Описание сцены", { exact: true }),
+    ).toHaveValue("Начало приключения.");
+    await expect(
+      panel(page).getByLabel("Драматичность", { exact: true }),
+    ).toHaveValue("0");
+    await expect(
+      panel(page).getByLabel("Номер акта", { exact: true }),
+    ).toHaveValue("2");
+    expect(errors).toEqual([]);
+  });
+test("slides respect hover timing, clipboard chooses empty slots, variants stay isolated and Undo restores settings", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  const preview = card(page, "one").locator(".story-image img");
+  await expect(preview).toHaveAttribute("src", red);
+  await preview.hover();
+  await expect(preview).toHaveAttribute("src", blue);
+  await page.mouse.move(50, 200);
+  await expect(preview).toHaveAttribute("src", red);
+  await card(page, "one").getByRole("button").click();
+  await info(page);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(3);
+  await page.locator(".storyboard-workspace").evaluate((element, data) => {
+    const bytes = Uint8Array.from(atob(data.split(",")[1]), (c) =>
+      c.charCodeAt(0),
+    );
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "pasted.png", { type: "image/png" }));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: transfer,
+      }),
+    );
+  }, green);
+  const dialog = page.locator(".story-paste-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("select")).toHaveValue("one:A:empty");
+  await dialog.getByRole("button", { name: "Добавить", exact: true }).click();
+  await expect(panel(page).locator('[data-frame="empty"] img')).toBeVisible();
+  await panel(page)
+    .getByLabel("Вариант сцены 1", { exact: true })
+    .selectOption("B");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(0);
+  await panel(page)
+    .getByRole("button", { name: "Добавить свободный слот", exact: true })
+    .click();
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(1);
+  await page.keyboard.press("Control+z");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(0);
+  await panel(page)
+    .getByLabel("Вариант сцены 1", { exact: true })
+    .selectOption("A");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(3);
+  await expect(panel(page).locator('[data-frame="empty"] img')).toBeVisible();
+  await panel(page)
+    .locator('[data-frame="b"]')
+    .dragTo(panel(page).locator('[data-frame="r"]'));
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]").first(),
+  ).toHaveAttribute("data-frame", "b");
+  await card(page, "three").dragTo(card(page, "one"));
+  await expect(page.locator(".story-card").first()).toHaveAttribute(
+    "data-scene",
+    "three",
+  );
+});
+test("exports separate PNG/WEBP files, portable JSON, a readable PDF and complete TYT", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  const download = async (name) => {
+    await page
+      .getByRole("button", { name: "Экспорт раскадровки", exact: true })
+      .click();
+    const promise = page.waitForEvent("download");
+    await page.getByRole("menuitem", { name: new RegExp(name) }).click();
+    const result = await promise;
+    return { result, bytes: await fs.readFile(await result.path()) };
+  };
+  for (const format of ["PNG", "WEBP"]) {
+    const { bytes } = await download(`${format} sequence`);
+    const files = unzipSync(bytes);
+    expect(
+      Object.keys(files).filter((name) =>
+        name.endsWith(`.${format.toLowerCase()}`),
+      ),
+    ).toHaveLength(4);
+    const manifest = JSON.parse(strFromU8(files["storyboard.json"]));
+    expect(manifest.scenes[0].frames.map((f) => f.durationMs)).toEqual([
+      300, 700, 5000,
+    ]);
+    expect(manifest.scenes[0].frames[1].file).toBe(
+      `scene-001-A_frame-002.${format.toLowerCase()}`,
+    );
+    const head = files[manifest.scenes[0].frames[0].file];
+    expect(
+      format === "PNG" ? [...head.slice(0, 4)] : strFromU8(head.slice(0, 4)),
+    ).toEqual(format === "PNG" ? [137, 80, 78, 71] : "RIFF");
+  }
+  const json = JSON.parse((await download("^JSON")).bytes.toString());
+  expect(json.format).toBe("tyter-storyboard");
+  expect(json.scenes[0].frames[0].image).toBe(red);
+  const pdf = await download("^PDF");
+  expect(pdf.result.suggestedFilename()).toMatch(/\.pdf$/);
+  expect(pdf.bytes.subarray(0, 4).toString()).toBe("%PDF");
+  await fs.writeFile(".cache/storyboard-export.pdf", pdf.bytes);
+  const tyt = JSON.parse((await download("Tyter project")).bytes.toString());
+  expect(tyt.document.sceneShots.one.A.frames).toHaveLength(3);
+  expect(tyt.document.content.content).toHaveLength(8);
+});
+test("mobile bottom tabs, real two-finger pinch and long press reorder", async ({
+  page,
+  context,
+}) => {
+  await open(page, { width: 390 });
+  const tabs = page.locator(".mobile-mode-tabs");
+  await expect(tabs).toBeVisible();
+  await expect(page.locator(".document-view-toggle")).toBeHidden();
+  await tabs.getByRole("button", { name: "Раскадровка", exact: true }).click();
+  await expect(page.locator(".story-card")).toHaveCount(3);
+  const cdp = await context.newCDPSession(page);
+  const touch = async (type, points) =>
+    cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: points.map(([id, x, y]) => ({
+        id,
+        x,
+        y,
+        radiusX: 2,
+        radiusY: 2,
+        force: 1,
+      })),
+    });
+  const viewport = await page.locator(".story-board-scroll").boundingBox();
+  const y = viewport.y + 150;
+  const width = await card(page, "one")
+    .locator(".story-image")
+    .evaluate((e) => e.getBoundingClientRect().width);
+  await touch("touchStart", [
+    [1, 120, y],
+    [2, 260, y],
+  ]);
+  await touch("touchMove", [
+    [1, 70, y],
+    [2, 310, y],
+  ]);
+  await touch("touchEnd", []);
+  await expect
+    .poll(() =>
+      card(page, "one")
+        .locator(".story-image")
+        .evaluate((e) => e.getBoundingClientRect().width),
+    )
+    .toBeGreaterThan(width);
+  await touch("touchStart", [
+    [1, 70, y],
+    [2, 310, y],
+  ]);
+  await touch("touchMove", [
+    [1, 150, y],
+    [2, 230, y],
+  ]);
+  await touch("touchEnd", []);
+  await expect
+    .poll(() =>
+      card(page, "one")
+        .locator(".story-image")
+        .evaluate((e) => e.getBoundingClientRect().width),
+    )
+    .toBeLessThan(width);
+  const source = await card(page, "three").boundingBox(),
+    target = await card(page, "one").boundingBox();
+  await touch("touchStart", [[1, source.x + 30, source.y + 25]]);
+  await page.waitForTimeout(500);
+  await touch("touchMove", [[1, target.x + 30, target.y + 25]]);
+  await touch("touchEnd", []);
+  await expect(page.locator(".story-card").first()).toHaveAttribute(
+    "data-scene",
+    "three",
+  );
+  await page.screenshot({ path: ".cache/storyboard-mobile.png" });
+  await card(page, "one").getByRole("button").click();
+  await info(page);
+  await expect(panel(page)).toBeVisible();
+  expect((await panel(page).boundingBox()).width).toBeLessThanOrEqual(390);
+  const slideFrom = await panel(page).locator('[data-frame="b"]').boundingBox(),
+    slideTo = await panel(page).locator('[data-frame="r"]').boundingBox();
+  await touch("touchStart", [[1, slideFrom.x + 25, slideFrom.y + 20]]);
+  await page.waitForTimeout(500);
+  await touch("touchMove", [[1, slideTo.x + 25, slideTo.y + 20]]);
+  await touch("touchEnd", []);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]").first(),
+  ).toHaveAttribute("data-frame", "b");
+});
+test("English controls keep screenplay text and provide the mobile mode tabs", async ({
+  page,
+}) => {
+  await open(page, { language: "en" });
+  const original = await page.locator(".screenplay-editor").textContent();
+  await page
+    .locator(".document-view-toggle")
+    .getByRole("button", { name: "Storyboard", exact: true })
+    .click();
+  await card(page, "one").getByRole("button").click();
+  await panel(page).getByRole("tab", { name: "Info", exact: true }).click();
+  await expect(
+    panel(page).getByRole("button", { name: "Add images", exact: true }),
+  ).toBeVisible();
+  await panel(page).getByRole("tab", { name: "DETAILS", exact: true }).click();
+  await expect(
+    panel(page).getByLabel("Act number", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel(page).getByLabel("Scene status", { exact: true }),
+  ).toBeVisible();
+  await page
+    .locator(".document-view-toggle")
+    .getByRole("button", { name: "Screenplay", exact: true })
+    .click();
+  expect(await page.locator(".screenplay-editor").textContent()).toBe(original);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page
+      .locator(".mobile-mode-tabs")
+      .getByRole("button", { name: "Storyboard", exact: true }),
+  ).toBeVisible();
+});
+
+test("editing scene structure repaginates the hidden screenplay and new scenes join the board", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await card(page, "one").getByRole("button").click();
+  const longText = "История продолжается на следующей странице. ".repeat(240);
+  await panel(page)
+    .getByRole("textbox", { name: "Действие 2", exact: true })
+    .fill(longText);
+  await expect
+    .poll(() => page.locator(".story-page-group").count())
+    .toBeGreaterThan(1);
+  await page
+    .getByRole("button", { name: "Добавить сцену", exact: true })
+    .click();
+  await expect(page.locator(".story-card")).toHaveCount(4);
+  await expect(panel(page).locator(".story-scene-title")).toContainText(
+    "Сцена 4",
+  );
+  await panel(page)
+    .getByRole("textbox", { name: "Заголовок 1", exact: true })
+    .fill("ЭКС. НОВАЯ ЛОКАЦИЯ — НОЧЬ");
+  await panel(page)
+    .getByRole("button", { name: "Вернуться к сценарию", exact: true })
+    .click();
+  await expect(page.locator(".screenplay-editor")).toContainText(
+    "ЭКС. НОВАЯ ЛОКАЦИЯ — НОЧЬ",
+  );
+  await expect(page.locator(".screenplay-editor")).toContainText(
+    longText.trim(),
+  );
+});
+
+test("structure editing updates automatic character and alias links", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await card(page, "one").getByRole("button").click();
+  await panel(page)
+    .getByRole("textbox", { name: "Персонаж 3", exact: true })
+    .fill("ПЯТАК");
+  const character = () =>
+    page
+      .locator(".screenplay-editor")
+      .evaluate((element) =>
+        element.editor
+          .getJSON()
+          .content.find((node) => node.attrs.blockId === "character"),
+      );
+  await expect
+    .poll(async () =>
+      (await character()).content.every((node) =>
+        node.marks?.some(
+          (mark) => mark.type === "entity" && mark.attrs.id === "rabbit",
+        ),
+      ),
+    )
+    .toBe(true);
+  await panel(page)
+    .getByRole("textbox", { name: "Персонаж 3", exact: true })
+    .fill("ДРУГОЙ ГЕРОЙ");
+  await expect
+    .poll(async () =>
+      (await character()).content.some((node) =>
+        node.marks?.some(
+          (mark) => mark.type === "entity" && mark.attrs.automatic,
+        ),
+      ),
+    )
+    .toBe(false);
+});

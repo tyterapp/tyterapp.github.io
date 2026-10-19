@@ -30,6 +30,38 @@
   padding-right: 8px;
   padding-bottom: 16px;
 }
+.components-drawer .component-report-export {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.component-report-export > svg {
+  flex: 0 0 auto;
+}
+.component-report-export > small {
+  margin-left: auto;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.components-drawer .component-report-export:not(:disabled):hover {
+  background: var(--ui-hover);
+}
+.components-drawer .component-report-export:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .component-detail-drawer .component-editor.minimal-dialog {
   margin: 0;
   padding: 0;

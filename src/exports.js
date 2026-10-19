@@ -661,7 +661,7 @@ export async function exportDOCX(document) {
   );
 }
 const fontPromises = new Map();
-async function getFonts(screenplay = false) {
+export async function getFonts(screenplay = false) {
   if (!fontPromises.has(screenplay)) {
     const files = screenplay
       ? {

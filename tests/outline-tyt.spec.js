@@ -87,106 +87,29 @@ const stored = (page) =>
     const { browserRequest } = await import("/src/browser-files.js");
     return (await browserRequest("documents")).documents;
   });
-test("outline cards create independent scenes and navigate in both directions", async ({
-  page,
-}, info) => {
-  await page.goto("/pro");
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Компоненты", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Реквизит", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Статистика документа" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "Три акта" }).click();
-  await page
-    .getByRole("button", { name: "Добавить карточку в Акт 1", exact: true })
-    .click();
-  await page.getByLabel("Название карточки").fill("Окно");
-  await page
-    .getByLabel("Текст карточки", { exact: true })
-    .fill("Карточка: кошка замечает свет в окне.");
-  await page
-    .getByRole("button", { name: "Post production", exact: true })
-    .click();
-  await page
-    .getByLabel("Комментарий карточки", { exact: true })
-    .fill("Важная часть истории");
-  await page
-    .getByRole("button", { name: "Добавить комментарий карточки" })
-    .click();
-  await page.getByRole("button", { name: "Перейти к сцене карточки" }).click();
-  const scene = page
-    .locator('.screenplay-editor p[data-format="scene"]')
-    .last();
-  await expect
-    .poll(() =>
-      scene.evaluate((element) => {
-        const content = element.cloneNode(true);
-        content
-          .querySelectorAll('[contenteditable="false"]')
-          .forEach((control) => control.remove());
-        return content.textContent;
-      }),
-    )
-    .toBe("");
-  await scene.click();
-  await page.keyboard.press("Home");
-  await page.keyboard.press("Shift+End");
-  await page.keyboard.insertText("ИНТ. РЕДАКЦИЯ — ДЕНЬ");
-  await page
-    .getByRole("button", { name: "Открыть карточку Окно", exact: true })
-    .click();
-  await expect(page.getByLabel("Название карточки")).toHaveValue("Окно");
-  await expect(page.getByLabel("Текст карточки", { exact: true })).toHaveValue(
-    "Карточка: кошка замечает свет в окне.",
-  );
-  await expect(page.locator(".outline-comment")).toContainText(
-    "Важная часть истории",
-  );
-  await expect(page.locator(".screenplay-editor")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Перейти к карточке в аутлайне", exact: true })
-    .click();
-  await page.keyboard.press("Control+f");
-  await expect(
-    page.getByLabel("Поиск карточек", { exact: true }),
-  ).toBeFocused();
-  await page
-    .getByLabel("Поиск карточек", { exact: true })
-    .fill("нет такой карточки");
-  await expect(page.locator(".outline-card")).toHaveCount(0);
-  await page.getByLabel("Поиск карточек", { exact: true }).fill("окно");
-  await expect(page.locator(".outline-card")).toHaveCount(1);
-  await page.screenshot({ path: info.outputPath("outline.png") });
-  await page.getByRole("button", { name: "Действия с карточкой Окно" }).click();
-  await page.getByRole("button", { name: "Удалить", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "Удалить из аутлайна" })
-    .getByRole("button", { name: "Удалить", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Сценарий", exact: true }).click();
-  await expect(scene).toContainText("РЕДАКЦИЯ");
-  await expect(page.locator(".outline-scene-link")).toHaveCount(0);
-});
-test("TYT round trip preserves comments, props, components, folders, metadata, outline and history", async ({
+test("TYT round trip preserves comments, props, components, folders, metadata, storyboard and history", async ({
   page,
 }) => {
   await page.goto("/pro");
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
-  await page.getByRole("button", { name: "Добавить акт" }).click();
-  await page.getByRole("button", { name: "Добавить карточку в Акт 1" }).click();
-  await page.getByLabel("Название карточки").fill("Свет в окне");
-  await page.getByLabel("Драматичность карточки", { exact: true }).fill("7");
+  await page.getByRole("button", { name: "Раскадровка", exact: true }).click();
+  await page.locator(".story-card").first().getByRole("button").click();
   await page
-    .getByLabel("Текст карточки", { exact: true })
-    .fill("Независимый текст карточки.");
+    .locator(".story-inspector")
+    .getByRole("tab", { name: "Инфо", exact: true })
+    .click();
+  await page
+    .locator(".story-inspector")
+    .getByRole("button", { name: "Добавить свободный слот", exact: true })
+    .click();
+  await page
+    .locator(".story-inspector")
+    .getByRole("tab", { name: "DETAILS", exact: true })
+    .click();
+  await page.getByLabel("Описание сцены", { exact: true }).fill("Свет в окне");
+  await page.getByLabel("Драматичность", { exact: true }).fill("7");
   await page.getByRole("button", { name: "Сценарий", exact: true }).click();
   await expect
-    .poll(async () => (await stored(page))[0]?.outline?.cards?.[0]?.title)
+    .poll(async () => (await stored(page))[0]?.sceneShots?.scene?.A?.synopsis)
     .toBe("Свет в окне");
   await page.getByRole("button", { name: "Скачать сценарий" }).click();
   const event = page.waitForEvent("download");
@@ -202,8 +125,8 @@ test("TYT round trip preserves comments, props, components, folders, metadata, o
   expect(payload.document.props[0]).toMatchObject(fixture.props[0]);
   expect(payload.document.components[0]).toMatchObject(fixture.components[0]);
   expect(payload.document.metadata).toMatchObject(fixture.metadata);
-  expect(payload.document.outline.cards[0].title).toBe("Свет в окне");
-  expect(payload.document.outline.cards[0].drama).toBe(7);
+  expect(payload.document.sceneShots.scene.A.synopsis).toBe("Свет в окне");
+  expect(payload.document.sceneShots.scene.A.drama).toBe(7);
   expect(payload.history.length).toBeGreaterThan(0);
   await page.locator('input[type="file"][accept*=".tyt"]').setInputFiles({
     name: "backup.tyt",

@@ -64,22 +64,22 @@ export const BLOG_ARTICLES = [
     minutes: 2,
     title: ["От карточки к сцене", "From a card to a scene"],
     summary: [
-      "Соберите структуру в аутлайне и переходите к тексту, когда сцена готова к работе.",
-      "Build your outline and move into the script when a scene is ready to write.",
+      "Соберите раскадровку по сценам и работайте со слайдами и текстом в одном проекте.",
+      "Build a storyboard by scene and work with slides and screenplay in one project.",
     ],
     sections: [
       [
         ["Разложите историю по актам", "Arrange the story into acts"],
         [
-          "В PRO-версии аутлайн помогает собрать карточки истории в актах. Дайте карточке название, запишите её смысл и выберите цвет этапа: pre production, production или post production.",
-          "The PRO outline organizes story cards into acts. Name each card, describe its purpose and choose a stage color: pre production, production or post production.",
+          "В PRO-версии карточка раскадровки соответствует сцене и её варианту A–F. Добавьте слайды, задайте порядок, длительность и переходы. В «Инфо» укажите акт, статус и драматичность от 0 до 10.",
+          "Each PRO storyboard card represents a scene and its A–F variant. Add slides, set their order, duration and transitions. Use Info to choose the act, status and drama from 0 to 10.",
         ],
       ],
       [
         ["Откройте карточку из сценария", "Open a card from the script"],
         [
-          "Нажмите на значок карточки рядом со сценой: справа откроется панель с её содержимым. Прицел в панели переносит к этой карточке в аутлайне. Содержимое карточки и текст сценария редактируются независимо.",
-          "Click a scene’s card icon to open its content in the right panel. The target button takes you to that card in the outline. Card content and screenplay text are edited independently.",
+          "Нажмите на миниатюру рядом со сценой, чтобы открыть правую панель. В «Структуре» редактируется тот же текст, что и в сценарии. Кнопка сверху переключает вид между сценарием и раскадровкой.",
+          "Click the thumbnail next to a scene to open the right panel. Structure edits the same text as the screenplay. The top button switches between screenplay and storyboard.",
         ],
       ],
       [
@@ -92,8 +92,8 @@ export const BLOG_ARTICLES = [
       [
         ["Работайте с вариантами", "Work with variants"],
         [
-          "Варианты A–F позволяют попробовать разные решения одной сцены. Версии сценария White–Cherry разделяют весь рабочий материал: текст, аутлайн, поиск и подключённые библиотеки.",
-          "Variants A–F let you try different versions of one scene. White–Cherry screenplay versions separate the whole workspace: script, outline, search and attached libraries.",
+          "Варианты A–F сохраняют отдельные решения сцены со своими слайдами и настройками. Цвет страницы — отдельная пометка: выбор цвета не создаёт копию текста.",
+          "Variants A–F keep separate scene alternatives with their own slides and settings. Page color is a label; selecting a color does not copy the text.",
         ],
       ],
     ],
@@ -125,8 +125,8 @@ export const BLOG_ARTICLES = [
       [
         ["Перенесите весь проект", "Transfer the whole project"],
         [
-          "В PRO экспорт TYT собирает сценарий, аутлайн, компоненты, реквизит, комментарии и историю изменений в один файл. Импортируйте его на другом устройстве, чтобы продолжить работу с копией проекта.",
-          "PRO’s TYT export collects the screenplay, outline, components, props, comments and revision history into one file. Import it on another device to continue with a copy of the project.",
+          "В PRO экспорт TYT собирает сценарий, раскадровку, компоненты, реквизит, комментарии и историю изменений в один файл. Импортируйте его на другом устройстве, чтобы продолжить работу с копией проекта.",
+          "PRO’s TYT export collects the screenplay, storyboard, components, props, comments and revision history into one file. Import it on another device to continue with a copy of the project.",
         ],
       ],
       [

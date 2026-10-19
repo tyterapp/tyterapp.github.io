@@ -9,6 +9,7 @@ const fields = [
   "revisionRound",
   "sceneVariants",
   "sceneShots",
+  "storyboardVersion",
   "outline",
   "components",
   "relationships",

@@ -4,7 +4,7 @@ import { createProject } from "../../src/data.js";
 import { PRO_VERIFIED_STORAGE } from "../../src/pro-access.js";
 import { grantPro } from "../helpers/pro-access.js";
 
-test("the installed editor reloads offline, keeps document changes and loads the house and lazy outline", async ({
+test("the installed editor reloads offline, keeps document changes and loads the house and storyboard", async ({
   page,
   context,
 }) => {
@@ -84,8 +84,8 @@ test("the installed editor reloads offline, keeps document changes and loads the
     .toBe(true);
   await page.reload();
   await expect(paragraph).toContainText("ОФЛАЙН СОХРАНЕНО");
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
-  await expect(page.locator(".outline-layout")).toBeVisible();
+  await page.getByRole("button", { name: "Раскадровка", exact: true }).click();
+  await expect(page.locator(".storyboard-workspace")).toBeVisible();
   await page.getByRole("button", { name: "Сценарий", exact: true }).click();
   await openWritingShop(page);
   await page

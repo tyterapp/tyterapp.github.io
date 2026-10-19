@@ -49,6 +49,7 @@ export default function ShotInfoDrawer({
   onGo,
   onExport,
   busy,
+  embedded = false,
 }) {
   useLanguage();
   const namePreviewId = useId();
@@ -164,36 +165,41 @@ export default function ShotInfoDrawer({
     );
   };
   return (
-    <aside className="shot-info-drawer" aria-label={t("Информация о кадре")}>
-      <header className="shot-info-header">
-        <div>
-          <h2>{t("Информация о кадре")}</h2>
-          <span>
-            {t("Сцена {0}", scene.number)} · {t("Вариант {0}", scene.letter)}
-          </span>
-        </div>
-        <div className="shot-header-actions">
-          <button
-            className="icon-button"
-            onClick={toggleAll}
-            aria-label={t(
-              allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
-            )}
-            data-tooltip={t(
-              allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
-            )}
-          >
-            <ChevronsUpDown size={17} />
-          </button>
-          <button
-            className="icon-button"
-            onClick={onClose}
-            aria-label={t("Закрыть информацию о кадре")}
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </header>
+    <aside
+      className={`shot-info-drawer${embedded ? " shot-details-embedded" : ""}`}
+      aria-label={t("Информация о кадре")}
+    >
+      {!embedded && (
+        <header className="shot-info-header">
+          <div>
+            <h2>{t("Информация о кадре")}</h2>
+            <span>
+              {t("Сцена {0}", scene.number)} · {t("Вариант {0}", scene.letter)}
+            </span>
+          </div>
+          <div className="shot-header-actions">
+            <button
+              className="icon-button"
+              onClick={toggleAll}
+              aria-label={t(
+                allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
+              )}
+              data-tooltip={t(
+                allOpen ? "Свернуть все свойства" : "Развернуть все свойства",
+              )}
+            >
+              <ChevronsUpDown size={17} />
+            </button>
+            <button
+              className="icon-button"
+              onClick={onClose}
+              aria-label={t("Закрыть информацию о кадре")}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+      )}
       <div className="shot-info-scroll" ref={body}>
         <button
           className="shot-scene-title"
@@ -202,75 +208,81 @@ export default function ShotInfoDrawer({
         >
           {scene.title || t("Без названия")}
         </button>
-        <section
-          className="shot-section shot-image-section"
-          aria-label={t("Пример кадра")}
-        >
-          <div className="shot-image-actions">
-            <button
-              className="quiet-button"
-              onClick={() => input.current?.click()}
-            >
-              <ImagePlus size={16} />
-              {settings.image ? t("Заменить картинку") : t("Загрузить кадр")}
-            </button>
-            {settings.image && (
+        {!embedded && (
+          <section
+            className="shot-section shot-image-section"
+            aria-label={t("Пример кадра")}
+          >
+            <div className="shot-image-actions">
               <button
-                className="icon-button"
-                aria-label={t("Удалить пример кадра")}
-                onClick={() => onChange({ image: "" })}
+                className="quiet-button"
+                onClick={() => input.current?.click()}
               >
-                <X size={16} />
+                <ImagePlus size={16} />
+                {settings.image ? t("Заменить картинку") : t("Загрузить кадр")}
               </button>
-            )}
-          </div>
-          {selectProperty(
-            SHOT_FIELDS.find((field) => field.key === "aspectRatio"),
-          )}
-          <input
-            ref={input}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            onChange={upload}
-          />
-          {error && (
-            <p role="alert" className="shot-upload-error">
-              {t(error)}
-            </p>
-          )}
-          {settings.image && (
-            <figure className="shot-reference">
-              {!imageError ? (
-                <div
-                  className={`shot-image-frame${ratio ? " is-cropped" : ""}`}
-                  style={
-                    ratio
-                      ? {
-                          aspectRatio: ratio,
-                          width: `min(100%, ${320 * ratio}px)`,
-                        }
-                      : undefined
-                  }
+              {settings.image && (
+                <button
+                  className="icon-button"
+                  aria-label={t("Удалить пример кадра")}
+                  onClick={() => onChange({ image: "" })}
                 >
-                  <img
-                    src={settings.image}
-                    alt={t("Прикреплённый пример кадра")}
-                    onError={() => setImageError(true)}
-                  />
-                </div>
-              ) : (
-                <div className="shot-reference-unavailable">
-                  {t(
-                    "Пример кадра недоступен. Добавьте изображение с устройства.",
-                  )}
-                </div>
+                  <X size={16} />
+                </button>
               )}
-              <figcaption>{t("Ваш пример кадра")}</figcaption>
-            </figure>
-          )}
-        </section>
+            </div>
+            {selectProperty(
+              SHOT_FIELDS.find((field) => field.key === "aspectRatio"),
+            )}
+            <input
+              ref={input}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={upload}
+            />
+            {error && (
+              <p role="alert" className="shot-upload-error">
+                {t(error)}
+              </p>
+            )}
+            {settings.image && (
+              <figure className="shot-reference">
+                {!imageError ? (
+                  <div
+                    className={`shot-image-frame${ratio ? " is-cropped" : ""}`}
+                    style={
+                      ratio
+                        ? {
+                            aspectRatio: ratio,
+                            width: `min(100%, ${320 * ratio}px)`,
+                          }
+                        : undefined
+                    }
+                  >
+                    <img
+                      src={settings.image}
+                      alt={t("Прикреплённый пример кадра")}
+                      onError={() => setImageError(true)}
+                    />
+                  </div>
+                ) : (
+                  <div className="shot-reference-unavailable">
+                    {t(
+                      "Пример кадра недоступен. Добавьте изображение с устройства.",
+                    )}
+                  </div>
+                )}
+                <figcaption>{t("Ваш пример кадра")}</figcaption>
+              </figure>
+            )}
+          </section>
+        )}
         <section className="shot-section shot-main-settings">
+          {embedded &&
+            selectProperty(
+              SHOT_FIELDS.find((field) => field.key === "aspectRatio"),
+            )}
           {property(
             "name",
             t("Название шота"),

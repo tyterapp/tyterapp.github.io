@@ -1,5 +1,6 @@
 import { HISTORY_DAYS } from "./edition.js";
 import { scriptVersionId } from "./script-versions.js";
+import { migrateStoryboard } from "./storyboard-model.js";
 
 const DATABASE = "tyter.history.v1";
 const STORE = "revisions";
@@ -7,12 +8,27 @@ export const FREE_HISTORY_DAYS = 14;
 export const revisionArea = (revision) =>
   revision.area === "notes"
     ? "notes"
-    : revision.area === "outline" ||
-        (!revision.area && revision.label?.includes("аутлайна"))
-      ? "outline"
-      : "screenplay";
+    : revision.area === "storyboard"
+      ? "storyboard"
+      : revision.area === "outline" ||
+          (!revision.area && revision.label?.includes("аутлайна"))
+        ? "outline"
+        : "screenplay";
 export const snapshotForArea = (snapshot, area) => {
   if (area === "notes") return { notes: snapshot.notes || null };
+  if (area === "storyboard")
+    return Object.fromEntries(
+      [
+        "content",
+        "pageVersions",
+        "sceneVariants",
+        "sceneShots",
+        "comments",
+        "storyboardVersion",
+      ]
+        .filter((key) => key in snapshot)
+        .map((key) => [key, snapshot[key]]),
+    );
   if (area === "outline")
     return {
       outline: snapshot.outline || { columns: [], cards: [] },
@@ -31,7 +47,9 @@ export function restoreSnapshotForArea(document, snapshot, area) {
   // The editor measures and migrates that restored legacy content on entry.
   if (area === "screenplay" && !snapshot.pageVersions)
     restored.pageVersions = undefined;
-  return restored;
+  return area === "outline"
+    ? migrateStoryboard({ ...restored, storyboardVersion: undefined })
+    : restored;
 }
 
 function openDatabase() {
@@ -59,6 +77,7 @@ export function snapshotOf(document) {
     notes: document.notes || null,
     sceneVariants: document.sceneVariants || {},
     sceneShots: document.sceneShots || {},
+    storyboardVersion: document.storyboardVersion || 1,
     components: document.components,
     relationships: document.relationships || [],
     ...(document.graphLayout ? { graphLayout: document.graphLayout } : {}),
@@ -83,7 +102,7 @@ export function changeLabel(before, after) {
     ["pageVersions", "цветов страниц"],
     ["notes", "заметок"],
     ["sceneVariants", "вариантов сцен"],
-    ["sceneShots", "настроек кадров"],
+    ["sceneShots", "раскадровки"],
     ["components", "компонентов"],
     ["relationships", "связей персонажей"],
     ["componentFolders", "папок"],

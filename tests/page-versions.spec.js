@@ -40,7 +40,12 @@ function fixture() {
 }
 async function open(
   page,
-  { width = 1440, language = "ru", document = fixture() } = {},
+  {
+    width = 1440,
+    language = "ru",
+    document = fixture(),
+    otherDocuments = [],
+  } = {},
 ) {
   await grantPro(page);
   await page.setViewportSize({ width, height: 1000 });
@@ -48,10 +53,13 @@ async function open(
     route.fulfill({ status: 404 }),
   );
   await page.addInitScript(
-    ({ document, language }) => {
+    ({ document, language, otherDocuments }) => {
       if (!sessionStorage.getItem("colors-seeded")) {
         sessionStorage.setItem("colors-seeded", "yes");
-        localStorage.setItem("tyter.projects.v1", JSON.stringify([document]));
+        localStorage.setItem(
+          "tyter.projects.v1",
+          JSON.stringify([document, ...otherDocuments]),
+        );
         localStorage.setItem("tyter.active", document.id);
         localStorage.setItem("tyter.language.v1", language);
         localStorage.setItem(
@@ -60,7 +68,7 @@ async function open(
         );
       }
     },
-    { document, language },
+    { document, language, otherDocuments },
   );
   await page.goto("/pro");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
@@ -213,6 +221,10 @@ for (const language of ["ru", "en"])
     ).toBeVisible();
     await drawer.locator('[data-component-id="anna"] .component-item').click();
     await expect(drawer.locator(".component-relationships")).toHaveCount(0);
+    await expect(drawer.locator(".component-report-export")).toBeVisible();
+    await expect(drawer.locator(".component-report-export")).toContainText(
+      language === "ru" ? "Отчёт реквизита" : "Props report",
+    );
     const quantity = drawer.getByRole("spinbutton", {
       name: language === "ru" ? "Количество компонента" : "Component quantity",
       exact: true,
@@ -220,6 +232,8 @@ for (const language of ["ru", "en"])
     await quantity.fill("0");
     if (language === "ru")
       await page.screenshot({ path: ".cache/component-quantity.png" });
+    if (language === "ru")
+      await drawer.screenshot({ path: ".cache/component-settings-final.png" });
     await drawer
       .getByRole("button", {
         name: language === "ru" ? "Сохранить" : "Save",
@@ -248,6 +262,8 @@ for (const language of ["ru", "en"])
             ?.quantity,
       )
       .toBe(2.5);
+    await drawer.locator('[data-component-id="room"] .component-item').click();
+    await expect(drawer.locator(".component-report-export")).toBeVisible();
     const download = page.waitForEvent("download");
     await drawer
       .getByRole("button", {
@@ -273,6 +289,42 @@ for (const language of ["ru", "en"])
       }),
     ).toHaveCount(0);
   });
+
+test("switching documents completes without removed-version errors and opens that document's component settings", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const second = fixture();
+  second.id = "second-components";
+  second.title = "Второй документ";
+  second.components = [
+    { id: "bob", name: "Bob", type: "character", quantity: 7 },
+  ];
+  await open(page, { otherDocuments: [second] });
+  await page.getByRole("button", { name: "Документы", exact: true }).click();
+  await page
+    .locator(".document-item")
+    .filter({ hasText: second.title })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Документы", exact: true }),
+  ).toContainText(second.title);
+  await page
+    .getByRole("navigation", { name: "Инструменты редактора" })
+    .getByRole("button", { name: "Компоненты", exact: true })
+    .click();
+  const drawer = page.locator("aside.components-drawer");
+  await drawer.locator('[data-component-id="bob"] .component-item').click();
+  await expect(
+    drawer.getByRole("spinbutton", {
+      name: "Количество компонента",
+      exact: true,
+    }),
+  ).toHaveValue("7");
+  await expect(drawer.locator(".component-report-export")).toBeVisible();
+  expect(errors).toEqual([]);
+});
 
 test("320px touch layout can select colors without changing text", async ({
   page,

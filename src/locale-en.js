@@ -2,6 +2,26 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Сценарий, раскадровка, комментарии и все детали":
+    "Screenplay, storyboard, comments and all details",
+  "Открыть раскадровку · Pro": "Open storyboard · Pro",
+  "Поиск по сценарию или раскадровке": "Search screenplay or storyboard",
+  "Раскадровка · Pro": "Storyboard · Pro",
+  "Раскадровка со слайдами и настройками сцен":
+    "Storyboard with slides and scene settings",
+  "Посмотрите историю в раскадровке": "See your story in a storyboard",
+  "В Pro переключатель «Раскадровка / Сценарий» открывает сцены со слайдами. В «Структуре» редактируйте текст сцены, в «Инфо» — изображения, длительности, статус и драматичность. На телефоне режимы переключаются снизу, щипок меняет размер карточек, а долгое нажатие позволяет их переставить.":
+    "In Pro, Storyboard / Screenplay opens scenes with slides. Edit scene text in Structure; use Info for images, timing, status and drama. On mobile, switch modes in the bottom tabs, pinch to resize cards, and long press to reorder.",
+  "Alt+1 — сценарий · Alt+2 — раскадровка · TYT сохраняет оба режима.":
+    "Alt+1 — screenplay · Alt+2 — storyboard · TYT saves both modes.",
+  "Собирайте слайды внутри сцен, задавайте время показа и съёмочные настройки. Структура сцены синхронизируется со сценарием.":
+    "Add slides to scenes, set playback timing and shot details. Scene structure stays in sync with the screenplay.",
+  "Раскадровка: слайды, драматургия и настройки сцен":
+    "Storyboard: slides, drama and scene settings",
+  "Переносите весь проект одним файлом: сценарий, комментарии, реквизит, компоненты, раскадровку, обложку и историю изменений.":
+    "Transfer the whole project in one file: screenplay, comments, props, components, storyboard, cover and revision history.",
+  Раскадровка: "Storyboard",
+  "Отчёт реквизита": "Props report",
   "Кол-во": "Qty",
   "Цвет страницы {0}": "Page {0} color",
   "Количество компонента": "Component quantity",

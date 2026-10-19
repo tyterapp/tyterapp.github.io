@@ -35,12 +35,26 @@ import {
   Maximize2,
   Minimize2,
   Menu,
+  Crop,
 } from "lucide-react";
-import OutlineBoard from "./OutlineBoard.jsx";
-import OutlineCardDrawer from "./OutlineCardDrawer.jsx";
-import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
-import { shotScenes, updateShotSettings } from "./shot-info.js";
-import { OutlineIcon } from "./StoryIcons.jsx";
+import {
+  StoryboardBoard,
+  StoryboardInspector,
+  StoryboardPaste,
+} from "./Storyboard.jsx";
+import {
+  storyboardScenes,
+  moveStoryboardScene,
+  addStoryboardScene,
+  changeSceneBlock,
+  addSceneBlock,
+  removeSceneBlock,
+  moveSceneBlock,
+  migrateStoryboard,
+} from "./storyboard-model.js";
+import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { exportStoryboard } from "./storyboard-export.js";
+import { updateShotSettings } from "./shot-info.js";
 import { exportTYT } from "./tyt-format.js";
 import {
   chooseTytCopyTarget,
@@ -119,7 +133,6 @@ import {
 } from "./component-library.js";
 import HistoryPanel from "./HistoryPanel.jsx";
 import HistoryPreview from "./HistoryPreview.jsx";
-import OutlineHistoryPreview from "./OutlineHistoryPreview.jsx";
 import TooltipLayer from "./TooltipLayer.jsx";
 import ThumbnailField from "./ThumbnailField.jsx";
 import { cleanComponentAliases, componentNames } from "./component-names.js";
@@ -140,7 +153,6 @@ import { scrollDocumentPages } from "./document-page-scroll.js";
 import {
   screenplayLayout,
   screenplayBlockLayout,
-  dramaValue,
   clampDocumentZoom,
 } from "./document-layout.js";
 import {
@@ -769,11 +781,15 @@ export default function MinimalApp({ onLogout }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const notesRef = useRef(null);
   const [view, setView] = useState("screenplay");
-  const [outlineCard, setOutlineCard] = useState(null);
   const [shotTarget, setShotTarget] = useState(null);
   const shots = useMemo(
-    () => shotScenes(current),
-    [current.content, current.sceneShots, current.metadata?.fontSize],
+    () => storyboardScenes(current),
+    [
+      current.content,
+      current.sceneShots,
+      current.pageVersions,
+      current.metadata?.fontSize,
+    ],
   );
   const selectedShot = shots.find((scene) => scene.id === shotTarget);
   const [sceneTarget, setSceneTarget] = useState(null);
@@ -826,7 +842,6 @@ export default function MinimalApp({ onLogout }) {
         setFocusMode(false);
         setCharacterView(null);
       }
-      setOutlineCard(null);
       setShotTarget(null);
       if (kind !== "annotations") setAnnotations(null);
       const noteTool =
@@ -1138,7 +1153,7 @@ export default function MinimalApp({ onLogout }) {
             pending.snapshot,
             pending.label,
             historyDays,
-            "outline",
+            "storyboard",
           ),
         );
       }
@@ -1211,19 +1226,15 @@ export default function MinimalApp({ onLogout }) {
           .catch(() => {});
       }
       if (
-        JSON.stringify(previous.snapshot.outline) !==
-        JSON.stringify(snapshot.outline)
+        JSON.stringify(previous.snapshot.sceneShots) !==
+        JSON.stringify(snapshot.sceneShots)
       ) {
         const pending = pendingOutlineHistory.current.get(writingScope) || {
           snapshot: previous.snapshot,
           documentId: current.id,
         };
         clearTimeout(pending.timer);
-        pending.label =
-          JSON.stringify(pending.snapshot.outline?.columns) !==
-          JSON.stringify(snapshot.outline?.columns)
-            ? "актов аутлайна"
-            : "карточек аутлайна";
+        pending.label = "раскадровки";
         pending.timer = setTimeout(
           () => flushOutlineHistory(writingScope).catch(() => {}),
           650,
@@ -1305,7 +1316,7 @@ export default function MinimalApp({ onLogout }) {
   const changeView = useCallback(
     (next, { focus = true } = {}) => {
       if (!documents.length) return;
-      if (next === "outline" && !IS_PRO) {
+      if (next === "storyboard" && !IS_PRO) {
         setSubscriptionOpen(true);
         return;
       }
@@ -1379,8 +1390,8 @@ export default function MinimalApp({ onLogout }) {
         )
       ) {
         e.preventDefault();
-        if (view === "outline")
-          window.document.querySelector(".outline-search input")?.focus();
+        if (view === "storyboard")
+          window.document.querySelector(".story-search input")?.focus();
         else showSidebar("search");
       }
       if (
@@ -1469,6 +1480,60 @@ export default function MinimalApp({ onLogout }) {
     },
     [update, dailyQuests.recordWords],
   );
+  const applyStoryboardEdit = (transform, group) => {
+    const before =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    let next = transform(before);
+    if (next === before) return;
+    if (next.content !== before.content && editorRef.current?.measurePages)
+      next = preparePageVersionLayout(
+        next,
+        editorRef.current.measurePages(next.content),
+      );
+    if (!editorRef.current?.applyStoryboardChange(before, next, group)) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+  };
+  const selectStoryboardScene = (id) => {
+    showSidebar(null);
+    setShotTarget(id);
+  };
+  const downloadStoryboard = async (format) => {
+    if (busy) return;
+    setBusy("storyboard");
+    writeStorage();
+    try {
+      const live =
+        documentsRef.current.find((doc) => doc.id === current.id) || current;
+      const document = structuredClone(
+        historyRevision
+          ? migrateStoryboard(
+              restoreSnapshotForArea(
+                live,
+                historyRevision.snapshot,
+                revisionArea(historyRevision),
+              ),
+            )
+          : live,
+      );
+      const blob =
+        format === "tyt"
+          ? await exportTYT(document)
+          : await exportStoryboard(document, format);
+      saveBlob(
+        blob,
+        document.title + " — " + t("Раскадровка"),
+        ["png", "webp"].includes(format) ? "zip" : format,
+      );
+    } catch (error) {
+      setMessage(
+        error.message || "Не удалось сохранить файл. Попробуйте ещё раз.",
+      );
+    } finally {
+      setBusy("");
+    }
+  };
   const burnLastPage = () => {
     if (
       burnInProgress.current ||
@@ -1666,125 +1731,6 @@ export default function MinimalApp({ onLogout }) {
     });
     return true;
   };
-  const outline = current.outline || {
-    columns: [],
-    cards: [],
-  };
-  const outlineWithLinks = {
-    ...outline,
-    cards: outline.cards.map((card) => ({
-      ...card,
-      blockId: current.content.content.some(
-        (block) =>
-          block.attrs?.blockId === card.blockId &&
-          block.attrs?.format === "scene",
-      )
-        ? card.blockId
-        : null,
-    })),
-  };
-  const insertCardScene = (card, { blank = false } = {}) => {
-    const blockId = uid();
-    const textBlock = (format, text, id) => ({
-      type: "paragraph",
-      attrs: {
-        format,
-        blockId: id,
-      },
-      ...(text
-        ? {
-            content: [
-              {
-                type: "text",
-                text,
-              },
-            ],
-          }
-        : {}),
-    });
-    return {
-      blockId,
-      blocks: blank
-        ? [textBlock("scene", "", blockId)]
-        : [
-            textBlock(
-              "scene",
-              card.title?.trim() &&
-                !["Без названия", "Untitled"].includes(card.title)
-                ? card.title
-                : t("ИНТ. НОВАЯ СЦЕНА — ДЕНЬ"),
-              blockId,
-            ),
-            ...String(card.text || "")
-              .split("\n")
-              .map((line) => textBlock("action", line, uid())),
-          ],
-    };
-  };
-  const addOutlineCard = (columnId, source = {}) => {
-    const card = {
-      id: uid(),
-      columnId,
-      title: source.title || t("Без названия"),
-      text: source.text || "",
-      color: source.color || "#33313b",
-      drama: dramaValue(source.drama),
-      comments: [],
-    };
-    const { blockId, blocks } = insertCardScene(card, { blank: true });
-    card.blockId = blockId;
-    update((document) => ({
-      ...document,
-      outline: {
-        ...outline,
-        columns: outline.columns.map((column) =>
-          column.id === columnId
-            ? {
-                ...column,
-                collapsed: false,
-              }
-            : column,
-        ),
-        cards: [...outline.cards, card],
-      },
-      content: {
-        ...document.content,
-        content: [...document.content.content, ...blocks],
-      },
-    }));
-    setOutlineCard(card.id);
-  };
-  const relinkOutlineCard = (card) => {
-    const { blockId, blocks } = insertCardScene(card);
-    const content = editorRef.current?.insertOutlineScene(blocks);
-    if (!content) {
-      setMessage(
-        "Не удалось вставить сцену. Вернитесь в сценарий и попробуйте снова.",
-      );
-      return;
-    }
-    update((document) => ({
-      ...document,
-      outline: {
-        ...outline,
-        cards: outline.cards.map((item) =>
-          item.id === card.id
-            ? {
-                ...item,
-                blockId,
-              }
-            : item,
-        ),
-      },
-      content,
-    }));
-    changeView("screenplay", { focus: false });
-    setSceneTarget(blockId);
-  };
-  const locateOutlineCard = (card) => {
-    changeView("screenplay", { focus: false });
-    setSceneTarget(card.blockId);
-  };
   useEffect(() => {
     if (view !== "screenplay" || !sceneTarget) return;
     let attempts = 0;
@@ -1795,7 +1741,6 @@ export default function MinimalApp({ onLogout }) {
     return () => cancelAnimationFrame(frame);
   }, [view, sceneTarget, current.content]);
   useEffect(() => {
-    setOutlineCard(null);
     setSceneTarget(null);
     setShotTarget(null);
   }, [writingScope]);
@@ -1891,7 +1836,6 @@ export default function MinimalApp({ onLogout }) {
     setActiveComment(null);
     if (!keepSearch) {
       setSearchText("");
-      setSearchAllVersions(false);
       setSearchIndex(0);
       setSearchCardSelection(null);
     }
@@ -2188,7 +2132,7 @@ export default function MinimalApp({ onLogout }) {
         event.code === "Digit1" || event.key === "1"
           ? "screenplay"
           : event.code === "Digit2" || event.key === "2"
-            ? "outline"
+            ? "storyboard"
             : null;
       if (next) {
         event.preventDefault();
@@ -3220,6 +3164,15 @@ export default function MinimalApp({ onLogout }) {
             aria-label={t("Режим документа")}
           >
             <button
+              aria-pressed={view === "storyboard"}
+              disabled={!documents.length}
+              aria-keyshortcuts="Alt+2"
+              onClick={() => changeView("storyboard")}
+            >
+              <Crop size={18} />
+              {t("Раскадровка")}
+            </button>
+            <button
               aria-pressed={view === "screenplay"}
               disabled={!documents.length}
               aria-keyshortcuts="Alt+1"
@@ -3227,16 +3180,6 @@ export default function MinimalApp({ onLogout }) {
             >
               <AlignLeft size={18} />
               {t("Сценарий")}
-            </button>
-            <button
-              aria-pressed={view === "outline"}
-              disabled={!documents.length}
-              aria-keyshortcuts="Alt+2"
-              data-tooltip={IS_PRO ? t("Карточки истории") : t("Аутлайн · Pro")}
-              onClick={() => changeView("outline")}
-            >
-              <OutlineIcon size={18} />
-              {t("Аутлайн")}
             </button>
           </div>
           <LanguageSwitch />
@@ -3272,6 +3215,26 @@ export default function MinimalApp({ onLogout }) {
           notice={notice}
           onDismiss={dismissMessage}
         />
+      )}
+      {mobile && !focusMode && !keyboard && (
+        <nav className="mobile-mode-tabs" aria-label={t("Режим документа")}>
+          <button
+            aria-pressed={view === "storyboard"}
+            disabled={!documents.length}
+            onClick={() => changeView("storyboard")}
+          >
+            <Crop size={20} />
+            {t("Раскадровка")}
+          </button>
+          <button
+            aria-pressed={view === "screenplay"}
+            disabled={!documents.length}
+            onClick={() => changeView("screenplay")}
+          >
+            <AlignLeft size={20} />
+            {t("Сценарий")}
+          </button>
+        </nav>
       )}
       <div className="minimal-workspace">
         <MobileSheet
@@ -3482,37 +3445,75 @@ export default function MinimalApp({ onLogout }) {
             </div>
           </nav>
         </MobileSheet>
-        {view === "outline" &&
-          (historyRevision ? (
-            <OutlineHistoryPreview
-              revision={historyRevision}
-              onExit={() => setHistoryRevision(null)}
-            />
-          ) : (
-            <OutlineBoard
-              key={writingScope}
-              outline={outlineWithLinks}
-              selectedId={outlineCard}
-              onSelect={(id) => {
-                if (historyOpen) showSidebar(null);
-                setOutlineCard(id);
-              }}
-              onChange={(value) =>
-                update((document) => ({
-                  ...document,
-                  outline: value,
-                }))
-              }
-              onAddCard={addOutlineCard}
-              onLocate={locateOutlineCard}
-              onRelink={relinkOutlineCard}
-            />
-          ))}
+        {view === "storyboard" && (
+          <StoryboardBoard
+            key={writingScope}
+            scenes={
+              historyRevision
+                ? storyboardScenes(
+                    migrateStoryboard(
+                      restoreSnapshotForArea(
+                        current,
+                        historyRevision.snapshot,
+                        revisionArea(historyRevision),
+                      ),
+                    ),
+                  )
+                : shots
+            }
+            selectedId={shotTarget}
+            readonly={!!historyRevision}
+            onSelect={selectStoryboardScene}
+            onMove={(id, target) =>
+              applyStoryboardEdit((doc) => moveStoryboardScene(doc, id, target))
+            }
+            onAdd={() => {
+              let id;
+              applyStoryboardEdit((doc) => {
+                const added = addStoryboardScene(doc);
+                id = added.id;
+                return added.document;
+              });
+              if (id) selectStoryboardScene(id);
+            }}
+            onExport={downloadStoryboard}
+          />
+        )}
+        <StoryboardPaste
+          scope={writingScope}
+          scenes={shots}
+          selectedId={shotTarget}
+          enabled={
+            filesReady &&
+            !historyRevision &&
+            !tourOpen &&
+            !notesOpen &&
+            (view === "storyboard" || !!selectedShot)
+          }
+          onError={setMessage}
+          onFill={(id, letter, frameId, images) => {
+            applyStoryboardEdit((doc) => {
+              const frames = [
+                ...storyboardFrames(doc.sceneShots?.[id]?.[letter]),
+              ];
+              let remaining = [...images];
+              const at = frames.findIndex(
+                (frame) => frame.id === frameId && !frame.image,
+              );
+              if (at >= 0)
+                frames[at] = { ...frames[at], image: remaining.shift() };
+              return updateShotSettings(doc, id, letter, {
+                frames: [...frames, ...remaining.map(newFrame)].slice(0, 200),
+              });
+            });
+            selectStoryboardScene(id);
+          }}
+        />
         <div
           className="editor-column"
           ref={columnRef}
           style={
-            view === "outline"
+            view === "storyboard"
               ? {
                   display: "none",
                 }
@@ -3527,6 +3528,7 @@ export default function MinimalApp({ onLogout }) {
               filesReady &&
               !!documents.length &&
               view === "screenplay" &&
+              !selectedShot &&
               !historyRevision &&
               !characterView &&
               !libraryDialog &&
@@ -3776,7 +3778,6 @@ export default function MinimalApp({ onLogout }) {
                     !questsOpen &&
                     !questOverlay &&
                     !historyOpen &&
-                    !outlineCard &&
                     !selectedShot &&
                     !commentsOpen &&
                     !componentsOpen &&
@@ -3793,13 +3794,6 @@ export default function MinimalApp({ onLogout }) {
                   onEditShot={(id) => {
                     showSidebar(null);
                     setShotTarget(id);
-                  }}
-                  outlineCards={IS_PRO ? outline.cards : EMPTY_PROPS}
-                  onEditOutlineCard={(id) => {
-                    if (IS_PRO) {
-                      showSidebar(null);
-                      setOutlineCard(id);
-                    }
                   }}
                   components={current.components}
                   props={IS_PRO ? current.props : EMPTY_PROPS}
@@ -3863,7 +3857,7 @@ export default function MinimalApp({ onLogout }) {
                   onCommentFromSelection={openComments}
                   selectionToolbarDisabled={
                     !!burningPage ||
-                    view === "outline" ||
+                    view === "storyboard" ||
                     (!!componentDialog && !componentDialog.id) ||
                     (!!propDialog && !propDialog.id) ||
                     rename !== null ||
@@ -3878,12 +3872,11 @@ export default function MinimalApp({ onLogout }) {
                     focusMode ||
                     !!characterView ||
                     !!libraryDialog ||
-                    !!outlineCard ||
                     !!selectedShot
                   }
                   suggestionsDisabled={
                     !!burningPage ||
-                    view === "outline" ||
+                    view === "storyboard" ||
                     (!!componentDialog && !componentDialog.id) ||
                     (!!propDialog && !propDialog.id) ||
                     rename !== null ||
@@ -3907,7 +3900,6 @@ export default function MinimalApp({ onLogout }) {
                         componentsOpen ||
                         propsOpen ||
                         !!annotations ||
-                        !!outlineCard ||
                         !!selectedShot))
                   }
                   onCreateComponent={componentFromSelection}
@@ -4097,63 +4089,68 @@ export default function MinimalApp({ onLogout }) {
               componentsOpen ||
               propsOpen ||
               annotations ||
-              (view === "screenplay" && (outlineCard || selectedShot))
+              !!selectedShot
             )
           }
           label={t("Панель сценария")}
           onClose={() => showSidebar(null)}
         >
-          {view === "screenplay" && selectedShot && (
-            <ShotInfoDrawer
+          {selectedShot && !historyRevision && (
+            <StoryboardInspector
               key={writingScope}
+              scope={writingScope}
               scene={selectedShot}
+              scenes={shots}
+              view={view}
               onClose={() => showSidebar(null)}
-              onChange={(patch) =>
-                update((document) =>
-                  updateShotSettings(
-                    document,
-                    selectedShot.id,
-                    selectedShot.letter,
-                    patch,
-                  ),
+              onSelect={selectStoryboardScene}
+              onView={(next) => {
+                const id = selectedShot.id;
+                changeView(next, { focus: false });
+                setShotTarget(id);
+                if (next === "screenplay") setSceneTarget(id);
+              }}
+              onVariant={(id, letter) =>
+                applyStoryboardEdit(
+                  (doc) => switchSceneVariant(doc, id, letter),
+                  "variant",
                 )
               }
-              onGo={(blockId) => {
-                if (mobile) {
-                  showSidebar(null);
-                  setSceneTarget(blockId);
-                } else editorRef.current?.focusBlock(blockId);
-              }}
+              onChange={(id, patch) =>
+                applyStoryboardEdit(
+                  (doc) =>
+                    updateShotSettings(
+                      doc,
+                      id,
+                      sceneLetter(sceneRange(doc.content, id)?.nodes[0]),
+                      patch,
+                    ),
+                  id + Object.keys(patch).join(),
+                )
+              }
+              onBlock={(id, patch) =>
+                applyStoryboardEdit(
+                  (doc) => changeSceneBlock(doc, selectedShot.id, id, patch),
+                  id + Object.keys(patch).join(),
+                )
+              }
+              onAddBlock={(format) =>
+                applyStoryboardEdit((doc) =>
+                  addSceneBlock(doc, selectedShot.id, format),
+                )
+              }
+              onRemoveBlock={(id) =>
+                applyStoryboardEdit((doc) =>
+                  removeSceneBlock(doc, selectedShot.id, id),
+                )
+              }
+              onMoveBlock={(id, target) =>
+                applyStoryboardEdit((doc) =>
+                  moveSceneBlock(doc, selectedShot.id, id, target),
+                )
+              }
               onExport={downloadShotReport}
               busy={!!busy}
-            />
-          )}
-          {view === "screenplay" && outlineCard && (
-            <OutlineCardDrawer
-              key={writingScope}
-              outline={outlineWithLinks}
-              selectedId={outlineCard}
-              outlineTarget
-              onSelect={setOutlineCard}
-              onChange={(value) =>
-                update((document) => ({ ...document, outline: value }))
-              }
-              onLocate={(card) => {
-                changeView("outline", { focus: false });
-                update((document) => ({
-                  ...document,
-                  outline: {
-                    ...document.outline,
-                    columns: document.outline.columns.map((column) =>
-                      column.id === card.columnId
-                        ? { ...column, collapsed: false }
-                        : column,
-                    ),
-                  },
-                }));
-                setOutlineCard(card.id);
-              }}
-              onRelink={relinkOutlineCard}
             />
           )}
           {searchOpen && (
@@ -4251,7 +4248,11 @@ export default function MinimalApp({ onLogout }) {
               onSelect={(revision) => {
                 setHistoryRevision(revision);
                 if (revision)
-                  setView(notesOpen ? "screenplay" : revisionArea(revision));
+                  setView(
+                    notesOpen || revisionArea(revision) === "screenplay"
+                      ? "screenplay"
+                      : "storyboard",
+                  );
               }}
               onRestore={restoreHistory}
               onClose={() => {
@@ -4635,7 +4636,7 @@ export default function MinimalApp({ onLogout }) {
                     [
                       "tyt",
                       t("Проект Tyter · TYT"),
-                      t("Сценарий, аутлайн, комментарии и все детали"),
+                      t("Сценарий, раскадровка, комментарии и все детали"),
                     ],
                   ]
                 : []),
