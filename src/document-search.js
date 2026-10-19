@@ -96,7 +96,8 @@ function liveMatchPosition(match, blockPositions, sceneLetters) {
 }
 
 // Search the assembled text once, so a phrase spanning a page boundary is
-// found too. Dormant alternatives are searched only inside their own page.
+// found too. Only the current screenplay and its scene alternatives enter
+// search; former page copies and historical snapshots never participate.
 export function scriptSearchMatches(
   document,
   query,
@@ -134,10 +135,7 @@ export function scriptSearchMatches(
       selected.at(-1);
     liveByPage.get(page.pageId).push(match);
   }
-  const sources =
-    allVersions && document.pageVersions?.pages?.length
-      ? pageVersionSources(document, { allVersions: true })
-      : selected;
+  const sources = selected;
   return sources.flatMap((entry) => {
     const {
       pageId,

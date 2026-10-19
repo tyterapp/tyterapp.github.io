@@ -1,5 +1,5 @@
+import { componentReportRows } from "./component-report.js";
 import { createProject, uid } from "./data.js";
-import { textMatches, propOccurrences } from "./prop-matches.js";
 import { screenplayLayout, screenplayBlockLayout } from "./document-layout.js";
 import { documentFileStem } from "./local-file-names.js";
 import { sceneLetter } from "./scene-variants.js";
@@ -989,27 +989,30 @@ export async function exportPropsPDF(document) {
     );
   }
   pdf.setProperties({
-    title: `${document.title} — реквизит`,
+    title: t("{0} — реквизит", document.title),
     creator: "Tyter",
   });
   const width = pdf.internal.pageSize.getWidth();
   let y = 48;
   pdf.setFont("Cousine", "bold");
   pdf.setFontSize(16);
-  pdf.text("Реквизит", 40, y);
+  pdf.text(t("Реквизит"), 40, y);
   y += 26;
   pdf.setFont("Cousine", "normal");
   pdf.setFontSize(10);
-  const title = pdf.splitTextToSize(document.title || "Сценарий", width - 80);
+  const title = pdf.splitTextToSize(
+    document.title || t("Сценарий"),
+    width - 80,
+  );
   pdf.text(title, 40, y);
   y += title.length * 13 + 20;
   const heading = () => {
     pdf.setFillColor(244, 242, 248);
     pdf.rect(40, y - 12, width - 80, 25, "F");
     pdf.setFont("Cousine", "bold");
-    pdf.text("Название", 48, y + 4);
-    pdf.text("Кол-во", 310, y + 4);
-    pdf.text("Упоминания", 400, y + 4);
+    pdf.text(t("Название"), 48, y + 4);
+    pdf.text(t("Кол-во"), 310, y + 4);
+    pdf.text(t("Упоминания"), 400, y + 4);
     pdf.setFont("Cousine", "normal");
     y += 36;
   };
@@ -1019,16 +1022,15 @@ export async function exportPropsPDF(document) {
     heading();
   };
   heading();
-  for (const prop of document.props || []) {
-    let scene = "Вне сцены";
-    const scenes = new Set();
-    for (const block of document.content.content) {
-      if (block.attrs?.format === "scene") scene = blockText(block);
-      if (textMatches(blockText(block), prop.name).length) scenes.add(scene);
-    }
+  const rows = componentReportRows(document);
+  for (const prop of rows) {
     const detail = [
       ...(prop.description ? [prop.description] : []),
-      `Сцены: ${[...scenes].join("; ") || "нет упоминаний"}`,
+      t(
+        "Сцены: {0}",
+        prop.scenes.map((scene) => scene || t("Вне сцены")).join("; ") ||
+          t("нет упоминаний"),
+      ),
     ].join("\n");
     const name = pdf.splitTextToSize(prop.name, 240),
       description = pdf.splitTextToSize(detail, width - 96);
@@ -1036,8 +1038,8 @@ export async function exportPropsPDF(document) {
       page();
     pdf.setFont("Cousine", "bold");
     pdf.text(name, 48, y);
-    pdf.text(String(prop.quantity || 1), 310, y);
-    pdf.text(String(propOccurrences(document.content, prop.name)), 400, y);
+    pdf.text(String(prop.quantity ?? 1), 310, y);
+    pdf.text(String(prop.mentions), 400, y);
     pdf.setFont("Cousine", "normal");
     y += name.length * 13 + 6;
     for (const line of description) {
@@ -1050,7 +1052,7 @@ export async function exportPropsPDF(document) {
     pdf.line(40, y, width - 40, y);
     y += 22;
   }
-  if (!document.props?.length) pdf.text("Реквизит пока не добавлен.", 48, y);
+  if (!rows.length) pdf.text(t("Реквизит пока не добавлен."), 48, y);
   for (let i = 1; i <= pdf.getNumberOfPages(); i++) {
     pdf.setPage(i);
     pdf.setFontSize(9);

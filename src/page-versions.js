@@ -146,6 +146,7 @@ function checkedPages(document) {
 // Explicitly selected page copies keep their own start. Automatic continuation
 // pages flow with the preceding page until the user selects their version.
 export function pageVersionBreaks(state) {
+  if (state?.mode === "colors") return [];
   return (state?.pages || [])
     .filter((page) => page.to > page.from)
     .slice(1)
@@ -766,6 +767,21 @@ function restoreOwnedSceneData(document, pageId, previous, target) {
 
 export function switchPageVersion(document, pageId, versionId) {
   if (!ids.has(versionId)) return document;
+  if (document.pageVersions?.mode === "colors") {
+    const page = checkedPages(document).find(({ id }) => id === pageId);
+    if (!page || page.active === versionId) return document;
+    return {
+      ...document,
+      pageVersions: {
+        ...document.pageVersions,
+        pages: checkedPages(document).map((entry) =>
+          entry.id === pageId
+            ? { ...entry, active: versionId, versions: {} }
+            : entry,
+        ),
+      },
+    };
+  }
   const page = checkedPages(document).find(({ id }) => id === pageId);
   if (!page || page.active === versionId) return document;
   const current = pageVersionSlice(document, pageId, page.active);
@@ -951,6 +967,7 @@ export function selectedPageVersions(document) {
 }
 
 export function pageVersionSources(document, { allVersions = false } = {}) {
+  if (document.pageVersions?.mode === "colors") allVersions = false;
   return checkedPages(document).flatMap((page, index) => {
     // Collapsed ranges retain recovery data for undo/history, but are no
     // longer pages of the current document and must never enter search.
@@ -1079,9 +1096,10 @@ export function splitPageVersion(document, pageId, perVersionStarts) {
 export function burnPageVersion(document, pageId) {
   const page = checkedPages(document).find(({ id }) => id === pageId);
   if (!page || page.to <= page.from) return null;
-  const fallback = SCRIPT_VERSIONS.find(
-    ({ id }) => id !== page.active && page.versions[id],
-  )?.id;
+  const fallback =
+    document.pageVersions?.mode !== "colors" &&
+    SCRIPT_VERSIONS.find(({ id }) => id !== page.active && page.versions[id])
+      ?.id;
   if (fallback) {
     const next = switchPageVersion(document, pageId, fallback);
     return {
@@ -1141,7 +1159,10 @@ export function burnPageVersion(document, pageId) {
                   ...item,
                   from: 0,
                   to: transform.doc.content.size,
-                  active: "white",
+                  active:
+                    document.pageVersions?.mode === "colors"
+                      ? page.active
+                      : "white",
                   versions: {},
                 }
               : item,
@@ -1152,6 +1173,7 @@ export function burnPageVersion(document, pageId) {
 }
 
 export function removePageVersion(document, pageId, versionId) {
+  if (document.pageVersions?.mode === "colors") return null;
   const page = checkedPages(document).find(({ id }) => id === pageId);
   if (
     !page ||
@@ -1197,6 +1219,7 @@ export function restorePageVersion(
   saved,
   { activate = false } = {},
 ) {
+  if (document.pageVersions?.mode === "colors") return document;
   const page = checkedPages(document).find(({ id }) => id === pageId);
   if (
     !page ||
@@ -1360,5 +1383,11 @@ export function cleanPageVersions(source, cleanSnapshot) {
       ({ id }) => [id, true],
     ),
   );
-  return { version: 1, pages, legacyVersions, migratedLegacy };
+  return {
+    version: 1,
+    pages,
+    legacyVersions,
+    migratedLegacy,
+    ...(state.mode === "colors" ? { mode: "colors" } : {}),
+  };
 }

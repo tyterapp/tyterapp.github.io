@@ -13,6 +13,9 @@ export function SelectMenu({
   compact = false,
   menuMaxHeight = 320,
   optionHeight = 40,
+  autoFocus = true,
+  onPointerEnter,
+  onPointerLeave,
 }) {
   const menu = useRef(null);
   const [position, setPosition] = useState(null);
@@ -77,7 +80,12 @@ export function SelectMenu({
     return () => document.removeEventListener("pointerdown", outside, true);
   }, [anchor, onClose]);
   useLayoutEffect(() => {
-    if (!position || menu.current?.contains(document.activeElement)) return;
+    if (
+      !autoFocus ||
+      !position ||
+      menu.current?.contains(document.activeElement)
+    )
+      return;
     const selected =
       menu.current?.querySelector('[aria-selected="true"]:not(:disabled)') ||
       menu.current?.querySelector('[role="option"]:not(:disabled)');
@@ -87,7 +95,7 @@ export function SelectMenu({
         0,
         selected.offsetTop - menu.current.clientHeight / 2,
       );
-  }, [position]);
+  }, [position, autoFocus]);
   return createPortal(
     <div
       ref={menu}
@@ -96,6 +104,8 @@ export function SelectMenu({
       data-app-select-menu="true"
       className={`app-select-menu${compact ? " scene-variant-menu" : ""}`}
       style={position || { visibility: "hidden" }}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onBlur={(event) => {
         if (
           options.some((option) => option.action) &&

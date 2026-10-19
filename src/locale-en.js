@@ -2,6 +2,15 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Кол-во": "Qty",
+  "Цвет страницы {0}": "Page {0} color",
+  "Количество компонента": "Component quantity",
+  Упоминания: "Mentions",
+  "Сцены: {0}": "Scenes: {0}",
+  "нет упоминаний": "no mentions",
+  "Вне сцены": "Outside a scene",
+  "Реквизит пока не добавлен.": "No props have been added yet.",
+  "цветов страниц": "page colors",
   "Версия страницы {0}": "Page {0} version",
   "Поменять персонажа": "Change character",
   "Алиасы уже используются:": "Aliases already in use:",

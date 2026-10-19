@@ -149,8 +149,8 @@ export function pageVersionStateStep(before, after) {
 }
 
 export function pageVersionLayoutStep(before, after) {
-  // Page models are immutable; share inactive slices rather than duplicating
-  // every page copy in the typing history on each automatic line reflow.
+  // Page colors and ranges are immutable metadata. Keep them in the same
+  // typing undo event without duplicating the screenplay on each reflow.
   return new PageVersionStateStep(
     { pageVersions: before.pageVersions },
     { pageVersions: after.pageVersions },
@@ -169,6 +169,10 @@ export function pageVersionChanges(transaction) {
 export function applyPageVersionChanges(document, steps = []) {
   let next = document;
   for (const step of steps) {
+    const liveColors =
+      next.pageVersions?.mode === "colors" && step.kind === "pagination"
+        ? new Map(next.pageVersions.pages.map((page) => [page.id, page.active]))
+        : null;
     next = { ...next };
     for (const key of new Set([
       ...Object.keys(step.before),
@@ -183,6 +187,15 @@ export function applyPageVersionChanges(document, steps = []) {
               ).pageVersions
             : clone(step.after[key])
           : delta(next[key], step.before[key], step.after[key]);
+    if (liveColors && next.pageVersions)
+      next.pageVersions = {
+        ...next.pageVersions,
+        pages: next.pageVersions.pages.map((page) =>
+          liveColors.has(page.id)
+            ? { ...page, active: liveColors.get(page.id) }
+            : page,
+        ),
+      };
   }
   return next;
 }

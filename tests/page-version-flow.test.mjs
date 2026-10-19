@@ -17,6 +17,7 @@ import {
   pageVersionBreaks,
   selectedPageVersions,
 } from "../src/page-versions.js";
+import { ensurePageColors, setPageColor } from "../src/page-colors.js";
 import { preparePageVersionLayout } from "../src/page-version-layout.js";
 const block = (id, text) => ({
   type: "paragraph",
@@ -26,7 +27,7 @@ const block = (id, text) => ({
 function documentOf(blocks, starts) {
   const doc = createProject("Flow");
   doc.content.content = blocks;
-  return ensurePageVersions(doc, starts);
+  return ensurePageColors(ensurePageVersions(doc, starts));
 }
 function edit(doc, from, to, text) {
   const tr = new Transform(schema.nodeFromJSON(doc.content)).replaceWith(
@@ -62,118 +63,71 @@ const layout = (doc, capacity) => {
   );
 };
 
-for (const version of ["white", "blue"]) {
-  test(`new continuation pages inherit ${version} and own no copies of the previous page`, () => {
+for (const color of ["white", "blue"]) {
+  test(`continuation pages inherit ${color} without creating snapshots`, () => {
     let doc = documentOf([block("story", "Short")], [0]);
     const first = doc.pageVersions.pages[0].id;
-    if (version !== "white") doc = switchPageVersion(doc, first, version);
-    const saved = JSON.stringify(doc.pageVersions.pages[0].versions);
+    doc = setPageColor(doc, first, color);
     doc = edit(doc, 6, 6, " ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-    const content = JSON.stringify(doc.content);
+    const content = doc.content;
     doc = layout(doc, 12);
-    const pages = doc.pageVersions.pages.filter((page) => page.to > page.from);
-    assert.ok(pages.length >= 3);
-    assert.equal(pages[0].id, first);
-    assert.equal(JSON.stringify(pages[0].versions), saved);
-    assert.ok(pages.every((page) => page.active === version));
+    assert.ok(doc.pageVersions.pages.length >= 3);
+    assert.equal(doc.content, content);
+    assert.equal(doc.pageVersions.pages[0].id, first);
     assert.ok(
-      pages
-        .slice(1)
-        .every((page) => page.flow && !Object.keys(page.versions).length),
+      doc.pageVersions.pages.every(
+        (page) => page.active === color && !Object.keys(page.versions).length,
+      ),
     );
-    assert.equal(new Set(pages.map((page) => page.id)).size, pages.length);
-    assert.equal(JSON.stringify(doc.content), content);
-    assert.deepEqual(
-      validateImport(doc).pageVersions.pages.map((page) => page.flow),
-      pages.map((page) => page.flow),
-    );
-    assert.equal(layout(doc, 12), doc);
+    assert.deepEqual(pageVersionBreaks(doc.pageVersions), []);
   });
 }
 
-test("overflow goes to the existing next selected version, then new pages inherit that version", () => {
-  let doc = documentOf(
-    [block("first", "First page"), block("second", "Second page")],
-    [0, 12],
-  );
-  const [first, second] = doc.pageVersions.pages;
-  doc = switchPageVersion(doc, first.id, "blue");
-  doc = switchPageVersion(doc, second.id, "pink");
-  const inactive = JSON.stringify(doc.pageVersions.pages[1].versions);
-  doc = edit(doc, 6, 6, "NEW-TEXT-0123456789");
-  const content = JSON.stringify(doc.content);
-  doc = layout(doc, 12);
-  const pages = doc.pageVersions.pages.filter((page) => page.to > page.from);
-  assert.equal(pages[1].id, second.id);
-  assert.equal(pages[1].active, "pink");
-  assert.equal(pages[1].from, 12);
-  assert.ok(
-    selectedPageVersions(
-      doc,
-    )[1].source.content.content[0].content[0].text.includes("012345"),
-  );
-  assert.equal(JSON.stringify(pages[1].versions), inactive);
-  assert.ok(
-    pages
-      .slice(2)
-      .every(
-        (page) => page.active === "pink" && !Object.keys(page.versions).length,
-      ),
-  );
-  assert.equal(JSON.stringify(doc.content), content);
-});
-
-test("overflow stops at a short next page; later selected copies keep their text and boundary", () => {
-  let doc = documentOf(
-    [
-      block("first", "A".repeat(98)),
-      block("second", "B".repeat(48)),
-      block("third", "C".repeat(18)),
-    ],
-    [0, 100, 150],
-  );
-  const [first, second, third] = doc.pageVersions.pages;
-  doc = switchPageVersion(doc, first.id, "blue");
-  doc = switchPageVersion(doc, second.id, "pink");
-  doc = switchPageVersion(doc, third.id, "green");
-  doc = edit(doc, 5, 5, "0123456789");
-  doc = layout(doc, 100);
-  assert.equal(doc.pageVersions.pages.length, 3);
-  assert.deepEqual(
-    doc.pageVersions.pages.map((page) => [page.active, page.from, page.to]),
-    [
-      ["blue", 0, 100],
-      ["pink", 100, 160],
-      ["green", 160, 180],
-    ],
-  );
-  assert.equal(doc.pageVersions.pages[2].id, third.id);
-  assert.equal(doc.content.content[2].content[0].text, "C".repeat(18));
-  doc = edit(doc, 5, 15, "");
-  doc = layout(doc, 100);
-  assert.deepEqual(
-    doc.pageVersions.pages.map((page) => [page.active, page.from, page.to]),
-    [
-      ["blue", 0, 100],
-      ["pink", 100, 150],
-      ["green", 150, 170],
-    ],
-  );
-});
-
-test("selecting a page version keeps a short copy separate until overflow reaches it again", () => {
-  let doc = documentOf([block("first", "A".repeat(38))], [0]);
-  doc = layout(doc, 20);
+test("natural reflow retains the next physical sheet's color and new sheets inherit it", () => {
+  let doc = documentOf([block("story", "A".repeat(30))], [0, 16]);
   const second = doc.pageVersions.pages[1].id;
-  doc = switchPageVersion(doc, second, "blue");
-  const from = doc.pageVersions.pages[1].from;
-  assert.deepEqual(pageVersionBreaks(doc.pageVersions), [from]);
-  const last = doc.pageVersions.pages[1].to;
-  doc = edit(doc, from, last - 1, "B");
-  doc = layout(doc, 20);
+  doc = setPageColor(doc, second, "pink");
+  doc = edit(doc, 1, 1, "X".repeat(25));
+  doc = layout(doc, 16);
   assert.equal(doc.pageVersions.pages[1].id, second);
-  assert.equal(doc.pageVersions.pages[1].active, "blue");
-  assert.equal(doc.pageVersions.pages[1].from, from);
+  assert.deepEqual(
+    doc.pageVersions.pages.map((page) => page.active),
+    ["white", "pink", "pink", "pink"],
+  );
+  assert.equal(
+    doc.pageVersions.pages.at(-1).to,
+    schema.nodeFromJSON(doc.content).content.size,
+  );
+});
+
+test("changing color cannot change text, scene alternatives, references or paragraph identity", () => {
+  const doc = documentOf([block("story", "A line of screenplay")], [0]);
+  doc.sceneVariants = { example: { A: [block("example", "Saved scene")] } };
+  const next = setPageColor(doc, doc.pageVersions.pages[0].id, "green");
+  assert.equal(next.content, doc.content);
+  assert.equal(next.sceneVariants, doc.sceneVariants);
+  assert.equal(next.components, doc.components);
+  assert.deepEqual(next.pageVersions.pages[0].versions, {});
+  assert.equal(setPageColor(next, doc.pageVersions.pages[0].id, "green"), next);
+  assert.equal(
+    setPageColor(next, doc.pageVersions.pages[0].id, "invalid"),
+    next,
+  );
+});
+
+test("deleting text across pages keeps the first physical sheet's color", () => {
+  let doc = documentOf(
+    [block("first", "A".repeat(20)), block("second", "B".repeat(20))],
+    [0, 22],
+  );
+  doc = setPageColor(doc, doc.pageVersions.pages[0].id, "blue");
+  doc = setPageColor(doc, doc.pageVersions.pages[1].id, "pink");
+  const first = doc.pageVersions.pages[0].id;
+  doc = edit(doc, 0, schema.nodeFromJSON(doc.content).content.size, "");
+  doc = layout(doc, 12);
+  assert.equal(doc.pageVersions.pages.length, 1);
+  assert.equal(doc.pageVersions.pages[0].id, first);
+  assert.equal(doc.pageVersions.pages[0].active, "blue");
 });
 
 test("one typing undo restores page boundaries even when earlier keystrokes merged into the same history event", () => {

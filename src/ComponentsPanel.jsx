@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  ClipboardList,
   LibraryBig,
   Link2,
   FolderPlus,
@@ -30,6 +31,8 @@ export default function ComponentsPanel({
   onDeleteFolder,
   renderEditor,
   onExportLibrary,
+  onExportReport,
+  exporting,
   onImportLibrary,
 }) {
   useLanguage();
@@ -62,7 +65,9 @@ export default function ComponentsPanel({
     if (selected || !list.current) return;
     const element = list.current;
     element.scrollTop = listScroll.current;
-    const rememberScroll = () => { listScroll.current = element.scrollTop; };
+    const rememberScroll = () => {
+      listScroll.current = element.scrollTop;
+    };
     element.addEventListener("scroll", rememberScroll);
     return () => element.removeEventListener("scroll", rememberScroll);
   }, [!!selected]);
@@ -111,6 +116,15 @@ export default function ComponentsPanel({
       <div className="drawer-heading">
         <h2>{t("Компоненты")}</h2>
         <div className="drawer-tools">
+          <button
+            className="icon-button"
+            aria-label={t("Скачать отчёт реквизита")}
+            data-tooltip={t("Отчёт реквизита · PDF")}
+            disabled={exporting || !document.components.length}
+            onClick={onExportReport}
+          >
+            <ClipboardList size={17} />
+          </button>
           <button
             className="icon-button"
             aria-label={t("Экспорт библиотеки компонентов")}

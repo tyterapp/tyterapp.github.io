@@ -8,7 +8,6 @@ import {
   Plus,
   Search,
   X,
-  Download,
   FolderPlus,
   Trash2,
 } from "lucide-react";
@@ -22,7 +21,6 @@ export default function PropsPanel({
   onCreate,
   onEdit,
   onCloseEdit,
-  onExport,
   onAddFolder,
   onToggleFolder,
   onDeleteFolder,
@@ -50,7 +48,9 @@ export default function PropsPanel({
     if (selected || !list.current) return;
     const element = list.current;
     element.scrollTop = listScroll.current;
-    const rememberScroll = () => { listScroll.current = element.scrollTop; };
+    const rememberScroll = () => {
+      listScroll.current = element.scrollTop;
+    };
     element.addEventListener("scroll", rememberScroll);
     return () => element.removeEventListener("scroll", rememberScroll);
   }, [!!selected]);
@@ -114,14 +114,6 @@ export default function PropsPanel({
             onClick={() => setAdding((value) => !value)}
           >
             <FolderPlus size={17} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={t("Скачать отчёт реквизита")}
-            data-tooltip={t("Отчёт реквизита · PDF")}
-            onClick={onExport}
-          >
-            <Download size={17} />
           </button>
           <button
             className="icon-button"

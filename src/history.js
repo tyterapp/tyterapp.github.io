@@ -80,7 +80,7 @@ export function snapshotOf(document) {
 export function changeLabel(before, after) {
   const names = [
     ["content", "текста"],
-    ["pageVersions", "версий страниц"],
+    ["pageVersions", "цветов страниц"],
     ["notes", "заметок"],
     ["sceneVariants", "вариантов сцен"],
     ["sceneShots", "настроек кадров"],

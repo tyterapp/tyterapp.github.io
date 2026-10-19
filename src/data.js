@@ -10,6 +10,7 @@ import { cleanSceneShots } from "./shot-info.js";
 import { cleanComponentAliases } from "./component-names.js";
 import { cleanPageVersions } from "./page-versions.js";
 import { cleanComponentRelationships } from "./component-relationships.js";
+import { ensurePageColors } from "./page-colors.js";
 import { componentExtraData } from "./component-data-extras.js";
 
 const FORMATS = new Set([
@@ -594,6 +595,9 @@ export function validateImport(input, options = {}) {
           ),
           type: item.type === "place" ? "place" : "character",
           description: cleanText(item.description, 5000),
+          quantity: Number.isFinite(Number(item.quantity))
+            ? Math.max(0, Math.min(999999, Number(item.quantity)))
+            : 1,
           color: cleanColor(item.color),
           thumbnail: cleanThumbnail(item.thumbnail),
           ...(item.enabled === false ? { enabled: false } : {}),
@@ -641,7 +645,7 @@ export function validateImport(input, options = {}) {
           componentId:
             typeof item.componentId === "string" ? item.componentId : null,
           quantity: Number.isFinite(Number(item.quantity))
-            ? Math.max(1, Math.min(999999, Math.round(Number(item.quantity))))
+            ? Math.max(0, Math.min(999999, Number(item.quantity)))
             : 1,
           description: cleanText(item.description, 5000),
           blockId: usedIds.has(item.blockId) ? item.blockId : null,
@@ -729,7 +733,7 @@ export function validateImport(input, options = {}) {
       (snapshot) => validateImport(snapshot, { scriptSnapshot: true }),
     );
   }
-  return document;
+  return options.scriptSnapshot ? document : ensurePageColors(document);
 }
 
 export function toFountain(project) {

@@ -1,5 +1,5 @@
-import AppSelect from "./AppSelect.jsx";
-import { Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SelectMenu } from "./AppSelect.jsx";
 import { t, useLanguage } from "./i18n.js";
 import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
 import { SCRIPT_VERSIONS } from "./script-versions.js";
@@ -9,65 +9,86 @@ export default function ScriptVersionPicker({
   pageNumber = 1,
   disabled,
   onChange,
-  onDelete,
-  pendingDeletion,
-  deleting,
 }) {
   useLanguage();
+  const anchor = useRef(null);
+  const leaveTimer = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [keyboard, setKeyboard] = useState(false);
   const active = page?.active || "white";
-  const activeVersion =
-    SCRIPT_VERSIONS.find((version) => version.id === active) ||
-    SCRIPT_VERSIONS[0];
+  const version =
+    SCRIPT_VERSIONS.find(({ id }) => id === active) || SCRIPT_VERSIONS[0];
+  const label = t("Цвет страницы {0}", pageNumber);
+  const cancelClose = useCallback(() => clearTimeout(leaveTimer.current), []);
+  const close = useCallback((restoreFocus = false) => {
+    clearTimeout(leaveTimer.current);
+    setOpen(false);
+    if (restoreFocus) anchor.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
+    if (disabled) close();
+  }, [disabled, close]);
+  useEffect(() => () => clearTimeout(leaveTimer.current), []);
+  const leave = () => {
+    cancelClose();
+    if (!keyboard) leaveTimer.current = setTimeout(() => close(), 180);
+  };
   return (
     <div className="script-version-picker">
-      <AppSelect
-        value={active}
-        label={t("Версия страницы {0}", pageNumber)}
-        className="script-version-trigger"
+      <button
+        ref={anchor}
+        type="button"
+        role="combobox"
+        aria-label={label}
+        aria-description={version.label}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        data-value={active}
+        className="app-select-trigger script-version-trigger"
         disabled={disabled}
-        menuMaxHeight={540}
-        optionHeight={52}
-        renderValue={() => (
-          <span className="script-version-value">
-            <span>{activeVersion.label.split(" ")[0]}</span>{" "}
-            <ScriptVersionIcon versionId={active} size={13} />{" "}
-            <span>{activeVersion.label.split(" ").slice(1).join(" ")}</span>
-          </span>
-        )}
-        options={[
-          ...SCRIPT_VERSIONS.map((version) => ({
-            value: version.id,
-            disabled: pendingDeletion === version.id,
-            action:
-              onDelete &&
-              version.id !== "white" &&
-              (version.id === active || !!page?.versions?.[version.id])
-                ? {
-                    label: t("Удалить копию {0}", version.label),
-                    icon: <Trash2 size={16} aria-hidden="true" />,
-                    className: "app-select-version-delete",
-                    disabled: !!pendingDeletion || deleting,
-                    onClick: () => onDelete(version.id),
-                  }
-                : undefined,
-            icon: <ScriptVersionIcon versionId={version.id} />,
-            label: (
-              <span className="script-version-label">
-                {version.label}
-                {pendingDeletion === version.id && (
-                  <small>{t("Удаляется…")}</small>
-                )}
-                {version.id !== active &&
-                  pendingDeletion !== version.id &&
-                  !page?.versions?.[version.id] && (
-                    <small>{t("Создать копию")}</small>
-                  )}
-              </span>
-            ),
-          })),
-        ]}
-        onChange={onChange}
-      />
+        onPointerEnter={(event) => {
+          cancelClose();
+          if (!disabled && event.pointerType !== "touch") {
+            setKeyboard(false);
+            setOpen(true);
+          }
+        }}
+        onPointerLeave={leave}
+        onClick={() => {
+          cancelClose();
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+            event.preventDefault();
+            setKeyboard(true);
+            setOpen(true);
+          }
+          if (event.key === "Escape") close();
+        }}
+      >
+        <ScriptVersionIcon versionId={active} size={18} />
+        <span className="script-version-mobile-label">{version.label}</span>
+      </button>
+      {open && !disabled && (
+        <SelectMenu
+          anchor={anchor.current}
+          label={label}
+          value={active}
+          options={SCRIPT_VERSIONS.map((color) => ({
+            value: color.id,
+            label: color.label,
+            icon: <ScriptVersionIcon versionId={color.id} />,
+          }))}
+          onSelect={onChange}
+          onClose={close}
+          autoFocus={keyboard}
+          onPointerEnter={cancelClose}
+          onPointerLeave={leave}
+          menuMaxHeight={420}
+          optionHeight={44}
+        />
+      )}
     </div>
   );
 }

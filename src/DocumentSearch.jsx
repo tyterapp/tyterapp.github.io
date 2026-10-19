@@ -1,8 +1,7 @@
 import { t, useLanguage } from "./i18n.js";
 import { useEffect, useRef } from "react";
-import { Search, X, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { FORMATS } from "./FormatBar.jsx";
-import { SettingsSwitch } from "./DocumentSettings.jsx";
 import { searchMatchKey } from "./document-search.js";
 import { scriptVersionSwatchStyle } from "./script-version-colors.js";
 import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
@@ -13,8 +12,6 @@ export default function DocumentSearch({
   onQuery,
   format,
   onFormat,
-  allVersions = false,
-  onAllVersions,
   index,
   onSelect,
   onClose,
@@ -77,17 +74,6 @@ export default function DocumentSearch({
             ))}
           </select>
         </label>
-      )}
-      {onAllVersions && (
-        <div className="search-all-versions">
-          <SettingsSwitch
-            label={t("Искать во всех версиях")}
-            icon={Copy}
-            role="switch"
-            checked={allVersions}
-            onChange={onAllVersions}
-          />
-        </div>
       )}
       <div className="search-summary">
         <span className="search-count">

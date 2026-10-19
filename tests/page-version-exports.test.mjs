@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { unzipSync, strFromU8 } from "fflate";
 import { DOMMatrix, ImageData, Path2D, createCanvas } from "@napi-rs/canvas";
 import { createProject } from "../src/data.js";
+import { ensurePageColors } from "../src/page-colors.js";
 import {
   ensurePageVersions,
   pageVersionSchema,
@@ -56,7 +57,7 @@ function fixture({ long = false, cover = false } = {}) {
     page.versions.white = old;
     page.active = index === 0 ? "blue" : "pink";
   });
-  return document;
+  return ensurePageColors(document);
 }
 async function readPdf(document, capturePath) {
   const blob = await exportPDF(document);

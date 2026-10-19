@@ -9,6 +9,7 @@ const coreFields = new Set([
   "enabled",
   "librarySource",
   "folderId",
+  "quantity",
 ]);
 
 // Category-specific extensions are opaque JSON. A category only controls their

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { ensurePageColors, setPageColor } from "../src/page-colors.js";
 import assert from "node:assert/strict";
 import { Transform } from "@tiptap/pm/transform";
 import { createProject, validateImport } from "../src/data.js";
@@ -210,77 +211,22 @@ test("insertions at the beginning of page two belong to page two", () => {
   validRanges(doc);
 });
 
-test("old branches use their own page plans and preserve conflicting resource definitions", () => {
-  const white = fixture();
-  white.components = [
-    {
-      id: "person",
-      name: "White character",
-      type: "character",
-      color: "#445566",
-      description: "White",
-    },
-  ];
-  const blue = fixture([
-    paragraph("blue-one", "One very long blue page", [
-      { type: "entity", attrs: { id: "person", color: "#667788" } },
-    ]),
-    paragraph("blue-two", "Two"),
-    paragraph("blue-three", "Three"),
-  ]);
-  blue.components = [
-    {
-      id: "person",
-      name: "Blue character",
-      type: "character",
-      color: "#667788",
-      description: "Blue",
-    },
-  ];
-  blue.comments = [
-    {
-      id: "comment",
-      text: "Do not lose this",
-      blockId: "blue-three",
-      createdAt: "2026-10-18T10:00:00Z",
-    },
-  ];
-  white.scriptVersions = { blue };
-  let doc = ensurePageVersions(white, [0, 12], {
-    legacyPlans: { white: [0, 12], blue: [0, 24, 29] },
-  });
-  assert.equal(doc.pageVersions.pages.length, 3);
-  validRanges(doc);
-  const blueId =
-    doc.pageVersions.pages[0].versions.blue.slice.content[0].content[0].marks[0]
-      .attrs.id;
-  assert.notEqual(blueId, "person");
-  assert.equal(
-    doc.components.find(({ id }) => id === blueId).name,
-    "Blue character",
+test("loading old branches preserves the visible screenplay and removes inactive copies", () => {
+  let doc = fixture();
+  doc = ensurePageVersions(doc, [0, 12]);
+  doc = switchPageVersion(doc, doc.pageVersions.pages[0].id, "blue");
+  const content = doc.content;
+  const next = validateImport(doc);
+  assert.equal(next.pageVersions.mode, "colors");
+  assert.deepEqual(
+    next.content,
+    validateImport({ ...doc, pageVersions: undefined }).content,
   );
-  assert.equal(
-    doc.pageVersions.legacyVersions.blue.comments[0].text,
-    "Do not lose this",
+  assert.ok(
+    next.pageVersions.pages.every((page) => !Object.keys(page.versions).length),
   );
-  doc = switchPageVersion(doc, doc.pageVersions.pages[2].id, "blue");
-  assert.ok(textOf(doc).endsWith("Three"));
-  assert.ok(textOf(doc).startsWith("First pageSecond page"));
-  validRanges(doc);
-  const roundTrip = readTYT(
-    JSON.stringify(
-      tytPayload(doc, [{ createdAt: Date.now(), snapshot: snapshotOf(doc) }]),
-    ),
-  );
-  assert.equal(textOf(roundTrip), textOf(doc));
-  assert.equal(
-    roundTrip.pageVersions.legacyVersions.blue.components[0].name,
-    "Blue character",
-  );
-  assert.equal(
-    roundTrip.importedHistory[0].snapshot.pageVersions.pages.length,
-    3,
-  );
+  assert.equal(next.pageVersions.legacyVersions, undefined);
+  assert.deepEqual(next.scriptVersions, {});
 });
 
 test("split overflow uses independent plans and creates real blank slots for shorter versions", () => {
@@ -586,166 +532,34 @@ test("copy IDs never shadow an existing resource and switching versions remaps n
   assert.equal(doc.comments.find(({ id }) => id === copyId).anchor, 1);
 });
 
-test("page scene alternatives and shot settings belong to the selected White, Blue or Pink version, including edits and TYT round trips", () => {
-  const scene = (id, text) => ({
-    ...paragraph(id, text),
-    attrs: { format: "scene", blockId: id },
-  });
-  const first = [
-    scene("heading", "INT. ROOM"),
-    paragraph("body", "Current scene"),
-  ];
-  const neighbour = [
-    scene("neighbour", "EXT. GARDEN"),
-    paragraph("neighbour-body", "Untouched neighbour"),
-  ];
-  const variant = (letter, text) => [
-    scene("heading", `INT. ROOM ${letter}`),
-    paragraph(`hidden-${letter}`, text),
-  ];
-  const white = fixture([...first, ...neighbour]);
-  white.sceneVariants = {
-    heading: { B: variant("B", "White hidden") },
-    neighbour: {
-      F: [
-        scene("neighbour", "EXT. SECRET GARDEN"),
-        paragraph("neighbour-hidden", "Neighbour hidden"),
-      ],
-    },
-  };
-  white.sceneShots = {
-    heading: { A: { lens: "wide" } },
-    neighbour: { F: { lens: "long" } },
-  };
-  const blue = structuredClone(white),
-    pink = structuredClone(white);
-  blue.sceneVariants.heading = { F: variant("F", "Blue hidden") };
-  blue.sceneShots.heading = { A: { lens: "long" } };
-  delete pink.sceneVariants.heading;
-  delete pink.sceneShots.heading;
-  white.scriptVersions = { blue, pink };
-  const boundary = schema.nodeFromJSON({ type: "doc", content: first }).content
-    .size;
-  let doc = ensurePageVersions(white, [0, boundary], {
-    legacyPlans: {
-      white: [0, boundary],
-      blue: [0, boundary],
-      pink: [0, boundary],
-    },
-  });
-  const id = doc.pageVersions.pages[0].id;
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["B"]);
-  const inactivePink = pageVersionSources(doc, { allVersions: true }).find(
-    (entry) => entry.pageId === id && entry.versionId === "pink",
-  );
-  assert.equal(inactivePink.source.sceneVariants.heading, undefined);
-  assert.equal(inactivePink.source.sceneShots.heading, undefined);
-  doc = switchPageVersion(doc, id, "blue");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["F"]);
-  assert.equal(doc.sceneShots.heading.A.lens, "long");
-  doc.sceneVariants = {
-    ...doc.sceneVariants,
-    heading: { F: variant("F", "Blue hidden edited") },
-  };
-  const neighbourVariants = structuredClone(doc.sceneVariants.neighbour),
-    neighbourShots = structuredClone(doc.sceneShots.neighbour);
-  doc = switchPageVersion(doc, id, "pink");
-  assert.equal(doc.sceneVariants.heading, undefined);
-  assert.equal(doc.sceneShots.heading, undefined);
-  assert.equal(scriptSearchMatches(doc, "Blue hidden", "all", false).length, 0);
-  assert.deepEqual(doc.sceneVariants.neighbour, neighbourVariants);
-  assert.deepEqual(doc.sceneShots.neighbour, neighbourShots);
-  doc.sceneVariants = {
-    ...doc.sceneVariants,
-    heading: { D: variant("D", "Pink hidden edited") },
-  };
-  doc.sceneShots = { ...doc.sceneShots, heading: { A: { lens: "wide" } } };
-  doc = switchPageVersion(doc, id, "white");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["B"]);
-  doc = switchPageVersion(doc, id, "blue");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["F"]);
-  assert.equal(
-    scriptSearchMatches(doc, "Blue hidden edited", "all", false).length,
-    1,
-  );
-  assert.equal(scriptSearchMatches(doc, "Pink hidden", "all", false).length, 0);
-  doc = switchPageVersion(doc, id, "pink");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["D"]);
-  const exported = readTYT(JSON.stringify(tytPayload(doc)));
-  const importedNeighbour = structuredClone(exported.sceneVariants.neighbour);
-  assert.deepEqual(
-    Object.keys(
-      exported.pageVersions.pages[0].versions.blue.sceneVariants.heading,
-    ),
-    ["F"],
-  );
-  assert.equal(
-    exported.pageVersions.pages[0].versions.blue.sceneShots.heading.A.lens,
-    "long",
-  );
-  doc = switchPageVersion(exported, id, "blue");
-  assert.equal(
-    scriptSearchMatches(doc, "Blue hidden edited", "all", false).length,
-    1,
-  );
-  assert.deepEqual(doc.sceneVariants.neighbour, importedNeighbour);
-  doc = switchPageVersion(doc, id, "pink");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["D"]);
-  doc = switchPageVersion(doc, id, "green");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["D"]);
-  doc.sceneVariants = {
-    ...doc.sceneVariants,
-    heading: { E: variant("E", "Green hidden") },
-  };
-  doc = switchPageVersion(doc, id, "pink");
-  assert.deepEqual(Object.keys(doc.sceneVariants.heading), ["D"]);
-  doc = splitPageVersion(doc, id, {
-    pink: [0, boundary - 3],
-    blue: [0, boundary - 3],
-    white: [0, boundary - 3],
-    green: [0, boundary - 3],
-  });
-  assert.deepEqual(doc.pageVersions.pages[1].versions.blue.sceneVariants, {});
-  assert.deepEqual(doc.pageVersions.pages[1].versions.blue.sceneShots, {});
-  validRanges(doc);
+test("color changes preserve scene alternatives and shots through a TYT validation round trip", () => {
+  let doc = ensurePageColors(ensurePageVersions(fixture(), [0]));
+  doc.sceneVariants = {};
+  doc.sceneShots = {};
+  const before = JSON.stringify(doc.content);
+  doc = setPageColor(doc, doc.pageVersions.pages[0].id, "pink");
+  const next = validateImport(doc);
+  assert.equal(next.pageVersions.pages[0].active, "pink");
+  assert.deepEqual(next.pageVersions.pages[0].versions, {});
+  assert.deepEqual(next.sceneVariants, doc.sceneVariants);
+  assert.deepEqual(next.sceneShots, doc.sceneShots);
+  assert.equal(JSON.stringify(doc.content), before);
 });
 
-test("a deleted tail retains dormant copies without adding a phantom selected or exported page", () => {
-  let doc = ensurePageVersions(
-    fixture([
-      paragraph("one", "First page"),
-      paragraph("two", "Second page"),
-      paragraph("three", "Third page"),
-    ]),
-    [0, 12, 25],
-  );
-  const tailId = doc.pageVersions.pages[2].id;
-  doc = switchPageVersion(doc, tailId, "blue");
-  const node = schema.nodeFromJSON(doc.content),
-    tail = doc.pageVersions.pages[2];
-  const tr = new Transform(node).delete(tail.from, tail.to);
-  doc = mapPageVersionRanges(doc, tr.mapping, tr.doc.toJSON());
-  assert.equal(doc.pageVersions.pages.length, 3);
-  assert.equal(selectedPageVersions(doc).length, 2);
-  assert.equal(pageVersionSources(doc).length, 2);
-  assert.equal(
-    pageVersionAt(doc, schema.nodeFromJSON(doc.content).content.size).id,
-    doc.pageVersions.pages[1].id,
-  );
-  assert.equal(
-    pageVersionSources(doc, { allVersions: true }).some(
-      (entry) => entry.pageId === tailId,
-    ),
-    false,
-  );
-  const dormant = pageVersionSlice(doc, tailId, "white");
-  assert.equal(dormant.slice.content[0].content[0].text, "Third page");
-  doc = readTYT(JSON.stringify(tytPayload(doc)));
-  assert.equal(selectedPageVersions(doc).length, 2);
-  doc = switchPageVersion(doc, tailId, "white");
-  assert.equal(textOf(doc), "First pageSecond pageThird page");
-  assert.equal(selectedPageVersions(doc).length, 3);
-  validRanges(doc);
+test("migration discards collapsed recovery pages without restoring their dormant text", () => {
+  let doc = ensurePageVersions(fixture(), [0, 12]);
+  const size = schema.nodeFromJSON(doc.content).content.size;
+  doc.pageVersions.pages.push({
+    id: "collapsed",
+    from: size,
+    to: size,
+    active: "blue",
+    versions: {},
+  });
+  const next = ensurePageColors(doc);
+  assert.equal(next.pageVersions.pages.length, 2);
+  assert.equal(next.content, doc.content);
+  assert.ok(next.pageVersions.pages.every((page) => page.to > page.from));
 });
 
 test("restoring a dormant deleted middle page gives its text back to its own range and preserves the next page", () => {

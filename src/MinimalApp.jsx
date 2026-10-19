@@ -65,7 +65,6 @@ import ScriptDoctor from "./ScriptDoctor.jsx";
 import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
 import { inspectDocumentScript } from "./script-doctor.js";
 import ComponentsPanel from "./ComponentsPanel.jsx";
-import ComponentRelationships from "./ComponentRelationships.jsx";
 import FormatBar, { FORMATS } from "./FormatBar.jsx";
 import {
   useEditorPreferences,
@@ -96,7 +95,7 @@ import ScrollToTop from "./ScrollToTop.jsx";
 import TypewriterIcon from "./TypewriterIcon.jsx";
 import TelegraphIcon from "./TelegraphIcon.jsx";
 import Telegraph from "./Telegraph.jsx";
-import { cleanRevisionRound, revisionPageStyle } from "./script-revisions.js";
+import { revisionPageStyle } from "./script-revisions.js";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
 import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
@@ -107,10 +106,8 @@ import {
   pageVersionAt,
   mapPageVersionRanges,
   rebasePageVersionContent,
-  switchPageVersion,
-  removePageVersion,
-  restorePageVersion,
 } from "./page-versions.js";
+import { setPageColor } from "./page-colors.js";
 import { preparePageVersionLayout } from "./page-version-layout.js";
 import { applyPageVersionChanges } from "./page-version-history.js";
 import { isHistoryTransaction } from "@tiptap/pm/history";
@@ -131,7 +128,6 @@ import ImageComponentPaste from "./ImageComponentPaste.jsx";
 import {
   changeLabel,
   deleteRevisions,
-  deleteScriptVersionRevisions,
   recordRevision,
   importRevisions,
   snapshotOf,
@@ -401,7 +397,7 @@ function ComponentForm({
   const language = useLanguage();
   const [name, setName] = useState(value.name || "");
   const [description, setDescription] = useState(value.description || "");
-  const [quantity, setQuantity] = useState(value.quantity || 1);
+  const [quantity, setQuantity] = useState(value.quantity ?? 1);
   const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
   const [aliases, setAliases] = useState(
     typeof value.aliases === "string"
@@ -503,15 +499,8 @@ function ComponentForm({
             onSubmit({
               ...value,
               name: name.trim(),
-              ...(prop
-                ? {
-                    quantity: Math.max(
-                      1,
-                      Math.min(999999, Math.round(Number(quantity) || 1)),
-                    ),
-                    category: "Objects",
-                  }
-                : { aliases: cleanedAliases }),
+              quantity: Math.max(0, Math.min(999999, Number(quantity) || 0)),
+              ...(prop ? { category: "Objects" } : { aliases: cleanedAliases }),
               type:
                 folderId === "place"
                   ? "place"
@@ -540,20 +529,21 @@ function ComponentForm({
             placeholder={t("Например, Анна")}
           />
         </label>
-        {prop ? (
-          <label>
-            {t("Количество")}
-            <input
-              aria-label={t("Количество реквизита")}
-              type="number"
-              min="1"
-              max="999999"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-          </label>
-        ) : null}
+        <label>
+          {t("Количество")}
+          <input
+            aria-label={
+              prop ? t("Количество реквизита") : t("Количество компонента")
+            }
+            type="number"
+            min="0"
+            max="999999"
+            step="any"
+            required
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </label>
         <label>
           {t("Папка")}
           <select
@@ -763,9 +753,7 @@ export default function MinimalApp({ onLogout }) {
   const imagePasteRef = useRef(null);
   const quickExportRef = useRef(null);
   const copyInProgress = useRef(false);
-  const [pageEditorEpoch, setPageEditorEpoch] = useState(0);
   const [editorReadyEpoch, setEditorReadyEpoch] = useState(0);
-  const pendingPageFocus = useRef(null);
   const componentHistory = useRef({
     undo: [],
     redo: [],
@@ -814,7 +802,6 @@ export default function MinimalApp({ onLogout }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [searchFormat, setSearchFormat] = useState("all");
-  const [searchAllVersions, setSearchAllVersions] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const [searchCardSelection, setSearchCardSelection] = useState(null);
   const searchCardRequest = useRef(0);
@@ -996,8 +983,6 @@ export default function MinimalApp({ onLogout }) {
       ? "Не удалось прочитать сохранённые документы. Исходные данные сохранены; новые изменения можно скачать в файл."
       : "",
   );
-  const [versionDeletion, setVersionDeletion] = useState(null);
-  const versionDeletionRef = useRef(null);
   const writingTimer = useWritingTimer(setMessage);
   const [burningPage, setBurningPage] = useState(null);
   const burnInProgress = useRef(false);
@@ -1949,187 +1934,11 @@ export default function MinimalApp({ onLogout }) {
     pendingCommentFocus.current = null;
     return outgoing;
   };
-  const activateVersionDocument = (
-    next,
-    { keepSearch = false, pageId } = {},
-  ) => {
-    componentHistory.current = { undo: [], redo: [] };
-    showSidebar(keepSearch ? "search" : null);
-    setNotesOpen(false);
-    setIntroDocumentId(null);
-    setMenu(null);
-    setView("screenplay");
-    setHistoryRevision(null);
-    setSceneTarget(null);
-    if (!keepSearch) {
-      setSearchFormat("all");
-      setSearchCount(0);
-    }
-    const page = next.pageVersions?.pages.find((entry) => entry.id === pageId);
-    if (!keepSearch) pendingPageFocus.current = page?.from ?? 0;
-    setPageEditorEpoch((epoch) => epoch + 1);
-    update(() => next);
+  const changeScriptVersion = (color, pageId = activePage?.id) => {
+    if (!filesReady || busy || !pageId) return;
+    update((document) => setPageColor(document, pageId, color));
+    requestAnimationFrame(() => editorRef.current?.focus());
   };
-  const changeScriptVersion = (id, pageId = activePage?.id) => {
-    setNotesOpen(false);
-    const target = current.pageVersions?.pages.find(
-      (page) => page.id === pageId,
-    );
-    if (
-      !target ||
-      id === target.active ||
-      busy ||
-      !filesReady ||
-      (versionDeletionRef.current?.documentId === current.id &&
-        versionDeletionRef.current.versionId === id &&
-        versionDeletionRef.current.pageId === pageId)
-    )
-      return;
-    flushOutlineHistory(writingScope).catch(() => {});
-    activateVersionDocument(
-      switchPageVersion(prepareVersionDocument(), pageId, id),
-      { pageId },
-    );
-  };
-  const confirmVersionDeletion = useCallback(
-    (id) => {
-      const pending = versionDeletionRef.current;
-      if (!pending || pending.id !== id) return Promise.resolve();
-      if (!pending.confirmation) {
-        pending.confirmed = true;
-        const reward = writingTimer.confirmVersionDeletion({
-          id: pending.id,
-          documentId: pending.documentId,
-          versionId: pending.versionId,
-          label: pending.label,
-        });
-        pending.confirmation = pending.flush
-          .then(() => historyFlushRef.current(pending.scope))
-          .then(() =>
-            pending.pageId
-              ? undefined
-              : deleteScriptVersionRevisions(
-                  pending.documentId,
-                  pending.versionId,
-                ),
-          )
-          .catch(() =>
-            setMessage("Не удалось очистить историю удалённой копии."),
-          )
-          .then(() => {
-            historyTracked.current.delete(pending.scope);
-            historyWritten.current.delete(pending.scope);
-            historyWritten.current.delete(`${pending.scope}:screenplay`);
-            historyWritten.current.delete(`${pending.scope}:outline`);
-            setHistoryVersion((version) => version + 1);
-          })
-          .then(() => reward);
-      }
-      return pending.confirmation;
-    },
-    [setMessage, writingTimer.confirmVersionDeletion],
-  );
-  const dismissVersionDeletion = useCallback(
-    async (id) => {
-      const pending = versionDeletionRef.current;
-      if (!pending || pending.id !== id) return;
-      await confirmVersionDeletion(id);
-      if (versionDeletionRef.current === pending) {
-        versionDeletionRef.current = null;
-        setVersionDeletion(null);
-      }
-    },
-    [confirmVersionDeletion],
-  );
-  const undoVersionDeletion = () => {
-    const pending = versionDeletionRef.current;
-    if (!pending || pending.confirmed) return;
-    if (Date.now() >= pending.expiresAt) {
-      dismissVersionDeletion(pending.id);
-      return;
-    }
-    const latest = documentsRef.current.find(
-      (doc) => doc.id === pending.documentId,
-    );
-    if (!latest) {
-      versionDeletionRef.current = null;
-      setVersionDeletion(null);
-      return;
-    }
-    const live =
-      current.id === pending.documentId ? liveVersionDocument() : latest;
-    const activate =
-      pending.wasActive &&
-      current.id === pending.documentId &&
-      live.pageVersions?.pages.find((page) => page.id === pending.pageId)
-        ?.active === pending.fallback;
-    const source = activate ? prepareVersionDocument() : live;
-    const restored = restorePageVersion(
-      source,
-      pending.pageId,
-      pending.versionId,
-      pending.snapshot,
-      { activate },
-    );
-    versionDeletionRef.current = null;
-    setVersionDeletion(null);
-    if (restored === source) {
-      setMessage(
-        "Не удалось отменить удаление: копия с этим названием уже существует.",
-      );
-      return;
-    }
-    if (activate) activateVersionDocument(restored, { pageId: pending.pageId });
-    else
-      setDocuments((list) =>
-        list.map((doc) =>
-          doc.id === pending.documentId
-            ? { ...restored, updatedAt: new Date().toISOString() }
-            : doc,
-        ),
-      );
-  };
-  const deleteScriptVersionCopy = (id, pageId = activePage?.id) => {
-    if (versionDeletionRef.current || busy || !filesReady) return;
-    const live =
-      id ===
-      current.pageVersions?.pages.find((page) => page.id === pageId)?.active
-        ? prepareVersionDocument()
-        : liveVersionDocument();
-    const removed = removePageVersion(live, pageId, id);
-    if (!removed) return;
-    const scope = current.id;
-    const pending = {
-      id: uid(),
-      documentId: current.id,
-      versionId: id,
-      pageId,
-      label: `${t("Страница {0}", live.pageVersions.pages.filter((page) => page.to > page.from).findIndex((page) => page.id === pageId) + 1)} · ${SCRIPT_VERSIONS.find((version) => version.id === id)?.label || id}`,
-      snapshot: removed.snapshot,
-      wasActive: removed.wasActive,
-      fallback: removed.fallback,
-      expiresAt: Date.now() + 15000,
-      scope,
-      flush: historyFlushRef.current(scope).catch(() => {}),
-    };
-    versionDeletionRef.current = pending;
-    setVersionDeletion(pending);
-    setMessage("");
-    if (removed.wasActive)
-      activateVersionDocument(removed.document, { pageId });
-    else update(() => removed.document);
-  };
-  useEffect(() => {
-    const finalize = () => {
-      const pending = versionDeletionRef.current;
-      if (pending) confirmVersionDeletion(pending.id);
-    };
-    window.addEventListener("pagehide", finalize);
-    return () => {
-      window.removeEventListener("pagehide", finalize);
-      finalize();
-    };
-  }, [confirmVersionDeletion]);
   const openComments = useCallback(
     (source) => {
       showSidebar("comments");
@@ -2197,8 +2006,7 @@ export default function MinimalApp({ onLogout }) {
     setActiveComment(comment.id);
   };
   const searchMatches = useMemo(
-    () =>
-      scriptSearchMatches(current, searchText, searchFormat, searchAllVersions),
+    () => scriptSearchMatches(current, searchText, searchFormat),
     [
       current.content,
       current.sceneVariants,
@@ -2207,7 +2015,6 @@ export default function MinimalApp({ onLogout }) {
       current.pageVersions,
       searchText,
       searchFormat,
-      searchAllVersions,
     ],
   );
   const doctorFindings = useMemo(
@@ -2269,37 +2076,6 @@ export default function MinimalApp({ onLogout }) {
       document.activeElement?.closest(".screenplay-editor")
     )
       return;
-    const matchPage = current.pageVersions?.pages.find(
-      (page) => page.id === match.pageId,
-    );
-    if (matchPage && match.versionId !== matchPage.active) {
-      // Listing results must never activate or create a copy. Only explicit
-      // result navigation can switch to an existing, still available version.
-      if (
-        !explicitNavigation ||
-        busy ||
-        !filesReady ||
-        (versionDeletionRef.current?.documentId === current.id &&
-          versionDeletionRef.current.versionId === match.versionId &&
-          versionDeletionRef.current.pageId === match.pageId)
-      )
-        return;
-      const outgoing = prepareVersionDocument();
-      if (
-        !outgoing.pageVersions?.pages.find((page) => page.id === match.pageId)
-          ?.versions?.[match.versionId]
-      )
-        return;
-      flushOutlineHistory(writingScope).catch(() => {});
-      activateVersionDocument(
-        switchPageVersion(outgoing, match.pageId, match.versionId),
-        {
-          keepSearch: true,
-          pageId: match.pageId,
-        },
-      );
-      return;
-    }
     if (fromCard && view !== "screenplay") setView("screenplay");
     const latest =
       documentsRef.current.find((doc) => doc.id === current.id) || current;
@@ -2566,6 +2342,7 @@ export default function MinimalApp({ onLogout }) {
     }
     const next = {
       ...fields,
+      quantity: fields.quantity ?? 1,
       aliases: cleanComponentAliases(fields.aliases, fields.name),
       id: fields.id || uid(),
       color: fields.color || (fields.type === "place" ? "#738598" : "#8a799a"),
@@ -2697,6 +2474,7 @@ export default function MinimalApp({ onLogout }) {
         name,
         type: "character",
         folderId: null,
+        quantity: 1,
         description: "",
         thumbnail,
         color: "#8a799a",
@@ -3125,14 +2903,6 @@ export default function MinimalApp({ onLogout }) {
       pageNumber={number}
       disabled={!page || !filesReady || !!busy || deleting}
       onChange={(id) => changeScriptVersion(id, page?.id)}
-      onDelete={(id) => deleteScriptVersionCopy(id, page?.id)}
-      pendingDeletion={
-        versionDeletion?.documentId === current.id &&
-        versionDeletion.pageId === page?.id
-          ? versionDeletion.versionId
-          : null
-      }
-      deleting={!!versionDeletion}
     />
   );
   const changeMetadata = (fields) => {
@@ -3481,35 +3251,12 @@ export default function MinimalApp({ onLogout }) {
           </>
         )}
       </header>
-      {versionDeletion ? (
+      {notice && (
         <AppMessage
-          key={versionDeletion.id}
-          notice={{
-            id: versionDeletion.id,
-            value: {
-              key: "Копия {0} удалена. Можно отменить удаление в течение 15 секунд.",
-              kind: "script-version-deletion",
-              values: [versionDeletion.label],
-              duration: 15000,
-              action: {
-                label: "Отменить удаление",
-                onClick: undoVersionDeletion,
-                icon: <Download size={14} aria-hidden="true" />,
-              },
-              closeLabel: "Подтвердить удаление копии",
-              onClose: () => confirmVersionDeletion(versionDeletion.id),
-            },
-          }}
-          onDismiss={dismissVersionDeletion}
+          key={notice.id}
+          notice={notice}
+          onDismiss={dismissMessage}
         />
-      ) : (
-        notice && (
-          <AppMessage
-            key={notice.id}
-            notice={notice}
-            onDismiss={dismissMessage}
-          />
-        )
       )}
       <div className="minimal-workspace">
         <MobileSheet
@@ -3989,29 +3736,12 @@ export default function MinimalApp({ onLogout }) {
                 />
               ) : filesReady && documents.length ? (
                 <ScreenplayEditor
-                  key={`${writingScope}:${pageEditorEpoch}`}
+                  key={writingScope}
                   ref={editorRef}
                   documentId={writingScope}
                   pageVersions={current.pageVersions}
                   onReady={(editor) => {
                     setEditorReadyEpoch((epoch) => epoch + 1);
-                    if (pendingPageFocus.current == null) return;
-                    const position = pendingPageFocus.current;
-                    pendingPageFocus.current = null;
-                    editor.commands.setTextSelection(
-                      Math.max(
-                        1,
-                        Math.min(
-                          editor.state.doc.content.size - 1,
-                          position +
-                            (editor.state.doc.nodeAt(position)?.isTextblock
-                              ? 1
-                              : 0),
-                        ),
-                      ),
-                    );
-                    editor.view.focus();
-                    editor.commands.scrollIntoView();
                   }}
                   autoFocus={
                     !mobile &&
@@ -4086,13 +3816,6 @@ export default function MinimalApp({ onLogout }) {
                   })}
                   activeComment={commentsOpen ? activeComment : null}
                   onPageCount={setPageCount}
-                  revision={{
-                    version: activeScriptVersion.id,
-                    round: cleanRevisionRound(
-                      current.revisionRound,
-                      activeScriptVersion.id,
-                    ),
-                  }}
                   onRevisionPages={changeRevisionPages}
                   fontSize={fontSize}
                   documentZoom={documentZoom}
@@ -4423,12 +4146,6 @@ export default function MinimalApp({ onLogout }) {
               matches={searchMatches}
               query={searchText}
               format={searchFormat}
-              allVersions={searchAllVersions}
-              onAllVersions={(value) => {
-                setSearchAllVersions(value);
-                setSearchIndex(0);
-                setSearchCardSelection(null);
-              }}
               onFormat={(value) => {
                 setSearchFormat(value);
                 setSearchIndex(0);
@@ -4579,6 +4296,21 @@ export default function MinimalApp({ onLogout }) {
           {componentsOpen && (
             <ComponentsPanel
               key={writingScope}
+              exporting={busy === "props-pdf"}
+              onExportReport={async () => {
+                setBusy("props-pdf");
+                try {
+                  saveBlob(
+                    await exportPropsPDF(current),
+                    t("{0} — реквизит", current.title),
+                    "pdf",
+                  );
+                } catch {
+                  setMessage("Не удалось сохранить отчёт реквизита.");
+                } finally {
+                  setBusy("");
+                }
+              }}
               onExportLibrary={() =>
                 saveBlob(
                   exportComponentLibrary(current),
@@ -4649,15 +4381,6 @@ export default function MinimalApp({ onLogout }) {
                       setComponentDialog(null);
                     }}
                   />
-                  <ComponentRelationships
-                    key={`relationships:${component.id}`}
-                    document={current}
-                    component={component}
-                    onChange={(relationships) =>
-                      update((d) => ({ ...d, relationships }))
-                    }
-                    onOpenComponent={editComponent}
-                  />
                 </>
               )}
             />
@@ -4693,20 +4416,6 @@ export default function MinimalApp({ onLogout }) {
                 setFolderToDelete({ ...folder, kind: "props" })
               }
               onCloseEdit={() => setPropDialog(null)}
-              onExport={async () => {
-                setBusy("props-pdf");
-                try {
-                  saveBlob(
-                    await exportPropsPDF(current),
-                    t("{0} — реквизит", current.title),
-                    "pdf",
-                  );
-                } catch {
-                  setMessage("Не удалось сохранить отчёт реквизита.");
-                } finally {
-                  setBusy("");
-                }
-              }}
               renderEditor={(prop) => (
                 <ComponentForm
                   key={prop.id}

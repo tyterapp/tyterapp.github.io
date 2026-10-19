@@ -9,13 +9,16 @@
 }
 .page-version-control {
   position: absolute;
-  left: 28px;
+  left: 100%;
+  padding-left: 16px;
   pointer-events: auto;
 }
 .minimal-app .page-version-control .script-version-trigger {
   min-width: 0;
   height: 40px;
-  padding: 0 4px;
+  width: 40px;
+  padding: 0;
+  justify-content: flex-start;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -199,4 +202,24 @@
       0 0 0 1px oklch(1 0 0 / 0.12),
       0 5px 24px oklch(0 0 0 / 0.3);
   }
+}
+
+.script-version-mobile-label {
+  display: none;
+}
+.mobile-page-version-bar .script-version-mobile-label {
+  display: inline;
+}
+.mobile-page-version-bar .script-version-trigger {
+  min-height: 44px;
+}
+@media screen and (min-width: 832px) {
+  .minimal-app .editor-column .minimal-scroll {
+    padding-right: 72px;
+    padding-left: 72px;
+  }
+}
+.components-drawer:not(.component-detail-drawer) > .drawer-heading {
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
