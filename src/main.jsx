@@ -7,6 +7,7 @@ import WebProApp from "./WebProApp.jsx";
 import HouseSnapshotPage from "./HouseSnapshotPage.jsx";
 import { houseSnapshotScene } from "./house-snapshot.js";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
+import DesignPage from "./DesignPage.jsx";
 import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
 import { EditionContext } from "./edition.js";
 import { readEditorPreferences } from "./editor-preferences.js";
@@ -61,6 +62,8 @@ createRoot(document.getElementById("root")).render(
       <NotFoundPage />
     ) : housePage ? (
       <HouseSnapshotPage />
+    ) : pathname === "/design" ? (
+      <DesignPage />
     ) : pathname === "/help" ? (
       <HelpPage />
     ) : pathname === "/blog" || article ? (

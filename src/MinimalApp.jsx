@@ -37,6 +37,7 @@ import {
   Menu,
   Crop,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import {
   StoryboardBoard,
@@ -56,6 +57,7 @@ import {
   moveStoryboardFrame,
 } from "./storyboard-model.js";
 import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { useScreenplaySceneDrag } from "./useScreenplaySceneDrag.js";
 import { componentUrl } from "./component-url.js";
 import { exportStoryboard } from "./storyboard-export.js";
 import { updateShotSettings } from "./shot-info.js";
@@ -69,7 +71,6 @@ import {
   chooseLocalDirectory,
   directoryComponentLibraries,
 } from "./browser-files.js";
-import PropsPanel from "./PropsPanel.jsx";
 import AnnotationsPanel from "./AnnotationsPanel.jsx";
 import { documentFont } from "./document-fonts.js";
 import { CommentsPanel, Onboarding } from "./EditorPanels.jsx";
@@ -138,6 +139,8 @@ import {
 import HistoryPanel from "./HistoryPanel.jsx";
 import HistoryPreview from "./HistoryPreview.jsx";
 import TooltipLayer from "./TooltipLayer.jsx";
+import BrandContextMenu from "./BrandContextMenu.jsx";
+import "./design-page.css";
 import ThumbnailField from "./ThumbnailField.jsx";
 import { cleanComponentAliases, componentNames } from "./component-names.js";
 import ThumbnailPreviewLayer from "./ThumbnailPreviewLayer.jsx";
@@ -597,6 +600,17 @@ function ComponentForm({
                       <ExternalLink size={16} aria-hidden="true" />
                     </a>
                   )}
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t("Удалить ссылку")}
+                    onClick={() => {
+                      setUrl("");
+                      setUrlEnabled(false);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </>
             )}
@@ -815,6 +829,9 @@ export default function MinimalApp({ onLogout }) {
       return null;
     }
   });
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [brandMenu, setBrandMenu] = useState(null);
+  const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
   const writingScope = current.id;
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
@@ -1054,6 +1071,16 @@ export default function MinimalApp({ onLogout }) {
     [writingScope],
   );
   const [saveState, setSaveState] = useState("saving");
+  useEffect(() => {
+    if (!revisionPages.length) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) changeRevisionPages(revisionPages);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [revisionPages, changeRevisionPages]);
   const [busy, setBusy] = useState("");
   const { notice, setMessage, dismissMessage } = useAppMessage(
     initial.error
@@ -1382,6 +1409,7 @@ export default function MinimalApp({ onLogout }) {
         return;
       }
       showSidebar(null);
+      setLearningOpen(false);
       setNotesOpen(false);
       componentHistory.current = { undo: [], redo: [] };
       setView(next);
@@ -1886,6 +1914,7 @@ export default function MinimalApp({ onLogout }) {
     return () => document.removeEventListener("keydown", onUndoRedo, true);
   }, [activeId, writingScope, notesOpen]);
   const switchDocument = (doc, { keepSearch = false } = {}) => {
+    setLearningOpen(false);
     setIntroDocumentId(null);
     setNotesOpen(false);
     componentHistory.current = { undo: [], redo: [] };
@@ -1950,8 +1979,14 @@ export default function MinimalApp({ onLogout }) {
   };
   const changeScriptVersion = (color, pageId = activePage?.id) => {
     if (!filesReady || busy || !pageId) return;
+    const target = current.pageVersions?.pages.find(
+      (page) => page.id === pageId,
+    );
     update((document) => setPageColor(document, pageId, color));
-    requestAnimationFrame(() => editorRef.current?.focus());
+    if (target)
+      requestAnimationFrame(() =>
+        editorRef.current?.focusPosition(target.from + 1),
+      );
   };
   const openComments = useCallback(
     (source) => {
@@ -2433,16 +2468,7 @@ export default function MinimalApp({ onLogout }) {
       );
     if (existing) {
       if (!source.entityId) editorRef.current?.addEntity(existing, source);
-      const paired =
-        IS_PRO &&
-        current.props.find(
-          (item) =>
-            item.componentId === existing.id ||
-            item.name.trim().toLocaleLowerCase() ===
-              existing.name.trim().toLocaleLowerCase(),
-        );
-      if (paired) openAnnotations(existing, paired);
-      else editComponent(existing);
+      editComponent(existing);
     } else
       saveComponent(
         {
@@ -2982,6 +3008,34 @@ export default function MinimalApp({ onLogout }) {
       });
   };
   const columnRef = useRef(null);
+  const openLearning = () => {
+    changeView("screenplay", { focus: false });
+    setLearningOpen(true);
+    setMenu(null);
+    setMobileToolsOpen(false);
+  };
+  useScreenplaySceneDrag(
+    columnRef,
+    filesReady &&
+      !learningOpen &&
+      !mobile &&
+      view === "screenplay" &&
+      !notesOpen &&
+      !historyRevision &&
+      !characterView &&
+      !focusMode &&
+      !burningPage &&
+      !busy &&
+      !tourOpen &&
+      !libraryDialog,
+    writingScope,
+    (id, target, placement) => {
+      applyStoryboardEdit((doc) =>
+        moveStoryboardScene(doc, id, target, placement),
+      );
+      setSceneTarget(id);
+    },
+  );
   useTypewriterSound(preferences.typewriter, columnRef);
   const setDocumentZoom = useCallback(
     (zoom) =>
@@ -3042,6 +3096,9 @@ export default function MinimalApp({ onLogout }) {
       }}
     >
       <TooltipLayer />
+      {brandMenu && (
+        <BrandContextMenu position={brandMenu} onClose={closeBrandMenu} />
+      )}
       {!focusMode && preferences.thumbnailPreviews && (
         <ThumbnailPreviewLayer
           components={current.components.filter((c) => c.enabled !== false)}
@@ -3061,12 +3118,21 @@ export default function MinimalApp({ onLogout }) {
           >
             <img
               className="brand-mark"
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                setMenu(null);
+                setBrandMenu({ left: rect.left, top: rect.bottom + 8 });
+              }}
               src="/brand/tyter-logo.svg"
               alt=""
               width="31"
               height="31"
             />
-            <span className="document-title">{current.title}</span>
+            <span className="document-title">
+              {learningOpen ? t("Обучение") : current.title}
+            </span>
             <ChevronDown size={15} />
           </button>
           {menu === "documents" && (
@@ -3092,6 +3158,17 @@ export default function MinimalApp({ onLogout }) {
                 className="document-list"
                 onScroll={() => setDocumentActions(null)}
               >
+                <button
+                  className="document-item"
+                  onClick={openLearning}
+                  aria-current={learningOpen ? "true" : undefined}
+                >
+                  <CircleHelp size={17} />
+                  <span>
+                    <strong>{t("Обучение")}</strong>
+                    <small>{t("Приветствие и основы редактора")}</small>
+                  </span>
+                </button>
                 {[...documents]
                   .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
                   .filter((d) =>
@@ -3232,6 +3309,31 @@ export default function MinimalApp({ onLogout }) {
                   ? t("Открыть TYT, FDX, DOCX, PDF")
                   : t("Открыть FDX, DOCX, PDF")}
               </button>
+              <div className="menu-divider" />
+              <a
+                className="menu-item"
+                href={window.tyterDesktop ? "https://tyterapp.github.io/" : "/"}
+                onClick={async (event) => {
+                  if (
+                    !window.tyterDesktop &&
+                    (event.ctrlKey ||
+                      event.metaKey ||
+                      event.shiftKey ||
+                      event.altKey)
+                  )
+                    return;
+                  event.preventDefault();
+                  await writeStorage();
+                  await flushOutlineHistory().catch(() => {});
+                  if (window.tyterDesktop?.openSupport) {
+                    setMenu(null);
+                    window.tyterDesktop.openSupport("home");
+                  } else window.location.assign("/");
+                }}
+              >
+                <ArrowLeft size={17} aria-hidden="true" />
+                {t("На главную")}
+              </a>
             </div>
           )}
         </div>
@@ -3442,19 +3544,6 @@ export default function MinimalApp({ onLogout }) {
                     )}
                   </button>
                   <button
-                    className={`icon-button${propsOpen ? " active" : ""}`}
-                    aria-label={t("Реквизит")}
-                    data-tooltip={t("Реквизит · Pro")}
-                    aria-expanded={propsOpen}
-                    onClick={() =>
-                      IS_PRO
-                        ? showSidebar(propsOpen ? null : "props")
-                        : setSubscriptionOpen(true)
-                    }
-                  >
-                    <Box size={17} />
-                  </button>
-                  <button
                     className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
                     aria-label={t("Комментарии")}
                     data-tooltip={t("Комментарии")}
@@ -3537,11 +3626,7 @@ export default function MinimalApp({ onLogout }) {
                 className="icon-button"
                 aria-label={t("Обучение")}
                 data-tooltip={t("Онбординг и горячие клавиши")}
-                onClick={() => {
-                  setMobileToolsOpen(false);
-                  setMenu(null);
-                  setTourOpen(true);
-                }}
+                onClick={openLearning}
               >
                 <CircleHelp size={17} />
               </button>
@@ -3601,6 +3686,23 @@ export default function MinimalApp({ onLogout }) {
             onExport={downloadStoryboard}
           />
         )}
+        {learningOpen && (
+          <main
+            className="learning-workspace"
+            aria-label={t("Документ обучения")}
+          >
+            <article className="learning-paper">
+              <button
+                className="learning-back"
+                onClick={() => setLearningOpen(false)}
+              >
+                <ArrowLeft size={16} />
+                {t("Вернуться к сценарию")}
+              </button>
+              <EditorFirstVisit key={language} />
+            </article>
+          </main>
+        )}
         <StoryboardPaste
           view={view}
           scope={writingScope}
@@ -3649,7 +3751,7 @@ export default function MinimalApp({ onLogout }) {
           className="editor-column"
           ref={columnRef}
           style={
-            view === "storyboard"
+            view === "storyboard" || learningOpen
               ? {
                   display: "none",
                 }
@@ -3875,7 +3977,6 @@ export default function MinimalApp({ onLogout }) {
                     setNotesOpen(false);
                   }}
                   onCreateComponent={componentFromSelection}
-                  onCreateProp={propFromSelection}
                   onEditComponent={(id) => {
                     const component = current.components.find(
                       (item) => item.id === id,
@@ -3935,20 +4036,6 @@ export default function MinimalApp({ onLogout }) {
                   props={IS_PRO ? current.props : EMPTY_PROPS}
                   activeProp={propDialog?.id}
                   onCreateProp={propFromSelection}
-                  onEditAnnotations={({ componentId, propId }) => {
-                    const component = current.components.find(
-                      (item) => item.id === componentId,
-                    );
-                    const prop = current.props.find(
-                      (item) => item.id === propId,
-                    );
-                    if (IS_PRO && component && prop)
-                      openAnnotations(component, prop);
-                  }}
-                  onEditProp={(id) => {
-                    const prop = current.props.find((item) => item.id === id);
-                    if (prop) editProp(prop);
-                  }}
                   comments={current.comments.filter((comment) => {
                     const reference = commentScenes.get(comment.id);
                     return (
@@ -4247,6 +4334,11 @@ export default function MinimalApp({ onLogout }) {
               }
               onMoveFrame={moveFrameToScene}
               onClose={() => showSidebar(null)}
+              onRevealBlock={(id) => {
+                changeView("screenplay", { focus: false });
+                setShotTarget(selectedShot.id);
+                setSceneTarget(id);
+              }}
               onSelect={selectStoryboardScene}
               onView={(next) => {
                 const id = selectedShot.id;
@@ -4542,58 +4634,6 @@ export default function MinimalApp({ onLogout }) {
                     }}
                   />
                 </>
-              )}
-            />
-          )}
-          {propsOpen && IS_PRO && (
-            <PropsPanel
-              key={current.id}
-              document={current}
-              activeId={propDialog?.id}
-              onClose={() => {
-                setPropsOpen(false);
-                setPropDialog(null);
-              }}
-              onCreate={beginProp}
-              onEdit={editProp}
-              onToggleFolder={(id) =>
-                update((d) => ({
-                  ...d,
-                  collapsedPropFolders: (d.collapsedPropFolders || []).includes(
-                    id,
-                  )
-                    ? d.collapsedPropFolders.filter((value) => value !== id)
-                    : [...(d.collapsedPropFolders || []), id],
-                }))
-              }
-              onAddFolder={(name) =>
-                update((d) => ({
-                  ...d,
-                  propFolders: [...(d.propFolders || []), { id: uid(), name }],
-                }))
-              }
-              onDeleteFolder={(folder) =>
-                setFolderToDelete({ ...folder, kind: "props" })
-              }
-              onCloseEdit={() => setPropDialog(null)}
-              renderEditor={(prop) => (
-                <ComponentForm
-                  key={prop.id}
-                  inline
-                  prop
-                  value={entityFormValue(prop, true)}
-                  components={current.props}
-                  folders={current.propFolders}
-                  onDraftChange={(draft) =>
-                    rememberEntityDraft(prop, draft, true)
-                  }
-                  onSubmit={saveProp}
-                  onDelete={deleteProp}
-                  onClose={() => {
-                    clearEntityDraft(prop, true);
-                    setPropDialog(null);
-                  }}
-                />
               )}
             />
           )}

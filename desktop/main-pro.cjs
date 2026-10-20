@@ -229,6 +229,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("tyter:open-support", async (event, kind) => {
     trusted(event);
     const targets = {
+      home: "https://tyterapp.github.io/",
       "screenplay-standards":
         "https://tyterapp.github.io/blog/standarty-v-kino",
       donate: "https://boosty.to/sergeybuharev",

@@ -310,7 +310,7 @@ export default function EditorContextMenu({
             ]
           : []),
         ["component", t("Компонент"), selected],
-        ["prop", t("Реквизит"), selected],
+        ...(onCreateProp ? [["prop", t("Реквизит"), selected]] : []),
       ].map(([action, label, enabled], index) => (
         <button
           role="menuitem"

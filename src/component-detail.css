@@ -115,6 +115,27 @@
   align-items: center;
   gap: 8px;
 }
+.component-hover-link {
+  position: fixed;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--ui-accent);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  box-shadow:
+    0 0 0 1px var(--ui-border),
+    0 4px 14px #0002;
+}
+.component-hover-link:hover {
+  background: var(--ui-accent-soft);
+}
+.component-hover-link:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
 .component-url-actions .component-url-toggle {
   flex: 1;
   min-width: 0;

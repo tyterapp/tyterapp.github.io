@@ -96,6 +96,51 @@ const boardButton = (page) =>
     .getByRole("button", { name: "Раскадровка", exact: true });
 const card = (page, id) => page.locator(`.story-card[data-scene="${id}"]`);
 const panel = (page) => page.locator(".story-inspector");
+for (const language of ["ru", "en"])
+  test(`${language}: structure icons match text formats and reveal the exact screenplay block`, async ({
+    page,
+  }) => {
+    await open(page, { language });
+    await page
+      .locator(".document-view-toggle")
+      .getByRole("button", {
+        name: language === "en" ? "Storyboard" : "Раскадровка",
+        exact: true,
+      })
+      .click();
+    await card(page, "one").getByRole("button").click();
+    const block = panel(page).locator('[data-block="speech"]');
+    const reveal = block.locator(".story-block-reveal");
+    await expect(reveal.locator(".story-format-icon")).toHaveCSS(
+      "mask-image",
+      /speech\.svg/,
+    );
+    await expect(reveal).toHaveAccessibleName(
+      language === "en"
+        ? "Show in screenplay: Dialogue 4"
+        : "Показать в сценарии: Диалог 4",
+    );
+    await reveal.click();
+    await expect(page.locator(".screenplay-editor")).toBeVisible();
+    await expect(panel(page)).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator(".screenplay-editor")
+          .evaluate((e) => e.editor.state.selection.$head.parent.attrs.blockId),
+      )
+      .toBe("speech");
+    await expect(
+      page.locator('.screenplay-editor [data-block-id="speech"]'),
+    ).toHaveAttribute("data-outline-navigation-target", "true");
+    await expect(
+      panel(page).locator('[data-block="character"] .story-format-icon'),
+    ).toHaveCSS("mask-image", /character\.svg/);
+    await expect(
+      panel(page).locator('[data-block="action-one"] .story-format-icon'),
+    ).toHaveCSS("mask-image", /action\.svg/);
+    await page.screenshot({ path: `.cache/structure-icons-${language}.png` });
+  });
 async function info(page, detail = false) {
   await panel(page).getByRole("tab", { name: "Инфо", exact: true }).click();
   if (detail)

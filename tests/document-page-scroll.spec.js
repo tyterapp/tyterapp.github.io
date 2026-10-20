@@ -63,6 +63,35 @@ const state = (page) =>
     selection: element.editor.state.selection.toJSON(),
   }));
 
+test("changing a visible page color moves the caret onto that page instead of scrolling to the old caret", async ({
+  page,
+}) => {
+  await open(page, { count: 40 });
+  await page
+    .locator(".screenplay-editor")
+    .evaluate((element) => element.editor.commands.focus("end"));
+  await page
+    .locator(".minimal-scroll")
+    .evaluate((element) => element.scrollTo(0, 0));
+  await page
+    .getByRole("combobox", { name: "Цвет страницы 1", exact: true })
+    .hover();
+  await page.getByRole("option", { name: "v3 Pink", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Цвет страницы 1", exact: true }),
+  ).toHaveAttribute("data-value", "pink");
+  await expect
+    .poll(() =>
+      page
+        .locator(".screenplay-editor")
+        .evaluate((element) => element.editor.state.selection.from),
+    )
+    .toBe(1);
+  await expect.poll(() => scrollTop(page)).toBeLessThan(150);
+  await page.waitForTimeout(400);
+  expect(await scrollTop(page)).toBeLessThan(150);
+});
+
 const uiScale = (page) =>
   page.evaluate(() => ({
     width: window.innerWidth,

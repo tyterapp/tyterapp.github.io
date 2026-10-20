@@ -19,6 +19,10 @@ export function pageMetadata(html, route = "") {
   const houseScene = houseSnapshotScene(`/${route}`);
   const house = route === "house" || !!houseScene;
   const pages = {
+    design: [
+      "Дизайн Tyter — брендбук, гайдлайны и UI кит",
+      "Логотип, палитра, типографика и элементы интерфейса Tyter. Материалы для работы с брендом.",
+    ],
     "": [
       "Tyter — сценарий без хаоса",
       "Редактор сценариев с подсказками, версиями, карточками истории и подготовкой к съёмкам. Пишите бесплатно или выбирайте PRO.",
@@ -123,6 +127,7 @@ export async function writeSiteSeo(output) {
     "b",
     "blog",
     "help",
+    "design",
     ...BLOG_ARTICLES.map(({ slug }) => `blog/${slug}`),
   ];
   await writeFile(

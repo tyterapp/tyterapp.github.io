@@ -31,6 +31,7 @@ import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
 import StoryboardFrameGenerator from "./StoryboardFrameGenerator.jsx";
 import StoryboardPlayer from "./StoryboardPlayer.jsx";
 import { scriptVersionExportStyle } from "./script-version-colors.js";
+import { SCRIPT_VERSIONS } from "./script-version-colors.js";
 import {
   useStoryboardZoom,
   useLongPressReorder,
@@ -63,10 +64,16 @@ export function StoryboardImage({ scene, ratio, className = "" }) {
     setPlaying(null);
   };
   const frame = playing || frames[0];
+  const color =
+    SCRIPT_VERSIONS.find((color) => color.id === scene.color) ||
+    SCRIPT_VERSIONS[0];
   return (
     <span
-      className={`story-image ${className}`}
+      className={`story-image ${!frame ? "is-empty" : ""} ${className}`}
+      data-revision-color={color.id}
       style={{
+        "--revision-page-hue": color.hue,
+        "--revision-page-chroma": color.chroma,
         aspectRatio:
           ratio || shotAspectRatio(scene.settings.aspectRatio) || 16 / 9,
       }}
@@ -84,7 +91,7 @@ export function StoryboardImage({ scene, ratio, className = "" }) {
           draggable="false"
         />
       ) : (
-        <ImagePlus size={28} aria-hidden="true" />
+        <span className="scene-format-icon" aria-hidden="true" />
       )}
       {frames.length > 1 && (
         <span className="story-slide-count">
@@ -318,7 +325,7 @@ export function StoryboardBoard({
             data-tooltip={tr("Добавить сцену", "Add scene")}
             onClick={onAdd}
           >
-            <ImagePlus size={28} />
+            <span className="scene-format-icon" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -898,6 +905,7 @@ export function StoryboardInspector({
   busy,
   frameTarget,
   onMoveFrame,
+  onRevealBlock,
 }) {
   useLanguage();
   const [tab, setTab] = useState("structure"),
@@ -1076,6 +1084,26 @@ export function StoryboardInspector({
                       ...(FORMAT_NAMES[block.attrs.format] ||
                         FORMAT_NAMES.plain),
                     )}
+                  </button>
+                  <button
+                    className="icon-button story-block-reveal"
+                    aria-label={tr(
+                      `Показать в сценарии: ${FORMAT_NAMES[block.attrs.format]?.[0] || FORMAT_NAMES.plain[0]} ${blockIndex + 1}`,
+                      `Show in screenplay: ${FORMAT_NAMES[block.attrs.format]?.[1] || FORMAT_NAMES.plain[1]} ${blockIndex + 1}`,
+                    )}
+                    data-tooltip={tr(
+                      "Показать в сценарии",
+                      "Show in screenplay",
+                    )}
+                    onClick={() => onRevealBlock(block.attrs.blockId)}
+                  >
+                    <span
+                      className="story-format-icon"
+                      style={{
+                        "--format-icon": `url("/icons/format/${FORMAT_NAMES[block.attrs.format] ? block.attrs.format : "plain"}.svg")`,
+                      }}
+                      aria-hidden="true"
+                    />
                   </button>
                 </div>
                 <div

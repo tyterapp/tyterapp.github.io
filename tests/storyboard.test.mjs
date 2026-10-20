@@ -89,6 +89,24 @@ function fixture() {
   ];
   return doc;
 }
+test("explicit scene insertion supports both sides, preserves resources and skips adjacent no-op drops", () => {
+  const doc = fixture();
+  doc.sceneShots = { one: { A: { drama: 8 } } };
+  doc.sceneVariants = { one: { B: [p("scene", "Alternative", "one")] } };
+  const before = moveStoryboardScene(doc, "two", "one", "before");
+  assert.deepEqual(
+    before.content.content.map((n) => n.attrs.blockId),
+    ["two", "c", "one", "a", "b"],
+  );
+  assert.deepEqual(before.sceneShots, doc.sceneShots);
+  assert.deepEqual(before.sceneVariants, doc.sceneVariants);
+  assert.deepEqual(
+    moveStoryboardScene(before, "two", "one", "after").content,
+    doc.content,
+  );
+  assert.equal(moveStoryboardScene(doc, "one", "two", "before"), doc);
+  assert.equal(moveStoryboardScene(doc, "two", "one", "after"), doc);
+});
 test("slides and zero drama survive import, variant switching and the portable manifest", () => {
   let doc = updateShotSettings(fixture(), "one", "A", {
     frames: [

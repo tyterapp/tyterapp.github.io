@@ -7,16 +7,28 @@ const tr = (ru, en) => (getLanguage() === "en" ? en : ru);
 export default function StoryboardPlayer({ scenes, page, onClose }) {
   useLanguage();
   const dialog = useRef(null);
+  const [activePage, setActivePage] = useState(page);
+  const pages = [...new Set(scenes.map((scene) => scene.page))].sort(
+    (a, b) => a - b,
+  );
+  const pageIndex = pages.indexOf(activePage);
   const [index, setIndex] = useState(0),
     [paused, setPaused] = useState(false);
   const frames = scenes
-    .filter((scene) => scene.page === page)
+    .filter((scene) => scene.page === activePage)
     .flatMap((scene) =>
       storyboardFrames(scene.settings)
         .filter((frame) => frame.image)
         .map((frame) => ({ scene, frame })),
     );
   const current = frames[index];
+  const changePage = (direction) => {
+    const next = pages[pageIndex + direction];
+    if (next === undefined) return;
+    setActivePage(next);
+    setIndex(0);
+    setPaused(false);
+  };
   const step = (direction) => {
     setIndex((value) =>
       Math.max(0, Math.min(frames.length - 1, value + direction)),
@@ -49,8 +61,22 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
     <dialog
       className="story-player"
       ref={dialog}
-      aria-label={tr(`Проигрыватель страницы ${page}`, `Page ${page} player`)}
+      aria-label={tr(
+        `Проигрыватель страницы ${activePage}`,
+        `Page ${activePage} player`,
+      )}
       onCancel={onClose}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        )
+          onClose();
+      }}
       onKeyDown={(event) => {
         if (
           event.target.closest("button") &&
@@ -69,11 +95,31 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
           event.preventDefault();
           step(-1);
         }
+        if (["PageUp", "PageDown"].includes(event.key)) {
+          event.preventDefault();
+          changePage(event.key === "PageUp" ? -1 : 1);
+        }
       }}
     >
+      <button
+        className="story-player-page previous"
+        aria-label={tr("Предыдущая страница", "Previous page")}
+        disabled={pageIndex <= 0}
+        onClick={() => changePage(-1)}
+      >
+        <ArrowLeft size={22} />
+      </button>
+      <button
+        className="story-player-page next"
+        aria-label={tr("Следующая страница", "Next page")}
+        disabled={pageIndex >= pages.length - 1}
+        onClick={() => changePage(1)}
+      >
+        <ArrowRight size={22} />
+      </button>
       <header>
         <span>
-          {tr("Страница", "Page")} {page}
+          {tr("Страница", "Page")} {activePage}
           {current
             ? ` · ${tr("Сцена", "Scene")} ${current.scene.number} ${current.scene.letter}`
             : ""}
@@ -103,6 +149,14 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
             alt={`${tr("Сцена", "Scene")} ${current.scene.number} ${current.scene.letter}`}
           />
         )}
+        {!current && (
+          <p>
+            {tr(
+              "На этой странице пока нет кадров",
+              "No frames on this page yet",
+            )}
+          </p>
+        )}
       </div>
       <div className="story-player-caption">{current?.scene.title}</div>
       <footer>
@@ -116,6 +170,7 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
         </button>
         <button
           className="icon-button story-player-play"
+          disabled={!frames.length}
           aria-label={
             paused
               ? tr("Продолжить воспроизведение", "Resume playback")
@@ -138,7 +193,7 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
           <ArrowRight size={20} />
         </button>
         <output>
-          {index + 1} / {frames.length}
+          {frames.length ? index + 1 : 0} / {frames.length}
         </output>
       </footer>
     </dialog>

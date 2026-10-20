@@ -3,11 +3,13 @@ import { MoneyIcon } from "./WritingTimerIcons.jsx";
 import { CatIcon } from "./WritingHouseIcons.jsx";
 import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
 import IntroFlame from "./IntroFlame.jsx";
+import EmotionalReveal from "./EmotionalReveal.jsx";
 
 export default function EditorFirstVisit() {
   const english = useLanguage() === "en";
   return (
-    <section
+    <EmotionalReveal
+      language={english ? "en" : "ru"}
       className="editor-first-visit"
       aria-labelledby="editor-first-visit-title"
     >
@@ -77,6 +79,6 @@ export default function EditorFirstVisit() {
         </span>
         {english ? " and much more." : " и многое другое."}
       </p>
-    </section>
+    </EmotionalReveal>
   );
 }

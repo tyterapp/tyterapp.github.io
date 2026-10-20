@@ -8,6 +8,7 @@ import {
 } from "react";
 import { t, useLanguage } from "./i18n.js";
 import EditorContextMenu from "./EditorContextMenu.jsx";
+import ComponentLinkHover from "./ComponentLinkHover.jsx";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -52,7 +53,6 @@ import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
 import { storyboardFrames, playSlides } from "./storyboard-data.js";
-import { cropIconSvg } from "./StoryIcons.jsx";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
 import {
@@ -646,6 +646,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
   });
   propsRef.current = {
+    continuous,
     onPasteComponentUrl,
     components,
     characterThumbnails,
@@ -771,6 +772,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           if (
             prop &&
             component &&
+            propsRef.current.onEditAnnotations &&
             propsRef.current.components.some(
               (c) =>
                 c.id === component.getAttribute("data-entity-id") &&
@@ -784,7 +786,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
             });
             return true;
           }
-          if (prop && view.dom.contains(prop)) {
+          if (prop && view.dom.contains(prop) && propsRef.current.onEditProp) {
             event.preventDefault();
             propsRef.current.onEditProp?.(prop.getAttribute("data-prop-id"));
             return true;
@@ -1039,7 +1041,18 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         );
                         frame.append(image);
                         button.append(frame);
-                      } else button.innerHTML = cropIconSvg(18);
+                      } else {
+                        const icon = document.createElement("span");
+                        icon.className = "scene-format-icon";
+                        icon.setAttribute("aria-hidden", "true");
+                        button.append(icon);
+                      }
+                      const grip = document.createElement("span");
+                      grip.className = "scene-shot-grip";
+                      grip.setAttribute("aria-hidden", "true");
+                      grip.innerHTML =
+                        '<svg width="16" height="24" viewBox="0 0 16 24" fill="currentColor"><circle cx="5" cy="5" r="1.5"/><circle cx="11" cy="5" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="11" cy="19" r="1.5"/></svg>';
+                      button.append(grip);
                       button.addEventListener("mousedown", (event) =>
                         event.preventDefault(),
                       );
@@ -1062,10 +1075,32 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       const gutter = document.createElement("span");
                       gutter.className = "scene-gutter";
                       gutter.contentEditable = "false";
-                      const label = document.createElement("span");
-                      label.className = "scene-number";
+                      const mobile = propsRef.current.continuous;
+                      const label = document.createElement(
+                        mobile ? "span" : "button",
+                      );
+                      label.className = mobile
+                        ? "scene-number"
+                        : "scene-number scene-drag-handle";
                       label.setAttribute("data-number", String(number));
-                      label.setAttribute("aria-hidden", "true");
+                      if (mobile) label.setAttribute("aria-hidden", "true");
+                      else {
+                        label.type = "button";
+                        label.setAttribute(
+                          "aria-label",
+                          t("Переместить сцену {0}", number),
+                        );
+                        label.setAttribute(
+                          "aria-description",
+                          t("Перетащите сцену или нажмите Alt + ↑ / ↓."),
+                        );
+                        label.setAttribute(
+                          "data-tooltip",
+                          t("Перетащите, чтобы переместить сцену"),
+                        );
+                        label.draggable = false;
+                        label.innerHTML = `<span class="scene-drag-number" aria-hidden="true">${number}</span><svg width="14" height="18" viewBox="0 0 16 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="5" r="1.5"/><circle cx="11" cy="5" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="11" cy="19" r="1.5"/></svg>`;
+                      }
                       gutter.append(label);
                       const select = document.createElement("button");
                       select.type = "button";
@@ -1101,7 +1136,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                       return gutter;
                     },
                     {
-                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${language}`,
+                      key: `scene-${node.attrs.blockId}-${number}-${sceneLetter(node)}-${language}-${propsRef.current.continuous}`,
                       side: -1,
                       stopEvent: () => true,
                     },
@@ -1431,6 +1466,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     sceneShots,
     activeShot,
     language,
+    continuous,
   ]);
   useEffect(() => {
     if (!searchQuery && searchScrollFrame.current !== null) {
@@ -2053,8 +2089,16 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         }
         onCreateComponent={onCreateComponent}
         onCreateProp={onCreateProp}
+        onPasteComponentUrl={onPasteComponentUrl}
         onComment={onCommentFromSelection || onComments}
       />
+      {minimal && (
+        <ComponentLinkHover
+          editor={editor}
+          components={components}
+          onEdit={onEditComponent}
+        />
+      )}
       <EditorContextMenu
         editor={editor}
         plainOnly={plainOnly}

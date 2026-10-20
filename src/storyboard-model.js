@@ -79,7 +79,7 @@ function withContent(document, nodes) {
     ),
   };
 }
-export function moveStoryboardScene(document, id, targetId) {
+export function moveStoryboardScene(document, id, targetId, placement) {
   if (id === targetId) return document;
   const range = sceneRange(document.content, id),
     target = sceneRange(document.content, targetId);
@@ -88,11 +88,13 @@ export function moveStoryboardScene(document, id, targetId) {
     (_, index) => index < range.start || index >= range.end,
   );
   let at = nodes.findIndex((node) => node.attrs?.blockId === targetId);
-  if (range.start < target.start) {
+  if (placement === "after" || (!placement && range.start < target.start)) {
     at++;
     while (at < nodes.length && nodes[at].attrs?.format !== "scene") at++;
   }
   nodes.splice(at, 0, ...range.nodes);
+  if (nodes.every((node, index) => node === document.content.content[index]))
+    return document;
   return withContent(document, nodes);
 }
 export function addStoryboardScene(document) {

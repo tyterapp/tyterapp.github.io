@@ -2,6 +2,25 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  Дизайн: "Design",
+  Брендбук: "Brandbook",
+  Гайдлайны: "Guidelines",
+  "UI кит": "UI kit",
+  "Материалы бренда": "Brand resources",
+  "Документ обучения": "Learning document",
+  "Приветствие и основы редактора": "Welcome and editor basics",
+  "Удалить ссылку": "Remove link",
+  "Добавить ссылку": "Add link",
+  "Открыть ссылку: {0}": "Open link: {0}",
+  "Сцена {0}": "Scene {0}",
+  "Переместить сцену {0}": "Move scene {0}",
+  "Перетащите, чтобы переместить сцену": "Drag to move the scene",
+  "Перетащите сцену или нажмите Alt + ↑ / ↓.":
+    "Drag the scene or press Alt + ↑ / ↓.",
+  "Выберите место · Esc — отмена": "Choose a position · Esc to cancel",
+  "Перед сценой {0} · Esc — отмена": "Before scene {0} · Esc to cancel",
+  "После сцены {0} · Esc — отмена": "After scene {0} · Esc to cancel",
+  Перемещается: "Moving",
   "Ссылка компонента": "Component link",
   "Использовать ссылку компонента": "Enable component link",
   "Открыть ссылку": "Open link",

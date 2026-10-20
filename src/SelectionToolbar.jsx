@@ -8,8 +8,10 @@ import {
   Box,
   Shapes,
   MessageSquarePlus,
+  Link2,
 } from "lucide-react";
 import "./selection-toolbar.css";
+import { componentUrl } from "./component-url.js";
 export function sourceForRange(editor, from, to) {
   if (!editor || editor.isDestroyed) return null;
   const { doc } = editor.state;
@@ -129,6 +131,7 @@ export default function SelectionToolbar({
   editor,
   onCreateComponent,
   onCreateProp,
+  onPasteComponentUrl,
   onComment,
   disabled = false,
   minimal = false,
@@ -146,6 +149,11 @@ export default function SelectionToolbar({
   const commentRef = useRef(onComment);
   commentRef.current = onComment;
   const [position, setPosition] = useState(null);
+  const [linkSource, setLinkSource] = useState(null);
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    if (!position) setLinkSource(null);
+  }, [position]);
   useEffect(() => {
     if (!editor || editor.isDestroyed || disabled) {
       setPosition(null);
@@ -245,7 +253,9 @@ export default function SelectionToolbar({
       const boldAlias =
         (event.code === "KeyB" || key === "b") && event.shiftKey;
       const createProp =
-        (event.code === "KeyE" || key === "e") && !event.shiftKey;
+        !!createPropRef.current &&
+        (event.code === "KeyE" || key === "e") &&
+        !event.shiftKey;
       const createComment =
         (event.code === "KeyQ" || key === "q") && !event.shiftKey;
       if (
@@ -326,8 +336,12 @@ export default function SelectionToolbar({
         top: position.top,
         maxWidth: position.maxWidth,
       }}
-      onPointerDown={(event) => event.preventDefault()}
-      onMouseDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        if (!event.target.closest("input")) event.preventDefault();
+      }}
+      onMouseDown={(event) => {
+        if (!event.target.closest("input")) event.preventDefault();
+      }}
       onFocus={() => refreshRef.current?.()}
       onBlur={() => refreshRef.current?.()}
     >
@@ -418,7 +432,7 @@ export default function SelectionToolbar({
           </span>
         </button>
       )}
-      {minimal && !plainOnly && (
+      {minimal && !plainOnly && onCreateProp && (
         <button
           type="button"
           aria-label={t("Создать реквизит из выделения")}
@@ -436,6 +450,46 @@ export default function SelectionToolbar({
             {shortcut} + E
           </span>
         </button>
+      )}
+      {minimal && !plainOnly && onPasteComponentUrl && (
+        <button
+          type="button"
+          aria-label={t("Добавить ссылку")}
+          data-tooltip={t("Добавить ссылку")}
+          onClick={() => {
+            setLinkSource(selectedSource(editor));
+            setUrl("");
+          }}
+        >
+          <Link2 size={20} />
+        </button>
+      )}
+      {linkSource && (
+        <form
+          className="selection-link-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const normalized = componentUrl(url);
+            if (!normalized) return;
+            onPasteComponentUrl(linkSource, normalized);
+            setLinkSource(null);
+            setPosition(null);
+          }}
+        >
+          <input
+            autoFocus
+            type="url"
+            required
+            placeholder="https://…"
+            aria-label={t("Ссылка компонента")}
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            maxLength={2048}
+          />
+          <button type="submit" disabled={!componentUrl(url)}>
+            {t("Добавить")}
+          </button>
+        </form>
       )}
       {
         <button

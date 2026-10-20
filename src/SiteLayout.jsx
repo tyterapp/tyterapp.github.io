@@ -71,6 +71,7 @@ export default function SiteLayout({
               ["product", "/", "Продукт"],
               ["blog", "/blog", "Блог"],
               ["help", "/help", "Помощь"],
+              ["design", "/design", "Дизайн"],
             ].map(([id, href, label]) => (
               <a
                 key={id}

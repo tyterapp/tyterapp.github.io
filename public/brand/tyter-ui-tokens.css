@@ -1,0 +1,10 @@
+/* Tyter UI foundations. */
+:root {
+  --tyter-ink: #1c1a22;
+  --tyter-canvas: #f7f7fa;
+  --tyter-paper: #ffffff;
+  --tyter-accent: #6d28d9;
+  --tyter-radius: 8px;
+  --tyter-ui-font: Inter, Arial, sans-serif;
+  --tyter-screenplay-font: "Courier New", Courier, monospace;
+}
