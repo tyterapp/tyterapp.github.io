@@ -12,7 +12,6 @@ import {
   Maximize2,
   MessageSquare,
   Download,
-  Search,
   Play,
 } from "lucide-react";
 import { getLanguage, t, useLanguage } from "./i18n.js";
@@ -29,6 +28,9 @@ import { shotAspectRatio } from "./shot-image.js";
 import { SCENE_VARIANTS } from "./scene-variants.js";
 import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
 import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
+import StoryboardFrameGenerator from "./StoryboardFrameGenerator.jsx";
+import StoryboardPlayer from "./StoryboardPlayer.jsx";
+import { scriptVersionExportStyle } from "./script-version-colors.js";
 import { usePinchGrid, useLongPressReorder } from "./useStoryboardGestures.js";
 import "./storyboard.css";
 
@@ -101,7 +103,7 @@ export function StoryboardBoard({
   readonly = false,
 }) {
   useLanguage();
-  const [query, setQuery] = useState("");
+  const [playingPage, setPlayingPage] = useState(null);
   const [zoom, setZoom] = useState(() =>
     window.matchMedia("(max-width: 831px)").matches ? 40 : 50,
   );
@@ -109,8 +111,7 @@ export function StoryboardBoard({
   const [comments, setComments] = useState(false);
   const [exports, setExports] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const viewport = useRef(null),
-    drag = useRef(null);
+  const viewport = useRef(null);
   usePinchGrid(viewport, zoom, setZoom);
   const reorder = useLongPressReorder(
     ".story-card[data-scene]",
@@ -119,11 +120,7 @@ export function StoryboardBoard({
       if (!readonly) onMove(id, target);
     },
   );
-  const visible = scenes.filter((scene) =>
-    `${label(scene)} ${scene.title} ${scene.settings.synopsis || ""}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase()),
-  );
+  const visible = scenes;
   const pages = [...new Set(visible.map((scene) => scene.page))];
   const ratio =
     aspect === "scene"
@@ -157,16 +154,111 @@ export function StoryboardBoard({
       className={`storyboard-workspace${fullscreen ? " story-fullscreen" : ""}`}
       aria-label={t("Раскадровка")}
     >
-      <div className="story-board-top">
-        <label className="story-search">
-          <Search size={16} />
-          <input
-            aria-label={tr("Найти сцену", "Find scene")}
-            placeholder={tr("Найти сцену…", "Find scene…")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
+      <div
+        className="story-board-scroll"
+        ref={viewport}
+        style={{ "--story-card-width": `${(360 * zoom) / 100}px` }}
+      >
+        {!scenes.length && (
+          <div className="story-empty">
+            <Crop size={36} />
+            <p>
+              {tr(
+                "Добавьте первую сцену, чтобы собрать раскадровку.",
+                "Add your first scene to start the storyboard.",
+              )}
+            </p>
+          </div>
+        )}
+        {pages.map((page) => (
+          <section
+            className="story-page-group"
+            key={page}
+            aria-label={t("Страница {0}", page)}
+          >
+            <div className="story-page-label">
+              <button
+                className="story-page-play"
+                aria-label={tr(
+                  `Воспроизвести страницу ${page}`,
+                  `Play page ${page}`,
+                )}
+                disabled={
+                  !visible.some(
+                    (scene) =>
+                      scene.page === page &&
+                      storyboardFrames(scene.settings).some(
+                        (frame) => frame.image,
+                      ),
+                  )
+                }
+                onClick={() => setPlayingPage(page)}
+              >
+                <span>{t("Страница {0}", page)}</span>
+                <Play size={14} fill="currentColor" />
+              </button>
+              <ScriptVersionIcon
+                versionId={visible.find((scene) => scene.page === page)?.color}
+                size={15}
+              />
+            </div>
+            <div className="story-page-cards">
+              {visible
+                .filter((scene) => scene.page === page)
+                .map((scene) => (
+                  <article
+                    key={scene.id}
+                    className={`story-card${selectedId === scene.id ? " selected" : ""}`}
+                    style={{
+                      "--story-status":
+                        scene.color === "white"
+                          ? "var(--ui-accent)"
+                          : scriptVersionExportStyle(scene.color).color,
+                    }}
+                    data-scene={scene.id}
+                    {...(readonly ? {} : reorder)}
+                    draggable={false}
+                  >
+                    <button
+                      className="story-card-select"
+                      aria-label={`${tr("Сцена", "Scene")} ${label(scene)}: ${scene.title}`}
+                      aria-pressed={selectedId === scene.id}
+                      onClick={() => {
+                        if (readonly) return;
+                        setFullscreen(false);
+                        onSelect(scene.id);
+                      }}
+                    >
+                      <StoryboardImage scene={scene} ratio={ratio} />
+                      <span className="story-card-caption">
+                        <strong>{label(scene)}</strong>
+                        <span title={scene.title}>
+                          {scene.title || t("Без названия")}
+                        </span>
+                      </span>
+                    </button>
+                    {comments && scene.settings.frameComment && (
+                      <p className="story-card-comment">
+                        {scene.settings.frameComment}
+                      </p>
+                    )}
+                  </article>
+                ))}
+            </div>
+          </section>
+        ))}
+        {!readonly && (
+          <button
+            className="story-add-scene"
+            aria-label={tr("Добавить сцену", "Add scene")}
+            data-tooltip={tr("Добавить сцену", "Add scene")}
+            onClick={onAdd}
+          >
+            <ImagePlus size={28} />
+          </button>
+        )}
+      </div>
+      <footer className="story-viewport-tools">
         <div className="story-export-menu">
           <button
             className="quiet-button"
@@ -238,106 +330,7 @@ export function StoryboardBoard({
             </div>
           )}
         </div>
-      </div>
-      <div
-        className="story-board-scroll"
-        ref={viewport}
-        style={{ "--story-card-width": `${(360 * zoom) / 100}px` }}
-      >
-        {!scenes.length && (
-          <div className="story-empty">
-            <Crop size={36} />
-            <p>
-              {tr(
-                "Добавьте первую сцену, чтобы собрать раскадровку.",
-                "Add your first scene to start the storyboard.",
-              )}
-            </p>
-          </div>
-        )}
-        {!!scenes.length && !visible.length && (
-          <p className="story-empty">
-            {tr("Сцены не найдены", "No scenes found")}
-          </p>
-        )}
-        {pages.map((page) => (
-          <section
-            className="story-page-group"
-            key={page}
-            aria-label={t("Страница {0}", page)}
-          >
-            <div className="story-page-label">
-              <span>{t("Страница {0}", page)}</span>
-              <ScriptVersionIcon
-                versionId={visible.find((scene) => scene.page === page)?.color}
-                size={15}
-              />
-            </div>
-            <div className="story-page-cards">
-              {visible
-                .filter((scene) => scene.page === page)
-                .map((scene) => (
-                  <article
-                    key={scene.id}
-                    className={`story-card${selectedId === scene.id ? " selected" : ""}`}
-                    style={{ "--story-status": status(scene)[3] }}
-                    data-scene={scene.id}
-                    {...(readonly ? {} : reorder)}
-                    draggable={!readonly}
-                    onDragStart={(e) => {
-                      drag.current = scene.id;
-                      e.dataTransfer.effectAllowed = "move";
-                      e.dataTransfer.setData("text/x-tyter-scene", scene.id);
-                    }}
-                    onDragEnd={() => {
-                      drag.current = null;
-                    }}
-                    onDragOver={(e) => {
-                      if (drag.current && !readonly) e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                      if (!drag.current || readonly) return;
-                      e.preventDefault();
-                      onMove(drag.current, scene.id);
-                      drag.current = null;
-                    }}
-                  >
-                    <button
-                      className="story-card-select"
-                      aria-label={`${tr("Сцена", "Scene")} ${label(scene)}: ${scene.title}`}
-                      aria-pressed={selectedId === scene.id}
-                      onClick={() => {
-                        if (readonly) return;
-                        setFullscreen(false);
-                        onSelect(scene.id);
-                      }}
-                    >
-                      <StoryboardImage scene={scene} ratio={ratio} />
-                      <span className="story-card-caption">
-                        <strong>{label(scene)}</strong>
-                        <span title={scene.title}>
-                          {scene.title || t("Без названия")}
-                        </span>
-                      </span>
-                    </button>
-                    {comments && scene.settings.frameComment && (
-                      <p className="story-card-comment">
-                        {scene.settings.frameComment}
-                      </p>
-                    )}
-                  </article>
-                ))}
-            </div>
-          </section>
-        ))}
-        {!readonly && (
-          <button className="story-add-scene" onClick={onAdd}>
-            <Plus size={22} />
-            {tr("Добавить сцену", "Add scene")}
-          </button>
-        )}
-      </div>
-      <footer className="story-viewport-tools">
+
         <button
           className="quiet-button"
           aria-pressed={comments}
@@ -385,6 +378,14 @@ export function StoryboardBoard({
           <Maximize2 size={18} />
         </button>
       </footer>
+      {playingPage !== null && (
+        <StoryboardPlayer
+          key={playingPage}
+          scenes={scenes}
+          page={playingPage}
+          onClose={() => setPlayingPage(null)}
+        />
+      )}
     </section>
   );
 }
@@ -494,8 +495,7 @@ function FrameEditor({ scene, onChange, scope }) {
   const [error, setError] = useState("");
   const input = useRef(null),
     uploadTarget = useRef(null),
-    live = useRef(scope),
-    drag = useRef(null);
+    live = useRef(scope);
   live.current = scope;
   useEffect(
     () => () => {
@@ -557,6 +557,31 @@ function FrameEditor({ scene, onChange, scope }) {
   };
   return (
     <div className="story-frame-editor">
+      <StoryboardFrameGenerator
+        scene={scene}
+        capacity={
+          200 - frames.length + frames.filter((frame) => !frame.image).length
+        }
+        onInsert={(images) => {
+          const next = [...liveFrames.current],
+            remaining = [...images];
+          if (
+            images.length >
+            200 - next.length + next.filter((frame) => !frame.image).length
+          )
+            return false;
+          let firstId;
+          for (let index = 0; index < next.length && remaining.length; index++)
+            if (!next[index].image) {
+              next[index] = { ...next[index], image: remaining.shift() };
+              firstId ||= next[index].id;
+            }
+          const added = remaining.map(newFrame);
+          onChange({ frames: [...next, ...added] });
+          setSelected(firstId || added[0]?.id);
+          return true;
+        }}
+      />
       <input
         ref={input}
         type="file"
@@ -572,32 +597,13 @@ function FrameEditor({ scene, onChange, scope }) {
             data-frame={frame.id}
             {...reorder}
             className={`story-frame-slot${current?.id === frame.id ? " selected" : ""}`}
-            draggable
+            draggable={false}
             aria-label={`${tr("Слайд", "Slide")} ${index + 1}${frame.image ? "" : ` · ${tr("Свободный слот", "Empty slot")}`}`}
             aria-pressed={current?.id === frame.id}
             onClick={() => setSelected(frame.id)}
             onDoubleClick={() => {
               uploadTarget.current = frame.id;
               input.current.click();
-            }}
-            onDragStart={(e) => {
-              drag.current = frame.id;
-              e.dataTransfer.setData("text/x-tyter-slide", frame.id);
-            }}
-            onDragEnd={() => {
-              drag.current = null;
-            }}
-            onDragOver={(e) => {
-              if (drag.current) e.preventDefault();
-            }}
-            onDrop={(e) => {
-              if (!drag.current) return;
-              e.preventDefault();
-              const next = [...frames],
-                from = next.findIndex((item) => item.id === drag.current);
-              next.splice(index, 0, ...next.splice(from, 1));
-              setFrames(next);
-              drag.current = null;
             }}
           >
             <span
@@ -772,7 +778,14 @@ export function StoryboardInspector({
     [info, setInfo] = useState("frames"),
     [chart, setChart] = useState(false);
   const [addFormat, setAddFormat] = useState("action");
-  const drag = useRef(null);
+  const [expanded, setExpanded] = useState(null),
+    [adding, setAdding] = useState(false);
+  const blockReorder = useLongPressReorder(
+    '.story-structure-block[data-block]:not([data-format="scene"])',
+    "data-block",
+    onMoveBlock,
+    ".story-drag-handle",
+  );
   const frames = storyboardFrames(scene.settings),
     index = scenes.findIndex((item) => item.id === scene.id);
   return (
@@ -871,9 +884,18 @@ export function StoryboardInspector({
           </button>
         </div>
         <div className="story-scene-title">
-          <strong>
-            {tr("Сцена", "Scene")} {scene.number}
-          </strong>
+          <button
+            className="story-heading-toggle"
+            aria-label={tr("Изменить заголовок сцены", "Edit scene heading")}
+            aria-expanded={expanded === scene.id}
+            onClick={() => {
+              setTab("structure");
+              setExpanded(expanded === scene.id ? null : scene.id);
+            }}
+          >
+            {scene.title.trim().split(/\s+/)[0] || tr("Заголовок", "Heading")}
+          </button>
+          <span>{scene.number}</span>
           <select
             aria-label={t("Вариант сцены {0}", scene.number)}
             value={scene.letter}
@@ -895,130 +917,144 @@ export function StoryboardInspector({
                 className="story-structure-block"
                 key={block.attrs.blockId}
                 data-block={block.attrs.blockId}
-                onDragOver={(e) => {
-                  if (drag.current && blockIndex) e.preventDefault();
-                }}
-                onDrop={(e) => {
-                  if (!drag.current || !blockIndex) return;
-                  e.preventDefault();
-                  onMoveBlock(drag.current, block.attrs.blockId);
-                  drag.current = null;
-                }}
+                data-format={block.attrs.format}
+                {...(blockIndex ? blockReorder : {})}
               >
-                <div>
+                <div className="story-block-row" hidden={!blockIndex}>
                   <button
                     className="icon-button story-drag-handle"
                     disabled={!blockIndex}
-                    draggable={!!blockIndex}
+                    draggable={false}
                     aria-label={tr("Переместить блок", "Move block")}
-                    onDragStart={(e) => {
-                      drag.current = block.attrs.blockId;
-                      e.dataTransfer.setData(
-                        "text/x-tyter-block",
-                        drag.current,
-                      );
-                    }}
-                    onDragEnd={() => {
-                      drag.current = null;
-                    }}
                   >
                     <GripVertical size={16} />
                   </button>
-                  <span>
+                  <button
+                    className="story-block-title"
+                    aria-expanded={expanded === block.attrs.blockId}
+                    onClick={() =>
+                      setExpanded(
+                        expanded === block.attrs.blockId
+                          ? null
+                          : block.attrs.blockId,
+                      )
+                    }
+                  >
                     {tr(
                       ...(FORMAT_NAMES[block.attrs.format] ||
                         FORMAT_NAMES.plain),
                     )}
-                  </span>
+                  </button>
+                </div>
+                <div
+                  className="story-block-editor"
+                  hidden={expanded !== block.attrs.blockId}
+                >
+                  <textarea
+                    aria-label={`${tr(...(FORMAT_NAMES[block.attrs.format] || FORMAT_NAMES.plain))} ${blockIndex + 1}`}
+                    value={shotText(block)}
+                    rows={Math.min(
+                      8,
+                      Math.max(2, Math.ceil(shotText(block).length / 30)),
+                    )}
+                    onChange={(e) =>
+                      onBlock(block.attrs.blockId, { text: e.target.value })
+                    }
+                  />
                   {!!blockIndex && (
-                    <button
-                      className="icon-button"
-                      aria-label={tr("Удалить блок", "Delete block")}
-                      onClick={() => onRemoveBlock(block.attrs.blockId)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="story-block-tools">
+                      <button
+                        className="icon-button"
+                        aria-label={tr("Удалить блок", "Delete block")}
+                        onClick={() => onRemoveBlock(block.attrs.blockId)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <select
+                        aria-label={tr("Тип блока", "Block type")}
+                        value={block.attrs.format}
+                        onChange={(e) =>
+                          onBlock(block.attrs.blockId, {
+                            format: e.target.value,
+                          })
+                        }
+                      >
+                        {Object.entries(FORMAT_NAMES)
+                          .filter(([id]) => id !== "scene")
+                          .map(([id, names]) => (
+                            <option key={id} value={id}>
+                              {tr(...names)}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        disabled={blockIndex === 1}
+                        className="icon-button"
+                        aria-label={tr("Блок выше", "Move block up")}
+                        onClick={() =>
+                          onMoveBlock(
+                            block.attrs.blockId,
+                            scene.blocks[blockIndex - 1].attrs.blockId,
+                          )
+                        }
+                      >
+                        ↑
+                      </button>
+                      <button
+                        disabled={blockIndex === scene.blocks.length - 1}
+                        className="icon-button"
+                        aria-label={tr("Блок ниже", "Move block down")}
+                        onClick={() =>
+                          onMoveBlock(
+                            block.attrs.blockId,
+                            scene.blocks[blockIndex + 1].attrs.blockId,
+                          )
+                        }
+                      >
+                        ↓
+                      </button>
+                    </div>
                   )}
                 </div>
-                <textarea
-                  aria-label={`${tr(...(FORMAT_NAMES[block.attrs.format] || FORMAT_NAMES.plain))} ${blockIndex + 1}`}
-                  value={shotText(block)}
-                  rows={Math.min(
-                    8,
-                    Math.max(2, Math.ceil(shotText(block).length / 30)),
-                  )}
-                  onChange={(e) =>
-                    onBlock(block.attrs.blockId, { text: e.target.value })
-                  }
-                />
-                {!!blockIndex && (
-                  <div className="story-block-tools">
-                    <select
-                      aria-label={tr("Тип блока", "Block type")}
-                      value={block.attrs.format}
-                      onChange={(e) =>
-                        onBlock(block.attrs.blockId, { format: e.target.value })
-                      }
-                    >
-                      {Object.entries(FORMAT_NAMES)
-                        .filter(([id]) => id !== "scene")
-                        .map(([id, names]) => (
-                          <option key={id} value={id}>
-                            {tr(...names)}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      disabled={blockIndex === 1}
-                      className="icon-button"
-                      aria-label={tr("Блок выше", "Move block up")}
-                      onClick={() =>
-                        onMoveBlock(
-                          block.attrs.blockId,
-                          scene.blocks[blockIndex - 1].attrs.blockId,
-                        )
-                      }
-                    >
-                      ↑
-                    </button>
-                    <button
-                      disabled={blockIndex === scene.blocks.length - 1}
-                      className="icon-button"
-                      aria-label={tr("Блок ниже", "Move block down")}
-                      onClick={() =>
-                        onMoveBlock(
-                          block.attrs.blockId,
-                          scene.blocks[blockIndex + 1].attrs.blockId,
-                        )
-                      }
-                    >
-                      ↓
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
             <div className="story-add-block">
-              <select
-                aria-label={tr("Тип нового блока", "New block type")}
-                value={addFormat}
-                onChange={(e) => setAddFormat(e.target.value)}
-              >
-                {Object.entries(FORMAT_NAMES)
-                  .filter(([id]) => id !== "scene")
-                  .map(([id, names]) => (
-                    <option key={id} value={id}>
-                      {tr(...names)}
-                    </option>
-                  ))}
-              </select>
-              <button
-                className="quiet-button"
-                onClick={() => onAddBlock(addFormat)}
-              >
-                <Plus size={16} />
-                {tr("Добавить блок текста", "Add text block")}
-              </button>
+              {adding && (
+                <>
+                  <select
+                    aria-label={tr("Тип нового блока", "New block type")}
+                    value={addFormat}
+                    onChange={(e) => setAddFormat(e.target.value)}
+                  >
+                    {Object.entries(FORMAT_NAMES)
+                      .filter(([id]) => id !== "scene")
+                      .map(([id, names]) => (
+                        <option key={id} value={id}>
+                          {tr(...names)}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    className="quiet-button"
+                    onClick={() => {
+                      onAddBlock(addFormat);
+                      setAdding(false);
+                    }}
+                  >
+                    <Plus size={16} />
+                    {tr("Добавить", "Add")}
+                  </button>
+                </>
+              )}
+              {!adding && (
+                <button
+                  className="quiet-button"
+                  onClick={() => setAdding(true)}
+                >
+                  <span>{tr("Добавить блок текста", "Add text block")}</span>
+                  <Plus size={14} />
+                </button>
+              )}
             </div>
           </section>
         ) : (

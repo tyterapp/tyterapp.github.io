@@ -116,11 +116,19 @@ for (const theme of ["light", "dark"])
     await boardButton(page).click();
     await expect(page.locator(".story-card")).toHaveCount(3);
     await card(page, "one").getByRole("button").click();
+    await expect(panel(page).locator("textarea:visible")).toHaveCount(0);
+    await page.screenshot({ path: `.cache/storyboard-compact-${theme}.png` });
+    await panel(page)
+      .getByRole("button", { name: "Действие", exact: true })
+      .click();
     await panel(page)
       .getByRole("textbox", { name: "Действие 2", exact: true })
       .fill("Кролики наблюдают за облаками.");
     await panel(page)
       .getByRole("button", { name: "Добавить блок текста", exact: true })
+      .click();
+    await panel(page)
+      .getByRole("button", { name: "Добавить", exact: true })
       .click();
     await expect(panel(page).locator(".story-structure-block")).toHaveCount(5);
     await info(page, true);
@@ -413,6 +421,9 @@ test("editing scene structure repaginates the hidden screenplay and new scenes j
   await card(page, "one").getByRole("button").click();
   const longText = "История продолжается на следующей странице. ".repeat(240);
   await panel(page)
+    .getByRole("button", { name: "Действие", exact: true })
+    .click();
+  await panel(page)
     .getByRole("textbox", { name: "Действие 2", exact: true })
     .fill(longText);
   await expect
@@ -422,9 +433,10 @@ test("editing scene structure repaginates the hidden screenplay and new scenes j
     .getByRole("button", { name: "Добавить сцену", exact: true })
     .click();
   await expect(page.locator(".story-card")).toHaveCount(4);
-  await expect(panel(page).locator(".story-scene-title")).toContainText(
-    "Сцена 4",
-  );
+  await expect(panel(page).locator(".story-scene-title")).toContainText("4");
+  await panel(page)
+    .getByRole("button", { name: "Изменить заголовок сцены", exact: true })
+    .click();
   await panel(page)
     .getByRole("textbox", { name: "Заголовок 1", exact: true })
     .fill("ЭКС. НОВАЯ ЛОКАЦИЯ — НОЧЬ");
@@ -445,6 +457,9 @@ test("structure editing updates automatic character and alias links", async ({
   await open(page);
   await boardButton(page).click();
   await card(page, "one").getByRole("button").click();
+  await panel(page)
+    .getByRole("button", { name: "Персонаж", exact: true })
+    .click();
   await panel(page)
     .getByRole("textbox", { name: "Персонаж 3", exact: true })
     .fill("ПЯТАК");
@@ -477,4 +492,265 @@ test("structure editing updates automatic character and alias links", async ({
       ),
     )
     .toBe(false);
+});
+
+async function mouseDrag(page, from, to, cancel = false) {
+  await from.scrollIntoViewIfNeeded();
+  const start = await from.boundingBox(),
+    end = await to.boundingBox();
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, {
+    steps: 12,
+  });
+  if (cancel) await page.keyboard.press("Escape");
+  await page.mouse.up();
+}
+test("desktop mouse reorders scenes and actual text blocks; Escape cancels and compact structure is shared", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await expect(
+    page.locator('.storyboard-workspace input[type="search"], .story-search'),
+  ).toHaveCount(0);
+  await mouseDrag(page, card(page, "three"), card(page, "one"));
+  await expect(page.locator(".story-card").first()).toHaveAttribute(
+    "data-scene",
+    "three",
+  );
+  await mouseDrag(page, card(page, "three"), card(page, "two"), true);
+  await expect(page.locator(".story-card").first()).toHaveAttribute(
+    "data-scene",
+    "three",
+  );
+  await mouseDrag(page, card(page, "three"), card(page, "two"));
+  await expect(page.locator(".story-card").last()).toHaveAttribute(
+    "data-scene",
+    "three",
+  );
+  await card(page, "one").getByRole("button").click();
+  await expect(panel(page).locator("textarea:visible")).toHaveCount(0);
+  const block = (id) =>
+    panel(page).locator(`.story-structure-block[data-block="${id}"]`);
+  await mouseDrag(
+    page,
+    block("speech").getByRole("button", {
+      name: "Переместить блок",
+      exact: true,
+    }),
+    block("action-one"),
+  );
+  await expect(
+    panel(page).locator(".story-block-row:visible").first(),
+  ).toContainText("Диалог");
+  await panel(page)
+    .getByRole("button", { name: "Диалог", exact: true })
+    .click();
+  await expect(
+    panel(page).getByRole("textbox", { name: "Диалог 2", exact: true }),
+  ).toHaveValue("Ты слышишь это?");
+  await panel(page)
+    .getByRole("button", { name: "Вернуться к сценарию", exact: true })
+    .click();
+  const order = await page
+    .locator(".screenplay-editor")
+    .evaluate((e) => e.editor.getJSON().content.map((p) => p.attrs.blockId));
+  expect(order.slice(0, 4)).toEqual([
+    "one",
+    "speech",
+    "action-one",
+    "character",
+  ]);
+  await expect(
+    panel(page).getByRole("textbox", { name: "Диалог 2", exact: true }),
+  ).toHaveValue("Ты слышишь это?");
+  await page.screenshot({ path: ".cache/storyboard-compact-screenplay.png" });
+});
+test("page play runs filled frames in scene order, pauses, navigates, restarts and closes", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await page.clock.install();
+  const play = page.getByRole("button", {
+    name: "Воспроизвести страницу 1",
+    exact: true,
+  });
+  await play.click();
+  const player = page.getByRole("dialog", {
+    name: "Проигрыватель страницы 1",
+    exact: true,
+  });
+  const img = player.locator("img");
+  await expect(img).toHaveAttribute("src", red);
+  await page.clock.runFor(301);
+  await expect(img).toHaveAttribute("src", blue);
+  await player
+    .getByRole("button", { name: "Приостановить воспроизведение", exact: true })
+    .click();
+  await page.clock.runFor(2000);
+  await expect(img).toHaveAttribute("src", blue);
+  await player
+    .getByRole("button", { name: "Следующий кадр", exact: true })
+    .click();
+  await expect(img).toHaveAttribute("src", green);
+  await expect(player.locator("output")).toHaveText("3 / 3");
+  await player
+    .getByRole("button", { name: "Продолжить воспроизведение", exact: true })
+    .click();
+  await expect(img).toHaveAttribute("src", red);
+  await page.clock.runFor(1001);
+  await expect(img).toHaveAttribute("src", green);
+  await page.clock.runFor(5001);
+  await expect(
+    player.getByRole("button", {
+      name: "Продолжить воспроизведение",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(player).toHaveCount(0);
+  await play.click();
+  await expect(img).toHaveAttribute("src", red);
+  await player
+    .getByRole("button", { name: "Закрыть проигрыватель", exact: true })
+    .click();
+  await expect(player).toHaveCount(0);
+});
+
+async function generator(page) {
+  await boardButton(page).click();
+  await card(page, "one").getByRole("button").click();
+  await info(page);
+  await panel(page)
+    .getByRole("button", { name: "Создать кадры по описанию", exact: true })
+    .click();
+  await panel(page)
+    .getByLabel("Количество кадров", { exact: true })
+    .selectOption("2");
+  return panel(page).locator(".story-generator");
+}
+test("generation previews a reviewed description and fills empty slots without replacing existing frames; Undo and reload retain data", async ({
+  page,
+}) => {
+  let submits = 0,
+    request;
+  await page.route("https://aihorde.net/api/v2/**", async (route) => {
+    const req = route.request();
+    if (req.method() === "POST") {
+      submits++;
+      request = req.postDataJSON();
+      return route.fulfill({ json: { id: "browser-test-12345" } });
+    }
+    if (req.url().includes("/check/"))
+      return route.fulfill({ json: { done: true, finished: 2 } });
+    return route.fulfill({
+      json: { generations: [{ img: green }, { img: blue }] },
+    });
+  });
+  await open(page);
+  const form = await generator(page);
+  await expect(
+    form.getByLabel("Описание для генерации", { exact: true }),
+  ).toHaveValue("ЭКС. ХОЛМ — ДЕНЬ\nДва кролика встречаются на холме.");
+  expect(submits).toBe(0);
+  await form
+    .getByLabel("Описание для генерации", { exact: true })
+    .fill("Два кролика смотрят на восход.");
+  await form
+    .getByRole("button", { name: "Сгенерировать 2 кадра", exact: true })
+    .click();
+  await expect(
+    form.getByRole("img", { name: "Сгенерированный кадр 1", exact: true }),
+  ).toBeVisible();
+  expect(submits).toBe(1);
+  expect(request.prompt).toContain("Два кролика смотрят на восход.");
+  expect(request.prompt).not.toContain("Ты слышишь это");
+  await form
+    .getByRole("button", { name: "Добавить выбранные кадры (2)", exact: true })
+    .click();
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(4);
+  await expect(panel(page).locator('[data-frame="r"] img')).toHaveAttribute(
+    "src",
+    red,
+  );
+  await expect(panel(page).locator('[data-frame="b"] img')).toHaveAttribute(
+    "src",
+    blue,
+  );
+  await expect(panel(page).locator('[data-frame="empty"] img')).toHaveAttribute(
+    "src",
+    green,
+  );
+  await page.keyboard.press("Control+z");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(3);
+  await expect(panel(page).locator('[data-frame="empty"] img')).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(4);
+  await page.waitForTimeout(700);
+  await page.reload();
+  await boardButton(page).click();
+  await card(page, "one").getByRole("button").click();
+  await info(page);
+  await expect(panel(page).locator('[data-frame="empty"] img')).toHaveAttribute(
+    "src",
+    green,
+  );
+});
+test("generation cancels accepted jobs and reports provider limits without changing slides", async ({
+  page,
+}) => {
+  let deleted = 0,
+    blocked = false;
+  await page.route("https://aihorde.net/api/v2/**", async (route) => {
+    const req = route.request();
+    if (req.method() === "POST")
+      return route.fulfill({
+        status: blocked ? 429 : 200,
+        json: blocked ? {} : { id: "cancel-test-12345" },
+      });
+    if (req.method() === "DELETE") {
+      deleted++;
+      return route.fulfill({ json: {} });
+    }
+    return route.fulfill({ json: { done: false, wait_time: 70 } });
+  });
+  await open(page);
+  const form = await generator(page);
+  await form
+    .getByRole("button", { name: "Сгенерировать 2 кадра", exact: true })
+    .click();
+  await expect(form.getByRole("status")).toContainText("бесплатной очереди");
+  await form
+    .getByRole("button", { name: "Отменить генерацию", exact: true })
+    .click();
+  await expect.poll(() => deleted).toBe(1);
+  await expect(form.getByRole("status")).toHaveCount(0);
+  blocked = true;
+  await form
+    .getByRole("button", { name: "Сгенерировать 2 кадра", exact: true })
+    .click();
+  await expect(form.getByRole("alert")).toContainText("много запросов");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(3);
+  blocked = false;
+  await form
+    .getByRole("button", { name: "Сгенерировать 2 кадра", exact: true })
+    .click();
+  await expect(form.getByRole("status")).toContainText("бесплатной очереди");
+  await panel(page)
+    .getByLabel("Вариант сцены 1", { exact: true })
+    .selectOption("B");
+  await expect.poll(() => deleted).toBe(2);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(0);
 });

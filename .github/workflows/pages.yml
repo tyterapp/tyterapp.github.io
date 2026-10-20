@@ -5,17 +5,16 @@ on:
     branches: [main]
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -25,12 +24,44 @@ jobs:
       - run: npm ci
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - run: npm run site:github
         env:
           TYTER_PRO_CODES: ${{ secrets.TYTER_PRO_CODES }}
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: github-pages
-      - uses: actions/deploy-pages@v4
+          include-hidden-files: true
+          retention-days: 7
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url || steps.retry.outputs.page_url || steps.last_try.outputs.page_url }}
+    steps:
+      - name: Deploy site
+        uses: actions/deploy-pages@v5
         id: deploy
+        continue-on-error: true
+      - name: Wait before retry
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 20
+      - name: Retry deployment
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        id: retry
+        continue-on-error: true
+      - name: Wait before last attempt
+        if: steps.retry.outcome == 'failure'
+        run: sleep 40
+      - name: Last deployment attempt
+        if: steps.retry.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        id: last_try

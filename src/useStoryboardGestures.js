@@ -43,7 +43,7 @@ export function usePinchGrid(ref, zoom, onZoom) {
 }
 
 // Keep ordinary one-finger scrolling. A stationary long press arms reordering.
-export function useLongPressReorder(selector, attribute, onMove) {
+export function useLongPressReorder(selector, attribute, onMove, handle) {
   const drag = useRef(null),
     suppress = useRef(false),
     callback = useRef(onMove);
@@ -52,11 +52,45 @@ export function useLongPressReorder(selector, attribute, onMove) {
     const current = drag.current;
     if (!current) return;
     clearTimeout(current.timer);
+    cancelAnimationFrame(current.scrollFrame);
     current.element.classList.remove("story-touch-dragging");
+    for (const [key, value] of Object.entries(current.style))
+      current.element.style[key] = value;
     current.targetElement?.classList.remove("story-drop-target");
     if (current.element.hasPointerCapture?.(current.pointerId))
       current.element.releasePointerCapture(current.pointerId);
     drag.current = null;
+  };
+  const activate = (current) => {
+    if (drag.current !== current) return;
+    current.active = true;
+    suppress.current = true;
+    current.element.classList.add("story-touch-dragging");
+    current.element.style.position = "relative";
+    current.element.style.zIndex = "6";
+    current.element.style.pointerEvents = "none";
+    current.element.setPointerCapture(current.pointerId);
+    if (current.touch) navigator.vibrate?.(25);
+    const follow = () => {
+      if (drag.current !== current) return;
+      const parent = current.scroller;
+      if (parent) {
+        const rect = parent.getBoundingClientRect();
+        if (current.clientY < rect.top + 40) parent.scrollTop -= 10;
+        else if (current.clientY > rect.bottom - 40) parent.scrollTop += 10;
+      }
+      current.element.style.transform = `translate(${current.clientX - current.x}px, ${current.clientY - current.y + (parent ? parent.scrollTop - current.scrollTop : 0)}px)`;
+      const target = document
+        .elementFromPoint(current.clientX, current.clientY)
+        ?.closest(selector);
+      current.targetElement?.classList.remove("story-drop-target");
+      current.targetElement = target;
+      current.target = target?.getAttribute(attribute);
+      if (current.target && current.target !== current.id)
+        target.classList.add("story-drop-target");
+      current.scrollFrame = requestAnimationFrame(follow);
+    };
+    follow();
   };
   useEffect(() => {
     const preventScroll = (event) => {
@@ -64,6 +98,40 @@ export function useLongPressReorder(selector, attribute, onMove) {
     };
     const cancelPinch = (event) => {
       if (event.touches.length > 1) clear();
+    };
+    const move = (event) => {
+      const current = drag.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      current.clientX = event.clientX;
+      current.clientY = event.clientY;
+      if (!current.active) {
+        if (
+          Math.hypot(event.clientX - current.x, event.clientY - current.y) < 6
+        )
+          return;
+        if (current.touch) {
+          clear();
+          return;
+        }
+        activate(current);
+      }
+      event.preventDefault();
+    };
+    const finish = (event) => {
+      const current = drag.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      const target = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest(selector)
+        ?.getAttribute(attribute);
+      const source = current.id,
+        active = current.active;
+      clear();
+      if (active && target && target !== source)
+        callback.current(source, target);
+    };
+    const escape = (event) => {
+      if (event.key === "Escape") clear();
     };
     document.addEventListener("touchmove", preventScroll, {
       passive: false,
@@ -73,19 +141,30 @@ export function useLongPressReorder(selector, attribute, onMove) {
       passive: true,
       capture: true,
     });
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", finish);
+    document.addEventListener("pointercancel", clear);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("blur", clear);
     return () => {
       clear();
       document.removeEventListener("touchmove", preventScroll, true);
       document.removeEventListener("touchstart", cancelPinch, true);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", finish);
+      document.removeEventListener("pointercancel", clear);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("blur", clear);
     };
   }, []);
   return {
     onPointerDown(event) {
       suppress.current = false;
       if (
-        event.pointerType === "mouse" ||
         event.button !== 0 ||
-        !event.isPrimary
+        !event.isPrimary ||
+        event.target.closest("input,select,textarea") ||
+        (handle && !event.target.closest(handle))
       )
         return;
       clear();
@@ -96,52 +175,33 @@ export function useLongPressReorder(selector, attribute, onMove) {
         y: event.clientY,
         id: event.currentTarget.getAttribute(attribute),
         active: false,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        touch: event.pointerType !== "mouse",
+        style: Object.fromEntries(
+          ["transform", "position", "zIndex", "pointerEvents"].map((key) => [
+            key,
+            event.currentTarget.style[key],
+          ]),
+        ),
+        scroller: event.currentTarget.closest(
+          ".story-board-scroll,.story-inspector-scroll",
+        ),
       };
-      current.timer = setTimeout(() => {
-        if (drag.current !== current) return;
-        current.active = true;
-        suppress.current = true;
-        current.element.classList.add("story-touch-dragging");
-        current.element.setPointerCapture(current.pointerId);
-        navigator.vibrate?.(25);
-      }, 420);
+      current.scrollTop = current.scroller?.scrollTop || 0;
+      if (current.touch)
+        current.timer = setTimeout(() => activate(current), 420);
       drag.current = current;
     },
-    onPointerMove(event) {
-      const current = drag.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      if (!current.active) {
-        if (
-          Math.hypot(event.clientX - current.x, event.clientY - current.y) > 8
-        )
-          clear();
-        return;
-      }
+    onDragStart(event) {
       event.preventDefault();
-      const target = document
-        .elementFromPoint(event.clientX, event.clientY)
-        ?.closest(selector);
-      current.targetElement?.classList.remove("story-drop-target");
-      current.targetElement = target;
-      current.target = target?.getAttribute(attribute);
-      if (current.target && current.target !== current.id)
-        target.classList.add("story-drop-target");
     },
-    onPointerUp(event) {
-      const current = drag.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      if (current.active && current.target && current.target !== current.id)
-        callback.current(current.id, current.target);
-      clear();
-    },
-    onPointerCancel: clear,
     onContextMenu(event) {
       if (drag.current?.active) event.preventDefault();
     },
     onClickCapture(event) {
       if (!suppress.current) return;
       suppress.current = false;
-      if (event.nativeEvent.pointerType === "mouse") return;
       event.preventDefault();
       event.stopPropagation();
     },

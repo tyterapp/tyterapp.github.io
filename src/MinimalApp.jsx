@@ -1390,9 +1390,7 @@ export default function MinimalApp({ onLogout }) {
         )
       ) {
         e.preventDefault();
-        if (view === "storyboard")
-          window.document.querySelector(".story-search input")?.focus();
-        else showSidebar("search");
+        showSidebar("search");
       }
       if (
         (e.ctrlKey || e.metaKey) &&
@@ -2099,6 +2097,7 @@ export default function MinimalApp({ onLogout }) {
         return;
       }
       if (event.key === "Escape") {
+        if (document.querySelector("dialog.story-player[open]")) return;
         if (document.querySelector("[data-app-select-menu]")) return;
         event.preventDefault();
         setMenu(null);
