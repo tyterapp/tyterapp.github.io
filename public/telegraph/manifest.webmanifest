@@ -1,0 +1,31 @@
+{
+  "id": "/telegraph/",
+  "name": "Tyter Telegraph",
+  "short_name": "Telegraph",
+  "description": "Write and share telegrams in Morse code.",
+  "start_url": "/telegraph/",
+  "scope": "/telegraph/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#fcfcfd",
+  "icons": [
+    {
+      "src": "/telegraph/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/telegraph/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/telegraph/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -107,8 +107,13 @@ for (const theme of ["light", "dark"])
     await expect(document).toHaveCSS("font-family", /Courier/);
     await expect(page.getByRole("button")).toHaveCount(5);
     const logo = await page.locator(".telegraph-composer-logo").boundingBox();
+    const paper = await page.locator(".telegraph-compose-paper").boundingBox();
+    expect(Math.abs(logo.x - paper.x)).toBeLessThan(1);
+    const languages = await page
+      .locator(".telegraph-composer-header .language-switch")
+      .boundingBox();
     expect(
-      Math.abs(logo.x + logo.width / 2 - page.viewportSize().width / 2),
+      Math.abs(languages.x + languages.width - paper.x - paper.width),
     ).toBeLessThan(1);
     await expect(
       page.locator(
@@ -216,7 +221,7 @@ test.describe("touch-only standalone composer", () => {
       await page.setViewportSize({ width, height });
       await open(page);
       const logo = await page.locator(".telegraph-composer-logo").boundingBox();
-      expect(Math.abs(logo.x + logo.width / 2 - width / 2)).toBeLessThan(1);
+      expect(logo.x).toBe(16);
       for (const control of await page
         .locator(".telegraph-composer-header button")
         .all()) {
@@ -403,7 +408,7 @@ test("standalone logo has the editor brand menu and left click returns home", as
   await expect(page.locator(".telegraph-document")).toHaveCount(0);
 });
 
-for (const mode of ["native", "vibration", "unsupported"])
+for (const mode of ["vibration", "blocked", "unsupported"])
   test(`standalone ${mode} haptics: one feedback per press, no repeated keydown or input failures`, async ({
     page,
   }) => {
@@ -411,19 +416,13 @@ for (const mode of ["native", "vibration", "unsupported"])
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript((mode) => {
       window.hapticCalls = [];
-      Object.defineProperty(navigator, "playHaptics", {
-        configurable: true,
-        value:
-          mode === "native"
-            ? (...args) => window.hapticCalls.push(args)
-            : undefined,
-      });
       Object.defineProperty(navigator, "vibrate", {
         configurable: true,
         value:
-          mode === "vibration"
+          mode !== "unsupported"
             ? (value) => {
                 if (value !== 0) window.hapticCalls.push(value);
+                if (mode === "blocked") throw new Error("Haptics unavailable");
                 return true;
               }
             : undefined,
@@ -445,11 +444,193 @@ for (const mode of ["native", "vibration", "unsupported"])
     await expect(page.locator(".telegraph-document")).toHaveText("EE");
     const calls = await page.evaluate(() => window.hapticCalls);
     expect(calls).toHaveLength(mode === "unsupported" ? 0 : 2);
-    if (mode === "native")
-      expect(calls).toEqual([
-        ["tick", 0.5],
-        ["tick", 0.5],
-      ]);
-    if (mode === "vibration") expect(calls).toEqual([[12], [12]]);
+    if (mode !== "unsupported") expect(calls).toEqual([[12], [12]]);
     expect(errors).toEqual([]);
   });
+
+test("standalone home-screen icons and manifest are scoped to telegraph", async ({
+  request,
+}) => {
+  const html = await (await request.get("/telegraph/")).text();
+  expect(html).toContain(
+    'rel="icon" type="image/png" sizes="32x32" href="/telegraph/favicon-32.png"',
+  );
+  expect(html).toContain(
+    'rel="apple-touch-icon" sizes="180x180" href="/telegraph/apple-touch-icon.png"',
+  );
+  expect(html).toContain(
+    'rel="manifest" href="/telegraph/manifest.webmanifest"',
+  );
+  expect(html).toContain('name="apple-mobile-web-app-capable" content="yes"');
+  const response = await request.get("/telegraph/manifest.webmanifest");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain(
+    "application/manifest+json",
+  );
+  const manifest = await response.json();
+  expect(manifest).toMatchObject({
+    id: "/telegraph/",
+    start_url: "/telegraph/",
+    scope: "/telegraph/",
+    display: "standalone",
+  });
+  for (const [src, size] of [
+    ["/telegraph/favicon-32.png", 32],
+    ["/telegraph/apple-touch-icon.png", 180],
+    ...manifest.icons.map((icon) => [
+      icon.src,
+      Number(icon.sizes.split("x")[0]),
+    ]),
+  ]) {
+    const image = await request.get(src);
+    expect(image.status()).toBe(200);
+    expect(image.headers()["content-type"]).toContain("image/png");
+    const data = await image.body();
+    expect([data.readUInt32BE(16), data.readUInt32BE(20)]).toEqual([
+      size,
+      size,
+    ]);
+  }
+  expect(manifest.icons.some((icon) => icon.purpose === "maskable")).toBe(true);
+  for (const route of ["/", "/free/", "/pro/", "/telegram/"]) {
+    const other = await (await request.get(route)).text();
+    expect(other).toContain(
+      'rel="icon" type="image/svg+xml" href="/brand/tyter-logo.svg"',
+    );
+    expect(other).not.toContain("/telegraph/manifest.webmanifest");
+  }
+});
+
+test.describe("standalone mobile haptics", () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test("Android waits for touch-up activation and never vibrates cancelled touches", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      window.mobileHaptics = [];
+      window.touchUpSeen = false;
+      document.addEventListener(
+        "pointerup",
+        () => (window.touchUpSeen = true),
+        true,
+      );
+      Object.defineProperty(navigator, "playHaptics", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, "vibrate", {
+        configurable: true,
+        value: (value) => {
+          window.mobileHaptics.push({ value, activated: window.touchUpSeen });
+          return window.touchUpSeen;
+        },
+      });
+    });
+    await open(page);
+    await expect(page.locator(".telegraph-native-haptic")).toHaveCount(0);
+    await page.locator(".telegraph-key").tap();
+    await expect(page.locator(".telegraph-document")).toHaveText("E");
+    expect(await page.evaluate(() => window.mobileHaptics)).toEqual([
+      { value: [25], activated: true },
+    ]);
+    await page.locator(".telegraph-key").dispatchEvent("pointerdown", {
+      pointerId: 9,
+      pointerType: "touch",
+      button: 0,
+    });
+    await page
+      .locator(".telegraph-key")
+      .dispatchEvent("pointercancel", { pointerId: 9, pointerType: "touch" });
+    expect(await page.evaluate(() => window.mobileHaptics.length)).toBe(1);
+  });
+  test("iOS uses a trusted native switch tap and keeps Morse timing, selection and keyboard accessibility", async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "userAgent", {
+        configurable: true,
+        value:
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X) AppleWebKit/605.1.15 Version/26.5 Mobile Safari/604.1",
+      });
+      Object.defineProperty(navigator, "vibrate", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, "playHaptics", {
+        configurable: true,
+        value: undefined,
+      });
+      // Emulate capability detection, not a physical Taptic Engine, in Edge.
+      Object.defineProperty(HTMLInputElement.prototype, "switch", {
+        configurable: true,
+        get() {
+          return this.hasAttribute("switch");
+        },
+      });
+      window.nativeTaps = [];
+      document.addEventListener("click", (event) => {
+        if (event.target.matches(".telegraph-native-haptic"))
+          window.nativeTaps.push({
+            trusted: event.isTrusted,
+            checked: event.target.checked,
+          });
+      });
+    });
+    await open(page);
+    const input = page.locator(".telegraph-native-haptic");
+    await expect(input).toHaveCount(1);
+    await expect(input).toHaveCSS("opacity", "0");
+    await expect(input).not.toHaveCSS("appearance", "none");
+    await expect(input).toHaveAttribute("tabindex", "-1");
+    await expect(input).toHaveAttribute("aria-hidden", "true");
+    const inputBox = await input.boundingBox();
+    const keyBox = await page.locator(".telegraph-key").boundingBox();
+    expect(inputBox).toEqual(keyBox);
+    const time = Date.now();
+    await page.clock.install({ time });
+    await page.clock.pauseAt(time + 1000);
+    await input.tap();
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    await expect(page.locator(".telegraph-document")).toHaveText("E");
+    await expect(page.locator(".telegraph-document")).toBeFocused();
+    expect(await page.evaluate(() => window.nativeTaps)).toEqual([
+      { trusted: true, checked: true },
+    ]);
+    await input.dispatchEvent("pointerdown", {
+      pointerId: 7,
+      pointerType: "touch",
+      button: 0,
+    });
+    await page.clock.fastForward(MORSE_DASH + 40);
+    await expect(page.locator(".telegraph-key")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await input.dispatchEvent("pointerup", {
+      pointerId: 7,
+      pointerType: "touch",
+    });
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    await expect(page.locator(".telegraph-document")).toHaveText("ET");
+    await input.dispatchEvent("pointerdown", {
+      pointerId: 8,
+      pointerType: "touch",
+      button: 0,
+    });
+    await input.dispatchEvent("pointercancel", {
+      pointerId: 8,
+      pointerType: "touch",
+    });
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    await expect(page.locator(".telegraph-document")).toHaveText("ET");
+    await page.locator(".telegraph-key").focus();
+    await page.keyboard.down("Space");
+    await page.clock.fastForward(60);
+    await page.keyboard.up("Space");
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    await expect(page.locator(".telegraph-document")).toHaveText("ETE");
+    await page.screenshot({ path: info.outputPath("telegraph-ios-path.png") });
+  });
+});

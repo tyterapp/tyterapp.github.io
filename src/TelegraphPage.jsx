@@ -43,16 +43,41 @@ export default function TelegraphPage() {
   const [brandMenu, setBrandMenu] = useState(null);
   const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
   const { trigger } = useWebHaptics();
-  const feedback = useCallback(() => {
-    // Haptics must never interrupt a Morse press on unsupported devices.
-    try {
-      if (typeof navigator.playHaptics === "function")
-        navigator.playHaptics("tick", 0.5);
-      else trigger(12, { intensity: 1 })?.catch(() => {});
-    } catch {
-      /* The browser or the device can decline haptic feedback. */
-    }
-  }, [trigger]);
+  const [nativeTouchHaptics] = useState(
+    () =>
+      typeof navigator.vibrate !== "function" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) &&
+      "switch" in document.createElement("input"),
+  );
+  const feedback = useCallback(
+    ({ pointerType }) => {
+      if (
+        pointerType === "touch" ||
+        (nativeTouchHaptics && pointerType !== "keyboard")
+      )
+        return;
+      // Haptics must never interrupt a Morse press on unsupported devices.
+      try {
+        trigger(12, { intensity: 1 })?.catch(() => {});
+      } catch {
+        /* The browser or the device can decline haptic feedback. */
+      }
+    },
+    [trigger, nativeTouchHaptics],
+  );
+  const releaseFeedback = useCallback(
+    ({ pointerType }) => {
+      if (pointerType !== "touch" || nativeTouchHaptics) return;
+      // Touch-down does not grant browser user activation; touch-up does.
+      try {
+        trigger(25, { intensity: 1 })?.catch(() => {});
+      } catch {
+        /* Haptics are optional; writing must still work. */
+      }
+    },
+    [trigger, nativeTouchHaptics],
+  );
   const [mobile, setMobile] = useState(() => matchMedia(mobileQuery).matches);
   const mobileRef = useRef(mobile);
   mobileRef.current = mobile;
@@ -189,7 +214,6 @@ export default function TelegraphPage() {
       data-mobile={mobile || undefined}
     >
       <header className="telegraph-composer-header">
-        <LanguageSwitch />
         <a
           className="telegraph-composer-logo"
           href="/"
@@ -222,6 +246,7 @@ export default function TelegraphPage() {
         >
           <CircleHelp size={21} aria-hidden="true" />
         </button>
+        <LanguageSwitch />
         <h1 className="visually-hidden">{en ? "Telegraph" : "Телеграф"}</h1>
       </header>
       <div className="telegraph-compose-scroll">
@@ -235,6 +260,8 @@ export default function TelegraphPage() {
           editorSelector=".telegraph-document"
           onText={insert}
           onPress={feedback}
+          onRelease={releaseFeedback}
+          nativeTouchHaptics={nativeTouchHaptics}
           telegram={text.trim() ? text : ""}
           title={en ? "Telegram" : "Телеграмма"}
         />

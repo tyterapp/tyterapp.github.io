@@ -4,14 +4,18 @@
   background: var(--ui-field);
   color: var(--ui-text);
   font-family: Arial, sans-serif;
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 .telegraph-composer-header {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto 44px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 16px 24px 8px;
+  width: min(100%, 920px);
+  margin-inline: auto;
+  padding: calc(16px + env(safe-area-inset-top)) 40px 0;
+  box-sizing: border-box;
 }
 .telegraph-composer-logo {
   display: inline-flex;
@@ -186,7 +190,10 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 20px max(24px, calc((100% - 840px) / 2));
+  width: min(100%, 920px);
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding: 16px 40px;
   scroll-padding-block: 32px;
 }
 .telegraph-compose-paper {
@@ -236,7 +243,7 @@
 }
 @media (max-width: 831px), (pointer: coarse) {
   .telegraph-composer-header {
-    padding: 8px 8px 0;
+    padding: calc(8px + env(safe-area-inset-top)) 16px 0;
     gap: 8px;
   }
   .telegraph-composer-logo {
@@ -264,6 +271,24 @@
   .telegraph-composer .focus-telegraph {
     width: 240px;
   }
+}
+.telegraph-composer .telegraph-key-target {
+  position: relative;
+}
+.telegraph-composer .telegraph-native-haptic {
+  /* Preserve WebKit's native switch; only direct, trusted taps produce its tick. */
+  all: initial;
+  appearance: auto;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  clip-path: inset(0 round 8px);
+  touch-action: none;
+  cursor: pointer;
+  -webkit-touch-callout: none;
 }
 @media (max-height: 560px) and (orientation: landscape) {
   .telegraph-compose-dock {

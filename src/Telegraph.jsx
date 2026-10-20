@@ -20,6 +20,8 @@ export default function Telegraph({
   title = "",
   editorSelector = ".screenplay-editor",
   onPress,
+  onRelease,
+  nativeTouchHaptics = false,
 }) {
   const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
@@ -37,6 +39,10 @@ export default function Telegraph({
   insert.current = onText;
   const pressFeedback = useRef(onPress);
   pressFeedback.current = onPress;
+  const releaseFeedback = useRef(onRelease);
+  releaseFeedback.current = onRelease;
+  const pointerType = useRef("keyboard");
+  const previousFocus = useRef(null);
   useLayoutEffect(() => {
     const node = element.current;
     const column = node.closest(".editor-column");
@@ -118,14 +124,15 @@ export default function Telegraph({
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [language]);
-  const begin = useCallback((id) => {
+  const begin = useCallback((id, type = "keyboard") => {
     if (active.current !== null || !keyer.current?.press()) return;
     active.current = id;
+    pointerType.current = type;
     setHeldDash(false);
     setPressed(true);
     dashTimer.current = setTimeout(() => setHeldDash(true), MORSE_DASH);
     audio.current?.start();
-    pressFeedback.current?.();
+    pressFeedback.current?.({ pointerType: type });
   }, []);
   const end = useCallback((id, cancel = false) => {
     if (active.current !== id) return;
@@ -134,7 +141,10 @@ export default function Telegraph({
     setPressed(false);
     audio.current?.stop();
     if (cancel) keyer.current?.cancel();
-    else keyer.current?.release();
+    else {
+      keyer.current?.release();
+      releaseFeedback.current?.({ pointerType: pointerType.current });
+    }
   }, []);
   useEffect(() => {
     const isM = (event) =>
@@ -187,71 +197,105 @@ export default function Telegraph({
   const signals = pressed
     ? [...tape, { x: nextX, symbol: heldDash ? "-" : ".", live: true }]
     : tape;
+  const keyButton = (
+    <button
+      type="button"
+      className="telegraph-key"
+      aria-label={t("Ключ телеграфа")}
+      aria-pressed={pressed}
+      aria-keyshortcuts="Control+M Space Enter"
+      aria-describedby="telegraph-instructions"
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        begin(event.pointerId, event.pointerType);
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          /* Detached pointer. */
+        }
+      }}
+      onPointerUp={(event) => end(event.pointerId)}
+      onPointerCancel={(event) => end(event.pointerId, true)}
+      onLostPointerCapture={(event) => end(event.pointerId, true)}
+      onContextMenu={(event) => event.preventDefault()}
+      onKeyDown={(event) => {
+        if (![" ", "Enter"].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) begin(event.key);
+      }}
+      onKeyUp={(event) => {
+        if (![" ", "Enter"].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        end(event.key);
+      }}
+      onBlur={() => {
+        if (typeof active.current === "string") end(active.current, true);
+      }}
+      onClick={(event) => {
+        if (event.detail === 0) {
+          begin("assistive");
+          end("assistive");
+        }
+      }}
+    >
+      <img
+        src="/telegraph/normal.png"
+        width="280"
+        height="164"
+        alt=""
+        draggable="false"
+      />
+      <img
+        className="telegraph-pressed"
+        src="/telegraph/pressed.png"
+        width="280"
+        height="164"
+        alt=""
+        draggable="false"
+      />
+    </button>
+  );
   return (
     <section
       ref={element}
       className="focus-telegraph"
       aria-label={t("Телеграф")}
     >
-      <button
-        type="button"
-        className="telegraph-key"
-        aria-label={t("Ключ телеграфа")}
-        aria-pressed={pressed}
-        aria-keyshortcuts="Control+M Space Enter"
-        aria-describedby="telegraph-instructions"
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.preventDefault();
-          begin(event.pointerId);
-          try {
-            event.currentTarget.setPointerCapture(event.pointerId);
-          } catch {
-            /* Detached pointer. */
-          }
-        }}
-        onPointerUp={(event) => end(event.pointerId)}
-        onPointerCancel={(event) => end(event.pointerId, true)}
-        onLostPointerCapture={(event) => end(event.pointerId, true)}
-        onContextMenu={(event) => event.preventDefault()}
-        onKeyDown={(event) => {
-          if (![" ", "Enter"].includes(event.key)) return;
-          event.preventDefault();
-          event.stopPropagation();
-          if (!event.repeat) begin(event.key);
-        }}
-        onKeyUp={(event) => {
-          if (![" ", "Enter"].includes(event.key)) return;
-          event.preventDefault();
-          event.stopPropagation();
-          end(event.key);
-        }}
-        onBlur={() => {
-          if (typeof active.current === "string") end(active.current, true);
-        }}
-        onClick={(event) => {
-          if (event.detail === 0) {
-            begin("assistive");
-            end("assistive");
-          }
-        }}
-      >
-        <img
-          src="/telegraph/normal.png"
-          width="280"
-          height="164"
-          alt=""
-          draggable="false"
-        />
-        <img
-          className="telegraph-pressed"
-          src="/telegraph/pressed.png"
-          width="280"
-          height="164"
-          alt=""
-          draggable="false"
-        />
-      </button>
+      {nativeTouchHaptics ? (
+        <div className="telegraph-key-target">
+          {keyButton}
+          <input
+            className="telegraph-native-haptic"
+            type="checkbox"
+            switch=""
+            aria-hidden="true"
+            tabIndex={-1}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              previousFocus.current = document.activeElement;
+              // Keep the trusted native activation intact: no preventDefault or scripted click.
+              begin(event.pointerId, event.pointerType);
+              try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              } catch {
+                /* The pointer may already have been cancelled. */
+              }
+            }}
+            onPointerUp={(event) => end(event.pointerId)}
+            onPointerCancel={(event) => end(event.pointerId, true)}
+            onLostPointerCapture={(event) => end(event.pointerId, true)}
+            onContextMenu={(event) => event.preventDefault()}
+            onClick={() =>
+              previousFocus.current?.focus({ preventScroll: true })
+            }
+          />
+        </div>
+      ) : (
+        keyButton
+      )}
       <span id="telegraph-instructions" className="visually-hidden">
         {t(
           "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы и слова. Можно использовать Ctrl+M или Space/Enter на кнопке телеграфа.",

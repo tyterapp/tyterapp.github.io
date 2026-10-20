@@ -137,6 +137,23 @@ export function pageMetadata(html, route = "") {
       "</head>",
       '<meta name="robots" content="noindex" /></head>',
     );
+  if (route === "telegraph") {
+    html = html.replace(
+      /<link\s+rel="icon"[^>]*>/,
+      '<link rel="icon" type="image/png" sizes="32x32" href="/telegraph/favicon-32.png" />',
+    );
+    html = html.replace(
+      "</head>",
+      `
+    <link rel="apple-touch-icon" sizes="180x180" href="/telegraph/apple-touch-icon.png" />
+    <link rel="manifest" href="/telegraph/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Telegraph" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    </head>`,
+    );
+  }
   return html;
 }
 
