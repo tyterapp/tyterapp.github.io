@@ -59,7 +59,11 @@ import {
 import { storyboardFrames, newFrame } from "./storyboard-data.js";
 import { useScreenplaySceneDrag } from "./useScreenplaySceneDrag.js";
 import { componentUrl } from "./component-url.js";
-import { exportStoryboard } from "./storyboard-export.js";
+import {
+  exportStoryboard,
+  exportScreenplayJSON,
+  STORYBOARD_EXPORT_FORMATS,
+} from "./storyboard-export.js";
 import { updateShotSettings } from "./shot-info.js";
 import { exportTYT } from "./tyt-format.js";
 import {
@@ -114,6 +118,8 @@ import ScrollToTop from "./ScrollToTop.jsx";
 import TypewriterIcon from "./TypewriterIcon.jsx";
 import TelegraphIcon from "./TelegraphIcon.jsx";
 import Telegraph from "./Telegraph.jsx";
+import { telegramText } from "./telegram.js";
+import { exportInstantHTML } from "./instant-html.js";
 import { revisionPageStyle } from "./script-revisions.js";
 import { useMobileWorkspace } from "./mobile-workspace.js";
 import { useWritingTimer } from "./writing-timer.js";
@@ -833,6 +839,10 @@ export default function MinimalApp({ onLogout }) {
   const [brandMenu, setBrandMenu] = useState(null);
   const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
   const writingScope = current.id;
+  const currentTelegram = useMemo(
+    () => telegramText(current.content),
+    [current.content],
+  );
   const documentsRef = useRef(documents);
   documentsRef.current = documents;
   const editorRef = useRef(null),
@@ -1598,12 +1608,16 @@ export default function MinimalApp({ onLogout }) {
   };
   const downloadStoryboard = async (format) => {
     if (busy) return;
+    setMobileToolsOpen(false);
+    setMenu(null);
     setBusy("storyboard");
     writeStorage();
     try {
+      await flushOutlineHistory();
       const live =
-        documentsRef.current.find((doc) => doc.id === current.id) || current;
-      const document = structuredClone(
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        current;
+      const snapshot = structuredClone(
         historyRevision
           ? migrateStoryboard(
               restoreSnapshotForArea(
@@ -1614,6 +1628,8 @@ export default function MinimalApp({ onLogout }) {
             )
           : live,
       );
+      const document =
+        view === "screenplay" ? exportPageDocument(snapshot) : snapshot;
       const blob =
         format === "tyt"
           ? await exportTYT(document)
@@ -2203,7 +2219,12 @@ export default function MinimalApp({ onLogout }) {
         return;
       }
       if (event.key === "Escape") {
-        if (document.querySelector("dialog.story-player[open]")) return;
+        if (
+          document.querySelector(
+            "dialog.story-player[open], dialog.telegram-share[open]",
+          )
+        )
+          return;
         if (document.querySelector("[data-app-select-menu]")) return;
         event.preventDefault();
         setMenu(null);
@@ -2840,6 +2861,8 @@ export default function MinimalApp({ onLogout }) {
         pdf: exportPDF,
         docx: exportDOCX,
         fdx: exportFDX,
+        json: exportScreenplayJSON,
+        html: exportInstantHTML,
         tyt: exportTYT,
       }[format](document);
       saveBlob(blob, document.title, format);
@@ -3587,9 +3610,17 @@ export default function MinimalApp({ onLogout }) {
                   <button
                     className={`icon-button${menu === "export" ? " active" : ""}`}
                     disabled={!!busy || !documents.length}
-                    aria-label={t("Скачать сценарий")}
+                    aria-label={
+                      view === "storyboard"
+                        ? t("Скачать раскадровку")
+                        : t("Скачать сценарий")
+                    }
                     data-tooltip={
-                      busy ? t("Подготовка файла…") : t("Скачать сценарий")
+                      busy
+                        ? t("Подготовка файла…")
+                        : view === "storyboard"
+                          ? t("Скачать раскадровку")
+                          : t("Скачать сценарий")
                     }
                     aria-expanded={menu === "export"}
                     onClick={() => setMenu(menu === "export" ? null : "export")}
@@ -4293,6 +4324,7 @@ export default function MinimalApp({ onLogout }) {
               <Telegraph
                 key={`${writingScope}:${language}`}
                 language={language}
+                telegram={currentTelegram}
                 onText={(text) => editorRef.current?.insertTelegraphText(text)}
               />
             )}
@@ -4807,35 +4839,59 @@ export default function MinimalApp({ onLogout }) {
             }}
           >
             <div className="popover-heading">{t("Сохранить файл")}</div>
-            <ExportSettings
-              settings={current.settings}
-              onChange={changeExportSettings}
-            />
-            {[
-              ["pdf", "PDF", t("Для чтения и печати")],
-              ["docx", "Word · DOCX", t("Для работы в Word")],
-              ["fdx", "Final Draft · FDX", t("Для сценарных редакторов")],
-              ...(IS_PRO
-                ? [
-                    [
-                      "tyt",
-                      t("Проект Tyter · TYT"),
-                      t("Сценарий, раскадровка, комментарии и все детали"),
-                    ],
-                  ]
-                : []),
-            ].map(([format, label, hint]) => (
+            {view !== "storyboard" && (
+              <ExportSettings
+                settings={current.settings}
+                onChange={changeExportSettings}
+              />
+            )}
+            {(view === "storyboard"
+              ? STORYBOARD_EXPORT_FORMATS.filter(
+                  ([format]) => format !== "tyt" || IS_PRO,
+                )
+              : [
+                  ["pdf", "PDF", t("Для чтения и печати")],
+                  ["docx", "Word · DOCX", t("Для работы в Word")],
+                  ["fdx", "Final Draft · FDX", t("Для сценарных редакторов")],
+                  [
+                    "json",
+                    t("JSON · Сценарий"),
+                    t("Текст, сцены и параметры кадров"),
+                  ],
+                  ...STORYBOARD_EXPORT_FORMATS.filter(
+                    ([format]) => format === "html",
+                  ),
+                  ...STORYBOARD_EXPORT_FORMATS.filter(([format]) =>
+                    ["png", "webp"].includes(format),
+                  ),
+                  ...(IS_PRO
+                    ? [
+                        [
+                          "tyt",
+                          t("Проект Tyter · TYT"),
+                          t("Сценарий, раскадровка, комментарии и все детали"),
+                        ],
+                      ]
+                    : []),
+                ]
+            ).map(([format, label, hint]) => (
               <button
                 className="export-item"
                 key={format}
-                onClick={() => download(format)}
+                onClick={() =>
+                  view === "storyboard" || ["png", "webp"].includes(format)
+                    ? downloadStoryboard(format)
+                    : download(format)
+                }
               >
                 <FileText size={18} />
                 <span>
                   <strong>{t(label)}</strong>
                   <small>{t(hint)}</small>
                 </span>
-                <span className="file-extension">.{format}</span>
+                <span className="file-extension">
+                  .{["png", "webp"].includes(format) ? "zip" : format}
+                </span>
               </button>
             ))}
           </div>,

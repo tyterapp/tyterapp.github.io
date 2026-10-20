@@ -8,9 +8,13 @@ import {
 import { t } from "./i18n.js";
 import { createMorseKeyer, MORSE_DASH } from "./morse.js";
 import { createTelegraphAudio } from "./telegraph-audio.js";
+import { Share2 } from "lucide-react";
+import TelegramShare from "./TelegramShare.jsx";
+import { TELEGRAM_MAX_TEXT } from "./telegram.js";
 import "./telegraph.css";
 
-export default function Telegraph({ language, onText }) {
+export default function Telegraph({ language, onText, telegram = "" }) {
+  const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
   const [heldDash, setHeldDash] = useState(false);
   const [tape, setTape] = useState([]);
@@ -275,6 +279,27 @@ export default function Telegraph({ language, onText }) {
       >
         {text.slice(-36)}
       </output>
+      <button
+        type="button"
+        className="telegraph-share-button"
+        disabled={!telegram || telegram.length > TELEGRAM_MAX_TEXT}
+        onClick={() => setSharedText(telegram)}
+      >
+        <Share2 size={16} aria-hidden="true" />
+        {t("Поделиться телеграммой")}
+      </button>
+      {telegram.length > TELEGRAM_MAX_TEXT && (
+        <span className="telegraph-share-limit" role="status">
+          {t("Для ссылки оставьте не более 20 000 символов телеграммы.")}
+        </span>
+      )}
+      {sharedText !== null && (
+        <TelegramShare
+          text={sharedText}
+          language={language}
+          onClose={() => setSharedText(null)}
+        />
+      )}
     </section>
   );
 }

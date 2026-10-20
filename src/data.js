@@ -430,7 +430,11 @@ export function validateImport(input, options = {}) {
                   },
                 },
               ];
-            if (["bold", "italic", "underline", "strike"].includes(mark?.type))
+            if (
+              ["bold", "italic", "underline", "strike", "telegraph"].includes(
+                mark?.type,
+              )
+            )
               return [{ type: mark.type }];
             return [];
           },

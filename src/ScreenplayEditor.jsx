@@ -14,6 +14,7 @@ import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { PlainNotes } from "./plain-notes.js";
 import { ArrowTypography } from "./ArrowTypography.js";
+import { TelegraphMark } from "./TelegraphMark.js";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { isHistoryTransaction, closeHistory } from "@tiptap/pm/history";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -712,6 +713,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       }),
       ScreenplayParagraph,
       ArrowTypography,
+      TelegraphMark,
       CommentMark,
       EntityMark,
       ScriptRevisionMark.configure({
@@ -1537,9 +1539,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           !text
         )
           return false;
-        editor.view.dispatch(
-          editor.state.tr.insertText(text).setMeta("telegraph", true),
+        const { from } = editor.state.selection;
+        const transaction = editor.state.tr.insertText(text);
+        transaction.addMark(
+          from,
+          from + text.length,
+          editor.schema.marks.telegraph.create(),
         );
+        transaction.removeStoredMark(editor.schema.marks.telegraph);
+        editor.view.dispatch(transaction.setMeta("telegraph", true));
         scrollToText(
           editor.view,
           editor.state.selection.from,

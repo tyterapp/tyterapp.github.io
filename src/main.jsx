@@ -5,6 +5,7 @@ import LandingPage from "./LandingPage.jsx";
 import NotFoundPage from "./NotFoundPage.jsx";
 import WebProApp from "./WebProApp.jsx";
 import HouseSnapshotPage from "./HouseSnapshotPage.jsx";
+import TelegramPage from "./TelegramPage.jsx";
 import { houseSnapshotScene } from "./house-snapshot.js";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
 import DesignPage from "./DesignPage.jsx";
@@ -62,6 +63,8 @@ createRoot(document.getElementById("root")).render(
       <NotFoundPage />
     ) : housePage ? (
       <HouseSnapshotPage />
+    ) : pathname === "/telegram" ? (
+      <TelegramPage />
     ) : pathname === "/design" ? (
       <DesignPage />
     ) : pathname === "/help" ? (

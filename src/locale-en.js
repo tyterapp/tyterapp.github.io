@@ -2,6 +2,25 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Сценарий и раскадровка · Только чтение":
+    "Screenplay and storyboard · Read only",
+  "Скачать раскадровку": "Download storyboard",
+  "Вся последовательность кадров · ZIP": "Full frame sequence · ZIP",
+  "JSON · Все сцены": "JSON · All scenes",
+  "Сцены, кадры и параметры съёмки": "Scenes, frames and shooting settings",
+  "Сценарий, раскадровка и все настройки":
+    "Screenplay, storyboard and all settings",
+  "JSON · Сценарий": "JSON · Screenplay",
+  "Текст, сцены и параметры кадров": "Text, scenes and frame settings",
+  Телеграмма: "Telegram",
+  "Поделиться телеграммой": "Share telegram",
+  "Ссылка на телеграмму": "Telegram link",
+  "По ссылке откроется только текст телеграммы с воспроизведением Морзе.":
+    "The link opens only the telegram text with Morse playback.",
+  "Для ссылки оставьте не более 20 000 символов телеграммы.":
+    "Keep the telegram under 20,000 characters to share a link.",
+  Отправить: "Send",
+  Открыть: "Open",
   Дизайн: "Design",
   Брендбук: "Brandbook",
   Гайдлайны: "Guidelines",

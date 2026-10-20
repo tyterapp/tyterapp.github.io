@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import fs from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { unzipSync, strFromU8 } from "fflate";
 import { createProject } from "../src/data.js";
 import { grantPro } from "./helpers/pro-access.js";
@@ -324,7 +325,7 @@ test("exports separate PNG/WEBP files, portable JSON, a readable PDF and complet
       300, 700, 5000,
     ]);
     expect(manifest.scenes[0].frames[1].file).toBe(
-      `scene-001-A_frame-002.${format.toLowerCase()}`,
+      `page-001_v1-White_scene-001-A_ЭКС. ХОЛМ — ДЕНЬ_frame-002.${format.toLowerCase()}`,
     );
     const head = files[manifest.scenes[0].frames[0].file];
     expect(
@@ -341,6 +342,172 @@ test("exports separate PNG/WEBP files, portable JSON, a readable PDF and complet
   const tyt = JSON.parse((await download("Tyter project")).bytes.toString());
   expect(tyt.document.sceneShots.one.A.frames).toHaveLength(3);
   expect(tyt.document.content.content).toHaveLength(8);
+});
+
+test("main export menu exports the full sequence and the JSON for its current mode", async ({
+  page,
+}, info) => {
+  await open(page);
+  const editor = page.locator(".screenplay-editor");
+  await editor.evaluate((node) => node.editor.commands.focus("end"));
+  await page.keyboard.type(" LAST_EDIT");
+  const railDownload = async (mode, name) => {
+    await page
+      .getByRole("button", {
+        name:
+          mode === "storyboard" ? "Скачать раскадровку" : "Скачать сценарий",
+        exact: true,
+      })
+      .click();
+    const menu = page.locator(".rail-export-menu");
+    const pending = page.waitForEvent("download");
+    await menu.getByRole("button", { name: new RegExp(name) }).click();
+    const file = await pending;
+    return { file, bytes: await fs.readFile(await file.path()) };
+  };
+  const screenplay = await railDownload("screenplay", "JSON · Сценарий");
+  const script = JSON.parse(screenplay.bytes.toString());
+  expect(script.format).toBe("tyter-screenplay");
+  expect(script.content.content.at(-1).content[0].text).toContain("LAST_EDIT");
+  expect(script.sceneShots.one.A.frames).toHaveLength(3);
+  expect(script.storyboard.scenes[0].frames[1].transition).toBe("fade");
+  const sequence = await railDownload("screenplay", "PNG sequence");
+  expect(sequence.file.suggestedFilename()).toMatch(/\.zip$/);
+  const files = unzipSync(sequence.bytes);
+  const manifest = JSON.parse(strFromU8(files["storyboard.json"]));
+  expect(manifest.scenes).toHaveLength(3);
+  expect(
+    Object.keys(files).filter((name) => name.endsWith(".png")),
+  ).toHaveLength(4);
+  expect(manifest.scenes[1].frames[0].file).toContain(
+    "scene-002-A_ИНТ. ДОМ — НОЧЬ",
+  );
+  await boardButton(page).click();
+  await card(page, "one").click();
+  const storyboard = await railDownload("storyboard", "JSON · Все сцены");
+  const board = JSON.parse(storyboard.bytes.toString());
+  expect(board.format).toBe("tyter-storyboard");
+  expect(board.scenes).toHaveLength(3);
+  expect(board.scenes[1].frames[0].image).toBe(green);
+  expect(board.scenes[2].frames).toEqual([]);
+  await page
+    .getByRole("button", { name: "Скачать раскадровку", exact: true })
+    .click();
+  await expect(
+    page.locator(".rail-export-menu").getByRole("button", { name: /Word/ }),
+  ).toHaveCount(0);
+  await page
+    .locator(".rail-export-menu")
+    .screenshot({ path: info.outputPath("storyboard-export-menu.png") });
+});
+
+test("Instant HTML opens offline with both read-only views and opens the free editor", async ({
+  page,
+  context,
+}, info) => {
+  await open(page);
+  const pendingHTML = async (board = false) => {
+    await page
+      .getByRole("button", {
+        name: board ? "Скачать раскадровку" : "Скачать сценарий",
+        exact: true,
+      })
+      .click();
+    const pending = page.waitForEvent("download");
+    await page
+      .locator(".rail-export-menu")
+      .getByRole("button", { name: /Instant link · HTML/ })
+      .click();
+    const download = await pending;
+    expect(download.suggestedFilename()).toMatch(/\.html$/);
+    const target = info.outputPath(
+      board ? "storyboard-reader.html" : "screenplay-reader.html",
+    );
+    await download.saveAs(target);
+    return target;
+  };
+  const target = await pendingHTML();
+  const reader = await context.newPage();
+  await reader.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
+  const requests = [],
+    errors = [];
+  reader.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  reader.on("pageerror", (error) => errors.push(error.message));
+  await reader.goto(pathToFileURL(target).href);
+  await expect(
+    reader.getByRole("tab", { name: "Сценарий", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(reader.locator("#screenplay")).toContainText(
+    "Два кролика встречаются на холме.",
+  );
+  await expect(
+    reader.locator(
+      "[contenteditable], input, textarea, .screenplay-editor, .story-inspector",
+    ),
+  ).toHaveCount(0);
+  await reader.getByRole("tab", { name: "Раскадровка", exact: true }).click();
+  await expect(reader.locator("#storyboard")).toBeVisible();
+  await expect(reader.locator(".board-scene")).toHaveCount(3);
+  await expect(reader.locator(".frames img")).toHaveCount(3);
+  await expect
+    .poll(() =>
+      reader
+        .locator(".frames img")
+        .first()
+        .evaluate((image) => image.naturalWidth),
+    )
+    .toBe(640);
+  expect(
+    await reader
+      .locator(".frame-media")
+      .first()
+      .evaluate((node) => {
+        const frame = node.getBoundingClientRect(),
+          image = node.querySelector("img").getBoundingClientRect();
+        return (
+          Math.abs(frame.width - image.width) +
+          Math.abs(frame.height - image.height)
+        );
+      }),
+  ).toBeLessThan(1);
+  await reader.screenshot({
+    path: info.outputPath("instant-html-desktop.png"),
+    fullPage: true,
+  });
+  await reader.setViewportSize({ width: 320, height: 844 });
+  await reader.emulateMedia({ colorScheme: "dark" });
+  expect(
+    await reader.evaluate(
+      () => document.documentElement.scrollWidth - innerWidth,
+    ),
+  ).toBe(0);
+  await reader.screenshot({
+    path: info.outputPath("instant-html-mobile.png"),
+    fullPage: true,
+  });
+  await reader.getByRole("tab", { name: "Раскадровка", exact: true }).focus();
+  await reader.keyboard.press("ArrowLeft");
+  await expect(reader.locator("#screenplay")).toBeVisible();
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+  await reader.route("**/free", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<p>Free editor</p>" }),
+  );
+  await reader
+    .getByRole("link", { name: "Редактировать", exact: true })
+    .click();
+  await expect(reader).toHaveURL(/\/free$/);
+  await boardButton(page).click();
+  const boardTarget = await pendingHTML(true);
+  await reader.goto(pathToFileURL(boardTarget).href);
+  await expect(
+    reader.getByRole("tab", { name: "Раскадровка", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await reader.close();
 });
 test("mobile bottom tabs, real two-finger pinch and long press reorder", async ({
   page,

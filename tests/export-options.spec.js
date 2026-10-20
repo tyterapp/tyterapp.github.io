@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { unzipSync, strFromU8 } from "fflate";
 import { createProject, validateImport } from "../src/data.js";
-import { switchScriptVersion } from "../src/script-versions.js";
+import { ensurePageColors, setPageColor } from "../src/page-colors.js";
 import { grantPro } from "./helpers/pro-access.js";
 
 const block = (format, text, blockId, sceneVariant) => ({
@@ -66,26 +66,29 @@ async function download(page, format, mobile = false) {
   return Buffer.from(await readFile(await file.path()));
 }
 
-test("legacy export defaults stay enabled and explicit choices survive import and isolated script versions", () => {
+test("legacy export defaults stay enabled and explicit choices survive import and page color changes", () => {
   const legacy = fixture();
   delete legacy.settings.exportSceneNumbers;
   delete legacy.settings.exportSceneVariants;
   let doc = validateImport(legacy);
   expect(doc.settings.exportSceneNumbers).toBe(true);
   expect(doc.settings.exportSceneVariants).toBe(true);
-  doc = switchScriptVersion(doc, "blue");
+  doc = ensurePageColors(doc);
+  const pageId = doc.pageVersions.pages[0].id;
+  doc = setPageColor(doc, pageId, "blue");
   doc.settings = {
     ...doc.settings,
     exportSceneNumbers: false,
     exportSceneVariants: false,
   };
-  doc = switchScriptVersion(
+  doc = setPageColor(
     validateImport(JSON.parse(JSON.stringify(doc))),
+    pageId,
     "white",
   );
-  expect(doc.settings.exportSceneNumbers).toBe(true);
-  expect(doc.settings.exportSceneVariants).toBe(true);
-  doc = switchScriptVersion(doc, "blue");
+  expect(doc.settings.exportSceneNumbers).toBe(false);
+  expect(doc.settings.exportSceneVariants).toBe(false);
+  doc = setPageColor(doc, pageId, "blue");
   expect(doc.settings.exportSceneNumbers).toBe(false);
   expect(doc.settings.exportSceneVariants).toBe(false);
 });

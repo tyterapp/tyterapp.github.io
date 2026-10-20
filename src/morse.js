@@ -101,6 +101,9 @@ const inverse = (alphabet) =>
     ]),
   );
 const alphabets = { ru: inverse(cyrillic), en: inverse(latin) };
+export function encodeMorse(letter) {
+  return { ...latin, ...cyrillic, ...common }[letter.toUpperCase()] || null;
+}
 export function decodeMorse(code, language = "ru") {
   return alphabets[language === "en" ? "en" : "ru"][code] || null;
 }

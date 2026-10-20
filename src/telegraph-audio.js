@@ -22,6 +22,17 @@ export function createTelegraphAudio(
     oscillator.stop(now + 0.01);
   };
   return {
+    supported: !!Context,
+    async unlock(resume = true) {
+      if (disposed || !Context) return false;
+      try {
+        context ||= new Context();
+        if (context.state !== "running" && resume) await context.resume();
+        return !disposed && context.state === "running";
+      } catch {
+        return false;
+      }
+    },
     start() {
       if (disposed || requested || !Context) return;
       requested = true;

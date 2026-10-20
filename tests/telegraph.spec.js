@@ -7,6 +7,7 @@ import {
   MORSE_WORD_GAP,
 } from "../src/morse.js";
 import { grantPro } from "./helpers/pro-access.js";
+import { readTelegram } from "../src/telegram.js";
 import {
   createTelegraphAudio,
   TELEGRAPH_FREQUENCY,
@@ -575,4 +576,59 @@ test("release before the audio context resumes cannot start a delayed tone", asy
   expect(starts).toBe(0);
   sound.dispose();
   expect(closed).toBe(1);
+});
+
+test("telegram marks survive reopening, exclude ordinary typing and share an immutable snapshot", async ({
+  page,
+}, info) => {
+  await open(page);
+  const share = page.getByRole("button", {
+    name: "Share telegram",
+    exact: true,
+  });
+  await expect(share).toBeDisabled();
+  await letter(page, "....");
+  await letter(page, "..");
+  const marked = page.locator(".screenplay-editor .telegraph-text");
+  await expect(marked).toHaveText("HI");
+  const background = await marked.evaluate(
+    (node) => getComputedStyle(node).backgroundColor,
+  );
+  expect(background).toMatch(/0\.05|5%/);
+  const editor = page.locator(".screenplay-editor");
+  await editor.evaluate((node) => node.editor.view.focus());
+  await page.keyboard.type(" ORDINARY");
+  await expect(marked).toHaveText("HI");
+  await page.locator(".focus-telegraph-button").click();
+  await page.locator(".focus-telegraph-button").click();
+  await expect(share).toBeEnabled();
+  await page.evaluate(() => {
+    window.copiedTelegram = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.copiedTelegram = text;
+        },
+      },
+    });
+  });
+  await share.click();
+  const dialog = page.getByRole("dialog", { name: "Share telegram" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".telegram-share-preview")).toHaveText("HI");
+  const link = await dialog.getByRole("textbox").inputValue();
+  expect(readTelegram(new URL(link).hash).text).toBe("HI");
+  expect(link).not.toContain("ORDINARY");
+  await dialog.getByRole("button", { name: "Copy link" }).click();
+  expect(await page.evaluate(() => window.copiedTelegram)).toBe(link);
+  await page.screenshot({ path: info.outputPath("telegram-share.png") });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(share).toBeFocused();
+  await page.clock.runFor(1800);
+  await page.reload();
+  await expect(page.locator(".screenplay-editor .telegraph-text")).toHaveText(
+    "HI",
+  );
 });

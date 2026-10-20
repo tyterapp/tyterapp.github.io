@@ -19,6 +19,10 @@ export function pageMetadata(html, route = "") {
   const houseScene = houseSnapshotScene(`/${route}`);
   const house = route === "house" || !!houseScene;
   const pages = {
+    telegram: [
+      "Телеграмма — Tyter",
+      "Послушайте телеграмму, переданную азбукой Морзе в Tyter.",
+    ],
     design: [
       "Дизайн Tyter — брендбук, гайдлайны и UI кит",
       "Логотип, палитра, типографика и элементы интерфейса Tyter. Материалы для работы с брендом.",

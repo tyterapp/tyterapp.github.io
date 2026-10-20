@@ -32,6 +32,7 @@ import StoryboardFrameGenerator from "./StoryboardFrameGenerator.jsx";
 import StoryboardPlayer from "./StoryboardPlayer.jsx";
 import { scriptVersionExportStyle } from "./script-version-colors.js";
 import { SCRIPT_VERSIONS } from "./script-version-colors.js";
+import { STORYBOARD_EXPORT_FORMATS } from "./storyboard-export.js";
 import {
   useStoryboardZoom,
   useLongPressReorder,
@@ -341,45 +342,7 @@ export function StoryboardBoard({
           </button>
           {exports && (
             <div className="story-export-options" role="menu">
-              {[
-                [
-                  "png",
-                  "PNG sequence",
-                  tr(
-                    "Все слайды отдельными файлами · ZIP",
-                    "All slides as separate files · ZIP",
-                  ),
-                ],
-                [
-                  "webp",
-                  "WEBP sequence",
-                  tr(
-                    "Все слайды отдельными файлами · ZIP",
-                    "All slides as separate files · ZIP",
-                  ),
-                ],
-                [
-                  "pdf",
-                  "PDF",
-                  tr("Для чтения и печати", "For reading and printing"),
-                ],
-                [
-                  "json",
-                  "JSON",
-                  tr(
-                    "Слайды, порядок и длительности",
-                    "Slides, order and durations",
-                  ),
-                ],
-                [
-                  "tyt",
-                  "Tyter project · TYT",
-                  tr(
-                    "Сценарий, раскадровка и все настройки",
-                    "Screenplay, storyboard and all settings",
-                  ),
-                ],
-              ].map(([format, name, description]) => (
+              {STORYBOARD_EXPORT_FORMATS.map(([format, name, description]) => (
                 <button
                   key={format}
                   role="menuitem"
@@ -390,8 +353,8 @@ export function StoryboardBoard({
                 >
                   <Download size={18} />
                   <span>
-                    <strong>{name}</strong>
-                    <small>{description}</small>
+                    <strong>{t(name)}</strong>
+                    <small>{t(description)}</small>
                   </span>
                   <small>
                     .{["png", "webp"].includes(format) ? "zip" : format}

@@ -3,8 +3,43 @@ import { storyboardScenes } from "./storyboard-model.js";
 import { storyboardFrames, STORY_STATUSES } from "./storyboard-data.js";
 import { shotAspectRatio } from "./shot-image.js";
 import { getLanguage } from "./i18n.js";
+import { SCRIPT_VERSIONS } from "./script-version-colors.js";
+import { documentFileStem } from "./local-file-names.js";
+
+export const STORYBOARD_EXPORT_FORMATS = [
+  ["png", "PNG sequence", "Вся последовательность кадров · ZIP"],
+  ["webp", "WEBP sequence", "Вся последовательность кадров · ZIP"],
+  ["pdf", "PDF", "Для чтения и печати"],
+  ["json", "JSON · Все сцены", "Сцены, кадры и параметры съёмки"],
+  ["html", "Instant link · HTML", "Сценарий и раскадровка · Только чтение"],
+  ["tyt", "Tyter project · TYT", "Сценарий, раскадровка и все настройки"],
+];
+
+const pageVersion = (scene) =>
+  SCRIPT_VERSIONS.find(({ id }) => id === scene.color) || SCRIPT_VERSIONS[0];
+const sceneTitle = (scene) => {
+  const title = scene.title?.trim();
+  return !title || /^(untitled|без названия)$/iu.test(title)
+    ? "untitled"
+    : title;
+};
+
+export function storyboardFrameFilename(scene, index, extension) {
+  const title = documentFileStem(sceneTitle(scene));
+  const prefix = `page-${String(scene.page).padStart(3, "0")}_${pageVersion(scene).label.replaceAll(" ", "-")}_scene-${String(scene.number).padStart(3, "0")}-${scene.letter}_`;
+  const suffix = `_frame-${String(index + 1).padStart(3, "0")}.${extension}`;
+  // Keep the complete identifying prefix/suffix, even for long Unicode titles.
+  const encoder = new TextEncoder();
+  let name = "";
+  for (const character of title) {
+    if (encoder.encode(prefix + name + character + suffix).length > 240) break;
+    name += character;
+  }
+  return prefix + (name || "untitled") + suffix;
+}
 
 export function storyboardManifest(document, { images = true } = {}) {
+  let sequence = 0;
   return {
     format: "tyter-storyboard",
     version: 1,
@@ -13,9 +48,13 @@ export function storyboardManifest(document, { images = true } = {}) {
       id: scene.id,
       number: scene.number,
       variant: scene.letter,
-      title: scene.title,
+      title: sceneTitle(scene),
       screenplayPage: scene.page,
       pageColor: scene.color,
+      pageVersion: {
+        id: pageVersion(scene).id,
+        label: pageVersion(scene).label,
+      },
       settings: Object.fromEntries(
         Object.entries(scene.settings).filter(
           ([key]) => !["image", "frames"].includes(key),
@@ -25,6 +64,7 @@ export function storyboardManifest(document, { images = true } = {}) {
       frames: storyboardFrames(scene.settings).map((frame, index) => ({
         id: frame.id,
         number: index + 1,
+        sequence: ++sequence,
         durationMs: frame.durationMs,
         transition: frame.transition,
         ...(images ? { image: frame.image || null } : {}),
@@ -32,8 +72,22 @@ export function storyboardManifest(document, { images = true } = {}) {
     })),
   };
 }
-const filename = (scene, index, extension) =>
-  `scene-${String(scene.number).padStart(3, "0")}-${scene.letter}_frame-${String(index + 1).padStart(3, "0")}.${extension}`;
+// The screenplay JSON is a current, importable document with all original shot
+// data. The derived storyboard index adds page/scene/frame order without
+// duplicating embedded images or bringing the document's revision history.
+export function screenplayManifest(document) {
+  return {
+    ...structuredClone(document),
+    format: "tyter-screenplay",
+    version: 1,
+    storyboard: storyboardManifest(document, { images: false }),
+  };
+}
+export function exportScreenplayJSON(document) {
+  return new Blob([JSON.stringify(screenplayManifest(document), null, 2)], {
+    type: "application/json",
+  });
+}
 async function frameCanvas(scene, frame) {
   const ratio = shotAspectRatio(scene.settings.aspectRatio) || 16 / 9;
   const bitmap = frame.image
@@ -81,7 +135,7 @@ async function sequence(document, format) {
             ? "This browser cannot export this image format."
             : "Браузер не поддерживает экспорт в этот формат.",
         );
-      const file = filename(scene, index, format);
+      const file = storyboardFrameFilename(scene, index, format);
       files[file] = new Uint8Array(await blob.arrayBuffer());
       manifest.scenes[sceneIndex].frames[index].file = file;
       canvas.width = canvas.height = 1;
@@ -207,6 +261,10 @@ async function pdfStoryboard(document) {
   return pdf.output("blob");
 }
 export async function exportStoryboard(document, format) {
+  if (format === "html") {
+    const { exportInstantHTML } = await import("./instant-html.js");
+    return exportInstantHTML(document, { view: "storyboard" });
+  }
   if (format === "json")
     return new Blob([JSON.stringify(storyboardManifest(document), null, 2)], {
       type: "application/json",
