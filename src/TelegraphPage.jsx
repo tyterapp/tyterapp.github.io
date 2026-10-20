@@ -3,6 +3,7 @@ import { CircleHelp } from "lucide-react";
 import { useWebHaptics } from "web-haptics/react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { closeHistory } from "@tiptap/pm/history";
 import { TelegraphMark } from "./TelegraphMark.js";
 import Telegraph from "./Telegraph.jsx";
 import TelegraphAlphabet from "./TelegraphAlphabet.jsx";
@@ -207,6 +208,40 @@ export default function TelegraphPage() {
     editor.view.dispatch(transaction.scrollIntoView());
     return true;
   };
+  const deleteLast = () => {
+    if (!editor || editor.isDestroyed || editor.view.composing) return;
+    const end = editor.state.doc.content.size - 1;
+    if (end <= 1) return;
+    const before = editor.state.doc.resolve(end).nodeBefore;
+    const chain = editor
+      .chain()
+      .focus("end", { scrollIntoView: false })
+      .command(({ tr }) => {
+        closeHistory(tr);
+        return true;
+      });
+    if (!before) chain.joinBackward();
+    else {
+      let length = before.nodeSize;
+      if (before.isText) {
+        const paragraph = editor.state.doc.resolve(end).parent;
+        const value = paragraph.textBetween(
+          0,
+          paragraph.content.size,
+          "\n",
+          "\n",
+        );
+        if (typeof Intl.Segmenter === "function") {
+          for (const part of new Intl.Segmenter(language, {
+            granularity: "grapheme",
+          }).segment(value))
+            length = part.segment.length;
+        } else length = [...value].at(-1).length;
+      }
+      chain.deleteRange({ from: end - length, to: end });
+    }
+    chain.scrollIntoView().run();
+  };
   return (
     <main
       className="telegraph-composer editor-column"
@@ -262,6 +297,8 @@ export default function TelegraphPage() {
           onPress={feedback}
           onRelease={releaseFeedback}
           nativeTouchHaptics={nativeTouchHaptics}
+          onDelete={deleteLast}
+          canDelete={text.length > 0}
           telegram={text.trim() ? text : ""}
           title={en ? "Telegram" : "Телеграмма"}
         />

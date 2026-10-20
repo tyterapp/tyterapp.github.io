@@ -237,6 +237,52 @@
   min-height: 44px;
   font-size: 13px;
 }
+.telegraph-composer .telegraph-actions {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+}
+.telegraph-composer .telegraph-actions .telegraph-share-button {
+  min-width: 0;
+  gap: 6px;
+  padding: 6px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.telegraph-composer .telegraph-actions .telegraph-share-button svg {
+  flex-shrink: 0;
+}
+.telegraph-composer .telegraph-delete-button {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 130ms ease,
+    scale 130ms ease;
+}
+.telegraph-composer .telegraph-delete-button:hover:not(:disabled) {
+  background: var(--ui-accent-soft);
+}
+.telegraph-composer .telegraph-delete-button:active:not(:disabled) {
+  scale: 0.96;
+}
+.telegraph-composer .telegraph-delete-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .telegraph-composer .telegraph-delete-button {
+    transition: none;
+  }
+}
 .telegraph-composer :is(a, button):focus-visible {
   outline: 2px solid var(--ui-accent);
   outline-offset: 3px;

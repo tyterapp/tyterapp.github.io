@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { loadImage } from "@napi-rs/canvas";
 import { readTelegram } from "../../src/telegram.js";
 import { MORSE_LETTER_GAP, MORSE_DASH } from "../../src/morse.js";
 
@@ -78,7 +79,7 @@ test("standalone telegraph has static metadata and the exact supplied 1200×630 
       /property="og:image"\s+content="https:\/\/tyterapp.github.io\/telegraph\/cover-white-v1.png"/,
     );
     expect(html).toContain(
-      'rel="canonical" href="https://tyterapp.github.io/telegraph"',
+      'rel="canonical" href="https://tyterapp.github.io/telegraph/"',
     );
   }
   const response = await request.get("/telegraph/cover.png");
@@ -105,7 +106,7 @@ for (const theme of ["light", "dark"])
     await open(page, { theme });
     const document = page.locator(".telegraph-document");
     await expect(document).toHaveCSS("font-family", /Courier/);
-    await expect(page.getByRole("button")).toHaveCount(5);
+    await expect(page.getByRole("button")).toHaveCount(6);
     const logo = await page.locator(".telegraph-composer-logo").boundingBox();
     const paper = await page.locator(".telegraph-compose-paper").boundingBox();
     expect(Math.abs(logo.x - paper.x)).toBeLessThan(1);
@@ -632,5 +633,150 @@ test.describe("standalone mobile haptics", () => {
     await page.clock.fastForward(MORSE_LETTER_GAP);
     await expect(page.locator(".telegraph-document")).toHaveText("ETE");
     await page.screenshot({ path: info.outputPath("telegraph-ios-path.png") });
+  });
+});
+
+test("standalone X crawler receives static card tags and a fresh JPEG while Open Graph keeps the original PNG", async ({
+  request,
+}) => {
+  for (const route of [
+    "/telegraph",
+    "/telegraph/",
+    "/telegraph/?share=20261021",
+  ]) {
+    const response = await request.get(route, {
+      headers: { "User-Agent": "Twitterbot/1.0" },
+    });
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    for (const [name, value] of [
+      ["twitter:card", "summary_large_image"],
+      ["twitter:image", "https://tyterapp.github.io/telegraph/cover-x-v2.jpg"],
+      ["og:image", "https://tyterapp.github.io/telegraph/cover-white-v1.png"],
+      ["og:url", "https://tyterapp.github.io/telegraph/"],
+    ]) {
+      const tags = html.match(
+        new RegExp(
+          `<meta\\s+(?:name|property)="${name}"\\s+content="([^"]*)"\\s*/?>`,
+          "g",
+        ),
+      );
+      expect(tags).toHaveLength(1);
+      expect(tags[0]).toContain(value);
+      expect(html.indexOf(tags[0])).toBeLessThan(html.indexOf("</head>"));
+    }
+  }
+  const response = await request.get("/telegraph/cover-x-v2.jpg", {
+    headers: { "User-Agent": "Twitterbot/1.0" },
+  });
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("image/jpeg");
+  const body = await response.body();
+  expect(body.length).toBeLessThan(100000);
+  const image = await loadImage(body);
+  expect([image.width, image.height]).toEqual([1200, 630]);
+  const robots = await (await request.get("/robots.txt")).text();
+  expect(robots).toMatch(/User-agent:\s*\*[\s\S]*Allow:\s*\//);
+  expect(robots).not.toMatch(/Disallow:\s*\/\s/);
+});
+
+test("standalone Delete removes the final grapheme and line break, supports Undo and updates the shared snapshot", async ({
+  page,
+}) => {
+  await open(page);
+  const draft = () =>
+    page.evaluate(() => localStorage.getItem("tyter.telegraph-draft.v1"));
+  const remove = page.getByRole("button", {
+    name: "Delete last character",
+    exact: true,
+  });
+  await expect(remove).toBeDisabled();
+  await paste(page, "A\nB👩‍👩‍👧‍👦e\u0301");
+  // Deleting always targets the end, even when the caret was left elsewhere.
+  await page.keyboard.press("Control+Home");
+  await remove.click();
+  await expect(page.locator(".telegraph-document")).toHaveText("AB👩‍👩‍👧‍👦");
+  expect(
+    await page.evaluate(() => localStorage.getItem("tyter.telegraph-draft.v1")),
+  ).toBe("A\nB👩‍👩‍👧‍👦");
+  await page.keyboard.press("Control+z");
+  expect(await draft()).toBe("A\nB👩‍👩‍👧‍👦e\u0301");
+  await page.keyboard.press("Control+Shift+z");
+  await remove.click();
+  expect(await draft()).toBe("A\nB");
+  await remove.click();
+  expect(await draft()).toBe("A\n");
+  await remove.click();
+  expect(await text(page)).toBe("A");
+  await page
+    .getByRole("button", { name: "Share telegram", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Share telegram" });
+  expect(
+    readTelegram(new URL(await dialog.getByRole("textbox").inputValue()).hash)
+      .text,
+  ).toBe("A");
+  await page.keyboard.press("Escape");
+  await remove.click();
+  await expect(remove).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Share telegram", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Control+z");
+  expect(await text(page)).toBe("A");
+});
+
+test("standalone Delete cancels a pending Morse letter so it cannot reappear after erasing", async ({
+  page,
+}) => {
+  await open(page);
+  await page.keyboard.type("ABC");
+  const time = Date.now();
+  await page.clock.install({ time });
+  await page.clock.pauseAt(time + 1000);
+  await signal(page);
+  await page
+    .getByRole("button", { name: "Delete last character", exact: true })
+    .click();
+  await page.clock.fastForward(MORSE_LETTER_GAP * 3);
+  await expect(page.locator(".telegraph-document")).toHaveText("AB");
+  await expect(page.locator(".telegraph-key")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+test.describe("standalone mobile Delete", () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test("320px: tap erases one character without opening the keyboard or moving the controls offscreen", async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await open(page, { language: "ru" });
+    await paste(page, "ТЕСТ");
+    const remove = page.getByRole("button", {
+      name: "Удалить последний символ",
+      exact: true,
+    });
+    await remove.tap();
+    await expect(page.locator(".telegraph-document")).toHaveText("ТЕС");
+    await expect(page.locator(".telegraph-document")).toBeFocused();
+    await expect(page.locator(".telegraph-document")).toHaveAttribute(
+      "inputmode",
+      "none",
+    );
+    // Measure the resting target after the intentional press-scale transition.
+    await expect
+      .poll(async () => (await remove.boundingBox()).width)
+      .toBeGreaterThanOrEqual(43.99);
+    const box = await remove.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(43.99);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(320);
+    await page.screenshot({
+      path: info.outputPath("telegraph-delete-mobile.png"),
+    });
   });
 });

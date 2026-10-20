@@ -77,7 +77,13 @@ export function pageMetadata(html, route = "") {
     : pages[house ? "house" : route] || pages.free;
   const url =
     origin +
-    (houseScene ? houseSnapshotRoute(houseScene) : route ? `/${route}` : "/");
+    (houseScene
+      ? houseSnapshotRoute(houseScene)
+      : route === "telegraph"
+        ? "/telegraph/"
+        : route
+          ? `/${route}`
+          : "/");
   const cover = house
     ? `${origin}${houseSnapshotRoute(houseScene || HOUSE_SNAPSHOT_SCENES[0])}cover.png`
     : route === "telegram"
@@ -117,7 +123,10 @@ export function pageMetadata(html, route = "") {
           "og:image:height": "630",
           "og:image:alt": imageAlt,
           "twitter:card": "summary_large_image",
-          "twitter:image": cover,
+          "twitter:image":
+            route === "telegraph"
+              ? `${origin}/telegraph/cover-x-v2.jpg`
+              : cover,
           "twitter:image:alt": imageAlt,
         }
       : {}),
