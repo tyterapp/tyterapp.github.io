@@ -780,3 +780,146 @@ test.describe("standalone mobile Delete", () => {
     });
   });
 });
+
+test.describe("standalone mobile word deletion", () => {
+  test.use({ hasTouch: true, isMobile: true });
+  async function startHold(page) {
+    const button = page.locator(".telegraph-delete-button");
+    const rect = await button.boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+      ],
+    });
+    return async () => {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      await cdp.detach();
+    };
+  }
+  const draft = (page) =>
+    page.evaluate(() => localStorage.getItem("tyter.telegraph-draft.v1"));
+  async function pause(page) {
+    const time = Date.now();
+    await page.clock.install({ time });
+    await page.clock.pauseAt(time + 1000);
+  }
+  test("450ms hold erases one complete Russian word, release never erases a character, and Undo restores it", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, { language: "ru" });
+    await paste(page, "ПРИВЕТ МИР!  ");
+    await pause(page);
+    const release = await startHold(page);
+    await page.clock.fastForward(449);
+    expect(await draft(page)).toBe("ПРИВЕТ МИР!  ");
+    await page.clock.fastForward(1);
+    expect(await draft(page)).toBe("ПРИВЕТ ");
+    await page.clock.fastForward(2000);
+    expect(await draft(page)).toBe("ПРИВЕТ ");
+    await release();
+    expect(await draft(page)).toBe("ПРИВЕТ ");
+    await page.keyboard.press("Control+z");
+    expect(await draft(page)).toBe("ПРИВЕТ МИР!  ");
+    await page.keyboard.press("Control+Shift+z");
+    expect(await draft(page)).toBe("ПРИВЕТ ");
+    await page.locator(".telegraph-delete-button").tap();
+    expect(await draft(page)).toBe("ПРИВЕТ");
+    await expect(page.locator(".telegraph-document")).toBeFocused();
+    await expect(page.locator(".telegraph-document")).toHaveAttribute(
+      "inputmode",
+      "none",
+    );
+  });
+  test("holds remove trailing empty lines and emoji tokens, clear a single word, and cancel pending Morse", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await open(page);
+    await paste(page, "ONE\nTWO 👩‍👩‍👧‍👦  \n\n");
+    await pause(page);
+    await page.locator(".telegraph-key").tap();
+    let release = await startHold(page);
+    await page.clock.fastForward(450);
+    await release();
+    expect(await draft(page)).toBe("ONE\nTWO ");
+    await page.clock.fastForward(MORSE_LETTER_GAP * 3);
+    expect(await draft(page)).toBe("ONE\nTWO ");
+    release = await startHold(page);
+    await page.clock.fastForward(450);
+    await release();
+    expect(await draft(page)).toBe("ONE\n");
+    release = await startHold(page);
+    await page.clock.fastForward(450);
+    await release();
+    expect(await draft(page)).toBe("");
+    await expect(page.locator(".telegraph-delete-button")).toBeDisabled();
+    await paste(page, "NEW");
+    await page.locator(".telegraph-delete-button").tap();
+    expect(await draft(page)).toBe("NE");
+  });
+  test("dragging away, cancelled touches and window blur never delete a word or leave a delayed deletion", async ({
+    page,
+  }) => {
+    await open(page);
+    await paste(page, "KEEP THIS");
+    await pause(page);
+    const button = page.locator(".telegraph-delete-button");
+    for (const reason of ["move", "cancel", "blur"]) {
+      await button.dispatchEvent("pointerdown", {
+        pointerId: 17,
+        pointerType: "touch",
+        button: 0,
+        isPrimary: true,
+        clientX: 10,
+        clientY: 10,
+      });
+      await page.clock.fastForward(100);
+      if (reason === "move")
+        await button.dispatchEvent("pointermove", {
+          pointerId: 17,
+          pointerType: "touch",
+          clientX: 50,
+          clientY: 10,
+        });
+      if (reason === "cancel")
+        await button.dispatchEvent("pointercancel", {
+          pointerId: 17,
+          pointerType: "touch",
+        });
+      if (reason === "blur")
+        await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+      await page.clock.fastForward(1000);
+      await button.dispatchEvent("pointerup", {
+        pointerId: 17,
+        pointerType: "touch",
+      });
+      await button.dispatchEvent("click", { detail: 1 });
+      expect(await draft(page)).toBe("KEEP THIS");
+    }
+    await button.tap();
+    expect(await draft(page)).toBe("KEEP THI");
+  });
+});
+
+test("standalone desktop mouse hold still deletes only a character", async ({
+  page,
+}) => {
+  await open(page);
+  await page.keyboard.type("KEEP THIS");
+  const time = Date.now();
+  await page.clock.install({ time });
+  await page.clock.pauseAt(time + 1000);
+  const rect = await page.locator(".telegraph-delete-button").boundingBox();
+  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+  await page.mouse.down();
+  await page.clock.fastForward(1000);
+  await expect(page.locator(".telegraph-document")).toHaveText("KEEP THIS");
+  await page.mouse.up();
+  await expect(page.locator(".telegraph-document")).toHaveText("KEEP THI");
+});

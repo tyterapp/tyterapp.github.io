@@ -208,7 +208,7 @@ export default function TelegraphPage() {
     editor.view.dispatch(transaction.scrollIntoView());
     return true;
   };
-  const deleteLast = () => {
+  const deleteLast = (word = false) => {
     if (!editor || editor.isDestroyed || editor.view.composing) return;
     const end = editor.state.doc.content.size - 1;
     if (end <= 1) return;
@@ -220,7 +220,17 @@ export default function TelegraphPage() {
         closeHistory(tr);
         return true;
       });
-    if (!before) chain.joinBackward();
+    if (word) {
+      let from = 1;
+      editor.state.doc.forEach((paragraph, offset) => {
+        const value = paragraph
+          .textBetween(0, paragraph.content.size, "\n", "\n")
+          .trimEnd();
+        if (value) from = offset + 1 + value.search(/\S+$/u);
+      });
+      // Include trailing spaces and empty lines in the same undoable deletion.
+      chain.deleteRange({ from, to: end });
+    } else if (!before) chain.joinBackward();
     else {
       let length = before.nodeSize;
       if (before.isText) {
@@ -298,6 +308,7 @@ export default function TelegraphPage() {
           onRelease={releaseFeedback}
           nativeTouchHaptics={nativeTouchHaptics}
           onDelete={deleteLast}
+          onDeleteWord={mobile ? () => deleteLast(true) : undefined}
           canDelete={text.length > 0}
           telegram={text.trim() ? text : ""}
           title={en ? "Telegram" : "Телеграмма"}

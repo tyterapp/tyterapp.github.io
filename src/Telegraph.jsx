@@ -8,7 +8,8 @@ import {
 import { t } from "./i18n.js";
 import { createMorseKeyer, MORSE_DASH } from "./morse.js";
 import { createTelegraphAudio } from "./telegraph-audio.js";
-import { Delete, Share2 } from "lucide-react";
+import { Share2 } from "lucide-react";
+import TelegraphDeleteButton from "./TelegraphDeleteButton.jsx";
 import TelegramShare from "./TelegramShare.jsx";
 import { TELEGRAM_MAX_TEXT } from "./telegram.js";
 import "./telegraph.css";
@@ -23,6 +24,7 @@ export default function Telegraph({
   onRelease,
   nativeTouchHaptics = false,
   onDelete,
+  onDeleteWord,
   canDelete = false,
 }) {
   const [sharedText, setSharedText] = useState(null);
@@ -271,6 +273,14 @@ export default function Telegraph({
       {t("Поделиться телеграммой")}
     </button>
   );
+  const erase = (callback) => {
+    clearTimeout(dashTimer.current);
+    active.current = null;
+    setPressed(false);
+    keyer.current?.cancel();
+    audio.current?.stop();
+    callback();
+  };
   return (
     <section
       ref={element}
@@ -348,32 +358,12 @@ export default function Telegraph({
       </output>
       {onDelete ? (
         <div className="telegraph-actions">
-          <button
-            type="button"
-            className="telegraph-delete-button"
-            aria-label={
-              language === "en"
-                ? "Delete last character"
-                : "Удалить последний символ"
-            }
-            title={
-              language === "en"
-                ? "Delete last character"
-                : "Удалить последний символ"
-            }
+          <TelegraphDeleteButton
+            language={language}
             disabled={!canDelete}
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => {
-              clearTimeout(dashTimer.current);
-              active.current = null;
-              setPressed(false);
-              keyer.current?.cancel();
-              audio.current?.stop();
-              onDelete();
-            }}
-          >
-            <Delete size={19} aria-hidden="true" />
-          </button>
+            onDelete={() => erase(onDelete)}
+            onDeleteWord={onDeleteWord ? () => erase(onDeleteWord) : undefined}
+          />
           {shareButton}
         </div>
       ) : (

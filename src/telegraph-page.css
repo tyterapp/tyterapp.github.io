@@ -264,6 +264,8 @@
   color: var(--ui-text);
   cursor: pointer;
   touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
   transition:
     background-color 130ms ease,
     scale 130ms ease;
