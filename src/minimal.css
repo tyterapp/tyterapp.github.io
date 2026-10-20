@@ -3040,6 +3040,9 @@ kbd {
   box-decoration-break: clone;
   animation: outline-scene-flash 1s ease-in-out both;
 }
+:root[data-theme="dark"] .outline-navigation-flash {
+  --navigation-flash-color: #000;
+}
 @keyframes outline-scene-flash {
   0%,
   100% {
@@ -3047,13 +3050,13 @@ kbd {
   }
   20%,
   65% {
-    background-color: #ffddb0;
+    background-color: var(--navigation-flash-color, #ffddb0);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .outline-navigation-flash {
     animation: none;
-    background-color: #ffddb0;
+    background-color: var(--navigation-flash-color, #ffddb0);
   }
 }
 .scene-number::before {
