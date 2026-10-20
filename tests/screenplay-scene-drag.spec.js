@@ -239,3 +239,139 @@ test("edge scrolling is gradual in both directions and speeds up farther outside
     /screenplay-scene-dragging/,
   );
 });
+
+for (const theme of ["light", "dark"])
+  test(`${theme}: wheel scrolls both ways while a scene stays captured, refreshes the stationary drop target and preserves Undo`, async ({
+    page,
+  }, info) => {
+    await open(page, { theme, count: 40 });
+    const before = await content(page);
+    const initialOrder = await order(page);
+    const scroller = page.locator(".minimal-scroll");
+    const viewport = await scroller.boundingBox();
+    await start(page, 1);
+    await page.mouse.move(
+      viewport.x + viewport.width / 2,
+      viewport.y + viewport.height / 2,
+    );
+    const preview = await page.locator(".scene-reorder-preview").boundingBox();
+    await page.mouse.wheel(0, 1600);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(1500);
+    const down = await scrollTop(page);
+    await page.mouse.wheel(0, -500);
+    await expect.poll(() => scrollTop(page)).toBeLessThan(down - 400);
+    await expect(
+      page.locator('.scene-reorder-zone[data-target="true"]'),
+    ).toHaveCount(1);
+    await expect(page.locator(".scene-reorder-insertion")).toBeVisible();
+    const targetText = await page.locator(".scene-reorder-hint").textContent();
+    const targetNumber = Number(
+      targetText.match(/сценой? (\d+)/)?.[1] ||
+        targetText.match(/сцены (\d+)/)?.[1],
+    );
+    expect(targetNumber).toBeGreaterThan(3);
+    const afterPreview = await page
+      .locator(".scene-reorder-preview")
+      .boundingBox();
+    expect(afterPreview.x).toBe(preview.x);
+    expect(afterPreview.y).toBe(preview.y);
+    expect(await content(page)).toEqual(before);
+    await page.screenshot({ path: info.outputPath(`wheel-drag-${theme}.png`) });
+    const expected = initialOrder.slice(1);
+    expected.splice(
+      targetNumber - (targetText.startsWith("После") ? 1 : 2),
+      0,
+      "scene-1",
+    );
+    await page.mouse.up();
+    await expect.poll(() => order(page)).toEqual(expected);
+    await expect(page.locator(".scene-reorder-layer")).toHaveCount(0);
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => content(page)).toEqual(before);
+  });
+
+test("drag wheel supports line/page deltas, clamps at document ends and restores ordinary scrolling after Escape", async ({
+  page,
+}) => {
+  await open(page, { count: 40, zoom: 150 });
+  const before = await content(page);
+  const scroller = page.locator(".minimal-scroll");
+  const viewport = await scroller.boundingBox();
+  await start(page, 1, true);
+  await page.mouse.move(
+    viewport.x + viewport.width / 2,
+    viewport.y + viewport.height / 2,
+  );
+  await scroller.dispatchEvent("wheel", {
+    deltaY: 6,
+    deltaMode: 1,
+    bubbles: true,
+    cancelable: true,
+  });
+  await expect.poll(() => scrollTop(page)).toBeGreaterThan(30);
+  const line = await scrollTop(page);
+  await scroller.dispatchEvent("wheel", {
+    deltaY: 1,
+    deltaMode: 2,
+    bubbles: true,
+    cancelable: true,
+  });
+  await expect
+    .poll(() => scrollTop(page))
+    .toBeGreaterThan(line + viewport.height - 2);
+  await page.mouse.wheel(0, 1000000);
+  await expect
+    .poll(() =>
+      scroller.evaluate((e) =>
+        Math.abs(e.scrollTop - (e.scrollHeight - e.clientHeight)),
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+  await page.mouse.wheel(0, -1000000);
+  await expect.poll(() => scrollTop(page)).toBe(0);
+  await expect(page.locator(".scene-reorder-preview")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(page.locator("body")).not.toHaveClass(
+    /screenplay-scene-dragging/,
+  );
+  expect(await content(page)).toEqual(before);
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => scrollTop(page)).toBeGreaterThan(300);
+});
+
+test("storyboard cards also keep their drag preview while the mouse wheel scrolls the board", async ({
+  page,
+}) => {
+  await open(page, { count: 40 });
+  const before = await content(page);
+  await page
+    .locator(".document-view-toggle")
+    .getByRole("button", { name: "Раскадровка", exact: true })
+    .click();
+  const first = page.locator(
+    '.story-card[data-scene="scene-1"] .story-card-select',
+  );
+  const rect = await first.boundingBox();
+  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    rect.x + rect.width / 2 + 10,
+    rect.y + rect.height / 2 + 10,
+  );
+  await expect(page.locator(".story-drag-preview")).toBeVisible();
+  const scroller = page.locator(".story-board-scroll");
+  await page.mouse.wheel(0, 700);
+  await expect
+    .poll(() => scroller.evaluate((e) => e.scrollTop))
+    .toBeGreaterThan(500);
+  await expect(page.locator(".story-drag-preview")).toBeVisible();
+  await page.mouse.wheel(0, -300);
+  await expect
+    .poll(() => scroller.evaluate((e) => e.scrollTop))
+    .toBeLessThan(500);
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  expect(await content(page)).toEqual(before);
+  await expect(page.locator(".story-drag-preview")).toHaveCount(0);
+});

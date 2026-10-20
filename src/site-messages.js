@@ -1,4 +1,5 @@
 export default {
+  Кейс: "Case study",
   Блог: "Blog",
   "Блог Tyter": "Tyter blog",
   "Помощь Tyter": "Tyter help",

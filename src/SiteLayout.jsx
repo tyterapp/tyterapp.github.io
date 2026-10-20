@@ -3,6 +3,7 @@ import { ExternalLink, Moon, Send, Sun } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import { useEditorPreferences } from "./editor-preferences.js";
+import { loadCasePage } from "./case-loader.js";
 
 export const BOOSTY_URL = "https://boosty.to/sergeybuharev";
 export function ProLink({
@@ -32,6 +33,7 @@ export default function SiteLayout({
   page = "product",
   alternate = false,
   title,
+  titleContent,
   description,
   children,
   feedRef,
@@ -72,10 +74,25 @@ export default function SiteLayout({
               ["blog", "/blog", "Блог"],
               ["help", "/help", "Помощь"],
               ["design", "/design", "Дизайн"],
+              ["case", "/case", "Кейс"],
             ].map(([id, href, label]) => (
               <a
                 key={id}
                 href={href}
+                onPointerEnter={
+                  id === "case"
+                    ? () => {
+                        loadCasePage().catch(() => {});
+                      }
+                    : undefined
+                }
+                onFocus={
+                  id === "case"
+                    ? () => {
+                        loadCasePage().catch(() => {});
+                      }
+                    : undefined
+                }
                 aria-current={page === id ? "page" : undefined}
               >
                 {t(label)}
@@ -84,7 +101,7 @@ export default function SiteLayout({
           </nav>
         </header>
         <section className="site-intro">
-          <h1>{title || t("Сценарий без хаоса")}</h1>
+          {titleContent || <h1>{title || t("Сценарий без хаоса")}</h1>}
           <p>
             {description ||
               t(

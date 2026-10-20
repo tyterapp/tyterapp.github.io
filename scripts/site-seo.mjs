@@ -19,6 +19,14 @@ export function pageMetadata(html, route = "") {
   const houseScene = houseSnapshotScene(`/${route}`);
   const house = route === "house" || !!houseScene;
   const pages = {
+    telegraph: [
+      "Телеграф Tyter — написать телеграмму",
+      "Напишите телеграмму азбукой Морзе и поделитесь ею по ссылке. Телеграф, чистый лист и ничего лишнего.",
+    ],
+    case: [
+      "Tyter — продуктовый кейс: от текста к кадру",
+      "Как создавался Tyter: продуктовые решения, развитие редактора и раскадровок, дизайн-система, бренд и план измерения конверсии, удержания и маркетинга.",
+    ],
     telegram: [
       "Телеграмма — Tyter",
       "Послушайте телеграмму, переданную азбукой Морзе в Tyter.",
@@ -73,14 +81,18 @@ export function pageMetadata(html, route = "") {
   const cover = house
     ? `${origin}${houseSnapshotRoute(houseScene || HOUSE_SNAPSHOT_SCENES[0])}cover.png`
     : route === "telegram"
-      ? `${origin}/telegram/cover.png`
-      : null;
+      ? `${origin}/telegram/cover-generic-v2.png`
+      : route === "telegraph"
+        ? `${origin}/telegraph/cover.png`
+        : null;
   const imageAlt =
     route === "telegram"
       ? "Телеграмма Tyter"
-      : houseScene?.skin
-        ? "Домик с котиком OiiA в Tyter"
-        : "Домик OiiA в Tyter";
+      : route === "telegraph"
+        ? "Телеграф Tyter"
+        : houseScene?.skin
+          ? "Домик с котиком OiiA в Tyter"
+          : "Домик OiiA в Tyter";
   html = html.replace(
     /<title>[\s\S]*?<\/title>/,
     `<title>${escape(title)}</title>`,
@@ -137,6 +149,8 @@ export async function writeSiteSeo(output) {
     "blog",
     "help",
     "design",
+    "case",
+    "telegraph",
     ...BLOG_ARTICLES.map(({ slug }) => `blog/${slug}`),
   ];
   await writeFile(

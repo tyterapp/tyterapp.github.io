@@ -30,6 +30,38 @@ test("personal covers contain a decodable unique QR and long offline links never
   assert.equal(
     paintTelegramCover(
       canvas,
+      { ...telegram, title: "  Новая история  " },
+      link,
+    ).qrAvailable,
+    true,
+  );
+  const second = { ...telegram, text: "ДРУГАЯ ТЕЛЕГРАММА" };
+  const secondLink = telegramLink(
+    second.text,
+    "ru",
+    "https://tyterapp.github.io",
+    second.title,
+  );
+  assert.notEqual(secondLink, link);
+  assert.equal(
+    paintTelegramCover(canvas, second, secondLink).qrAvailable,
+    true,
+  );
+  const secondPixels = canvas.getContext("2d").getImageData(840, 224, 320, 320);
+  assert.equal(jsQR(secondPixels.data, 320, 320)?.data, secondLink);
+  assert.equal(paintTelegramCover(canvas, second, link).qrAvailable, false);
+  assert.equal(
+    paintTelegramCover(canvas, telegram, "https://tyterapp.github.io/telegram/")
+      .qrAvailable,
+    false,
+  );
+  const genericPixels = canvas
+    .getContext("2d")
+    .getImageData(840, 224, 320, 320);
+  assert.equal(jsQR(genericPixels.data, 320, 320), null);
+  assert.equal(
+    paintTelegramCover(
+      canvas,
       telegram,
       "https://example.com/#" + "x".repeat(10000),
     ).qrAvailable,
@@ -104,6 +136,17 @@ test("sharing service publishes only chosen text/title and serves immutable HTML
     canvas.getContext("2d").drawImage(bitmap, 0, 0);
     const pixels = canvas.getContext("2d").getImageData(840, 224, 320, 320);
     assert.equal(jsQR(pixels.data, 320, 320)?.data, result.url);
+    const other = await (await publish({ ...telegram, text: "ВТОРАЯ" })).json();
+    assert.notEqual(other.url, result.url);
+    assert.notEqual(other.coverURL, result.coverURL);
+    const otherImage = await loadImage(
+      Buffer.from(await (await fetch(other.coverURL)).arrayBuffer()),
+    );
+    canvas.getContext("2d").drawImage(otherImage, 0, 0);
+    const otherPixels = canvas
+      .getContext("2d")
+      .getImageData(840, 224, 320, 320);
+    assert.equal(jsQR(otherPixels.data, 320, 320)?.data, other.url);
     assert.equal((await publish({ ...telegram, text: "\u0000" })).status, 400);
     assert.equal(
       (

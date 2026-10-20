@@ -18,6 +18,7 @@ export default function Telegraph({
   onText,
   telegram = "",
   title = "",
+  editorSelector = ".screenplay-editor",
 }) {
   const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
@@ -147,7 +148,7 @@ export default function Telegraph({
         ) ||
         (event.target instanceof Element &&
           event.target.closest("input, textarea, select, [contenteditable]") &&
-          !event.target.closest(".screenplay-editor"))
+          !event.target.closest(editorSelector))
       )
         return;
       event.preventDefault();
@@ -170,7 +171,7 @@ export default function Telegraph({
       document.removeEventListener("keydown", down, true);
       document.removeEventListener("keyup", up, true);
     };
-  }, [begin, end]);
+  }, [begin, end, editorSelector]);
   const last = tape.at(-1);
   const endX = last ? last.x + (last.symbol === "-" ? 18 : 6) : 12;
   const nextX = last ? endX + last.gap : 12;

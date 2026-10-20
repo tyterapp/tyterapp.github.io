@@ -7,7 +7,6 @@ import {
   ImagePlus,
   GripVertical,
   Trash2,
-  ChartNoAxesCombined,
   Crop,
   Maximize2,
   MessageSquare,
@@ -37,13 +36,12 @@ import {
   useStoryboardZoom,
   useLongPressReorder,
 } from "./useStoryboardGestures.js";
+import { StoryDramaIcon } from "./StoryDramaPanel.jsx";
+import { sceneDrama } from "./scene-drama.js";
 import "./storyboard.css";
 
 const tr = (ru, en) => (getLanguage() === "en" ? en : ru);
 const label = (scene) => `${scene.number} ${scene.letter}`;
-const status = (scene) =>
-  STORY_STATUSES.find(([id]) => id === scene.settings.status) ||
-  STORY_STATUSES[0];
 
 export function StoryboardImage({ scene, ratio, className = "" }) {
   const frames = storyboardFrames(scene.settings).filter(
@@ -114,6 +112,9 @@ export function StoryboardBoard({
   onAdd,
   onExport,
   readonly = false,
+  dramaPanel,
+  onOpenDrama,
+  dramaOpen = false,
 }) {
   useLanguage();
   const [playingPage, setPlayingPage] = useState(null);
@@ -180,6 +181,18 @@ export function StoryboardBoard({
       className={`storyboard-workspace${fullscreen ? " story-fullscreen" : ""}`}
       aria-label={t("Раскадровка")}
     >
+      {!readonly && (
+        <button
+          type="button"
+          className="quiet-button story-drama-launch"
+          aria-expanded={dramaOpen}
+          onClick={onOpenDrama}
+        >
+          <StoryDramaIcon />
+          {tr("График драматичности", "Drama chart")}
+        </button>
+      )}
+      {dramaPanel}
       <div
         className="story-board-scroll"
         ref={viewport}
@@ -187,7 +200,11 @@ export function StoryboardBoard({
           if (!event.target.closest("button, input, select, .story-card"))
             onSelect(null);
         }}
-        style={{ "--story-card-width": `${(360 * zoom) / 100}px` }}
+        style={{
+          "--story-card-width":
+            "calc(var(--story-base-card-width, 360px) * var(--story-zoom))",
+          "--story-zoom": zoom / 100,
+        }}
       >
         {!scenes.length && (
           <div className="story-empty">
@@ -326,7 +343,7 @@ export function StoryboardBoard({
             data-tooltip={tr("Добавить сцену", "Add scene")}
             onClick={onAdd}
           >
-            <span className="scene-format-icon" aria-hidden="true" />
+            <Plus size={28} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -421,105 +438,6 @@ export function StoryboardBoard({
         />
       )}
     </section>
-  );
-}
-
-function StoryDrama({ scenes, selectedId, onSelect, onChange }) {
-  const width = Math.max(280, scenes.length * 42),
-    height = 170;
-  const points = scenes.map((scene, index) => ({
-    scene,
-    x: 26 + index * ((width - 45) / Math.max(1, scenes.length - 1)),
-    y: 132 - (scene.settings.drama || 0) * 11,
-  }));
-  return (
-    <div
-      className="story-drama"
-      aria-label={tr("График драматургии", "Drama chart")}
-    >
-      <div className="story-drama-scroll">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          style={{ width }}
-          role="group"
-          aria-label={tr(
-            "Драматичность сцен от 0 до 10",
-            "Scene drama from 0 to 10",
-          )}
-        >
-          {[0, 5, 10].map((value) => (
-            <g key={value}>
-              <line
-                x1="22"
-                x2={width - 8}
-                y1={132 - value * 11}
-                y2={132 - value * 11}
-                className="story-chart-grid"
-              />
-              <text x="4" y={136 - value * 11}>
-                {value}
-              </text>
-            </g>
-          ))}
-          <polyline
-            points={points.map((point) => `${point.x},${point.y}`).join(" ")}
-            fill="none"
-            stroke="var(--ui-accent)"
-            strokeWidth="2"
-          />
-          {points.map(({ scene, x, y }) => (
-            <g key={scene.id}>
-              <circle
-                cx={x}
-                cy={y}
-                r="18"
-                fill="transparent"
-                role="button"
-                tabIndex="0"
-                aria-label={`${label(scene)}: ${scene.settings.drama || 0}/10`}
-                onClick={() => onSelect(scene.id)}
-                onKeyDown={(e) => {
-                  if (["Enter", " "].includes(e.key)) {
-                    e.preventDefault();
-                    onSelect(scene.id);
-                  }
-                  if (["ArrowUp", "ArrowDown"].includes(e.key)) {
-                    e.preventDefault();
-                    onChange(scene.id, {
-                      drama: Math.max(
-                        0,
-                        Math.min(
-                          10,
-                          (scene.settings.drama || 0) +
-                            (e.key === "ArrowUp" ? 1 : -1),
-                        ),
-                      ),
-                    });
-                  }
-                }}
-              />
-              <circle
-                className="story-chart-dot"
-                cx={x}
-                cy={y}
-                r={scene.id === selectedId ? 6 : 4}
-                fill={status(scene)[3]}
-                pointerEvents="none"
-              />
-              <text x={x} y="155" textAnchor="middle">
-                {label(scene)}
-              </text>
-            </g>
-          ))}
-        </svg>
-      </div>
-      <small>
-        {tr(
-          "По порядку сцен · ↑ ↓ меняют оценку выбранной точки",
-          "In scene order · ↑ ↓ adjust the focused point",
-        )}
-      </small>
-    </div>
   );
 }
 
@@ -869,11 +787,12 @@ export function StoryboardInspector({
   frameTarget,
   onMoveFrame,
   onRevealBlock,
+  onOpenDrama,
+  dramaOpen,
 }) {
   useLanguage();
   const [tab, setTab] = useState("structure"),
-    [info, setInfo] = useState("frames"),
-    [chart, setChart] = useState(false);
+    [info, setInfo] = useState("frames");
   const [addFormat, setAddFormat] = useState("action");
   useEffect(() => {
     if (frameTarget) {
@@ -1203,20 +1122,12 @@ export function StoryboardInspector({
             </div>
             <button
               className="quiet-button story-chart-toggle"
-              aria-pressed={chart}
-              onClick={() => setChart(!chart)}
+              aria-expanded={dramaOpen}
+              onClick={onOpenDrama}
             >
-              <ChartNoAxesCombined size={17} />
-              {tr("График драматургии", "Drama chart")}
+              <StoryDramaIcon />
+              {tr("График драматичности", "Drama chart")}
             </button>
-            {chart && (
-              <StoryDrama
-                scenes={scenes}
-                selectedId={scene.id}
-                onSelect={onSelect}
-                onChange={onChange}
-              />
-            )}
             {info === "frames" ? (
               <FrameEditor
                 key={`${scope}:${scene.id}:${scene.letter}`}
@@ -1262,14 +1173,14 @@ export function StoryboardInspector({
                   </label>
                   <label>
                     {tr("Драматичность", "Drama")}
-                    <output>{scene.settings.drama || 0}/10</output>
+                    <output>{sceneDrama(scene.settings.drama)}/10</output>
                     <input
                       aria-label={tr("Драматичность", "Drama")}
                       type="range"
-                      min="0"
+                      min="1"
                       max="10"
                       step="1"
-                      value={scene.settings.drama || 0}
+                      value={sceneDrama(scene.settings.drama)}
                       onChange={(e) =>
                         onChange(scene.id, { drama: Number(e.target.value) })
                       }

@@ -582,42 +582,10 @@
   min-height: 44px;
   margin-top: 8px;
 }
-.story-help,
-.story-drama small {
+.story-help {
   font-size: 11px;
   line-height: 1.6;
   color: var(--ui-muted);
-}
-.story-drama {
-  padding: 8px;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-.story-drama-scroll {
-  overflow-x: auto;
-}
-.story-drama svg {
-  height: 170px;
-  display: block;
-  overflow: visible;
-}
-.story-drama text {
-  font:
-    10px Inter,
-    sans-serif;
-  fill: var(--ui-muted);
-}
-.story-drama .story-chart-grid {
-  stroke: var(--ui-border);
-}
-.story-drama [role="button"] {
-  cursor: pointer;
-  outline: none;
-}
-.story-drama [role="button"]:focus-visible {
-  stroke: var(--ui-accent);
-  stroke-width: 2;
 }
 .story-inspector .shot-details-embedded {
   display: block;

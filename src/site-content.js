@@ -140,6 +140,8 @@ export const BLOG_ARTICLES = [
   },
 ];
 export const SITE_ROUTES = [
+  "telegraph",
+  "case",
   "telegram",
   "design",
   "b",

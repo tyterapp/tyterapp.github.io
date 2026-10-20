@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, Download, ExternalLink, Send, X } from "lucide-react";
 import { t } from "./i18n.js";
@@ -7,10 +7,17 @@ import { publishTelegram } from "./telegram-service.js";
 import "./telegram.css";
 
 export default function TelegramShare({ text, title, language, onClose }) {
-  const [link, setLink] = useState(() =>
-    telegramLink(text, language, location.href, title),
+  const portableLink = useMemo(
+    () => telegramLink(text, language, location.href, title),
+    [text, title, language],
   );
-  const [cover, setCover] = useState(null);
+  const [publication, setPublication] = useState(null);
+  const publishedLink =
+    publication?.source === portableLink ? publication.url : null;
+  const link = publishedLink || portableLink;
+  const [renderedCover, setCover] = useState(null);
+  // Never show an old QR next to a new link, including during async rendering.
+  const cover = renderedCover?.source === link ? renderedCover : null;
   const [feedback, setFeedback] = useState("");
   const dialog = useRef(null),
     input = useRef(null);
@@ -22,7 +29,8 @@ export default function TelegramShare({ text, title, language, onClose }) {
       { signal: controller.signal },
     )
       .then((url) => {
-        if (url && !controller.signal.aborted) setLink(url);
+        if (url && !controller.signal.aborted)
+          setPublication({ source: portableLink, url });
       })
       .catch(() => {
         if (!controller.signal.aborted)
@@ -35,7 +43,7 @@ export default function TelegramShare({ text, title, language, onClose }) {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [text, title, language]);
+  }, [text, title, language, portableLink]);
   useEffect(() => {
     let cancelled = false,
       url;
@@ -47,7 +55,7 @@ export default function TelegramShare({ text, title, language, onClose }) {
       .then((result) => {
         if (cancelled) return;
         url = URL.createObjectURL(result.blob);
-        setCover({ ...result, url });
+        setCover({ ...result, url, source: link });
       })
       .catch(() => {
         if (!cancelled)
@@ -135,6 +143,13 @@ export default function TelegramShare({ text, title, language, onClose }) {
           "По ссылке откроется только текст телеграммы с воспроизведением Морзе.",
         )}
       </p>
+      {!publishedLink && (
+        <p className="telegram-cover-note">
+          {t(
+            "Превью ссылки в Telegram пока общее. Обложку вашей телеграммы можно скачать и отправить вместе со ссылкой.",
+          )}
+        </p>
+      )}
       {cover && !cover.qrAvailable && (
         <p className="telegram-cover-note">
           {t(

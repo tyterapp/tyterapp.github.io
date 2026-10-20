@@ -4,6 +4,8 @@ import siteMessages from "./site-messages.js";
 export default {
   "Адрес ссылки": "Link address",
   "Обложка телеграммы": "Telegram cover",
+  "Превью ссылки в Telegram пока общее. Обложку вашей телеграммы можно скачать и отправить вместе со ссылкой.":
+    "Telegram link previews are currently generic. Download your telegram cover and send it with the link.",
   "Скачать обложку": "Download cover",
   "Отправить обложку": "Send cover",
   "Не удалось отправить обложку. Скачайте её и отправьте вместе со ссылкой.":

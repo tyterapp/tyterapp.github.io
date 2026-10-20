@@ -8,6 +8,9 @@ import {
 } from "../src/morse.js";
 import { grantPro } from "./helpers/pro-access.js";
 import { readTelegram } from "../src/telegram.js";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { readFile } from "node:fs/promises";
+import jsQR from "jsqr";
 import {
   createTelegraphAudio,
   TELEGRAPH_FREQUENCY,
@@ -619,7 +622,9 @@ test("telegram marks survive reopening, exclude ordinary typing and share an imm
   await expect(dialog.locator(".telegram-share-preview")).toHaveText("HI");
   await expect(dialog.locator(".telegram-cover-preview")).toBeVisible();
   const coverDownload = page.waitForEvent("download");
-  await dialog.getByRole("link", { name: "Download cover", exact: true }).click();
+  await dialog
+    .getByRole("link", { name: "Download cover", exact: true })
+    .click();
   expect((await coverDownload).suggestedFilename()).toBe("tyter-telegram.png");
   const link = await dialog.getByRole("textbox").inputValue();
   expect(readTelegram(new URL(link).hash).text).toBe("HI");
@@ -635,4 +640,57 @@ test("telegram marks survive reopening, exclude ordinary typing and share an imm
   await expect(page.locator(".screenplay-editor .telegraph-text")).toHaveText(
     "HI",
   );
+});
+
+test("each downloaded telegram cover QR opens exactly the user link and its own text, never the generic reader", async ({
+  page,
+  context,
+}, info) => {
+  test.setTimeout(60000);
+  await open(page, { clock: false });
+  const links = [];
+  for (const text of ["I LOVE YOU", "SECOND MESSAGE"]) {
+    await page.locator(".screenplay-editor").evaluate((node, text) => {
+      node.editor.commands.setContent({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { format: "action" },
+            content: [{ type: "text", text, marks: [{ type: "telegraph" }] }],
+          },
+        ],
+      });
+    }, text);
+    await page
+      .getByRole("button", { name: "Share telegram", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Share telegram" });
+    await expect(dialog.locator(".telegram-share-preview")).toHaveText(text);
+    const link = await dialog.getByRole("textbox").inputValue();
+    await expect(dialog.locator(".telegram-cover-preview")).toBeVisible();
+    const download = page.waitForEvent("download");
+    await dialog
+      .getByRole("link", { name: "Download cover", exact: true })
+      .click();
+    const png = await loadImage(await readFile(await (await download).path()));
+    const canvas = createCanvas(1200, 630);
+    canvas.getContext("2d").drawImage(png, 0, 0);
+    const pixels = canvas.getContext("2d").getImageData(840, 224, 320, 320);
+    const decoded = jsQR(pixels.data, 320, 320)?.data;
+    expect(decoded).toBe(link);
+    expect(readTelegram(new URL(decoded).hash).text).toBe(text);
+    const reader = await context.newPage();
+    await reader.route("**/__tyter_local/**", (route) =>
+      route.fulfill({ status: 404 }),
+    );
+    await reader.goto(decoded);
+    await expect(
+      reader.locator(".telegram-transmission .telegraph-text"),
+    ).toHaveText(text, { timeout: 20000 });
+    await reader.close();
+    links.push(link);
+    await page.keyboard.press("Escape");
+  }
+  expect(links[0]).not.toBe(links[1]);
 });

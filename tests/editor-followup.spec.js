@@ -146,6 +146,14 @@ for (const theme of ["light", "dark"])
     await first.locator(".story-card-select").click();
     await expect(page.locator(".story-inspector")).toBeVisible();
     await page.screenshot({ path: `.cache/storyboard-empty-${theme}.png` });
+    const add = page.getByRole("button", {
+      name: "Добавить сцену",
+      exact: true,
+    });
+    await expect(add.locator(".lucide-plus")).toHaveCount(1);
+    await expect(add.locator(".scene-format-icon")).toHaveCount(0);
+    await add.click();
+    await expect(page.locator(".story-card")).toHaveCount(4);
   });
 
 test("hover links open a new tab, Ctrl click opens settings, and removing the link retains the component", async ({

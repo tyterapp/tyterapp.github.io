@@ -15,11 +15,12 @@ export async function writeTelegramSocialPage(output) {
   paintTelegramCover(
     canvas,
     { text: "Телеграмма для тебя.\n\nСлова оживают под звуки Морзе." },
-    "https://tyterapp.github.io/telegram/",
+    null,
     logo,
   );
-  await writeFile(
-    path.join(output, "telegram", "cover.png"),
-    await canvas.encode("png"),
-  );
+  const png = await canvas.encode("png");
+  // Keep the previous URL compatible, while the new OG URL invalidates the
+  // old shared image cache. Neither generic image contains a misleading QR.
+  for (const name of ["cover.png", "cover-generic-v2.png"])
+    await writeFile(path.join(output, "telegram", name), png);
 }

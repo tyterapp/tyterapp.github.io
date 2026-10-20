@@ -1,0 +1,210 @@
+.story-drama-icon {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  background: currentColor;
+  mask: url("/icons/line-segments.svg") center/contain no-repeat;
+}
+.story-drama-launch {
+  align-self: flex-start;
+  margin: 16px 16px 0;
+  flex: 0 0 auto;
+}
+.storyboard-workspace .story-drama-launch {
+  justify-content: flex-start;
+  transition:
+    background-color 140ms,
+    scale 140ms;
+}
+.story-drama-launch:active {
+  scale: 0.96;
+}
+.story-drama-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 8px 18px 14px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: inset 0 -1px var(--ui-border);
+}
+.story-drama-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.story-drama-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.story-drama-panel .icon-button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ui-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.story-drama-panel .icon-button:hover {
+  background: var(--ui-soft);
+}
+.story-drama-caption,
+.story-drama-empty {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+.story-drama-plot {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--ui-border);
+  width: 100%;
+}
+.story-drama-plot > svg {
+  display: block;
+  height: 240px;
+  touch-action: pan-x;
+}
+.story-drama-plot text {
+  font:
+    11px/1.4 Inter,
+    Arial,
+    sans-serif;
+  fill: var(--ui-muted);
+  user-select: none;
+}
+.story-drama-act-band {
+  fill: transparent;
+  pointer-events: none;
+}
+.story-drama-act-band[data-alternate="true"] {
+  fill: var(--ui-soft);
+}
+.story-drama-grid {
+  stroke: var(--ui-border);
+  stroke-width: 1;
+}
+.story-drama-line {
+  stroke: var(--ui-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  fill: none;
+  pointer-events: none;
+}
+.story-drama-point {
+  cursor: ns-resize;
+  touch-action: none;
+  outline: none;
+}
+.story-drama-hit {
+  fill: transparent;
+  stroke: transparent;
+  touch-action: none;
+}
+.story-drama-point:hover .story-drama-hit,
+.story-drama-point.is-selected .story-drama-hit {
+  fill: var(--ui-accent-soft);
+}
+.story-drama-point:focus-visible .story-drama-hit,
+.story-drama-point.is-dragging .story-drama-hit {
+  stroke: var(--ui-accent);
+  stroke-width: 2;
+}
+.story-drama-value {
+  font-variant-numeric: tabular-nums;
+}
+.story-drama-selection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.story-drama-selection > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.story-drama-selection strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.story-drama-selection label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-muted);
+}
+.story-drama-selection input {
+  width: 64px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--ui-field);
+  color: var(--ui-text);
+  box-shadow: 0 0 0 1px var(--ui-border);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.story-drama-panel :is(button, input):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 831px) {
+  .story-drama-panel {
+    padding: 8px 12px 12px;
+    max-height: 55dvh;
+    overflow: auto;
+  }
+  .story-drama-selection {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .story-drama-selection > span {
+    width: 100%;
+  }
+  .story-drama-selection input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .story-drama-panel .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+@media (min-width: 1921px) {
+  .storyboard-workspace .story-board-scroll {
+    --story-base-card-width: 720px;
+    padding-inline: max(24px, calc((100% - 1500px) / 2));
+  }
+  .storyboard-workspace .story-page-group {
+    max-width: calc(3 * var(--story-card-width) + 114px);
+    margin-inline: auto;
+  }
+  .storyboard-workspace .story-add-scene {
+    margin-inline-start: max(
+      86px,
+      calc((100% - (3 * var(--story-card-width) + 114px)) / 2 + 86px)
+    );
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .storyboard-workspace .story-drama-launch {
+    transition: none;
+  }
+}

@@ -65,7 +65,7 @@ function split(nodes) {
         </span>
       );
     return cloneElement(node, {
-      ...(["p", "h2"].includes(node.type)
+      ...(["p", "h1", "h2"].includes(node.type)
         ? {
             "data-emotional-block": true,
             "aria-label": text(node.props.children),
@@ -75,7 +75,12 @@ function split(nodes) {
     });
   });
 }
-export default function EmotionalReveal({ children, language, ...props }) {
+export default function EmotionalReveal({
+  children,
+  language,
+  as: Tag = "section",
+  ...props
+}) {
   const root = useRef(null);
   useEffect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -124,8 +129,8 @@ export default function EmotionalReveal({ children, language, ...props }) {
     };
   }, [language]);
   return (
-    <section ref={root} {...props}>
+    <Tag ref={root} {...props}>
       {split(children)}
-    </section>
+    </Tag>
   );
 }

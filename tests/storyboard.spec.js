@@ -182,16 +182,19 @@ for (const theme of ["light", "dark"])
     await panel(page)
       .getByLabel("Статус сцены", { exact: true })
       .selectOption("post-production");
-    await panel(page).getByLabel("Драматичность", { exact: true }).fill("0");
+    await panel(page).getByLabel("Драматичность", { exact: true }).fill("1");
     await panel(page)
       .getByLabel("Описание сцены", { exact: true })
       .fill("Начало приключения.");
     await panel(page)
-      .getByRole("button", { name: "График драматургии", exact: true })
+      .getByRole("button", { name: "График драматичности", exact: true })
       .click();
     await expect(
-      panel(page).getByRole("group", { name: "Драматичность сцен от 0 до 10" }),
+      page.getByRole("group", { name: "Драматичность сцен от 1 до 10" }),
     ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Закрыть график", exact: true })
+      .click();
     await panel(page)
       .getByRole("button", { name: "Дата съёмок", exact: true })
       .click();
@@ -209,7 +212,32 @@ for (const theme of ["light", "dark"])
     await panel(page)
       .getByRole("button", { name: "Посмотреть раскадровку", exact: true })
       .click();
-    await page.waitForTimeout(700);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            new Promise((resolve, reject) => {
+              const opening = indexedDB.open("tyter.local-files.v1", 1);
+              opening.onerror = () => reject(opening.error);
+              opening.onsuccess = () => {
+                const database = opening.result;
+                const read = database
+                  .transaction("files")
+                  .objectStore("files")
+                  .get("documents");
+                read.onerror = () => reject(read.error);
+                read.onsuccess = () => {
+                  resolve(
+                    read.result?.find((doc) => doc.id === "storyboard-test")
+                      ?.sceneShots?.one?.A?.synopsis,
+                  );
+                  database.close();
+                };
+              };
+            }),
+        ),
+      )
+      .toBe("Начало приключения.");
     await page.reload();
     await boardButton(page).click();
     await card(page, "one").getByRole("button").click();
@@ -219,7 +247,7 @@ for (const theme of ["light", "dark"])
     ).toHaveValue("Начало приключения.");
     await expect(
       panel(page).getByLabel("Драматичность", { exact: true }),
-    ).toHaveValue("0");
+    ).toHaveValue("1");
     await expect(
       panel(page).getByLabel("Номер акта", { exact: true }),
     ).toHaveValue("2");

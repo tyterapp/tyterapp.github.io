@@ -1,4 +1,35 @@
 import QRCode from "qrcode";
+import { readTelegram, telegramDescriptor } from "./telegram.js";
+
+function personalDestination(telegram, link) {
+  try {
+    const url = new URL(link);
+    if (
+      !/^https?:$/.test(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.pathname.replace(/\/$/, "") !== "/telegram"
+    )
+      return false;
+    const embedded = readTelegram(url.hash);
+    if (embedded) {
+      const expected = telegramDescriptor({
+        version: 1,
+        ...telegram,
+        language: telegram.language || embedded.language,
+      });
+      return (
+        !!expected &&
+        embedded.text === expected.text &&
+        embedded.language === expected.language &&
+        (embedded.title || "") === (expected.title || "")
+      );
+    }
+    return !url.hash && /^[a-f\d]{32}$/.test(url.searchParams.get("id") || "");
+  } catch {
+    return false;
+  }
+}
 
 // Same local renderer is used by the browser download and the public service.
 export function paintTelegramCover(canvas, telegram, link, logo) {
@@ -40,6 +71,8 @@ export function paintTelegramCover(canvas, telegram, link, logo) {
   lines.forEach((text, index) => context.fillText(text, 64, 190 + index * 48));
   let qrAvailable = false;
   try {
+    // Generic landing URLs and mismatched snapshots must never produce a QR.
+    if (!personalDestination(telegram, link)) return { qrAvailable };
     const { modules } = QRCode.create(link, { errorCorrectionLevel: "L" });
     // An integer module size and four-module quiet zone keep the code scannable.
     const size = Math.floor(288 / (modules.size + 8));

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./MinimalApp.jsx";
 import LandingPage from "./LandingPage.jsx";
@@ -6,9 +6,12 @@ import NotFoundPage from "./NotFoundPage.jsx";
 import WebProApp from "./WebProApp.jsx";
 import HouseSnapshotPage from "./HouseSnapshotPage.jsx";
 import TelegramPage from "./TelegramPage.jsx";
+import TelegraphPage from "./TelegraphPage.jsx";
 import { houseSnapshotScene } from "./house-snapshot.js";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
 import DesignPage from "./DesignPage.jsx";
+import { loadCasePage } from "./case-loader.js";
+import CaseLoading from "./CaseLoading.jsx";
 import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
 import { EditionContext } from "./edition.js";
 import { readEditorPreferences } from "./editor-preferences.js";
@@ -29,6 +32,7 @@ import "./house-snapshot.css";
 
 const desktop =
   location.protocol === "tyter:" && window.tyterDesktop?.edition === "pro";
+const CasePage = lazy(loadCasePage);
 const pathname = location.pathname.replace(/\/+$/, "") || "/";
 if (!desktop && pathname === "/pay") location.replace("/beta");
 const webPro = ["/pro", "/beta"].includes(pathname);
@@ -65,8 +69,14 @@ createRoot(document.getElementById("root")).render(
       <HouseSnapshotPage />
     ) : pathname === "/telegram" ? (
       <TelegramPage />
+    ) : pathname === "/telegraph" ? (
+      <TelegraphPage />
     ) : pathname === "/design" ? (
       <DesignPage />
+    ) : pathname === "/case" ? (
+      <Suspense fallback={<CaseLoading />}>
+        <CasePage />
+      </Suspense>
     ) : pathname === "/help" ? (
       <HelpPage />
     ) : pathname === "/blog" || article ? (

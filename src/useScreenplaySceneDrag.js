@@ -133,7 +133,8 @@ export function useScreenplaySceneDrag(ref, enabled, scope, onMove) {
         }
         const dt = Math.min(34, Math.max(1, now - current.lastTime));
         // Keep a distant editing caret from pulling the viewport back while
-        // the user is moving a scene. Only the drag's edge scroll may move it.
+        // the user is moving a scene. Edge scrolling and explicit wheel input
+        // both update the drag's own scroll position.
         if (Math.abs(current.scroller.scrollTop - current.scrollTop) > 1)
           current.scroller.scrollTop = current.scrollTop;
         current.lastTime = now;
@@ -402,12 +403,34 @@ export function useScreenplaySceneDrag(ref, enabled, scope, onMove) {
     const preventDrag = (event) => {
       if (event.target.closest(handles)) event.preventDefault();
     };
-    const preventWheel = (event) => {
-      if (drag?.active) event.preventDefault();
+    const wheel = (event) => {
+      if (!drag?.active) return;
+      event.preventDefault();
+      // Keep browser/editor zoom from changing the captured drag geometry.
+      if (event.ctrlKey || event.metaKey) return;
+      const scroller = drag.scroller;
+      const unit =
+        event.deltaMode === 2
+          ? scroller.clientHeight
+          : event.deltaMode === 1
+            ? parseFloat(getComputedStyle(scroller).lineHeight) || 16
+            : 1;
+      const delta = (event.deltaY || event.deltaX) * unit;
+      if (!delta) return;
+      drag.scrollTop = Math.max(
+        0,
+        Math.min(
+          scroller.scrollHeight - scroller.clientHeight,
+          drag.scrollTop + delta,
+        ),
+      );
+      scroller.scrollTop = drag.scrollTop;
+      drag.scrollTop = scroller.scrollTop;
+      drag.speed = 0;
     };
     column.addEventListener("pointerdown", down, true);
     column.addEventListener("dragstart", preventDrag);
-    column.addEventListener("wheel", preventWheel, {
+    column.addEventListener("wheel", wheel, {
       capture: true,
       passive: false,
     });
@@ -426,7 +449,7 @@ export function useScreenplaySceneDrag(ref, enabled, scope, onMove) {
       clearTimeout(clickTimer);
       column.removeEventListener("pointerdown", down, true);
       column.removeEventListener("dragstart", preventDrag);
-      column.removeEventListener("wheel", preventWheel, true);
+      column.removeEventListener("wheel", wheel, true);
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", finish);
       document.removeEventListener("pointercancel", clear);

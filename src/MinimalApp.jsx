@@ -1,5 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import LanguageSwitch from "./LanguageSwitch.jsx";
+import StoryDramaPanel from "./StoryDramaPanel.jsx";
 import AppSelect from "./AppSelect.jsx";
 import {
   useCallback,
@@ -869,6 +870,8 @@ export default function MinimalApp({ onLogout }) {
   const notesRef = useRef(null);
   const [view, setView] = useState("screenplay");
   const [shotTarget, setShotTarget] = useState(null);
+  const [dramaOpen, setDramaOpen] = useState(false);
+  const [dramaTarget, setDramaTarget] = useState(null);
   const [storyFrameTarget, setStoryFrameTarget] = useState(null);
   const shots = useMemo(
     () => storyboardScenes(current),
@@ -1592,9 +1595,31 @@ export default function MinimalApp({ onLogout }) {
       update(() => next);
     }
   };
+  const changeSceneShot = (id, patch) =>
+    applyStoryboardEdit(
+      (doc) =>
+        updateShotSettings(
+          doc,
+          id,
+          sceneLetter(sceneRange(doc.content, id)?.nodes[0]),
+          patch,
+        ),
+      id + Object.keys(patch).join(),
+    );
+  const closeDrama = useCallback(() => {
+    setDramaOpen(false);
+    requestAnimationFrame(() =>
+      document
+        .querySelector(
+          view === "storyboard" ? ".story-drama-launch" : ".story-chart-toggle",
+        )
+        ?.focus({ preventScroll: true }),
+    );
+  }, [view]);
   const selectStoryboardScene = (id) => {
     showSidebar(null);
     setShotTarget(id);
+    setDramaTarget(id);
     setStoryFrameTarget(null);
   };
   const moveFrameToScene = (sourceId, letter, frameId, targetId) => {
@@ -1856,6 +1881,8 @@ export default function MinimalApp({ onLogout }) {
   useEffect(() => {
     setSceneTarget(null);
     setShotTarget(null);
+    setDramaOpen(false);
+    setDramaTarget(null);
   }, [writingScope]);
   useEffect(() => {
     const onUndoRedo = (event) => {
@@ -3675,6 +3702,21 @@ export default function MinimalApp({ onLogout }) {
               if (id) selectStoryboardScene(id);
             }}
             onExport={downloadStoryboard}
+            dramaOpen={dramaOpen}
+            onOpenDrama={() => setDramaOpen((open) => !open)}
+            dramaPanel={
+              dramaOpen &&
+              !historyRevision && (
+                <StoryDramaPanel
+                  scenes={shots}
+                  selectedId={shotTarget || dramaTarget}
+                  onSelect={selectStoryboardScene}
+                  onDragSelect={mobile ? setDramaTarget : selectStoryboardScene}
+                  onChange={changeSceneShot}
+                  onClose={closeDrama}
+                />
+              )
+            }
           />
         )}
         {learningOpen && (
@@ -3798,6 +3840,21 @@ export default function MinimalApp({ onLogout }) {
               }}
             />
           )}
+          {dramaOpen &&
+            view === "screenplay" &&
+            !notesOpen &&
+            !learningOpen &&
+            !historyRevision &&
+            !focusMode && (
+              <StoryDramaPanel
+                scenes={shots}
+                selectedId={shotTarget || dramaTarget}
+                onSelect={selectStoryboardScene}
+                onDragSelect={mobile ? setDramaTarget : selectStoryboardScene}
+                onChange={changeSceneShot}
+                onClose={closeDrama}
+              />
+            )}
           <main
             className="minimal-scroll"
             aria-label={t("Сценарий")}
@@ -4345,18 +4402,12 @@ export default function MinimalApp({ onLogout }) {
                   "variant",
                 )
               }
-              onChange={(id, patch) =>
-                applyStoryboardEdit(
-                  (doc) =>
-                    updateShotSettings(
-                      doc,
-                      id,
-                      sceneLetter(sceneRange(doc.content, id)?.nodes[0]),
-                      patch,
-                    ),
-                  id + Object.keys(patch).join(),
-                )
-              }
+              onOpenDrama={() => {
+                setDramaOpen(true);
+                if (mobile) showSidebar(null);
+              }}
+              dramaOpen={dramaOpen}
+              onChange={changeSceneShot}
               onBlock={(id, patch) =>
                 applyStoryboardEdit(
                   (doc) => changeSceneBlock(doc, selectedShot.id, id, patch),
