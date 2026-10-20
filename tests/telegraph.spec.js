@@ -211,6 +211,20 @@ async function letter(page, code, keyboard = false) {
 test("English HI enters the first scene with mouse taps; a held key sustains one tone without sample repetition", async ({
   page,
 }, info) => {
+  await page.addInitScript(() => {
+    window.editorHaptics = 0;
+    Object.defineProperty(navigator, "playHaptics", {
+      configurable: true,
+      value: () => window.editorHaptics++,
+    });
+    Object.defineProperty(navigator, "vibrate", {
+      configurable: true,
+      value: () => {
+        window.editorHaptics++;
+        return true;
+      },
+    });
+  });
   await open(page);
   const snapshot = await editorJSON(page);
   await expect(page.locator(".focus-telegraph")).toHaveCSS("width", "280px");
@@ -263,6 +277,7 @@ test("English HI enters the first scene with mouse taps; a held key sustains one
   await expect(page.locator(".screenplay-editor")).toBeFocused();
   await page.locator(".screenplay-editor").press("Control+z");
   await first(page).not.toBe("HI");
+  expect(await page.evaluate(() => window.editorHaptics)).toBe(0);
 });
 
 test("Ctrl+M keys the open telegraph from the editor, handles either release order and ignores repeats and other forms", async ({

@@ -83,7 +83,7 @@ export function pageMetadata(html, route = "") {
     : route === "telegram"
       ? `${origin}/telegram/cover-generic-v2.png`
       : route === "telegraph"
-        ? `${origin}/telegraph/cover.png`
+        ? `${origin}/telegraph/cover-white-v1.png`
         : null;
   const imageAlt =
     route === "telegram"

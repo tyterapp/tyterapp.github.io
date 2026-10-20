@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CircleHelp } from "lucide-react";
+import { useWebHaptics } from "web-haptics/react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TelegraphMark } from "./TelegraphMark.js";
 import Telegraph from "./Telegraph.jsx";
+import TelegraphAlphabet from "./TelegraphAlphabet.jsx";
+import LanguageSwitch from "./LanguageSwitch.jsx";
+import BrandContextMenu from "./BrandContextMenu.jsx";
 import { useLanguage } from "./i18n.js";
 import "./telegraph-page.css";
 
@@ -34,6 +39,20 @@ function saveDraft(text) {
 export default function TelegraphPage() {
   const language = useLanguage();
   const en = language === "en";
+  const [help, setHelp] = useState(false);
+  const [brandMenu, setBrandMenu] = useState(null);
+  const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
+  const { trigger } = useWebHaptics();
+  const feedback = useCallback(() => {
+    // Haptics must never interrupt a Morse press on unsupported devices.
+    try {
+      if (typeof navigator.playHaptics === "function")
+        navigator.playHaptics("tick", 0.5);
+      else trigger(12, { intensity: 1 })?.catch(() => {});
+    } catch {
+      /* The browser or the device can decline haptic feedback. */
+    }
+  }, [trigger]);
   const [mobile, setMobile] = useState(() => matchMedia(mobileQuery).matches);
   const mobileRef = useRef(mobile);
   mobileRef.current = mobile;
@@ -170,10 +189,39 @@ export default function TelegraphPage() {
       data-mobile={mobile || undefined}
     >
       <header className="telegraph-composer-header">
-        <a href="/" aria-label={en ? "Tyter home" : "Tyter — главная"}>
+        <LanguageSwitch />
+        <a
+          className="telegraph-composer-logo"
+          href="/"
+          aria-label={en ? "Tyter home" : "Tyter — главная"}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setBrandMenu({ left: event.clientX, top: event.clientY });
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key === "ContextMenu" ||
+              (event.shiftKey && event.key === "F10")
+            ) {
+              event.preventDefault();
+              const rect = event.currentTarget.getBoundingClientRect();
+              setBrandMenu({ left: rect.left, top: rect.bottom });
+            }
+          }}
+        >
           <img src="/brand/tyter-logo.svg" width="34" height="34" alt="" />
           <span>Tyter</span>
         </a>
+        <button
+          className="telegraph-help-button"
+          type="button"
+          aria-label={en ? "Morse alphabet" : "Азбука Морзе"}
+          aria-haspopup="dialog"
+          aria-expanded={help}
+          onClick={() => setHelp(true)}
+        >
+          <CircleHelp size={21} aria-hidden="true" />
+        </button>
         <h1 className="visually-hidden">{en ? "Telegraph" : "Телеграф"}</h1>
       </header>
       <div className="telegraph-compose-scroll">
@@ -186,10 +234,17 @@ export default function TelegraphPage() {
           language={language}
           editorSelector=".telegraph-document"
           onText={insert}
+          onPress={feedback}
           telegram={text.trim() ? text : ""}
           title={en ? "Telegram" : "Телеграмма"}
         />
       </div>
+      {help && (
+        <TelegraphAlphabet language={language} onClose={() => setHelp(false)} />
+      )}
+      {brandMenu && (
+        <BrandContextMenu position={brandMenu} onClose={closeBrandMenu} />
+      )}
     </main>
   );
 }

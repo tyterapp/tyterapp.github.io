@@ -19,6 +19,7 @@ export default function Telegraph({
   telegram = "",
   title = "",
   editorSelector = ".screenplay-editor",
+  onPress,
 }) {
   const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
@@ -34,6 +35,8 @@ export default function Telegraph({
     dashTimer = useRef(null);
   const insert = useRef(onText);
   insert.current = onText;
+  const pressFeedback = useRef(onPress);
+  pressFeedback.current = onPress;
   useLayoutEffect(() => {
     const node = element.current;
     const column = node.closest(".editor-column");
@@ -122,6 +125,7 @@ export default function Telegraph({
     setPressed(true);
     dashTimer.current = setTimeout(() => setHeldDash(true), MORSE_DASH);
     audio.current?.start();
+    pressFeedback.current?.();
   }, []);
   const end = useCallback((id, cancel = false) => {
     if (active.current !== id) return;
