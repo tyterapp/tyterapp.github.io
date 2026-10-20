@@ -115,13 +115,18 @@
   align-items: center;
   gap: 8px;
 }
-.component-hover-link {
+.component-link-hover {
   position: fixed;
+  z-index: 110;
+  width: 44px;
+  height: 44px;
+}
+.component-hover-link {
   z-index: 110;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   color: var(--ui-accent);
   border-radius: 8px;
   background: var(--ui-surface);
@@ -175,4 +180,41 @@
     min-width: 44px;
     min-height: 44px;
   }
+}
+
+.component-link-hover::before {
+  content: "";
+  position: absolute;
+  inset: -8px -8px;
+  pointer-events: none;
+}
+.text-link-address {
+  position: fixed;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow:
+    0 0 0 1px var(--ui-border),
+    0 4px 16px #0002;
+  font:
+    13px/1.5 system-ui,
+    sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms;
+}
+.text-link-address::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 -10px;
+}
+.component-link-hover:hover .text-link-address,
+.component-link-hover:focus-within .text-link-address {
+  opacity: 1;
+  visibility: visible;
 }

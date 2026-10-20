@@ -63,6 +63,7 @@ export const pageVersionSchema = new Schema({
     underline: {},
     strike: {},
     telegraph: { inclusive: false },
+    link: { attrs: { href: { default: null } }, inclusive: false },
     comment: {
       attrs: { id: { default: null } },
       inclusive: false,

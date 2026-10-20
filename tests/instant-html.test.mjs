@@ -73,6 +73,20 @@ test("read-only HTML contains both views, current frames, safe rich text and the
   );
   assert.match(html, /1\.7 с/);
   assert.deepEqual(doc, before);
+  const data = JSON.parse(
+    html.match(
+      /<script type="application\/json" id="reader-data">([\s\S]*?)<\/script>/,
+    )[1],
+  );
+  assert.equal(data.format, "tyter-screenplay");
+  assert.equal(data.sceneShots.scene.B.frames[0].image, "");
+  assert.equal(data.storyboard.scenes[0].frames[0].durationMs, 1700);
+  assert.doesNotThrow(
+    () => new Function(html.match(/<script>([\s\S]*?)<\/script>/)[1]),
+  );
+  assert.match(html, /id="reader-share"/);
+  assert.match(html, /id="reader-download-menu"/);
+  assert.match(html, /data-format="pdf"/);
 });
 
 test("HTML keeps selected page colors, label options, English and unillustrated scenes", () => {

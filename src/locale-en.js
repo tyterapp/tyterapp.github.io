@@ -2,6 +2,19 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Адрес ссылки": "Link address",
+  "Обложка телеграммы": "Telegram cover",
+  "Скачать обложку": "Download cover",
+  "Отправить обложку": "Send cover",
+  "Не удалось отправить обложку. Скачайте её и отправьте вместе со ссылкой.":
+    "Could not share the cover. Download it and send it with the link.",
+  "Сервис обложек недоступен. Используется переносимая ссылка.":
+    "The preview service is unavailable. Using a portable link.",
+  "Не удалось создать обложку. Ссылка остаётся доступна.":
+    "Could not create the cover. The link is still available.",
+  "Текст слишком длинный для QR-кода переносимой ссылки. Отправьте саму ссылку; после подключения сервиса QR будет доступен и для длинных телеграмм.":
+    "This portable link is too long for a QR code. Send the link instead; a connected sharing service also supports QR codes for long telegrams.",
+
   "Сценарий и раскадровка · Только чтение":
     "Screenplay and storyboard · Read only",
   "Скачать раскадровку": "Download storyboard",

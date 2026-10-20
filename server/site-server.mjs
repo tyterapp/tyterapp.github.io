@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createWebProHandler } from "./web-pro.mjs";
 import { SITE_ROUTES } from "../src/site-content.js";
 import { houseSnapshotScene } from "../src/house-snapshot.js";
+import { createTelegramHandler } from "./telegram-share.mjs";
 const site = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -24,7 +25,15 @@ const mime = {
   ".dmg": "application/octet-stream",
 };
 const checkPro = createWebProHandler();
+const shareTelegram = createTelegramHandler({
+  site,
+  store: path.resolve(site, "..", ".shared-telegrams"),
+  origin:
+    process.env.TYTER_PUBLIC_ORIGIN ||
+    `http://${process.env.HOST || "127.0.0.1"}:${process.env.PORT || 4173}`,
+});
 createServer(async (req, res) => {
+  if (await shareTelegram(req, res)) return;
   await checkPro(req, res, async () => {
     try {
       if (!["GET", "HEAD"].includes(req.method)) {

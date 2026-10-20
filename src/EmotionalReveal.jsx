@@ -80,39 +80,46 @@ export default function EmotionalReveal({ children, language, ...props }) {
   useEffect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const animations = new Set();
+    const node = root.current;
+    node.classList.add("emotional-pending");
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          observer.unobserve(entry.target);
-          const units = entry.target.querySelectorAll(".emotional-unit");
-          // Preserve the expressive motion on long onboarding copy without
-          // withholding the final lines for tens of seconds.
-          const stagger = Math.min(25, 1800 / Math.max(1, units.length));
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        let delay = 0;
+        const duration = 680 / 1.4,
+          stagger = 18 / 1.4;
+        // One continuous timeline: a paragraph finishes before the next starts.
+        node.querySelectorAll("[data-emotional-block]").forEach((block) => {
+          const units = block.querySelectorAll(".emotional-unit");
           units.forEach((unit, index) => {
             const animation = unit.animate(frames, {
-              delay: (index + 1) * stagger,
-              duration: 680,
+              delay: delay + index * stagger,
+              duration,
               easing: "linear",
               fill: "both",
             });
             animations.add(animation);
             animation.finished
               .then(() => {
+                unit.style.opacity = "1";
                 animation.cancel();
                 animations.delete(animation);
               })
               .catch(() => {});
           });
-        }
+          delay += Math.max(0, units.length - 1) * stagger + duration;
+        });
       },
-      { threshold: 0.1 },
+      { threshold: 0.05 },
     );
-    root.current
-      .querySelectorAll("[data-emotional-block]")
-      .forEach((node) => observer.observe(node));
+    observer.observe(node);
     return () => {
       observer.disconnect();
+      node.classList.remove("emotional-pending");
+      node
+        .querySelectorAll(".emotional-unit")
+        .forEach((unit) => unit.style.removeProperty("opacity"));
       animations.forEach((animation) => animation.cancel());
     };
   }, [language]);

@@ -28,6 +28,7 @@
     "license:issue": "node scripts/license.mjs issue"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@tiptap/core": "^3.0.0",
     "@tiptap/react": "^3.0.0",
     "@tiptap/starter-kit": "^3.0.0",
@@ -40,15 +41,16 @@
     "nodemailer": "^10.0.10",
     "nspell": "^2.1.5",
     "pdfjs-dist": "^6.3.289",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "@napi-rs/canvas": "1.0.9",
     "@playwright/test": "^1.55.0",
     "@vitejs/plugin-react": "^5.0.0",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
+    "jsqr": "^1.4.0",
     "prettier": "^3.9.8",
     "vite": "^7.1.0"
   }

@@ -125,6 +125,7 @@ export function useWritingTimer(onComplete) {
   const [now, setNow] = useState(Date.now);
   const [writingReward, setWritingReward] = useState(0);
   const [writingActivity, setWritingActivity] = useState(0);
+  const [visitReward, setVisitReward] = useState(null);
   const latest = useRef(state);
   const complete = useRef(onComplete);
   complete.current = onComplete;
@@ -328,14 +329,7 @@ export function useWritingTimer(onComplete) {
             key: "Таймер завершён. Начислено монет: {0}.",
             values: [reward],
           });
-        if (visitReward)
-          complete.current?.({
-            key:
-              visitReward > 1
-                ? "С возвращением! Монеты за вход сегодня: +{0}."
-                : "С возвращением! Монета за вход сегодня: +1.",
-            values: visitReward > 1 ? [visitReward] : [],
-          });
+        if (visitReward) setVisitReward({ id: time, amount: visitReward });
         if (activityReward) setWritingReward((version) => version + 1);
         if (achievementReward)
           complete.current?.({ key: "Мусорщик: +10 coins", values: [] });
@@ -458,6 +452,7 @@ export function useWritingTimer(onComplete) {
     now,
     coins: state.coins,
     writingReward,
+    visitReward,
     writingActivity,
     streak: state.streak || null,
     claimVisit,

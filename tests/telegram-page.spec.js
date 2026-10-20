@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { telegramLink } from "../src/telegram.js";
+import { telegramMetadata } from "../server/telegram-share.mjs";
 
 async function setup(
   page,
@@ -64,14 +65,69 @@ async function setup(
   await page.clock.install();
 }
 
+test("server-rendered short telegram links read their embedded text and title without a URL fragment", async ({
+  page,
+}) => {
+  await setup(page);
+  const telegram = {
+    version: 1,
+    text: "HI",
+    language: "en",
+    title: "The hill story",
+  };
+  await page.route(
+    (url) => url.pathname === "/telegram/" && url.searchParams.has("id"),
+    async (route) => {
+      const response = await route.fetch();
+      const html = telegramMetadata(
+        await response.text(),
+        telegram,
+        route.request().url(),
+        "https://example.test/cover.png",
+      );
+      await route.fulfill({ response, body: html });
+    },
+  );
+  await page.goto("/telegram/?id=1234567890abcdef1234567890abcdef");
+  await expect(page).toHaveTitle("The hill story — Tyter");
+  await page.clock.runFor(1500);
+  await expect(
+    page.locator(".telegram-transmission .telegraph-text"),
+  ).toHaveText("HI");
+  await expect(
+    page.locator(".telegram-paper h1,.telegram-paper-heading"),
+  ).toHaveCount(0);
+});
+
 test("shared page transmits from the beginning, replays and cancels old audio on a new telegram", async ({
   page,
 }, info) => {
   await setup(page);
-  const link = telegramLink("HI МИР", "ru", "http://localhost:5173");
+  const link = telegramLink(
+    "HI МИР",
+    "ru",
+    "http://localhost:5173",
+    "Сценарий на холме",
+  );
   await page.goto(new URL(link).pathname + new URL(link).hash);
-  await expect(page.locator(".telegram-paper h1")).toHaveText("Вам телеграмма");
-  await page.clock.runFor(15000);
+  await expect(page.locator(".telegram-paper")).toHaveAccessibleName(
+    "Текст телеграммы",
+  );
+  await expect(
+    page.locator(
+      ".telegram-paper h1, .telegram-paper-heading, .telegram-page-header",
+    ),
+  ).toHaveCount(0);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    "Сценарий на холме",
+  );
+  await expect(page.locator(".telegram-oiia")).toHaveAttribute("href", "/pro");
+  await expect(page.locator(".telegram-oiia")).toHaveAttribute(
+    "data-playing",
+    "true",
+  );
+  await page.clock.runFor(3000);
   await expect(
     page.locator(".telegram-transmission .telegraph-text"),
   ).toHaveText("HI МИР");
@@ -83,7 +139,7 @@ test("shared page transmits from the beginning, replays and cancels old audio on
   await expect(
     page.locator(".telegram-transmission .telegraph-text"),
   ).toHaveText("");
-  await page.clock.runFor(1300);
+  await page.clock.runFor(260);
   await expect(
     page.locator(".telegram-transmission .telegraph-text"),
   ).toHaveText("H");
@@ -94,9 +150,9 @@ test("shared page transmits from the beginning, replays and cancels old audio on
   await page.evaluate((hash) => {
     location.hash = hash;
   }, new URL(next).hash);
-  await expect(
-    page.getByRole("heading", { name: "A telegram for you" }),
-  ).toBeVisible();
+  await expect(page.locator(".telegram-paper")).toHaveAccessibleName(
+    "Telegram text",
+  );
   await page.clock.runFor(1000);
   await expect(
     page.locator(".telegram-transmission .telegraph-text"),

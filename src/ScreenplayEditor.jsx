@@ -9,6 +9,7 @@ import {
 import { t, useLanguage } from "./i18n.js";
 import EditorContextMenu from "./EditorContextMenu.jsx";
 import ComponentLinkHover from "./ComponentLinkHover.jsx";
+import { TextLink } from "./TextLink.js";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -714,6 +715,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       ScreenplayParagraph,
       ArrowTypography,
       TelegraphMark,
+      TextLink,
       CommentMark,
       EntityMark,
       ScriptRevisionMark.configure({
@@ -766,6 +768,15 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         lang: language,
       },
       handleClick(view, pos, event) {
+        const textLink = event.target.closest?.("a.script-text-link");
+        if (textLink && view.dom.contains(textLink)) {
+          const href = componentUrl(textLink.getAttribute("href"));
+          if (href) {
+            event.preventDefault();
+            window.open(href, "_blank", "noopener,noreferrer");
+            return true;
+          }
+        }
         if ((event.ctrlKey || event.metaKey) && event.button === 0) {
           const prop = event.target.closest?.("[data-prop-id]");
           const component =
@@ -881,7 +892,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
               decorations.push(
                 Decoration.inline(pos, pos + node.nodeSize, {
                   class: "script-component-url",
-                  title: url,
                 }),
               );
           }
@@ -1825,6 +1835,24 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       },
       removeComment(id) {
         return removeAnnotation(editor, "comment", id);
+      },
+      addTextLink(source, rawUrl) {
+        const href = componentUrl(rawUrl);
+        if (!editor || (!href && rawUrl !== null)) return false;
+        const info = annotationTarget(editor, source);
+        if (!info || info.from === info.to) return false;
+        const type = editor.schema.marks.link;
+        const transaction = closeHistory(editor.state.tr).removeMark(
+          info.from,
+          info.to,
+          type,
+        );
+        if (href)
+          transaction.addMark(info.from, info.to, type.create({ href }));
+        transaction.removeStoredMark(type);
+        editor.view.dispatch(transaction);
+        editor.view.dispatch(closeHistory(editor.state.tr));
+        return true;
       },
       addEntity({ id, color }, source, resources) {
         if (!editor) return null;

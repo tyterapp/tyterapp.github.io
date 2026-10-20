@@ -33,6 +33,7 @@ export default function WritingTimer({
   const panelCloseTimeout = useRef(null);
   const [stacked, setStacked] = useState(false);
   const [rewardPulse, setRewardPulse] = useState(0);
+  const [visitPulse, setVisitPulse] = useState(null);
   const lastWritingReward = useRef(timer.writingReward ?? 0);
   const ref = useRef(null);
   const paused = timer.session?.status === "paused";
@@ -50,6 +51,12 @@ export default function WritingTimer({
     const timeout = setTimeout(() => setRewardPulse(0), 1000);
     return () => clearTimeout(timeout);
   }, [timer.writingReward, visible]);
+  useEffect(() => {
+    if (!timer.visitReward) return;
+    setVisitPulse(timer.visitReward);
+    const timeout = setTimeout(() => setVisitPulse(null), 1800);
+    return () => clearTimeout(timeout);
+  }, [timer.visitReward]);
   const closePanel = (restoreFocus = true) => {
     if (!panel || panelClosing) return;
     const button = houseOpen ? houseButtonRef : coinsButtonRef;
@@ -298,39 +305,50 @@ export default function WritingTimer({
         </button>
       )}
       {(!pickerOpen || rewardPulse > 0) && (
-        <button
-          ref={coinsButtonRef}
-          type="button"
-          className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${pickerOpen ? " is-transient" : ""}`}
-          aria-label={t("Монеты: {0}", timer.coins)}
-          data-tooltip={coinsOpen ? undefined : t("Монеты: {0}", timer.coins)}
-          aria-expanded={coinsOpen && !panelClosing}
-          aria-controls="writing-coins"
-          disabled={pickerOpen}
-          onClick={() => {
-            if (coinsOpen && !panelClosing) closePanel();
-            else {
-              clearTimeout(panelCloseTimeout.current);
-              setPanelClosing(false);
-              setPanel("coins");
-            }
-          }}
-        >
-          {rewardPulse > 0 && (
+        <span className="writing-balance-wrap">
+          {visitPulse && (
             <span
-              key={`sweep-${rewardPulse}`}
-              className="writing-timer-balance-sweep"
-              aria-hidden="true"
-            />
+              key={visitPulse.id}
+              className="writing-visit-reward"
+              role="status"
+            >
+              +{visitPulse.amount}
+            </span>
           )}
-          <span
-            key={`balance-${rewardPulse}`}
-            className="writing-timer-balance-content"
+          <button
+            ref={coinsButtonRef}
+            type="button"
+            className={`writing-timer-balance${rewardPulse > 0 ? " is-rewarding" : ""}${pickerOpen ? " is-transient" : ""}`}
+            aria-label={t("Монеты: {0}", timer.coins)}
+            data-tooltip={coinsOpen ? undefined : t("Монеты: {0}", timer.coins)}
+            aria-expanded={coinsOpen && !panelClosing}
+            aria-controls="writing-coins"
+            disabled={pickerOpen}
+            onClick={() => {
+              if (coinsOpen && !panelClosing) closePanel();
+              else {
+                clearTimeout(panelCloseTimeout.current);
+                setPanelClosing(false);
+                setPanel("coins");
+              }
+            }}
           >
-            <MoneyIcon />
-            <span>{timer.coins}</span>
-          </span>
-        </button>
+            {rewardPulse > 0 && (
+              <span
+                key={`sweep-${rewardPulse}`}
+                className="writing-timer-balance-sweep"
+                aria-hidden="true"
+              />
+            )}
+            <span
+              key={`balance-${rewardPulse}`}
+              className="writing-timer-balance-content"
+            >
+              <MoneyIcon />
+              <span>{timer.coins}</span>
+            </span>
+          </button>
+        </span>
       )}
       {timer.hasHouse && !timer.session && !pickerOpen && (
         <button

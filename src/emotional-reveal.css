@@ -1,3 +1,6 @@
+.emotional-pending .emotional-unit {
+  opacity: 0;
+}
 .emotional-word {
   display: inline-block;
   white-space: nowrap;

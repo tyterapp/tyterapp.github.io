@@ -12,6 +12,7 @@ import { shotAspectRatio } from "./shot-image.js";
 import { activeComponentUrl } from "./component-url.js";
 import { isArrowOnly, splitArrowRun } from "./arrow-text.js";
 import { getLanguage } from "./i18n.js";
+import { readerExportData, readerJSON } from "./reader-export-data.js";
 
 const escape = (value) =>
   String(value ?? "").replace(
@@ -39,6 +40,14 @@ function inlineText(block, components) {
         )
         .join("");
       for (const mark of part.marks || []) {
+        if (mark.type === "link") {
+          const link = activeComponentUrl({
+            url: mark.attrs?.href,
+            urlEnabled: true,
+          });
+          if (link)
+            text = `<a href="${escape(link)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        }
         const tag = {
           bold: "strong",
           italic: "em",
@@ -78,6 +87,8 @@ const readerScript = `
       tab.tabIndex = selected ? 0 : -1;
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
     });
+    document.querySelectorAll('[data-screenplay-only]').forEach(node => { node.hidden = mode !== 'screenplay'; });
+    closeDownloads();
     if (updateHash) history.replaceState(null, '', '#' + mode);
   };
   tabs.forEach(tab => {
@@ -88,6 +99,107 @@ const readerScript = `
       const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[1] : tabs[1 - tabs.indexOf(tab)];
       select(next.dataset.view, true); next.focus();
     });
+  });
+  const en = document.documentElement.lang === 'en';
+  const tr = (ru, english) => en ? english : ru;
+  const status = document.getElementById('reader-action-status');
+  const downloadButton = document.getElementById('reader-download');
+  const downloadMenu = document.getElementById('reader-download-menu');
+  const shareDialog = document.getElementById('reader-share-dialog');
+  const name = () => (document.querySelector('.reader-intro h2').textContent || 'untitled')
+    .replace(/[<>:"/\\\\|?*\\u0000-\\u001f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'untitled';
+  const save = (blob, extension) => {
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = name() + '.' + extension;
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+  const htmlFile = () => {
+    const copy = document.documentElement.cloneNode(true);
+    copy.querySelectorAll('dialog').forEach(node => node.removeAttribute('open'));
+    copy.querySelector('#reader-download-menu').hidden = true;
+    copy.querySelector('#reader-download').setAttribute('aria-expanded', 'false');
+    copy.querySelector('#reader-action-status').textContent = '';
+    copy.querySelector('#reader-share-feedback').textContent = '';
+    copy.querySelector('#reader-share-url').textContent = '';
+    return new File(['<!doctype html>\\n' + copy.outerHTML], name() + '.html', { type: 'text/html' });
+  };
+  const documents = () => {
+    const screenplay = JSON.parse(document.getElementById('reader-data').textContent);
+    const storyboard = structuredClone(screenplay.storyboard);
+    for (const scene of storyboard.scenes) {
+      const frames = screenplay.sceneShots[scene.id][scene.variant].frames;
+      scene.frames.forEach((frame, index) => {
+        const image = document.querySelector('[data-reader-frame="' + scene.number + '-' + frame.number + '"] img')?.getAttribute('src') || '';
+        frame.image = image || null; frames[index].image = image;
+      });
+    }
+    const poster = document.querySelector('.poster')?.getAttribute('src');
+    if (poster) screenplay.metadata.poster = poster;
+    return { screenplay, storyboard };
+  };
+  function closeDownloads() {
+    document.getElementById('reader-download-menu').hidden = true;
+    document.getElementById('reader-download').setAttribute('aria-expanded', 'false');
+  }
+  const download = format => {
+    closeDownloads();
+    try {
+      if (format === 'html') save(htmlFile(), 'html');
+      else if (format === 'pdf') { window.print(); return; }
+      else {
+        const data = documents();
+        if (format === 'json') save(new Blob([JSON.stringify(data[document.documentElement.dataset.view], null, 2)], { type: 'application/json' }), 'json');
+        else if (format === 'txt') save(new Blob([data.screenplay.content.content.map(block => (block.content || []).map(part => part.type === 'hardBreak' ? '\\n' : part.text || '').join('')).join('\\n\\n')], { type: 'text/plain;charset=utf-8' }), 'txt');
+      }
+      status.textContent = tr('Файл подготовлен к скачиванию', 'File ready to download');
+    } catch { status.textContent = tr('Не удалось подготовить файл. Попробуйте ещё раз.', 'Could not prepare the file. Please try again.'); }
+  };
+  downloadButton.addEventListener('click', () => {
+    const open = downloadMenu.hidden;
+    downloadMenu.hidden = !open; downloadButton.setAttribute('aria-expanded', String(open));
+    if (open) downloadMenu.querySelector('button:not([hidden])').focus();
+  });
+  downloadMenu.querySelectorAll('button').forEach(button => button.addEventListener('click', () => download(button.dataset.format)));
+  downloadMenu.addEventListener('keydown', event => {
+    const items = [...downloadMenu.querySelectorAll('button:not([hidden])')];
+    let index = items.indexOf(document.activeElement);
+    if (event.key === 'Escape') { event.preventDefault(); closeDownloads(); downloadButton.focus(); }
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items[index].focus();
+    }
+  });
+  document.addEventListener('click', event => { if (!event.target.closest('.reader-download-control')) closeDownloads(); });
+  const publicURL = () => /^https?:$/.test(location.protocol) ? location.href : '';
+  const showShare = () => {
+    document.getElementById('reader-share-feedback').textContent = '';
+    document.getElementById('reader-copy-link').hidden = !publicURL();
+    document.getElementById('reader-share-url').textContent = publicURL();
+    shareDialog.showModal();
+  };
+  document.getElementById('reader-share').addEventListener('click', async () => {
+    closeDownloads();
+    try {
+      if (navigator.share && publicURL()) { await navigator.share({ title: document.title, url: publicURL() }); return; }
+      const file = htmlFile();
+      if (navigator.share && navigator.canShare?.({ files: [file] })) { await navigator.share({ title: document.title, files: [file] }); return; }
+      showShare();
+    } catch (error) { if (error.name !== 'AbortError') showShare(); }
+  });
+  document.getElementById('reader-close-share').addEventListener('click', () => shareDialog.close());
+  shareDialog.addEventListener('click', event => { if (event.target === shareDialog) {
+    const box = shareDialog.getBoundingClientRect();
+    if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) shareDialog.close();
+  }});
+  document.getElementById('reader-share-file').addEventListener('click', () => { save(htmlFile(), 'html'); status.textContent = tr('Отправьте скачанный HTML-файл получателю', 'Send the downloaded HTML file to the recipient'); shareDialog.close(); });
+  document.getElementById('reader-copy-link').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(publicURL()); document.getElementById('reader-share-feedback').textContent = tr('Ссылка скопирована', 'Link copied'); }
+    catch {
+      const range = document.createRange(); range.selectNodeContents(document.getElementById('reader-share-url'));
+      getSelection().removeAllRanges(); getSelection().addRange(range);
+      document.getElementById('reader-share-feedback').textContent = tr('Скопируйте выделенную ссылку', 'Copy the selected link');
+    }
   });
   select(location.hash.slice(1) || document.documentElement.dataset.view);
   window.addEventListener('hashchange', () => select(location.hash.slice(1)));
@@ -106,7 +218,21 @@ main{padding:32px 20px 64px}.reader-intro{max-width:820px;margin:0 auto 24px}.re
 @media(max-width:700px){.reader-header{flex-wrap:wrap;gap:8px;padding:12px}.reader-header h1{flex-basis:calc(100% - 64px)}[role=tablist]{flex:1}[role=tab]{flex:1;min-height:44px;padding:8px 10px}.edit-link{padding:8px 12px}main{padding:20px 12px 40px}.paper{min-height:700px;padding:32px 24px 48px}.page-heading{margin:0 0 36px}.script-block{font-size:14px}.format-character{margin-left:30%;width:70%}.format-speech{margin-left:10%;width:85%}.format-parenthetical{margin-left:18%;width:78%}.board-scene{padding:16px}.frames{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.reader-intro h2{font-size:20px}}
 @media(max-width:380px){.frames{grid-template-columns:1fr}.edit-link{width:44px;padding:12px}.edit-link span{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 @media print{.reader-header{display:none}main{padding:0}.reader-intro{break-after:page}.paper{box-shadow:none;border-radius:0;break-after:page}.board-scene{break-inside:avoid;box-shadow:none}.frames{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.reader-actions{max-width:820px;margin:0 auto;padding:0 16px 36px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px}.reader-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border:0;border-radius:12px;background:var(--surface);color:var(--text);cursor:pointer;box-shadow:0 0 0 1px var(--line);transition:background-color 140ms,scale 140ms}.reader-action:hover{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}.reader-action:active{scale:.96}.reader-action svg{width:18px;height:18px;flex-shrink:0}.reader-action-status{flex-basis:100%;min-height:20px;margin:0;text-align:center;font-size:12px;color:var(--muted)}.reader-download-control{position:relative}.reader-download-menu{position:absolute;right:0;bottom:calc(100% + 8px);z-index:3;width:240px;max-width:calc(100vw - 32px);padding:8px;border-radius:16px;background:var(--surface);box-shadow:0 0 0 1px var(--line),0 8px 32px #00000024}.reader-download-menu button{display:flex;justify-content:space-between;gap:16px;align-items:center;width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.reader-download-menu button:hover,.reader-download-menu button:focus-visible{background:var(--canvas)}.reader-download-menu small{color:var(--muted)}
+.reader-share{width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:24px;border:0;border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--line),0 20px 80px #00000035}.reader-share::backdrop{background:#0006;backdrop-filter:blur(6px)}.reader-share-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.reader-share h2{margin:0;font-size:18px}.reader-share p{font-size:14px;line-height:1.6;color:var(--muted)}.reader-close-share{width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:24px;cursor:pointer}.reader-share-buttons{display:flex;flex-wrap:wrap;gap:12px}.reader-share-url{display:block;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 system-ui;color:var(--muted);margin:16px 0}
+@media(max-width:380px){.reader-download-menu{right:-16px;width:240px}.reader-actions{gap:10px}.reader-action{padding:10px 12px}}
+@media(prefers-reduced-motion:reduce){.reader-action{transition:none}}
+@media print{.reader-actions,.reader-share{display:none!important}}
+@media print{:root{--text:#302c37;--muted:#77717e;--surface:#fff;--line:#e4e0e9}body{background:#fff;color:var(--text)}.paper,.board-scene{background:var(--sheet-light,#fff);print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 `;
+
+function readerFooter(tr, view) {
+  const shareIcon =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4m-6.8 7 6.8 4"/></svg>';
+  const downloadIcon =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>';
+  return `<footer class="reader-actions" aria-label="${tr("Действия с документом", "Document actions")}"><button type="button" id="reader-share" class="reader-action">${shareIcon}${tr("Поделиться", "Share")}</button><div class="reader-download-control"><button type="button" id="reader-download" class="reader-action" aria-haspopup="menu" aria-expanded="false" aria-controls="reader-download-menu">${downloadIcon}${tr("Скачать", "Download")}</button><div id="reader-download-menu" class="reader-download-menu" role="menu" aria-label="${tr("Формат скачивания", "Download format")}" hidden><button type="button" role="menuitem" data-format="html"><span>HTML</span><small>.html</small></button><button type="button" role="menuitem" data-format="pdf"><span>${tr("PDF · Печать", "PDF · Print")}</span><small>.pdf</small></button><button type="button" role="menuitem" data-format="json"><span>JSON</span><small>.json</small></button><button type="button" role="menuitem" data-format="txt" data-screenplay-only${view === "storyboard" ? " hidden" : ""}><span>${tr("Текст · TXT", "Text · TXT")}</span><small>.txt</small></button></div></div><p id="reader-action-status" class="reader-action-status" role="status"></p></footer><dialog class="reader-share" id="reader-share-dialog" aria-labelledby="reader-share-title"><div class="reader-share-heading"><h2 id="reader-share-title">${tr("Поделиться документом", "Share document")}</h2><button type="button" id="reader-close-share" class="reader-close-share" aria-label="${tr("Закрыть", "Close")}">×</button></div><p>${tr("Отправьте HTML-файл: сценарий, раскадровка и изображения уже внутри.", "Send the HTML file: the screenplay, storyboard and images are included.")}</p><code id="reader-share-url" class="reader-share-url"></code><div class="reader-share-buttons"><button type="button" id="reader-copy-link" class="reader-action" hidden>${shareIcon}${tr("Копировать ссылку", "Copy link")}</button><button type="button" id="reader-share-file" class="reader-action">${downloadIcon}${tr("Скачать HTML для отправки", "Download HTML to send")}</button></div><p id="reader-share-feedback" role="status"></p></dialog>`;
+}
 
 export function instantHTML(
   document,
@@ -187,7 +313,7 @@ export function instantHTML(
       const frames = scene.frames
         .map(
           (frame) =>
-            `<figure class="frame"><div class="frame-media" style="--ratio:${shotAspectRatio(scene.settings.aspectRatio) || 16 / 9}">${validFrameImage(frame.image) ? `<img src="${frame.image}" alt="${escape(`${scene.number} ${scene.variant} / ${frame.number} — ${scene.title}`)}" loading="lazy">` : `<span class="empty-frame">${tr("Нет изображения", "No image")}</span>`}</div><figcaption>${scene.number} ${escape(scene.variant)} / ${frame.number} · ${frame.durationMs / 1000} ${tr("с", "s")}</figcaption></figure>`,
+            `<figure class="frame" data-reader-frame="${scene.number}-${frame.number}"><div class="frame-media" style="--ratio:${shotAspectRatio(scene.settings.aspectRatio) || 16 / 9}">${validFrameImage(frame.image) ? `<img src="${frame.image}" alt="${escape(`${scene.number} ${scene.variant} / ${frame.number} — ${scene.title}`)}" loading="lazy">` : `<span class="empty-frame">${tr("Нет изображения", "No image")}</span>`}</div><figcaption>${scene.number} ${escape(scene.variant)} / ${frame.number} · ${frame.durationMs / 1000} ${tr("с", "s")}</figcaption></figure>`,
         )
         .join("");
       return `<article class="board-scene" style="${sheetStyle(scene.pageColor)}"><h3>${scene.number} ${escape(scene.variant)} · ${escape(scene.title)}</h3><p class="scene-meta">${meta}</p>${scene.settings.synopsis ? `<p class="scene-description">${escape(scene.settings.synopsis)}</p>` : ""}<div class="frames">${frames || `<p class="empty-frame">${tr("В сцене пока нет кадров", "No frames in this scene yet")}</p>`}</div>${scene.settings.frameComment ? `<p class="scene-description">${escape(scene.settings.frameComment)}</p>` : ""}</article>`;
@@ -206,7 +332,7 @@ export function instantHTML(
   return `<!doctype html>
 <html lang="${en ? "en" : "ru"}" data-view="${initial}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escape(title)} — Tyter</title><meta name="description" content="${escape(tr("Сценарий и раскадровка · Только чтение", "Screenplay and storyboard · Read only"))}"><style>${fontCSS}${readerCSS}</style></head>
 <body><header class="reader-header"><a class="reader-brand" href="https://tyterapp.github.io/">Tyter</a><h1>${escape(title)}</h1><nav role="tablist" aria-label="${tr("Режим просмотра", "Reading mode")}"><button id="tab-screenplay" role="tab" data-view="screenplay" aria-controls="screenplay" aria-selected="${initial === "screenplay"}" tabindex="${initial === "screenplay" ? 0 : -1}">${tr("Сценарий", "Screenplay")}</button><button id="tab-storyboard" role="tab" data-view="storyboard" aria-controls="storyboard" aria-selected="${initial === "storyboard"}" tabindex="${initial === "storyboard" ? 0 : -1}">${tr("Раскадровка", "Storyboard")}</button></nav><a class="edit-link" href="${escape(edit)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m15 5 4 4M4 20l5-1L20 8a3 3 0 0 0-4-4L5 15z"/></svg><span>${tr("Редактировать", "Edit")}</span></a></header>
-<main><div class="reader-intro"><h2>${escape(title)}</h2><p>${[document.metadata?.author, document.metadata?.year, document.metadata?.email].filter(Boolean).map(escape).join(" · ")}</p>${validFrameImage(document.metadata?.poster) ? `<img class="poster" src="${document.metadata.poster}" alt="${escape(title)}">` : ""}</div><section id="screenplay" role="tabpanel" aria-labelledby="tab-screenplay"${initial !== "screenplay" ? " hidden" : ""}>${screenplay}</section><section id="storyboard" class="reader-board" role="tabpanel" aria-labelledby="tab-storyboard"${initial !== "storyboard" ? " hidden" : ""}>${storyboard || `<p class="reader-empty">${tr("В документе пока нет сцен", "No scenes in this document yet")}</p>`}</section></main><script>${readerScript}</script></body></html>`;
+<main><div class="reader-intro"><h2>${escape(title)}</h2><p>${[document.metadata?.author, document.metadata?.year, document.metadata?.email].filter(Boolean).map(escape).join(" · ")}</p>${validFrameImage(document.metadata?.poster) ? `<img class="poster" src="${document.metadata.poster}" alt="${escape(title)}">` : ""}</div><section id="screenplay" role="tabpanel" aria-labelledby="tab-screenplay"${initial !== "screenplay" ? " hidden" : ""}>${screenplay}</section><section id="storyboard" class="reader-board" role="tabpanel" aria-labelledby="tab-storyboard"${initial !== "storyboard" ? " hidden" : ""}>${storyboard || `<p class="reader-empty">${tr("В документе пока нет сцен", "No scenes in this document yet")}</p>`}</section></main>${readerFooter(tr, initial)}<script type="application/json" id="reader-data">${readerJSON(readerExportData(document))}</script><script>${readerScript}</script></body></html>`;
 }
 
 export async function exportInstantHTML(

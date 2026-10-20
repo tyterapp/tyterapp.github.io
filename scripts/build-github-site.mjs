@@ -6,6 +6,7 @@ import { createProAccessList, PRO_CODES_URL } from "../src/pro-access.js";
 import { SITE_ROUTES } from "../src/site-content.js";
 import { pageMetadata, writeSiteSeo } from "./site-seo.mjs";
 import { writeHouseSocialPages } from "./house-social-pages.mjs";
+import { writeTelegramSocialPage } from "./telegram-social-page.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "github-pages");
 let codes = process.env.TYTER_PRO_CODES;
@@ -44,6 +45,7 @@ for (const page of [
 }
 await writeFile(path.join(output, "404.html"), pageMetadata(html, "404"));
 await writeHouseSocialPages(output);
+await writeTelegramSocialPage(output);
 await writeFile(path.join(output, ".nojekyll"), "");
 await writeFile(path.join(output, "codes-for-pro.txt"), accessList, "utf8");
 console.log("GitHub Pages готов: " + output);

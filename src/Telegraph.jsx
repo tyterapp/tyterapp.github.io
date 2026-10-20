@@ -13,7 +13,12 @@ import TelegramShare from "./TelegramShare.jsx";
 import { TELEGRAM_MAX_TEXT } from "./telegram.js";
 import "./telegraph.css";
 
-export default function Telegraph({ language, onText, telegram = "" }) {
+export default function Telegraph({
+  language,
+  onText,
+  telegram = "",
+  title = "",
+}) {
   const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
   const [heldDash, setHeldDash] = useState(false);
@@ -296,6 +301,7 @@ export default function Telegraph({ language, onText, telegram = "" }) {
       {sharedText !== null && (
         <TelegramShare
           text={sharedText}
+          title={title}
           language={language}
           onClose={() => setSharedText(null)}
         />

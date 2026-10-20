@@ -752,3 +752,39 @@
     display: none;
   }
 }
+
+.writing-balance-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.writing-visit-reward {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 0;
+  color: var(--ui-text);
+  font-size: 16px;
+  font-weight: 600;
+  pointer-events: none;
+  animation: writing-visit-rise 1.8s ease-out both;
+}
+@keyframes writing-visit-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .writing-visit-reward {
+    animation: none;
+  }
+}

@@ -72,10 +72,15 @@ export function pageMetadata(html, route = "") {
     (houseScene ? houseSnapshotRoute(houseScene) : route ? `/${route}` : "/");
   const cover = house
     ? `${origin}${houseSnapshotRoute(houseScene || HOUSE_SNAPSHOT_SCENES[0])}cover.png`
-    : null;
-  const imageAlt = houseScene?.skin
-    ? "Домик с котиком OiiA в Tyter"
-    : "Домик OiiA в Tyter";
+    : route === "telegram"
+      ? `${origin}/telegram/cover.png`
+      : null;
+  const imageAlt =
+    route === "telegram"
+      ? "Телеграмма Tyter"
+      : houseScene?.skin
+        ? "Домик с котиком OiiA в Tyter"
+        : "Домик OiiA в Tyter";
   html = html.replace(
     /<title>[\s\S]*?<\/title>/,
     `<title>${escape(title)}</title>`,

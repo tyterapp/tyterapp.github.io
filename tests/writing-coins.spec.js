@@ -10,7 +10,7 @@ const readWallet = (page) =>
 
 async function open(
   page,
-  { theme = "light", earned = false, empty = false } = {},
+  { theme = "light", earned = false, empty = false, newVisit = false } = {},
 ) {
   await grantPro(page);
   await page.route("**/__tyter_local/**", (route) =>
@@ -18,11 +18,12 @@ async function open(
   );
   const doc = createProject("История с монетами");
   await page.addInitScript(
-    ({ doc, theme, earned, empty, key }) => {
+    ({ doc, theme, earned, empty, key, newVisit }) => {
       if (sessionStorage.getItem("coins-seeded")) return;
       sessionStorage.setItem("coins-seeded", "yes");
       const now = Date.now(),
         date = new Date(now);
+      if (newVisit) date.setDate(date.getDate() - 1);
       const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
       localStorage.setItem("tyter.active", doc.id);
@@ -53,12 +54,35 @@ async function open(
         ),
       );
     },
-    { doc, theme, earned, empty, key },
+    { doc, theme, earned, empty, key, newVisit },
   );
   await page.goto("/beta");
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await expect(coins(page)).toBeVisible();
 }
+
+test("daily visit shows a local plus-one animation above the coin instead of a welcome toast", async ({
+  page,
+}, info) => {
+  await page.clock.install();
+  await open(page, { newVisit: true });
+  const reward = page.locator(".writing-visit-reward");
+  await expect(reward).toHaveText("+1");
+  const bubble = await reward.boundingBox(),
+    balance = await coins(page).boundingBox();
+  expect(bubble.y + bubble.height).toBeLessThan(balance.y);
+  await expect(
+    page.locator(".app-message").filter({ hasText: "С возвращением" }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("daily-visit-coin.png") });
+  await page.clock.runFor(1900);
+  await expect(reward).toHaveCount(0);
+  await coins(page).click();
+  await panel(page)
+    .getByRole("button", { name: "Стрики за день", exact: true })
+    .click();
+  await expect(panel(page)).toContainText("За вход каждый день — 1 монета");
+});
 
 test("coin onboarding shows real rewards and progress; section navigation, keyboard and shared popovers never spend coins", async ({
   page,

@@ -185,3 +185,15 @@
     border: 0;
   }
 }
+
+.screenplay-editor a.script-text-link {
+  color: var(--ui-accent);
+  background: oklch(0.6 0.17 255 / 0.08);
+  box-decoration-break: clone;
+  text-decoration: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.screenplay-editor a.script-text-link:hover {
+  background: transparent;
+}

@@ -617,6 +617,10 @@ test("telegram marks survive reopening, exclude ordinary typing and share an imm
   const dialog = page.getByRole("dialog", { name: "Share telegram" });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".telegram-share-preview")).toHaveText("HI");
+  await expect(dialog.locator(".telegram-cover-preview")).toBeVisible();
+  const coverDownload = page.waitForEvent("download");
+  await dialog.getByRole("link", { name: "Download cover", exact: true }).click();
+  expect((await coverDownload).suggestedFilename()).toBe("tyter-telegram.png");
   const link = await dialog.getByRole("textbox").inputValue();
   expect(readTelegram(new URL(link).hash).text).toBe("HI");
   expect(link).not.toContain("ORDINARY");

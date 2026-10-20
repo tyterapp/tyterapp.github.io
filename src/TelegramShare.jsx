@@ -1,15 +1,63 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, ExternalLink, Send, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Send, X } from "lucide-react";
 import { t } from "./i18n.js";
 import { telegramLink } from "./telegram.js";
+import { publishTelegram } from "./telegram-service.js";
 import "./telegram.css";
 
-export default function TelegramShare({ text, language, onClose }) {
-  const [link] = useState(() => telegramLink(text, language));
+export default function TelegramShare({ text, title, language, onClose }) {
+  const [link, setLink] = useState(() =>
+    telegramLink(text, language, location.href, title),
+  );
+  const [cover, setCover] = useState(null);
   const [feedback, setFeedback] = useState("");
   const dialog = useRef(null),
     input = useRef(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    publishTelegram(
+      { version: 1, text, title, language },
+      { signal: controller.signal },
+    )
+      .then((url) => {
+        if (url && !controller.signal.aborted) setLink(url);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setFeedback(
+            "Сервис обложек недоступен. Используется переносимая ссылка.",
+          );
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [text, title, language]);
+  useEffect(() => {
+    let cancelled = false,
+      url;
+    setCover(null);
+    import("./telegram-cover.js")
+      .then(({ telegramCover }) =>
+        telegramCover({ text, title, language }, link),
+      )
+      .then((result) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(result.blob);
+        setCover({ ...result, url });
+      })
+      .catch(() => {
+        if (!cancelled)
+          setFeedback("Не удалось создать обложку. Ссылка остаётся доступна.");
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [link, text, title, language]);
   useEffect(() => {
     const previous = document.activeElement;
     const node = dialog.current;
@@ -73,11 +121,27 @@ export default function TelegramShare({ text, language, onClose }) {
       <div className="telegram-share-preview" lang={language}>
         {text}
       </div>
+      {cover && (
+        <img
+          className="telegram-cover-preview"
+          src={cover.url}
+          alt={t("Обложка телеграммы")}
+          width="1200"
+          height="630"
+        />
+      )}
       <p className="telegram-share-note">
         {t(
           "По ссылке откроется только текст телеграммы с воспроизведением Морзе.",
         )}
       </p>
+      {cover && !cover.qrAvailable && (
+        <p className="telegram-cover-note">
+          {t(
+            "Текст слишком длинный для QR-кода переносимой ссылки. Отправьте саму ссылку; после подключения сервиса QR будет доступен и для длинных телеграмм.",
+          )}
+        </p>
+      )}
       <label className="telegram-share-link">
         <span>{t("Ссылка на телеграмму")}</span>
         <input
@@ -88,6 +152,49 @@ export default function TelegramShare({ text, language, onClose }) {
         />
       </label>
       <div className="telegram-share-actions">
+        {cover && (
+          <a
+            className="house-photo-action"
+            href={cover.url}
+            download="tyter-telegram.png"
+          >
+            <Download size={18} />
+            {t("Скачать обложку")}
+          </a>
+        )}
+        {cover &&
+          navigator.canShare?.({
+            files: [
+              new File([cover.blob], "tyter-telegram.png", {
+                type: "image/png",
+              }),
+            ],
+          }) && (
+            <button
+              type="button"
+              className="house-photo-action"
+              onClick={async () => {
+                try {
+                  await navigator.share({
+                    files: [
+                      new File([cover.blob], "tyter-telegram.png", {
+                        type: "image/png",
+                      }),
+                    ],
+                    text: link,
+                  });
+                } catch (error) {
+                  if (error.name !== "AbortError")
+                    setFeedback(
+                      "Не удалось отправить обложку. Скачайте её и отправьте вместе со ссылкой.",
+                    );
+                }
+              }}
+            >
+              <Send size={18} />
+              {t("Отправить обложку")}
+            </button>
+          )}
         <button type="button" className="house-photo-action" onClick={copy}>
           {feedback === "Ссылка скопирована" ? (
             <Check size={18} />

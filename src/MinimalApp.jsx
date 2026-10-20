@@ -2502,47 +2502,7 @@ export default function MinimalApp({ onLogout }) {
       );
   };
   const pasteComponentUrl = (source, rawUrl) => {
-    const url = componentUrl(rawUrl);
-    if (!url || !source.text.trim()) return;
-    const before =
-      documentsRef.current.find((doc) => doc.id === current.id) || current;
-    const existing =
-      before.components.find((component) => component.id === source.entityId) ||
-      before.components.find((component) =>
-        componentNames(component).some(
-          (name) =>
-            name.toLocaleLowerCase() === source.text.trim().toLocaleLowerCase(),
-        ),
-      );
-    if (!existing && !IS_PRO && before.components.length >= 10) {
-      setSubscriptionOpen(true);
-      return;
-    }
-    const component = {
-      ...(existing || {
-        id: uid(),
-        name: source.text.trim().replace(/\s+/g, " ").slice(0, 200),
-        type: source.format === "scene" ? "place" : "character",
-        quantity: 1,
-        description: "",
-        color: "#8a799a",
-      }),
-      url,
-      urlEnabled: true,
-      enabled: true,
-    };
-    const after = {
-      ...before,
-      components: existing
-        ? before.components.map((item) =>
-            item.id === component.id ? component : item,
-          )
-        : [...before.components, component],
-    };
-    if (editorRef.current?.addEntity(component, source, { before, after })) {
-      clearEntityDraft(component);
-      editComponent(component);
-    }
+    editorRef.current?.addTextLink(source, rawUrl);
   };
   const beginComponent = (value) => {
     if (!IS_PRO && current.components.length >= 10) {
@@ -4325,6 +4285,7 @@ export default function MinimalApp({ onLogout }) {
                 key={`${writingScope}:${language}`}
                 language={language}
                 telegram={currentTelegram}
+                title={current.title}
                 onText={(text) => editorRef.current?.insertTelegraphText(text)}
               />
             )}

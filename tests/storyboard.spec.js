@@ -509,6 +509,141 @@ test("Instant HTML opens offline with both read-only views and opens the free ed
   ).toHaveAttribute("aria-selected", "true");
   await reader.close();
 });
+
+test("reader footer shares and downloads the active view offline without exposing private project data", async ({
+  page,
+  context,
+}, info) => {
+  await open(page);
+  await page
+    .getByRole("button", { name: "Скачать сценарий", exact: true })
+    .click();
+  const pending = page.waitForEvent("download");
+  await page
+    .locator(".rail-export-menu")
+    .getByRole("button", { name: /Instant link · HTML/ })
+    .click();
+  const exported = await pending,
+    file = info.outputPath("reader-actions.html");
+  await exported.saveAs(file);
+  const reader = await context.newPage();
+  await reader.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
+  await reader.addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    window.print = () => {
+      window.printedReader = true;
+    };
+  });
+  await reader.goto(pathToFileURL(file).href);
+  const downloadFormat = async (format) => {
+    await reader.getByRole("button", { name: "Скачать", exact: true }).click();
+    const downloading = reader.waitForEvent("download");
+    await reader
+      .locator("#reader-download-menu")
+      .getByRole("menuitem", { name: new RegExp(format) })
+      .click();
+    const result = await downloading;
+    return { result, bytes: await fs.readFile(await result.path()) };
+  };
+  const script = JSON.parse((await downloadFormat("^JSON")).bytes.toString());
+  expect(script.format).toBe("tyter-screenplay");
+  expect(script.content.content).toHaveLength(8);
+  expect(script.sceneShots.one.A.frames[0].image).toBe(red);
+  expect(script.sceneShots.one.A.frames[1].durationMs).toBe(700);
+  expect(script.sceneShots.one.A.frames[1].transition).toBe("fade");
+  expect(script).not.toHaveProperty("notes");
+  expect(script).not.toHaveProperty("history");
+  expect((await downloadFormat("Текст · TXT")).bytes.toString()).toContain(
+    "Ты слышишь это?",
+  );
+  await reader.getByRole("tab", { name: "Раскадровка", exact: true }).click();
+  const board = JSON.parse((await downloadFormat("^JSON")).bytes.toString());
+  expect(board.format).toBe("tyter-storyboard");
+  expect(board.scenes).toHaveLength(3);
+  expect(board.scenes[1].frames[0].image).toBe(green);
+  await reader.getByRole("button", { name: "Скачать", exact: true }).click();
+  await expect(reader.locator('[data-format="txt"]')).toBeHidden();
+  await reader.getByRole("menuitem", { name: /PDF/ }).click();
+  expect(await reader.evaluate(() => window.printedReader)).toBe(true);
+  const saved = await downloadFormat("^HTML");
+  const copy = info.outputPath("reader-actions-copy.html");
+  await saved.result.saveAs(copy);
+  await reader.goto(pathToFileURL(copy).href);
+  await expect(reader.locator("#storyboard")).toBeVisible();
+  expect(
+    JSON.parse((await downloadFormat("^JSON")).bytes.toString()).scenes[0]
+      .frames[0].image,
+  ).toBe(red);
+  await reader.getByRole("button", { name: "Поделиться", exact: true }).click();
+  const dialog = reader.getByRole("dialog", { name: "Поделиться документом" });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Копировать ссылку" }),
+  ).toBeHidden();
+  const sharing = reader.waitForEvent("download");
+  await dialog
+    .getByRole("button", { name: "Скачать HTML для отправки" })
+    .click();
+  expect((await sharing).suggestedFilename()).toMatch(/\.html$/);
+  await expect(dialog).not.toBeVisible();
+  await reader.setViewportSize({ width: 320, height: 844 });
+  await reader.getByRole("button", { name: "Скачать", exact: true }).click();
+  const menu = await reader.locator("#reader-download-menu").boundingBox();
+  expect(menu.x).toBeGreaterThanOrEqual(0);
+  expect(menu.x + menu.width).toBeLessThanOrEqual(320);
+  await reader.screenshot({
+    path: info.outputPath("reader-footer-mobile.png"),
+    fullPage: true,
+  });
+  await reader.keyboard.press("Escape");
+  await reader.evaluate(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data) => {
+        window.sharedReader = {
+          type: data.files[0].type,
+          name: data.files[0].name,
+        };
+      },
+    });
+  });
+  await reader.getByRole("button", { name: "Поделиться", exact: true }).click();
+  expect((await reader.evaluate(() => window.sharedReader)).type).toBe(
+    "text/html",
+  );
+  await reader.route("https://reader.example.test/story.html", (route) =>
+    route.fulfill({ contentType: "text/html", body: saved.bytes }),
+  );
+  await reader.goto("https://reader.example.test/story.html");
+  await reader.getByRole("tab", { name: "Сценарий", exact: true }).click();
+  await reader.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.copiedReaderLink = text;
+        },
+      },
+    });
+  });
+  await reader.getByRole("button", { name: "Поделиться", exact: true }).click();
+  await reader
+    .getByRole("button", { name: "Копировать ссылку", exact: true })
+    .click();
+  expect(await reader.evaluate(() => window.copiedReaderLink)).toBe(
+    "https://reader.example.test/story.html#screenplay",
+  );
+  await reader.close();
+});
 test("mobile bottom tabs, real two-finger pinch and long press reorder", async ({
   page,
   context,
@@ -897,121 +1032,116 @@ async function pasteUrl(page, text, url) {
   );
 }
 for (const theme of ["light", "dark"])
-  test(`${theme}: URL paste links an existing component and creates one for plain text; backing is blue at 8% and disappears on hover`, async ({
+  test(`${theme}: URL paste creates ordinary links without components; hover is stable and displays the complete address`, async ({
     page,
-  }) => {
+  }, info) => {
     await open(page, { theme });
     const original = await page.locator(".screenplay-editor").textContent();
-    await pasteUrl(page, "ПЯТАЧОК", "https://example.com/rabbit");
-    const form = page.locator(".component-editor");
-    await expect(
-      form.getByLabel("Ссылка компонента", { exact: true }),
-    ).toHaveValue("https://example.com/rabbit");
-    await pasteUrl(page, "ПЯТАЧОК", "https://example.com/rabbit-updated");
-    await expect(
-      form.getByLabel("Ссылка компонента", { exact: true }),
-    ).toHaveValue("https://example.com/rabbit-updated");
-    const mark = page
-      .locator(".screenplay-editor .script-component-url")
-      .filter({ hasText: "ПЯТАЧОК" })
-      .first();
+    const url =
+      "https://example.com/" + "research/".repeat(25) + "?full=address";
+    await pasteUrl(page, "ПЯТАЧОК", url);
+    await expect(page.locator(".component-editor")).toHaveCount(0);
+    const link = page.locator(".script-text-link").first();
+    await expect(link).toHaveAttribute("href", url);
     await page.mouse.move(20, 70);
-    await expect
-      .poll(() => mark.evaluate((e) => getComputedStyle(e).backgroundColor))
-      .toBe("rgba(27, 46, 255, 0.08)");
-    await mark.hover();
-    await expect
-      .poll(() => mark.evaluate((e) => getComputedStyle(e).backgroundColor))
-      .toBe("rgba(0, 0, 0, 0)");
-    await form
-      .getByLabel("Использовать ссылку компонента", { exact: true })
-      .uncheck();
-    await form.getByRole("button", { name: "Сохранить", exact: true }).click();
-    await expect(page.locator(".script-component-url")).toHaveCount(0);
-    await expect(
-      page.locator('.screenplay-editor [data-entity-id="rabbit"]'),
-    ).toBeVisible();
+    const background = await link.evaluate(
+      (e) => getComputedStyle(e).backgroundColor,
+    );
+    expect(background).toMatch(/0\.08/);
+    await link.hover();
+    await expect(link).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const action = page.locator(".component-hover-link"),
+      panel = page.locator(".component-link-hover");
+    await expect(action).toBeVisible();
+    const initial = await panel.boundingBox(),
+      text = await link.boundingBox();
+    await page.mouse.move(text.x + text.width - 2, text.y + text.height / 2);
+    expect(await panel.boundingBox()).toEqual(initial);
+    // Move diagonally through the safe triangle rather than teleporting to the icon.
+    await page.mouse.move(initial.x + 30, initial.y + 30, { steps: 10 });
+    await expect(action).toBeVisible();
+    await expect(page.locator(".text-link-address")).toHaveText(url);
+    expect(
+      (await page.locator(".text-link-address").boundingBox()).width,
+    ).toBeLessThanOrEqual(280);
+    await page.screenshot({
+      path: info.outputPath(`ordinary-link-${theme}.png`),
+    });
     await pasteUrl(page, "Тихая комната.", "https://example.com/room");
-    await expect(
-      form.getByLabel("Ссылка компонента", { exact: true }),
-    ).toHaveValue("https://example.com/room");
-    await expect(
-      page
-        .locator(".script-component-url")
-        .filter({ hasText: "Тихая комната." }),
-    ).toBeVisible();
-    expect(await page.locator(".screenplay-editor").textContent()).toBe(
-      original,
-    );
-    await page
-      .locator(".screenplay-editor")
-      .click({ position: { x: 250, y: 150 } });
+    await expect(page.locator(".script-text-link")).toHaveCount(2);
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".script-component-url")).toHaveCount(0);
+    await expect(page.locator(".script-text-link")).toHaveCount(1);
     await page.keyboard.press("Control+Shift+z");
-    await expect(
-      page
-        .locator(".script-component-url")
-        .filter({ hasText: "Тихая комната." }),
-    ).toBeVisible();
-    await page.screenshot({ path: `.cache/component-link-${theme}.png` });
-    await page.waitForTimeout(700);
+    await expect(page.locator(".script-text-link")).toHaveCount(2);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              const open = indexedDB.open("tyter.local-files.v1", 1);
+              open.onsuccess = () => {
+                const database = open.result;
+                const read = database
+                  .transaction("files")
+                  .objectStore("files")
+                  .get("documents");
+                read.onsuccess = () => {
+                  const doc = read.result?.find(
+                    (doc) => doc.id === "storyboard-test",
+                  );
+                  resolve({
+                    links: (
+                      JSON.stringify(doc?.content).match(/"type":"link"/g) || []
+                    ).length,
+                    components: doc?.components.length,
+                  });
+                  database.close();
+                };
+              };
+            }),
+        ),
+      )
+      .toEqual({ links: 2, components: 1 });
     await page.reload();
-    await expect(
-      page
-        .locator(".script-component-url")
-        .filter({ hasText: "Тихая комната." }),
-    ).toBeVisible();
+    await expect(page.locator(".script-text-link")).toHaveCount(2);
     expect(await page.locator(".screenplay-editor").textContent()).toBe(
       original,
     );
+    await expect(
+      page.locator('.workspace-tools button[aria-label="Компоненты"]'),
+    ).toHaveText("1");
   });
 
-test("English context menu pastes a URL as a component link and mobile settings keep the independent switch", async ({
+test("English context menu pastes an ordinary URL without opening component settings on mobile", async ({
   page,
   context,
 }) => {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await open(page, { language: "en" });
   await page.evaluate(() =>
     navigator.clipboard.writeText("https://example.com/dialogue"),
   );
   await page.locator(".screenplay-editor").evaluate((element) => {
-    const editor = element.editor;
-    let from, to;
-    editor.state.doc.descendants((node, pos) => {
-      if (node.attrs?.blockId === "speech") {
-        from = pos + 1;
-        to = from + node.content.size;
-      }
+    element.editor.state.doc.descendants((node, pos) => {
+      if (node.attrs?.blockId === "speech")
+        element.editor
+          .chain()
+          .focus()
+          .setTextSelection({ from: pos + 1, to: pos + 1 + node.content.size })
+          .run();
     });
-    editor.chain().focus().setTextSelection({ from, to }).run();
   });
   await page.locator('[data-block-id="speech"]').click({ button: "right" });
-  expect(errors).toEqual([]);
-  await expect(page.getByRole("menu", { name: "Text actions" })).toBeVisible();
   await page.getByRole("menuitem", { name: /^Paste/ }).click();
-  const form = page.locator(".component-editor");
-  await expect(form.getByLabel("Component link", { exact: true })).toHaveValue(
+  await expect(page.locator(".script-text-link")).toHaveAttribute(
+    "href",
     "https://example.com/dialogue",
   );
-  await expect(
-    page
-      .locator(".script-component-url")
-      .filter({ hasText: "Ты слышишь это?" }),
-  ).toBeVisible();
+  await expect(page.locator(".component-editor")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    form.getByLabel("Enable component link", { exact: true }),
-  ).toBeVisible();
-  const size = await form
-    .getByLabel("Component link", { exact: true })
-    .evaluate((e) => getComputedStyle(e).fontSize);
-  expect(parseFloat(size)).toBeGreaterThanOrEqual(16);
-  await page.screenshot({ path: ".cache/component-link-mobile.png" });
+  await expect(page.locator(".script-text-link")).toBeVisible();
 });
+
 test("desktop mouse reorders scenes and actual text blocks; Escape cancels and compact structure is shared", async ({
   page,
 }) => {

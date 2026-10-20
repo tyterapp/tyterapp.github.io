@@ -457,8 +457,11 @@ export default function SelectionToolbar({
           aria-label={t("Добавить ссылку")}
           data-tooltip={t("Добавить ссылку")}
           onClick={() => {
-            setLinkSource(selectedSource(editor));
-            setUrl("");
+            setLinkSource({
+              ...selectedSource(editor),
+              hasLink: editor.isActive("link"),
+            });
+            setUrl(editor.getAttributes("link").href || "");
           }}
         >
           <Link2 size={20} />
@@ -481,7 +484,7 @@ export default function SelectionToolbar({
             type="url"
             required
             placeholder="https://…"
-            aria-label={t("Ссылка компонента")}
+            aria-label={t("Адрес ссылки")}
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             maxLength={2048}
@@ -489,6 +492,18 @@ export default function SelectionToolbar({
           <button type="submit" disabled={!componentUrl(url)}>
             {t("Добавить")}
           </button>
+          {linkSource.hasLink && (
+            <button
+              type="button"
+              onClick={() => {
+                onPasteComponentUrl(linkSource, null);
+                setLinkSource(null);
+                setPosition(null);
+              }}
+            >
+              {t("Удалить ссылку")}
+            </button>
+          )}
         </form>
       )}
       {

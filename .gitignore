@@ -15,6 +15,7 @@ codes-for-pro.txt
 site-dist/
 github-pages/
 publication/
+.shared-telegrams/
 .env
 .env.*
 !.env.example

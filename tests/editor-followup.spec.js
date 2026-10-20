@@ -80,6 +80,46 @@ const board = (page) =>
     .locator(".document-view-toggle")
     .getByRole("button", { name: "Раскадровка", exact: true })
     .click();
+
+test("welcome reveal uses one sequential timeline, completes each paragraph before the next and runs forty percent faster", async ({
+  page,
+}, info) => {
+  await page.addInitScript(() => {
+    window.welcomeMotion = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      const root = this.closest(".editor-first-visit");
+      if (root)
+        window.welcomeMotion.push({
+          block: [...root.querySelectorAll("[data-emotional-block]")].indexOf(
+            this.closest("[data-emotional-block]"),
+          ),
+          ...options,
+        });
+      return animate.call(this, frames, options);
+    };
+  });
+  await open(page);
+  await page.getByRole("button", { name: "Обучение", exact: true }).click();
+  const root = page.locator(".learning-paper .editor-first-visit");
+  await expect
+    .poll(() => page.evaluate(() => window.welcomeMotion.length))
+    .toBeGreaterThan(0);
+  const timing = await page.evaluate(() => {
+    const blocks = [];
+    for (const motion of window.welcomeMotion)
+      (blocks[motion.block] ||= []).push(motion);
+    return blocks;
+  });
+  expect(timing[0][0].duration).toBeCloseTo(680 / 1.4);
+  for (let index = 1; index < timing.length; index++) {
+    const previous = timing[index - 1].at(-1);
+    expect(timing[index][0].delay).toBeGreaterThanOrEqual(
+      previous.delay + previous.duration - 1,
+    );
+  }
+  await page.screenshot({ path: info.outputPath("welcome-sequential.png") });
+});
 for (const theme of ["light", "dark"])
   test(`${theme}: empty storyboard cards use the page color and scene icon and open scene settings`, async ({
     page,
@@ -146,7 +186,7 @@ test("hover links open a new tab, Ctrl click opens settings, and removing the li
   await expect(page.locator(".script-component-url")).toHaveCount(0);
 });
 
-test("selection toolbar attaches a URL to a new component without replacing selected text", async ({
+test("selection toolbar attaches an ordinary URL and removes it without creating components", async ({
   page,
 }) => {
   await open(page);
@@ -173,12 +213,30 @@ test("selection toolbar attaches a URL to a new component without replacing sele
     .locator(".selection-link-form")
     .getByRole("button", { name: "Добавить", exact: true })
     .click();
-  await expect(
-    page
-      .locator(".component-detail-drawer")
-      .getByLabel("Ссылка компонента", { exact: true }),
-  ).toHaveValue("https://example.com/scene");
+  const link = page.locator(".script-text-link");
+  await expect(link).toHaveAttribute("href", "https://example.com/scene");
+  await expect(page.locator(".component-detail-drawer")).toHaveCount(0);
   expect(await page.locator(".screenplay-editor").innerText()).toBe(before);
+  await page.locator(".screenplay-editor").evaluate((element) => {
+    let from;
+    element.editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.marks.some((mark) => mark.type.name === "link"))
+        from = pos;
+    });
+    element.editor
+      .chain()
+      .focus()
+      .setTextSelection({ from, to: from + 6 })
+      .run();
+  });
+  await page
+    .getByRole("button", { name: "Добавить ссылку", exact: true })
+    .click();
+  await page
+    .locator(".selection-link-form")
+    .getByRole("button", { name: "Удалить ссылку", exact: true })
+    .click();
+  await expect(link).toHaveCount(0);
 });
 
 test("learning opens from Help and the document menu without altering the screenplay, honors reduced motion and exposes the brand menu", async ({

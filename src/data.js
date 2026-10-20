@@ -411,6 +411,10 @@ export function validateImport(input, options = {}) {
           return [];
         const marks = (Array.isArray(part.marks) ? part.marks : []).flatMap(
           (mark) => {
+            if (mark?.type === "link") {
+              const href = componentUrl(mark.attrs?.href);
+              return href ? [{ type: "link", attrs: { href } }] : [];
+            }
             if (mark?.type === "scriptRevision") {
               const stamp = cleanRevisionStamp(mark.attrs);
               return stamp ? [{ type: "scriptRevision", attrs: stamp }] : [];

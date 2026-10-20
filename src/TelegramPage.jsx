@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Radio, RotateCcw, Volume2 } from "lucide-react";
-import { readTelegram } from "./telegram.js";
+import { RotateCcw } from "lucide-react";
+import { readTelegram, telegramDescriptor } from "./telegram.js";
 import { encodeMorse, MORSE_UNIT } from "./morse.js";
 import { createTelegraphAudio } from "./telegraph-audio.js";
 import "./telegram.css";
@@ -11,28 +11,40 @@ function* transmission(text) {
   for (const character of text) {
     visible += character.length;
     if (/\s/u.test(character)) {
-      yield { duration: MORSE_UNIT * 4, visible };
+      yield { duration: (MORSE_UNIT / 5) * 4, visible };
       continue;
     }
     const code = encodeMorse(character);
     if (!code) {
-      yield { duration: MORSE_UNIT, visible };
+      yield { duration: MORSE_UNIT / 5, visible };
       continue;
     }
     for (let index = 0; index < code.length; index++) {
       yield {
         tone: true,
-        duration: MORSE_UNIT * (code[index] === "-" ? 3 : 1),
+        duration: (MORSE_UNIT / 5) * (code[index] === "-" ? 3 : 1),
       };
       yield index === code.length - 1
-        ? { duration: MORSE_UNIT * 3, visible }
-        : { duration: MORSE_UNIT };
+        ? { duration: (MORSE_UNIT / 5) * 3, visible }
+        : { duration: MORSE_UNIT / 5 };
     }
   }
 }
 
 export default function TelegramPage() {
-  const [telegram, setTelegram] = useState(() => readTelegram(location.hash));
+  const [telegram, setTelegram] = useState(() => {
+    try {
+      return (
+        telegramDescriptor(
+          JSON.parse(
+            document.getElementById("tyter-telegram")?.textContent || "null",
+          ),
+        ) || readTelegram(location.hash)
+      );
+    } catch {
+      return readTelegram(location.hash);
+    }
+  });
   const [visible, setVisible] = useState(0);
   const [status, setStatus] = useState("ready");
   const sound = useRef(null),
@@ -77,7 +89,10 @@ export default function TelegramPage() {
   useEffect(() => {
     const audio = createTelegraphAudio();
     sound.current = audio;
-    document.title = `${telegram?.language === "en" ? "Telegram" : "Телеграмма"} — Tyter`;
+    document.title = `${telegram?.title || (telegram?.language === "en" ? "Telegram" : "Телеграмма")} — Tyter`;
+    const description = document.querySelector('meta[name="description"]');
+    if (description && telegram)
+      description.content = telegram.title || "Tyter";
     play();
     const visibility = () => {
       if (document.hidden) {
@@ -123,25 +138,12 @@ export default function TelegramPage() {
   };
   return (
     <main className="telegram-page" lang={telegram?.language || "ru"}>
-      <header className="telegram-page-header">
-        <a href="/" aria-label="Tyter">
-          <img src="/brand/tyter-logo.svg" alt="Tyter" />
-        </a>
-        <span>
-          <Radio size={16} />
-          {label("Телеграмма", "Telegram")}
-        </span>
-      </header>
       {telegram ? (
         <>
           <article
             className="telegram-paper"
             aria-label={label("Текст телеграммы", "Telegram text")}
           >
-            <div className="telegram-paper-heading">
-              <h1>{label("Вам телеграмма", "A telegram for you")}</h1>
-              <span>01</span>
-            </div>
             <p className="telegram-transmission" aria-label={telegram.text}>
               <span aria-hidden="true" className="telegraph-text">
                 {telegram.text.slice(0, visible)}
@@ -152,18 +154,37 @@ export default function TelegramPage() {
             </p>
           </article>
           <footer className="telegram-playback">
-            <p role="status">
-              <Volume2 size={16} />
+            <p role="status" className="visually-hidden">
               {messages[status]}
             </p>
-            <button
-              type="button"
-              className="telegram-replay"
-              onClick={() => play(true)}
-            >
-              <RotateCcw size={24} />
-              {label("Прослушать заново", "Listen again")}
-            </button>
+            <div className="telegram-playback-actions">
+              <button
+                type="button"
+                className="telegram-replay"
+                onClick={() => play(true)}
+              >
+                <RotateCcw size={24} />
+                {label("Прослушать заново", "Listen again")}
+              </button>
+              <a
+                className="telegram-oiia"
+                href="/pro"
+                aria-label={label(
+                  "Котик OiiA — Tyter PRO",
+                  "OiiA cat — Tyter PRO",
+                )}
+                data-playing={["playing", "silent"].includes(status)}
+              >
+                {[1, 2, 3, 4].map((number) => (
+                  <img
+                    key={number}
+                    src={`/oiia/skins/oiia/frame-0${number}.png`}
+                    alt=""
+                    draggable="false"
+                  />
+                ))}
+              </a>
+            </div>
           </footer>
         </>
       ) : (

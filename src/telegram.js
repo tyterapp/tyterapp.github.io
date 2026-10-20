@@ -23,14 +23,26 @@ export function telegramText(content) {
     .trim();
 }
 
-function descriptor(value) {
+export function telegramDescriptor(value) {
   return value?.version === 1 &&
     ["ru", "en"].includes(value.language) &&
     typeof value.text === "string" &&
     value.text.trim() &&
     value.text.length <= TELEGRAM_MAX_TEXT &&
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value.text)
-    ? { version: 1, language: value.language, text: value.text }
+    ? {
+        version: 1,
+        language: value.language,
+        text: value.text,
+        ...(typeof value.title === "string" && value.title.trim()
+          ? {
+              title: value.title
+                .trim()
+                .replace(/[\u0000-\u001f]/g, " ")
+                .slice(0, 200),
+            }
+          : {}),
+      }
     : null;
 }
 
@@ -38,8 +50,9 @@ export function telegramLink(
   text,
   language = "ru",
   base = globalThis.location?.href,
+  title = "",
 ) {
-  const value = descriptor({ version: 1, text, language });
+  const value = telegramDescriptor({ version: 1, text, language, title });
   if (!value) throw new Error("Invalid telegram");
   let origin = "https://tyterapp.github.io";
   try {
@@ -69,7 +82,7 @@ export function readTelegram(hash) {
       atob(encoded.replace(/-/g, "+").replace(/_/g, "/")),
       (char) => char.charCodeAt(0),
     );
-    return descriptor(
+    return telegramDescriptor(
       JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
     );
   } catch {
