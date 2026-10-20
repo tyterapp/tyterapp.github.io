@@ -1,6 +1,7 @@
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { textMatchPattern } from "./prop-matches.js";
 import { componentNameCandidates } from "./component-names.js";
+import { pageVersionChanges } from "./page-version-history.js";
 
 export const componentLinksKey = new PluginKey("component-links");
 export const SKIP_COMPONENT_LINKS = "skip-component-links";
@@ -106,6 +107,19 @@ export function componentLinksPlugin(getComponents) {
       if (
         transactions.some((transaction) =>
           transaction.getMeta(SKIP_COMPONENT_LINKS),
+        )
+      )
+        return null;
+      // Resource history updates the component list after this transaction.
+      // Deriving links from the old list during undo would immediately recreate
+      // the removed mark and clear the editor's redo branch.
+      if (
+        transactions.some((transaction) =>
+          pageVersionChanges(transaction).some(
+            (step) =>
+              Object.hasOwn(step.before, "components") ||
+              Object.hasOwn(step.after, "components"),
+          ),
         )
       )
         return null;

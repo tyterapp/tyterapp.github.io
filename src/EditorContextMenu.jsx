@@ -4,11 +4,13 @@ import { createPortal } from "react-dom";
 import { sourceForRange, nativeSelectedSource } from "./SelectionToolbar.jsx";
 import { IMAGE_TYPES } from "./image-thumbnail.js";
 import { copyScreenplaySelection } from "./screenplay-clipboard.js";
+import { componentUrl, selectedComponentId } from "./component-url.js";
 export default function EditorContextMenu({
   editor,
   onCreateComponent,
   onCreateProp,
   onPasteImages,
+  onPasteComponentUrl,
   onOpenChange,
   plainOnly = false,
 }) {
@@ -30,6 +32,7 @@ export default function EditorContextMenu({
     onOpenChange,
   });
   handlers.current = {
+    onPasteComponentUrl,
     onCreateComponent,
     onCreateProp,
     onPasteImages,
@@ -229,6 +232,27 @@ export default function EditorContextMenu({
       } else if (action === "paste") {
         if (clipboardImages.length) {
           handlers.current.onPasteImages?.(clipboardImages);
+          close();
+          return;
+        }
+        const url = componentUrl(clipboard.text);
+        if (
+          !plainOnly &&
+          source?.text?.trim() &&
+          url &&
+          handlers.current.onPasteComponentUrl
+        ) {
+          handlers.current.onPasteComponentUrl(
+            {
+              ...source,
+              entityId: selectedComponentId(
+                editor.state.doc,
+                source.from,
+                source.to,
+              ),
+            },
+            url,
+          );
           close();
           return;
         }

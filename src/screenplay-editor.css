@@ -98,6 +98,23 @@
 .screenplay-editor .script-entity {
   border-radius: 3px;
 }
+.screenplay-editor .script-component-url,
+.screenplay-editor .script-entity.script-component-url {
+  background-color: rgb(27 46 255 / 8%);
+  box-decoration-break: clone;
+  border-radius: 3px;
+  transition: background-color 120ms ease;
+}
+.screenplay-editor .script-component-url:hover,
+.screenplay-editor .script-entity.script-component-url:hover,
+.screenplay-editor .script-entity:hover .script-component-url {
+  background-color: transparent;
+}
+@media print {
+  .screenplay-editor .script-component-url {
+    background: transparent;
+  }
+}
 .character-thumbnail,
 .suggestion-thumbnail {
   display: block;
@@ -129,7 +146,7 @@
 .screenplay-editor .script-entity:has(.entity-is-active),
 .screenplay-editor .script-entity.entity-is-active {
   color: var(--entity-color, #9b6ee7);
-  background: color-mix(in srgb, var(--entity-color, #9b6ee7) 11%, transparent);
+  background: transparent;
   box-decoration-break: clone;
 }
 .screenplay-editor .script-search-result {

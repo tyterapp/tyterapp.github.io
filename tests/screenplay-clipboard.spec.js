@@ -201,7 +201,9 @@ for (const [copy, paste] of [
     expect(await paragraphs(page)).toHaveLength(formats.length);
     await expect(block(page, "target").locator("u")).toHaveText("ДОМ");
     await expect(
-      block(page, "target").getByRole("button", { name: /^Открыть карточку / }),
+      block(page, "target").getByRole("button", {
+        name: /^Информация о кадре сцены /,
+      }),
     ).toHaveCount(1);
     await expect(page.locator(".screenplay-editor strong em u")).toHaveText(
       "смело",
@@ -296,7 +298,7 @@ test("cutting and pasting through the menu retains block formats; plain paste re
 });
 
 for (const paste of ["keyboard", "menu"])
-  test(`${paste}: a whole heading fills the scene created from an outline card and retains its variant through undo and reload`, async ({
+  test(`${paste}: a whole heading fills a new storyboard scene and retains its variant through undo and reload`, async ({
     page,
     context,
   }) => {
@@ -306,7 +308,7 @@ for (const paste of ["keyboard", "menu"])
     await otherDocument(page);
     await page.keyboard.press("Alt+2");
     await page
-      .getByRole("button", { name: "Добавить карточку в Акт 1", exact: true })
+      .getByRole("button", { name: "Добавить сцену", exact: true })
       .click();
     await page.keyboard.press("Alt+1");
     const scenes = page.locator('.screenplay-editor p[data-format="scene"]');
@@ -324,10 +326,14 @@ for (const paste of ["keyboard", "menu"])
     await expect(target.locator("u")).toHaveText("ДОМ");
     await expect(target).toHaveAttribute("data-scene-variant", "F");
     await expect(
-      target.getByRole("button", { name: /^Открыть карточку / }),
+      target.getByRole("button", { name: /^Информация о кадре сцены / }),
     ).toHaveCount(1);
     await expect(scenes).toHaveCount(2);
-    expect(await paragraphs(page)).toHaveLength(2);
+    expect((await paragraphs(page)).map((row) => row.format)).toEqual([
+      "scene",
+      "scene",
+      "action",
+    ]);
     expect((await paragraphs(page)).find((row) => row.id === id).text).toBe(
       texts[0],
     );
@@ -344,7 +350,7 @@ for (const paste of ["keyboard", "menu"])
     await expect(target.locator("u")).toHaveText("ДОМ");
     await expect(target).toHaveAttribute("data-scene-variant", "F");
     await expect(
-      target.getByRole("button", { name: /^Открыть карточку / }),
+      target.getByRole("button", { name: /^Информация о кадре сцены / }),
     ).toHaveCount(1);
     await expect(scenes).toHaveCount(2);
   });

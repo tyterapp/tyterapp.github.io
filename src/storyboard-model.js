@@ -1,6 +1,7 @@
 import { shotScenes, shotText, updateShotSettings } from "./shot-info.js";
 import { sceneRange, sceneLetter } from "./scene-variants.js";
 import { rebasePageVersionContent } from "./page-versions.js";
+import { storyboardFrames, newFrame } from "./storyboard-data.js";
 
 const paragraph = (format, text = "") => ({
   type: "paragraph",
@@ -104,6 +105,72 @@ export function addStoryboardScene(document) {
     ]),
     id: heading.attrs.blockId,
   };
+}
+// Empty scenes start in their first slot; illustrated scenes append new slides.
+export function pasteStoryboardImages(document, images, sceneId, letter) {
+  if (!images.length) return { document, id: sceneId };
+  const range = sceneId && sceneRange(document.content, sceneId);
+  if (!range) {
+    let next = document,
+      id;
+    for (const image of images) {
+      const added = addStoryboardScene(next);
+      id = added.id;
+      next = updateShotSettings(added.document, id, "A", {
+        frames: [newFrame(image)],
+      });
+    }
+    return { document: next, id };
+  }
+  if (sceneLetter(range.nodes[0]) !== letter) return { document, id: sceneId };
+  const frames = [
+    ...storyboardFrames(document.sceneShots?.[sceneId]?.[letter]),
+  ];
+  const remaining = [...images];
+  if (!frames.some((frame) => frame.image))
+    for (let index = 0; index < frames.length && remaining.length; index++)
+      frames[index] = { ...frames[index], image: remaining.shift() };
+  if (frames.length + remaining.length > 200)
+    throw new Error("В сцене может быть не больше 200 слайдов.");
+  return {
+    document: updateShotSettings(document, sceneId, letter, {
+      frames: [...frames, ...remaining.map(newFrame)],
+    }),
+    id: sceneId,
+  };
+}
+export function moveStoryboardFrame(
+  document,
+  sourceId,
+  sourceLetter,
+  frameId,
+  targetId,
+) {
+  if (sourceId === targetId) return document;
+  const source = sceneRange(document.content, sourceId),
+    target = sceneRange(document.content, targetId);
+  if (!source || !target || sceneLetter(source.nodes[0]) !== sourceLetter)
+    return document;
+  const sourceFrames = storyboardFrames(
+    document.sceneShots?.[sourceId]?.[sourceLetter],
+  );
+  const frame = sourceFrames.find((item) => item.id === frameId);
+  if (!frame) return document;
+  const letter = sceneLetter(target.nodes[0]);
+  const targetFrames = storyboardFrames(
+    document.sceneShots?.[targetId]?.[letter],
+  );
+  if (targetFrames.length >= 200)
+    throw new Error("В сцене может быть не больше 200 слайдов.");
+  const moved = targetFrames.some((item) => item.id === frame.id)
+    ? { ...frame, id: crypto.randomUUID() }
+    : frame;
+  const next = updateShotSettings(document, sourceId, sourceLetter, {
+    frames: sourceFrames.filter((item) => item.id !== frameId),
+  });
+  return updateShotSettings(next, targetId, letter, {
+    frames: [...targetFrames, moved],
+  });
 }
 export function changeSceneBlock(document, sceneId, blockId, patch) {
   const range = sceneRange(document.content, sceneId);

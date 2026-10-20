@@ -63,6 +63,119 @@ const state = (page) =>
     selection: element.editor.state.selection.toJSON(),
   }));
 
+const uiScale = (page) =>
+  page.evaluate(() => ({
+    width: window.innerWidth,
+    pixelRatio: window.devicePixelRatio,
+    viewportScale: window.visualViewport.scale,
+    headerHeight: document
+      .querySelector(".minimal-header")
+      .getBoundingClientRect().height,
+  }));
+
+async function watchWheel(page) {
+  await page.evaluate(() => {
+    document.addEventListener("wheel", (event) => {
+      window.lastWheelPrevented = event.defaultPrevented;
+    });
+  });
+}
+
+test("Ctrl wheel scales only screenplay content over the paper and its surrounding viewport", async ({
+  page,
+}) => {
+  await open(page, { zoom: 150, count: 40 });
+  await watchWheel(page);
+  const before = await state(page);
+  const ui = await uiScale(page);
+  const paper = page.locator(".script-paper");
+  await paper.hover({ position: { x: 250, y: 200 } });
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await expect(paper).toHaveCSS("zoom", "1.6");
+  await expect
+    .poll(() => page.evaluate(() => window.lastWheelPrevented))
+    .toBe(true);
+  const viewport = await page.locator(".minimal-scroll").boundingBox();
+  await page.mouse.move(viewport.x + 10, viewport.y + 200);
+  await page.mouse.wheel(0, 100);
+  await expect(paper).toHaveCSS("zoom", "1.5");
+  await page.keyboard.up("Control");
+  expect(await uiScale(page)).toEqual(ui);
+  expect(await state(page)).toEqual(before);
+});
+
+test("Ctrl wheel scales storyboard cards and prevents tab zoom, including at zoom limits and after switching modes", async ({
+  page,
+}) => {
+  await open(page, { zoom: 150, count: 40 });
+  await watchWheel(page);
+  const before = await state(page);
+  const ui = await uiScale(page);
+  const toggle = page.locator(".document-view-toggle");
+  const board = () =>
+    toggle.getByRole("button", { name: "Раскадровка", exact: true });
+  await board().click();
+  const zoom = page.getByRole("slider", {
+    name: "Масштаб раскадровки",
+    exact: true,
+  });
+  const card = page.locator(".story-card").first();
+  await expect(zoom).toHaveValue("50");
+  const initialWidth = (await card.boundingBox()).width;
+  await card.hover();
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await expect(zoom).toHaveValue("55");
+  await expect
+    .poll(() => page.evaluate(() => window.lastWheelPrevented))
+    .toBe(true);
+  expect((await card.boundingBox()).width).toBeGreaterThan(initialWidth);
+  const viewport = await page.locator(".story-board-scroll").boundingBox();
+  await page.mouse.move(viewport.x + 10, viewport.y + 300);
+  await page.mouse.wheel(0, 100);
+  await expect(zoom).toHaveValue("50");
+  await page.keyboard.up("Control");
+  await zoom.focus();
+  await page.keyboard.press("End");
+  await expect(zoom).toHaveValue("100");
+  await page.mouse.move(viewport.x + 10, viewport.y + 300);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await expect(zoom).toHaveValue("100");
+  await expect
+    .poll(() => page.evaluate(() => window.lastWheelPrevented))
+    .toBe(true);
+  await page.keyboard.up("Control");
+  await zoom.focus();
+  await page.keyboard.press("Home");
+  await expect(zoom).toHaveValue("20");
+  await page.mouse.move(viewport.x + 10, viewport.y + 300);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, 100);
+  await expect(zoom).toHaveValue("20");
+  await expect
+    .poll(() => page.evaluate(() => window.lastWheelPrevented))
+    .toBe(true);
+  await page.keyboard.up("Control");
+  await page.mouse.wheel(0, 100);
+  await expect
+    .poll(() => page.evaluate(() => window.lastWheelPrevented))
+    .toBe(false);
+  await expect(zoom).toHaveValue("20");
+  expect(await uiScale(page)).toEqual(ui);
+  await toggle.getByRole("button", { name: "Сценарий", exact: true }).click();
+  await expect(page.locator(".script-paper")).toHaveCSS("zoom", "1.5");
+  expect(await state(page)).toEqual(before);
+  await board().click();
+  await page.locator(".story-board-scroll").hover();
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await expect(zoom).toHaveValue("55");
+  await page.keyboard.up("Control");
+  expect(await uiScale(page)).toEqual(ui);
+});
+
 test("Shift wheel jumps ten pages in both directions, handles horizontal wheel deltas and clamps at document ends", async ({
   page,
 }) => {
@@ -82,15 +195,13 @@ test("Shift wheel jumps ten pages in both directions, handles horizontal wheel d
   await page.mouse.wheel(0, -100);
   await expect.poll(() => scrollTop(page)).toBe(0);
   await page.keyboard.up("Shift");
-  await page
-    .locator(".screenplay-editor")
-    .dispatchEvent("wheel", {
-      deltaX: 120,
-      deltaY: 0,
-      shiftKey: true,
-      bubbles: true,
-      cancelable: true,
-    });
+  await page.locator(".screenplay-editor").dispatchEvent("wheel", {
+    deltaX: 120,
+    deltaY: 0,
+    shiftKey: true,
+    bubbles: true,
+    cancelable: true,
+  });
   await expect.poll(() => scrollTop(page)).toBeCloseTo(target, 0);
   const frame = page.locator(".minimal-scroll");
   await frame.evaluate((element) => element.scrollTo(0, element.scrollHeight));

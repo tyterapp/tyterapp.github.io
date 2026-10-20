@@ -15,9 +15,64 @@ import {
   moveSceneBlock,
   removeSceneBlock,
   migrateStoryboard,
+  pasteStoryboardImages,
+  moveStoryboardFrame,
 } from "../src/storyboard-model.js";
 import { storyboardManifest } from "../src/storyboard-export.js";
 const image = "data:image/png;base64,aGVsbG8=";
+test("clipboard starts in an empty scene's first slot, appends to illustrated scenes and creates scenes at the document end", () => {
+  let doc = updateShotSettings(fixture(), "one", "A", {
+    frames: [{ id: "empty", image: "", durationMs: 1700, transition: "fade" }],
+  });
+  doc = pasteStoryboardImages(doc, [image], "one", "A").document;
+  assert.equal(doc.sceneShots.one.A.frames[0].id, "empty");
+  assert.equal(doc.sceneShots.one.A.frames[0].durationMs, 1700);
+  doc = updateShotSettings(doc, "one", "A", {
+    frames: [
+      ...doc.sceneShots.one.A.frames,
+      { id: "spare", image: "", durationMs: 500 },
+    ],
+  });
+  doc = pasteStoryboardImages(doc, [image], "one", "A").document;
+  assert.equal(doc.sceneShots.one.A.frames.length, 3);
+  assert.equal(doc.sceneShots.one.A.frames[1].image, "");
+  const appended = pasteStoryboardImages(doc, [image, image]);
+  const scenes = shotScenes(appended.document);
+  assert.deepEqual(
+    scenes.slice(0, 2).map((item) => item.id),
+    ["one", "two"],
+  );
+  assert.equal(scenes.length, 4);
+  for (const scene of scenes.slice(2))
+    assert.equal(scene.settings.frames[0].image, image);
+});
+test("moving a slide preserves timings and transitions, isolates scene variants and rejects overflowing destinations atomically", () => {
+  let doc = updateShotSettings(fixture(), "one", "A", {
+    frames: [{ id: "f", image, durationMs: 1700, transition: "fade" }],
+  });
+  doc = updateShotSettings(doc, "two", "A", {
+    frames: [{ id: "other", image, durationMs: 500 }],
+  });
+  doc = switchSceneVariant(doc, "two", "B");
+  const next = moveStoryboardFrame(doc, "one", "A", "f", "two");
+  assert.equal(next.sceneShots.one.A.frames.length, 0);
+  assert.deepEqual(
+    next.sceneShots.two.B.frames[0],
+    doc.sceneShots.one.A.frames[0],
+  );
+  assert.deepEqual(next.sceneShots.two.A, doc.sceneShots.two.A);
+  assert.equal(moveStoryboardFrame(doc, "one", "B", "f", "two"), doc);
+  const full = updateShotSettings(doc, "two", "B", {
+    frames: Array.from({ length: 200 }, (_, i) => ({
+      id: `f-${i}`,
+      image,
+      durationMs: 500,
+    })),
+  });
+  assert.throws(() => moveStoryboardFrame(full, "one", "A", "f", "two"));
+  assert.equal(full.sceneShots.one.A.frames.length, 1);
+  assert.throws(() => pasteStoryboardImages(full, [image], "two", "B"));
+});
 const p = (format, text, id) => ({
   type: "paragraph",
   attrs: { format, blockId: id },

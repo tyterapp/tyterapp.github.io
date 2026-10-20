@@ -43,7 +43,7 @@ const stored = (page) =>
 const editorJSON = (page) =>
   page.locator(".screenplay-editor").evaluate((node) => node.editor.getJSON());
 
-test("aliases are cleaned once, survive validation, libraries and inactive screenplay copies", () => {
+test("aliases are cleaned once and survive validation, libraries and page colour changes", () => {
   expect(
     cleanComponentAliases(" Джеффу, Джеффа\nджеффа;Джефф ", "Джефф"),
   ).toEqual(["Джеффу", "Джеффа"]);
@@ -76,10 +76,7 @@ test("aliases are cleaned once, survive validation, libraries and inactive scree
   doc.components[0] = { ...doc.components[0], aliases: ["Джеффом"] };
   const imported = validateImport(JSON.stringify(doc));
   expect(imported.components[0].aliases).toEqual(["Джеффом"]);
-  expect(imported.scriptVersions.white.components[0].aliases).toEqual([
-    "Джеффу",
-    "Джеффа",
-  ]);
+  expect(Object.keys(imported.scriptVersions || {})).toHaveLength(0);
 });
 
 async function open(page, { theme = "light", width = 1440 } = {}) {

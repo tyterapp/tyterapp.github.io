@@ -1068,3 +1068,62 @@
     height: 18px;
   }
 }
+.story-card-slides {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 6px 1px 3px;
+}
+.story-card-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex: 0 0 48px;
+  height: 44px;
+  padding: 3px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  cursor: grab !important;
+  touch-action: pan-x;
+}
+.story-card-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.story-card-slide small {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  background: #0009;
+  color: white;
+  font:
+    10px/1.5 Inter,
+    sans-serif;
+  border-radius: 2px;
+  padding: 0 3px;
+}
+.story-move-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.story-move-frame label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ui-muted);
+}
+.story-drag-preview {
+  opacity: 0.92;
+  box-sizing: border-box;
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+  box-shadow: 0 12px 36px #0004;
+}

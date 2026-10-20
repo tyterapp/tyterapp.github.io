@@ -85,7 +85,7 @@ test.beforeEach(async ({ context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 });
 
-test("all suggestion labels align with the shortcut hint, including components", async ({
+test("compact suggestions retain Ctrl+Enter without overlapping labels, including components", async ({
   page,
 }, info) => {
   await open(page, {
@@ -103,12 +103,16 @@ test("all suggestion labels align with the shortcut hint, including components",
   await expect(popup).toBeVisible();
   const aligned = async () =>
     popup.evaluate((popup) => {
-      const hint = popup.querySelector(".suggestion-hint");
-      const x =
-        hint.getBoundingClientRect().left +
-        parseFloat(getComputedStyle(hint).paddingLeft);
-      return [...popup.querySelectorAll(".suggestion-label")].every(
-        (label) => Math.abs(label.getBoundingClientRect().left - x) < 1,
+      const active = popup.querySelector('[aria-selected="true"]');
+      const hint = active.querySelector("kbd").getBoundingClientRect();
+      const label = active
+        .querySelector(".suggestion-label")
+        .getBoundingClientRect();
+      const bounds = popup.getBoundingClientRect();
+      return (
+        label.right <= hint.left &&
+        label.left >= bounds.left + 8 &&
+        hint.right <= bounds.right - 8
       );
     });
   expect(await aligned()).toBe(true);
@@ -242,7 +246,9 @@ test("dropping JPEG, PNG and WebP shows a drop overlay and creates all component
   await expect(
     sidebar(page).getByLabel("Название", { exact: true }),
   ).toHaveValue("Без названия 3");
-  await expect(sidebar(page).locator(".component-item")).toHaveCount(3);
+  await expect
+    .poll(async () => (await stored(page))?.components.length)
+    .toBe(3);
   await expect(
     page.locator(".screenplay-editor img:not(.ProseMirror-separator)"),
   ).toHaveCount(0);
@@ -273,7 +279,9 @@ test("image validation accepts exactly 10 MB and rejects oversized, unsupported 
     await expect(page.getByRole("alert")).toContainText(
       "Выберите JPG, PNG или WebP размером до 10 МБ.",
     );
-    await expect(sidebar(page).locator(".component-item")).toHaveCount(1);
+    await expect
+      .poll(async () => (await stored(page))?.components.length)
+      .toBe(1);
     await page.getByRole("button", { name: "Закрыть уведомление" }).click();
   }
   await page.getByRole("button", { name: "ENG", exact: true }).click();

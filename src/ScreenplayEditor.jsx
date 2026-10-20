@@ -43,6 +43,11 @@ import { matchesSearchFormat, textSearchRanges } from "./document-search.js";
 import { scrollToText } from "./editor-scroll.js";
 import { characterThumbnailDecorations } from "./character-thumbnails.js";
 import { cleanComponentAliases } from "./component-names.js";
+import {
+  componentUrl,
+  activeComponentUrl,
+  selectedComponentId,
+} from "./component-url.js";
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
@@ -543,6 +548,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onComments,
     onCommentFromSelection,
     onCreateComponent,
+    onPasteComponentUrl,
     onPasteImages,
     onEditComponent,
     onCreateProp,
@@ -640,6 +646,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
   });
   propsRef.current = {
+    onPasteComponentUrl,
     components,
     characterThumbnails,
     outlineCards,
@@ -720,8 +727,33 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       transformCopied: copiedScreenplaySlice,
       transformPasted: (slice, view, plain) =>
         pastedScreenplaySlice(slice, propsRef.current.components, view, plain),
-      handlePaste: (view, event, slice) =>
-        !plainOnly && pasteIntoScreenplayScene(view, slice),
+      handlePaste: (view, event, slice) => {
+        if (plainOnly) return false;
+        const url = componentUrl(event.clipboardData?.getData("text/plain"));
+        if (
+          url &&
+          !view.state.selection.empty &&
+          propsRef.current.onPasteComponentUrl
+        ) {
+          const source = selectionInfo({ state: view.state });
+          if (source.text.trim()) {
+            event.preventDefault();
+            propsRef.current.onPasteComponentUrl(
+              {
+                ...source,
+                entityId: selectedComponentId(
+                  view.state.doc,
+                  source.from,
+                  source.to,
+                ),
+              },
+              url,
+            );
+            return true;
+          }
+        }
+        return pasteIntoScreenplayScene(view, slice);
+      },
       attributes: {
         class: "screenplay-editor",
         role: "textbox",
@@ -829,7 +861,26 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         );
         const review = commentById.get(propsRef.current.activeComment);
         const reviewRanges = [];
+        const componentUrls = new Map(
+          propsRef.current.components.flatMap((component) => {
+            const url = activeComponentUrl(component);
+            return url ? [[component.id, url]] : [];
+          }),
+        );
         state.doc.descendants((node, pos) => {
+          if (node.isText) {
+            const url = node.marks
+              .filter((mark) => mark.type.name === "entity")
+              .map((mark) => componentUrls.get(mark.attrs.id))
+              .find(Boolean);
+            if (url)
+              decorations.push(
+                Decoration.inline(pos, pos + node.nodeSize, {
+                  class: "script-component-url",
+                  title: url,
+                }),
+              );
+          }
           if (
             node.isText &&
             node.marks.some(
@@ -1731,11 +1782,20 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       removeComment(id) {
         return removeAnnotation(editor, "comment", id);
       },
-      addEntity({ id, color }, source) {
+      addEntity({ id, color }, source, resources) {
         if (!editor) return null;
         const info = annotationTarget(editor, source);
         if (!info || info.from === info.to) return info;
-        const transaction = editor.state.tr.addMark(
+        const transaction = resources
+          ? closeHistory(editor.state.tr)
+          : editor.state.tr;
+        if (resources)
+          transaction.removeMark(
+            info.from,
+            info.to,
+            editor.schema.marks.entity,
+          );
+        transaction.addMark(
           info.from,
           info.to,
           editor.schema.marks.entity.create({
@@ -1744,7 +1804,14 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           }),
         );
         transaction.removeStoredMark(editor.schema.marks.entity);
+        if (resources) {
+          transaction.step(
+            pageVersionStateStep(resources.before, resources.after),
+          );
+          transaction.setMeta("skipWritingReward", true);
+        }
         editor.view.dispatch(transaction);
+        if (resources) editor.view.dispatch(closeHistory(editor.state.tr));
         return info;
       },
       removeEntity(id) {
@@ -1993,6 +2060,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         plainOnly={plainOnly}
         onCreateComponent={onCreateComponent}
         onPasteImages={onPasteImages}
+        onPasteComponentUrl={onPasteComponentUrl}
         onCreateProp={onCreateProp}
         onOpenChange={setContextMenuOpen}
       />

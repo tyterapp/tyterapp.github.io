@@ -8,6 +8,7 @@ import { cleanScriptVersions, scriptVersionId } from "./script-versions.js";
 import { cleanRevisionRound, cleanRevisionStamp } from "./script-revisions.js";
 import { cleanSceneShots } from "./shot-info.js";
 import { cleanComponentAliases } from "./component-names.js";
+import { componentUrl } from "./component-url.js";
 import { cleanPageVersions } from "./page-versions.js";
 import { cleanComponentRelationships } from "./component-relationships.js";
 import { ensurePageColors } from "./page-colors.js";
@@ -597,6 +598,12 @@ export function validateImport(input, options = {}) {
           ),
           type: item.type === "place" ? "place" : "character",
           description: cleanText(item.description, 5000),
+          ...(componentUrl(item.url)
+            ? {
+                url: componentUrl(item.url),
+                urlEnabled: item.urlEnabled !== false,
+              }
+            : {}),
           quantity: Number.isFinite(Number(item.quantity))
             ? Math.max(0, Math.min(999999, Number(item.quantity)))
             : 1,

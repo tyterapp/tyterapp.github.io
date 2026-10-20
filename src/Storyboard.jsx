@@ -31,7 +31,10 @@ import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
 import StoryboardFrameGenerator from "./StoryboardFrameGenerator.jsx";
 import StoryboardPlayer from "./StoryboardPlayer.jsx";
 import { scriptVersionExportStyle } from "./script-version-colors.js";
-import { usePinchGrid, useLongPressReorder } from "./useStoryboardGestures.js";
+import {
+  useStoryboardZoom,
+  useLongPressReorder,
+} from "./useStoryboardGestures.js";
 import "./storyboard.css";
 
 const tr = (ru, en) => (getLanguage() === "en" ? en : ru);
@@ -97,6 +100,8 @@ export function StoryboardBoard({
   scenes,
   selectedId,
   onSelect,
+  onFrameSelect,
+  onMoveFrame,
   onMove,
   onAdd,
   onExport,
@@ -112,13 +117,26 @@ export function StoryboardBoard({
   const [exports, setExports] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const viewport = useRef(null);
-  usePinchGrid(viewport, zoom, setZoom);
+  useStoryboardZoom(viewport, zoom, setZoom);
   const reorder = useLongPressReorder(
     ".story-card[data-scene]",
     "data-scene",
     (id, target) => {
       if (!readonly) onMove(id, target);
     },
+    ".story-card-select",
+  );
+  const slideReorder = useLongPressReorder(
+    ".story-card-slide[data-slide]",
+    "data-slide",
+    (source, target) => {
+      if (readonly) return;
+      const [sceneId, letter, frameId] = JSON.parse(source);
+      onMoveFrame(sceneId, letter, frameId, target);
+    },
+    null,
+    ".story-card[data-scene]",
+    "data-scene",
   );
   const visible = scenes;
   const pages = [...new Set(visible.map((scene) => scene.page))];
@@ -157,6 +175,10 @@ export function StoryboardBoard({
       <div
         className="story-board-scroll"
         ref={viewport}
+        onClick={(event) => {
+          if (!event.target.closest("button, input, select, .story-card"))
+            onSelect(null);
+        }}
         style={{ "--story-card-width": `${(360 * zoom) / 100}px` }}
       >
         {!scenes.length && (
@@ -216,6 +238,7 @@ export function StoryboardBoard({
                           : scriptVersionExportStyle(scene.color).color,
                     }}
                     data-scene={scene.id}
+                    data-frame-drop={JSON.stringify(["scene", scene.id])}
                     {...(readonly ? {} : reorder)}
                     draggable={false}
                   >
@@ -237,6 +260,47 @@ export function StoryboardBoard({
                         </span>
                       </span>
                     </button>
+                    {selectedId === scene.id &&
+                      storyboardFrames(scene.settings).some(
+                        (frame) => frame.image,
+                      ) && (
+                        <div
+                          className="story-card-slides"
+                          aria-label={tr("Слайды сцены", "Scene slides")}
+                        >
+                          {storyboardFrames(scene.settings).map(
+                            (frame, index) =>
+                              frame.image && (
+                                <button
+                                  key={frame.id}
+                                  className="story-card-slide"
+                                  data-slide={JSON.stringify([
+                                    scene.id,
+                                    scene.letter,
+                                    frame.id,
+                                  ])}
+                                  {...(readonly ? {} : slideReorder)}
+                                  draggable={false}
+                                  aria-label={`${tr("Открыть слайд", "Open slide")} ${index + 1}`}
+                                  title={tr(
+                                    "Перетащите на другую сцену",
+                                    "Drag onto another scene",
+                                  )}
+                                  onClick={() =>
+                                    onFrameSelect(scene.id, frame.id)
+                                  }
+                                >
+                                  <img
+                                    src={frame.image}
+                                    alt=""
+                                    draggable={false}
+                                  />
+                                  <small>{index + 1}</small>
+                                </button>
+                              ),
+                          )}
+                        </div>
+                      )}
                     {comments && scene.settings.frameComment && (
                       <p className="story-card-comment">
                         {scene.settings.frameComment}
@@ -489,9 +553,22 @@ function StoryDrama({ scenes, selectedId, onSelect, onChange }) {
   );
 }
 
-function FrameEditor({ scene, onChange, scope }) {
+function FrameEditor({
+  scene,
+  scenes,
+  onChange,
+  onMoveFrame,
+  scope,
+  frameTarget,
+}) {
   const frames = storyboardFrames(scene.settings);
-  const [selected, setSelected] = useState(frames[0]?.id);
+  const [selected, setSelected] = useState(
+    frameTarget?.frameId || frames[0]?.id,
+  );
+  const [moveTarget, setMoveTarget] = useState("");
+  useEffect(() => {
+    if (frameTarget?.frameId) setSelected(frameTarget.frameId);
+  }, [frameTarget]);
   const [error, setError] = useState("");
   const input = useRef(null),
     uploadTarget = useRef(null),
@@ -509,13 +586,21 @@ function FrameEditor({ scene, onChange, scope }) {
     ".story-frame-slot[data-frame]",
     "data-frame",
     (id, target) => {
+      const [kind, targetId] = JSON.parse(target);
+      if (kind === "scene") {
+        onMoveFrame(scene.id, scene.letter, id, targetId);
+        return;
+      }
       const next = [...liveFrames.current],
         from = next.findIndex((frame) => frame.id === id),
-        to = next.findIndex((frame) => frame.id === target);
+        to = next.findIndex((frame) => frame.id === targetId);
       if (from < 0 || to < 0) return;
       next.splice(to, 0, ...next.splice(from, 1));
       onChange({ frames: next });
     },
+    null,
+    ".story-frame-slot[data-frame],.story-card[data-scene]",
+    "data-frame-drop",
   );
   const current = frames.find((frame) => frame.id === selected) || frames[0];
   const setFrames = (value) => onChange({ frames: value });
@@ -595,6 +680,7 @@ function FrameEditor({ scene, onChange, scope }) {
           <button
             key={frame.id}
             data-frame={frame.id}
+            data-frame-drop={JSON.stringify(["frame", frame.id])}
             {...reorder}
             className={`story-frame-slot${current?.id === frame.id ? " selected" : ""}`}
             draggable={false}
@@ -745,6 +831,44 @@ function FrameEditor({ scene, onChange, scope }) {
         />
         {tr("Повторять при наведении", "Loop on hover")}
       </label>
+      {current && scenes.length > 1 && (
+        <div className="story-move-frame">
+          <label>
+            {tr("Переместить слайд в сцену", "Move slide to scene")}
+            <select
+              aria-label={tr(
+                "Сцена для переноса слайда",
+                "Slide destination scene",
+              )}
+              value={moveTarget}
+              onChange={(event) => setMoveTarget(event.target.value)}
+            >
+              <option value="">{tr("Выберите сцену", "Choose a scene")}</option>
+              {scenes
+                .filter((item) => item.id !== scene.id)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {label(item)} · {item.title || t("Без названия")}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button
+            className="quiet-button"
+            disabled={
+              !scenes.some(
+                (item) => item.id === moveTarget && item.id !== scene.id,
+              )
+            }
+            onClick={() =>
+              onMoveFrame(scene.id, scene.letter, current.id, moveTarget)
+            }
+          >
+            <ArrowRight size={16} />
+            {tr("Переместить слайд", "Move slide")}
+          </button>
+        </div>
+      )}
       <p className="story-help">
         {tr(
           "Наведите на карточку для просмотра. Вставка из буфера предложит свободные слоты.",
@@ -772,12 +896,20 @@ export function StoryboardInspector({
   onMoveBlock,
   onExport,
   busy,
+  frameTarget,
+  onMoveFrame,
 }) {
   useLanguage();
   const [tab, setTab] = useState("structure"),
     [info, setInfo] = useState("frames"),
     [chart, setChart] = useState(false);
   const [addFormat, setAddFormat] = useState("action");
+  useEffect(() => {
+    if (frameTarget) {
+      setTab("info");
+      setInfo("frames");
+    }
+  }, [frameTarget]);
   const [expanded, setExpanded] = useState(null),
     [adding, setAdding] = useState(false);
   const blockReorder = useLongPressReorder(
@@ -1099,6 +1231,9 @@ export function StoryboardInspector({
                 key={`${scope}:${scene.id}:${scene.letter}`}
                 scope={`${scope}:${scene.id}:${scene.letter}`}
                 scene={scene}
+                scenes={scenes}
+                frameTarget={frameTarget}
+                onMoveFrame={onMoveFrame}
                 onChange={(patch) => onChange(scene.id, patch)}
               />
             ) : (
@@ -1195,19 +1330,37 @@ export function StoryboardInspector({
 }
 
 export function StoryboardPaste({
+  view,
   scope,
   scenes,
   selectedId,
   onFill,
+  onAppend,
   onError,
   enabled,
 }) {
   const [pending, setPending] = useState(null),
     [slot, setSlot] = useState("");
   const dialog = useRef(null),
-    latest = useRef({ scope, scenes, onFill, selectedId, enabled }),
+    latest = useRef({
+      scope,
+      scenes,
+      onFill,
+      onAppend,
+      selectedId,
+      enabled,
+      view,
+    }),
     request = useRef(0);
-  latest.current = { scope, scenes, onFill, selectedId, enabled };
+  latest.current = {
+    scope,
+    scenes,
+    onFill,
+    onAppend,
+    selectedId,
+    enabled,
+    view,
+  };
   useEffect(() => {
     request.current++;
     setPending(null);
@@ -1217,10 +1370,13 @@ export function StoryboardPaste({
       const state = latest.current;
       if (
         !state.enabled ||
-        event.target.closest("dialog, .component-form, .prop-form")
+        event.target.closest(
+          "dialog, .component-form, .prop-form, input, textarea, select",
+        )
       )
         return;
       if (
+        state.view !== "storyboard" &&
         !event.target.closest(
           ".storyboard-workspace, .story-inspector, .script-paper",
         )
@@ -1234,16 +1390,36 @@ export function StoryboardPaste({
       event.stopImmediatePropagation();
       const token = ++request.current,
         sourceScope = state.scope;
+      const scene = state.scenes.find((item) => item.id === state.selectedId);
       try {
+        if (files.length > 50)
+          throw new Error(
+            tr(
+              "Вставляйте не больше 50 изображений за раз.",
+              "Paste up to 50 images at a time.",
+            ),
+          );
         const images = await Promise.all(
           files.slice(0, 50).map((file) => storyboardImage(file)),
         );
         if (
           token !== request.current ||
           sourceScope !== latest.current.scope ||
-          !latest.current.enabled
+          !latest.current.enabled ||
+          state.view !== latest.current.view
         )
           return;
+        if (state.view === "storyboard") {
+          if (
+            state.selectedId !== latest.current.selectedId ||
+            (scene &&
+              latest.current.scenes.find((item) => item.id === scene.id)
+                ?.letter !== scene.letter)
+          )
+            return;
+          latest.current.onAppend(images, scene?.id, scene?.letter);
+          return;
+        }
         const available = latest.current.scenes.flatMap((scene) =>
           storyboardFrames(scene.settings)
             .filter((frame) => !frame.image)

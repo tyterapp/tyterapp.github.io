@@ -179,7 +179,7 @@ for (const theme of ["light", "dark"])
     ).toHaveValue("2");
     expect(errors).toEqual([]);
   });
-test("slides respect hover timing, clipboard chooses empty slots, variants stay isolated and Undo restores settings", async ({
+test("slides respect hover timing, clipboard appends to illustrated scenes, variants stay isolated and Undo restores settings", async ({
   page,
 }) => {
   await open(page);
@@ -209,11 +209,14 @@ test("slides respect hover timing, clipboard chooses empty slots, variants stay 
       }),
     );
   }, green);
-  const dialog = page.locator(".story-paste-dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator("select")).toHaveValue("one:A:empty");
-  await dialog.getByRole("button", { name: "Добавить", exact: true }).click();
-  await expect(panel(page).locator('[data-frame="empty"] img')).toBeVisible();
+  await expect(page.locator(".story-paste-dialog")).toHaveCount(0);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(4);
+  await expect(panel(page).locator('[data-frame="empty"] img')).toHaveCount(0);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]").last().locator("img"),
+  ).toHaveAttribute("src", green);
   await panel(page)
     .getByLabel("Вариант сцены 1", { exact: true })
     .selectOption("B");
@@ -235,8 +238,8 @@ test("slides respect hover timing, clipboard chooses empty slots, variants stay 
     .selectOption("A");
   await expect(
     panel(page).locator(".story-frame-slot[data-frame]"),
-  ).toHaveCount(3);
-  await expect(panel(page).locator('[data-frame="empty"] img')).toBeVisible();
+  ).toHaveCount(4);
+  await expect(panel(page).locator('[data-frame="empty"] img')).toHaveCount(0);
   await panel(page)
     .locator('[data-frame="b"]')
     .dragTo(panel(page).locator('[data-frame="r"]'));
@@ -506,6 +509,297 @@ async function mouseDrag(page, from, to, cancel = false) {
   if (cancel) await page.keyboard.press("Escape");
   await page.mouse.up();
 }
+async function pasteImage(page, color = green) {
+  await page.locator(".storyboard-workspace").evaluate((element, data) => {
+    const bytes = Uint8Array.from(atob(data.split(",")[1]), (char) =>
+      char.charCodeAt(0),
+    );
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "pasted.png", { type: "image/png" }));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: transfer,
+      }),
+    );
+  }, color);
+}
+test("image paste without selection appends scenes; empty scene uses its first slot and further paste appends; Undo restores everything", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await pasteImage(page);
+  await expect(page.locator(".story-card")).toHaveCount(4);
+  const id = await page
+    .locator(".story-card")
+    .last()
+    .getAttribute("data-scene");
+  await info(page);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(1);
+  await expect(panel(page).locator(".story-frame-slot img")).toHaveAttribute(
+    "src",
+    green,
+  );
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".story-card")).toHaveCount(3);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(card(page, id)).toBeVisible();
+  await card(page, "three").locator(".story-card-select").click();
+  await info(page);
+  await panel(page)
+    .getByRole("button", { name: "Добавить свободный слот", exact: true })
+    .click();
+  const emptyId = await panel(page)
+    .locator(".story-frame-slot[data-frame]")
+    .first()
+    .getAttribute("data-frame");
+  await pasteImage(page, red);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(1);
+  await expect(
+    panel(page).locator(`[data-frame="${emptyId}"] img`),
+  ).toHaveAttribute("src", red);
+  await pasteImage(page, blue);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(2);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]").last().locator("img"),
+  ).toHaveAttribute("src", blue);
+  await page.keyboard.press("Control+z");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(1);
+  await page.waitForTimeout(700);
+  await page.reload();
+  await boardButton(page).click();
+  await expect(page.locator(".story-card")).toHaveCount(4);
+  await expect(card(page, "three").locator(".story-image img")).toHaveAttribute(
+    "src",
+    red,
+  );
+});
+test("individual viewport slides and sidebar slides move between scenes with their timings, selected variants and one-step Undo", async ({
+  page,
+}) => {
+  await open(page);
+  await boardButton(page).click();
+  await card(page, "one").locator(".story-card-select").click();
+  await mouseDrag(
+    page,
+    card(page, "one").locator(".story-card-slide").first(),
+    card(page, "two").locator(".story-card-select"),
+  );
+  await expect(card(page, "one").locator(".story-card-slide")).toHaveCount(1);
+  await card(page, "two").locator(".story-card-select").click();
+  await info(page);
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(2);
+  await expect(panel(page).locator('[data-frame="r"] img')).toHaveAttribute(
+    "src",
+    red,
+  );
+  await panel(page).locator('[data-frame="r"]').click();
+  await expect(
+    panel(page).getByLabel("Длительность, секунды", { exact: true }),
+  ).toHaveValue("0.3");
+  await page.keyboard.press("Control+z");
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(1);
+  await panel(page)
+    .getByLabel("Вариант сцены 2", { exact: true })
+    .selectOption("B");
+  await card(page, "one").locator(".story-card-select").click();
+  await info(page);
+  await mouseDrag(
+    page,
+    panel(page).locator('[data-frame="b"]'),
+    card(page, "two").locator(".story-card-select"),
+  );
+  await expect(panel(page).locator('[data-frame="b"]')).toHaveCount(0);
+  await card(page, "two").locator(".story-card-select").click();
+  await info(page);
+  await expect(panel(page).locator('[data-frame="b"] img')).toHaveAttribute(
+    "src",
+    blue,
+  );
+  await expect(
+    panel(page).getByLabel("Длительность, секунды", { exact: true }),
+  ).toHaveValue("0.7");
+  await panel(page)
+    .getByLabel("Вариант сцены 2", { exact: true })
+    .selectOption("A");
+  await expect(panel(page).locator('[data-frame="g"] img')).toHaveAttribute(
+    "src",
+    green,
+  );
+  await expect(panel(page).locator('[data-frame="b"]')).toHaveCount(0);
+  await panel(page)
+    .getByLabel("Сцена для переноса слайда", { exact: true })
+    .selectOption("three");
+  await panel(page)
+    .getByRole("button", { name: "Переместить слайд", exact: true })
+    .click();
+  await expect(
+    panel(page).locator(".story-frame-slot[data-frame]"),
+  ).toHaveCount(0);
+  await expect(card(page, "three").locator(".story-image img")).toHaveAttribute(
+    "src",
+    green,
+  );
+});
+
+async function pasteUrl(page, text, url) {
+  await page.locator(".screenplay-editor").evaluate(
+    (element, { text, url }) => {
+      const editor = element.editor;
+      let from;
+      editor.state.doc.descendants((node, pos) => {
+        if (from === undefined && node.isText && node.text.includes(text))
+          from = pos + node.text.indexOf(text);
+      });
+      if (from === undefined) throw new Error("Selection text not found");
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from, to: from + text.length })
+        .run();
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", url);
+      element.dispatchEvent(
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData,
+        }),
+      );
+    },
+    { text, url },
+  );
+}
+for (const theme of ["light", "dark"])
+  test(`${theme}: URL paste links an existing component and creates one for plain text; backing is blue at 8% and disappears on hover`, async ({
+    page,
+  }) => {
+    await open(page, { theme });
+    const original = await page.locator(".screenplay-editor").textContent();
+    await pasteUrl(page, "ПЯТАЧОК", "https://example.com/rabbit");
+    const form = page.locator(".component-editor");
+    await expect(
+      form.getByLabel("Ссылка компонента", { exact: true }),
+    ).toHaveValue("https://example.com/rabbit");
+    await pasteUrl(page, "ПЯТАЧОК", "https://example.com/rabbit-updated");
+    await expect(
+      form.getByLabel("Ссылка компонента", { exact: true }),
+    ).toHaveValue("https://example.com/rabbit-updated");
+    const mark = page
+      .locator(".screenplay-editor .script-component-url")
+      .filter({ hasText: "ПЯТАЧОК" })
+      .first();
+    await page.mouse.move(20, 70);
+    await expect
+      .poll(() => mark.evaluate((e) => getComputedStyle(e).backgroundColor))
+      .toBe("rgba(27, 46, 255, 0.08)");
+    await mark.hover();
+    await expect
+      .poll(() => mark.evaluate((e) => getComputedStyle(e).backgroundColor))
+      .toBe("rgba(0, 0, 0, 0)");
+    await form
+      .getByLabel("Использовать ссылку компонента", { exact: true })
+      .uncheck();
+    await form.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.locator(".script-component-url")).toHaveCount(0);
+    await expect(
+      page.locator('.screenplay-editor [data-entity-id="rabbit"]'),
+    ).toBeVisible();
+    await pasteUrl(page, "Тихая комната.", "https://example.com/room");
+    await expect(
+      form.getByLabel("Ссылка компонента", { exact: true }),
+    ).toHaveValue("https://example.com/room");
+    await expect(
+      page
+        .locator(".script-component-url")
+        .filter({ hasText: "Тихая комната." }),
+    ).toBeVisible();
+    expect(await page.locator(".screenplay-editor").textContent()).toBe(
+      original,
+    );
+    await page
+      .locator(".screenplay-editor")
+      .click({ position: { x: 250, y: 150 } });
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".script-component-url")).toHaveCount(0);
+    await page.keyboard.press("Control+Shift+z");
+    await expect(
+      page
+        .locator(".script-component-url")
+        .filter({ hasText: "Тихая комната." }),
+    ).toBeVisible();
+    await page.screenshot({ path: `.cache/component-link-${theme}.png` });
+    await page.waitForTimeout(700);
+    await page.reload();
+    await expect(
+      page
+        .locator(".script-component-url")
+        .filter({ hasText: "Тихая комната." }),
+    ).toBeVisible();
+    expect(await page.locator(".screenplay-editor").textContent()).toBe(
+      original,
+    );
+  });
+
+test("English context menu pastes a URL as a component link and mobile settings keep the independent switch", async ({
+  page,
+  context,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await open(page, { language: "en" });
+  await page.evaluate(() =>
+    navigator.clipboard.writeText("https://example.com/dialogue"),
+  );
+  await page.locator(".screenplay-editor").evaluate((element) => {
+    const editor = element.editor;
+    let from, to;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.attrs?.blockId === "speech") {
+        from = pos + 1;
+        to = from + node.content.size;
+      }
+    });
+    editor.chain().focus().setTextSelection({ from, to }).run();
+  });
+  await page.locator('[data-block-id="speech"]').click({ button: "right" });
+  expect(errors).toEqual([]);
+  await expect(page.getByRole("menu", { name: "Text actions" })).toBeVisible();
+  await page.getByRole("menuitem", { name: /^Paste/ }).click();
+  const form = page.locator(".component-editor");
+  await expect(form.getByLabel("Component link", { exact: true })).toHaveValue(
+    "https://example.com/dialogue",
+  );
+  await expect(
+    page
+      .locator(".script-component-url")
+      .filter({ hasText: "Ты слышишь это?" }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    form.getByLabel("Enable component link", { exact: true }),
+  ).toBeVisible();
+  const size = await form
+    .getByLabel("Component link", { exact: true })
+    .evaluate((e) => getComputedStyle(e).fontSize);
+  expect(parseFloat(size)).toBeGreaterThanOrEqual(16);
+  await page.screenshot({ path: ".cache/component-link-mobile.png" });
+});
 test("desktop mouse reorders scenes and actual text blocks; Escape cancels and compact structure is shared", async ({
   page,
 }) => {

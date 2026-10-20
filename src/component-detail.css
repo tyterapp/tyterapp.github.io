@@ -104,3 +104,54 @@
     min-height: 44px;
   }
 }
+.component-url-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.component-url-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.component-url-actions .component-url-toggle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.component-url-settings .component-url-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+.component-url-settings .component-url-toggle input {
+  width: 16px;
+  min-height: 16px;
+  flex: 0 0 16px;
+  accent-color: var(--ui-accent);
+}
+.component-url-settings a {
+  color: var(--ui-accent);
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+@media (max-width: 831px) {
+  .component-url-settings .component-url-toggle {
+    min-height: 44px;
+  }
+  .component-url-settings input[type="url"] {
+    font-size: 16px;
+  }
+  .component-url-settings a {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

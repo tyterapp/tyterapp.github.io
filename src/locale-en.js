@@ -2,6 +2,11 @@
 import questMessages from "./pro/quests/locale-en.js";
 import siteMessages from "./site-messages.js";
 export default {
+  "Ссылка компонента": "Component link",
+  "Использовать ссылку компонента": "Enable component link",
+  "Открыть ссылку": "Open link",
+  "В сцене может быть не больше 200 слайдов.":
+    "A scene can contain up to 200 slides.",
   "Сценарий, раскадровка, комментарии и все детали":
     "Screenplay, storyboard, comments and all details",
   "Открыть раскадровку · Pro": "Open storyboard · Pro",

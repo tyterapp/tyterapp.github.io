@@ -36,6 +36,7 @@ import {
   Minimize2,
   Menu,
   Crop,
+  ExternalLink,
 } from "lucide-react";
 import {
   StoryboardBoard,
@@ -51,8 +52,11 @@ import {
   removeSceneBlock,
   moveSceneBlock,
   migrateStoryboard,
+  pasteStoryboardImages,
+  moveStoryboardFrame,
 } from "./storyboard-model.js";
 import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { componentUrl } from "./component-url.js";
 import { exportStoryboard } from "./storyboard-export.js";
 import { updateShotSettings } from "./shot-info.js";
 import { exportTYT } from "./tyt-format.js";
@@ -411,6 +415,12 @@ function ComponentForm({
   const [name, setName] = useState(value.name || "");
   const [description, setDescription] = useState(value.description || "");
   const [quantity, setQuantity] = useState(value.quantity ?? 1);
+  const [url, setUrl] = useState(value.url || "");
+  const [urlEnabled, setUrlEnabled] = useState(value.urlEnabled !== false);
+  useEffect(() => {
+    setUrl(value.url || "");
+    setUrlEnabled(value.urlEnabled !== false);
+  }, [value.id, value.url, value.urlEnabled]);
   const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
   const [aliases, setAliases] = useState(
     typeof value.aliases === "string"
@@ -456,6 +466,8 @@ function ComponentForm({
     name,
     description,
     quantity,
+    url,
+    urlEnabled,
     thumbnail,
     aliases,
     folderId,
@@ -473,6 +485,8 @@ function ComponentForm({
     name,
     description,
     quantity,
+    url,
+    urlEnabled,
     thumbnail,
     aliases,
     folderId,
@@ -513,6 +527,7 @@ function ComponentForm({
               ...value,
               name: name.trim(),
               quantity: Math.max(0, Math.min(999999, Number(quantity) || 0)),
+              ...(!prop ? { url: componentUrl(url), urlEnabled } : {}),
               ...(prop ? { category: "Objects" } : { aliases: cleanedAliases }),
               type:
                 folderId === "place"
@@ -542,6 +557,51 @@ function ComponentForm({
             placeholder={t("Например, Анна")}
           />
         </label>
+        {!prop && (
+          <div className="component-url-settings">
+            <label>
+              {t("Ссылка компонента")}
+              <input
+                type="url"
+                aria-label={t("Ссылка компонента")}
+                value={url}
+                maxLength={2048}
+                placeholder="https://…"
+                onChange={(event) => setUrl(event.target.value)}
+                onBlur={() => {
+                  if (componentUrl(url)) setUrl(componentUrl(url));
+                }}
+                pattern="https?://.*"
+              />
+            </label>
+            {!!url && (
+              <>
+                <div className="component-url-actions">
+                  <label className="component-url-toggle">
+                    <input
+                      type="checkbox"
+                      checked={urlEnabled}
+                      aria-label={t("Использовать ссылку компонента")}
+                      onChange={(event) => setUrlEnabled(event.target.checked)}
+                    />
+                    {t("Использовать ссылку компонента")}
+                  </label>
+                  {componentUrl(url) && urlEnabled && (
+                    <a
+                      href={componentUrl(url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={t("Открыть ссылку")}
+                      title={t("Открыть ссылку")}
+                    >
+                      <ExternalLink size={16} aria-hidden="true" />
+                    </a>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <label>
           {t("Количество")}
           <input
@@ -782,6 +842,7 @@ export default function MinimalApp({ onLogout }) {
   const notesRef = useRef(null);
   const [view, setView] = useState("screenplay");
   const [shotTarget, setShotTarget] = useState(null);
+  const [storyFrameTarget, setStoryFrameTarget] = useState(null);
   const shots = useMemo(
     () => storyboardScenes(current),
     [
@@ -1496,6 +1557,16 @@ export default function MinimalApp({ onLogout }) {
   const selectStoryboardScene = (id) => {
     showSidebar(null);
     setShotTarget(id);
+    setStoryFrameTarget(null);
+  };
+  const moveFrameToScene = (sourceId, letter, frameId, targetId) => {
+    try {
+      applyStoryboardEdit((doc) =>
+        moveStoryboardFrame(doc, sourceId, letter, frameId, targetId),
+      );
+    } catch (error) {
+      setMessage(error.message);
+    }
   };
   const downloadStoryboard = async (format) => {
     if (busy) return;
@@ -2382,6 +2453,49 @@ export default function MinimalApp({ onLogout }) {
         },
         { edit: true },
       );
+  };
+  const pasteComponentUrl = (source, rawUrl) => {
+    const url = componentUrl(rawUrl);
+    if (!url || !source.text.trim()) return;
+    const before =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const existing =
+      before.components.find((component) => component.id === source.entityId) ||
+      before.components.find((component) =>
+        componentNames(component).some(
+          (name) =>
+            name.toLocaleLowerCase() === source.text.trim().toLocaleLowerCase(),
+        ),
+      );
+    if (!existing && !IS_PRO && before.components.length >= 10) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    const component = {
+      ...(existing || {
+        id: uid(),
+        name: source.text.trim().replace(/\s+/g, " ").slice(0, 200),
+        type: source.format === "scene" ? "place" : "character",
+        quantity: 1,
+        description: "",
+        color: "#8a799a",
+      }),
+      url,
+      urlEnabled: true,
+      enabled: true,
+    };
+    const after = {
+      ...before,
+      components: existing
+        ? before.components.map((item) =>
+            item.id === component.id ? component : item,
+          )
+        : [...before.components, component],
+    };
+    if (editorRef.current?.addEntity(component, source, { before, after })) {
+      clearEntityDraft(component);
+      editComponent(component);
+    }
   };
   const beginComponent = (value) => {
     if (!IS_PRO && current.components.length >= 10) {
@@ -3463,6 +3577,15 @@ export default function MinimalApp({ onLogout }) {
             selectedId={shotTarget}
             readonly={!!historyRevision}
             onSelect={selectStoryboardScene}
+            onFrameSelect={(id, frameId) => {
+              selectStoryboardScene(id);
+              setStoryFrameTarget({
+                scope: writingScope,
+                sceneId: id,
+                frameId,
+              });
+            }}
+            onMoveFrame={moveFrameToScene}
             onMove={(id, target) =>
               applyStoryboardEdit((doc) => moveStoryboardScene(doc, id, target))
             }
@@ -3479,6 +3602,7 @@ export default function MinimalApp({ onLogout }) {
           />
         )}
         <StoryboardPaste
+          view={view}
           scope={writingScope}
           scenes={shots}
           selectedId={shotTarget}
@@ -3490,6 +3614,19 @@ export default function MinimalApp({ onLogout }) {
             (view === "storyboard" || !!selectedShot)
           }
           onError={setMessage}
+          onAppend={(images, id, letter) => {
+            let selected;
+            try {
+              applyStoryboardEdit((doc) => {
+                const result = pasteStoryboardImages(doc, images, id, letter);
+                selected = result.id;
+                return result.document;
+              });
+              if (selected) selectStoryboardScene(selected);
+            } catch (error) {
+              setMessage(error.message);
+            }
+          }}
           onFill={(id, letter, frameId, images) => {
             applyStoryboardEdit((doc) => {
               const frames = [
@@ -3902,6 +4039,7 @@ export default function MinimalApp({ onLogout }) {
                         !!selectedShot))
                   }
                   onCreateComponent={componentFromSelection}
+                  onPasteComponentUrl={pasteComponentUrl}
                   onPasteImages={(files) =>
                     imagePasteRef.current?.insert(files)
                   }
@@ -4101,6 +4239,13 @@ export default function MinimalApp({ onLogout }) {
               scene={selectedShot}
               scenes={shots}
               view={view}
+              frameTarget={
+                storyFrameTarget?.scope === writingScope &&
+                storyFrameTarget.sceneId === selectedShot.id
+                  ? storyFrameTarget
+                  : null
+              }
+              onMoveFrame={moveFrameToScene}
               onClose={() => showSidebar(null)}
               onSelect={selectStoryboardScene}
               onView={(next) => {
