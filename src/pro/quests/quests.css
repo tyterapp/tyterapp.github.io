@@ -600,6 +600,7 @@
       .focus-mode-toggle,
       .focus-typewriter-button,
       .focus-telegraph-button,
+      .focus-theme-button,
       .scroll-top-button
     ) {
     visibility: hidden;

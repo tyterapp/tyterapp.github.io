@@ -192,8 +192,8 @@
     .focus-mode-toggle,
     .focus-typewriter-button,
     .focus-telegraph-button,
+    .focus-theme-button,
     .scroll-top-button,
-    .focus-format-hint,
     .outline-drama-chart,
     .component-editor-inline,
     .prop-editor-inline
@@ -241,9 +241,6 @@
 :root[data-theme="dark"] .search-variant-badge.has-variants {
   background: #463654;
   color: #dec5fb;
-}
-:root[data-theme="dark"] .focus-format-hint .current {
-  color: #d9c5ec;
 }
 :root[data-theme="dark"] .search-match {
   background: #605036;

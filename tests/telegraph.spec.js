@@ -179,7 +179,9 @@ const formatGap = (page) =>
         .querySelectorAll(".focus-format-hint, .screenplay-format-bar"),
     ].find((candidate) => candidate.getClientRects().length);
     return (
-      bar.getBoundingClientRect().top - node.getBoundingClientRect().bottom
+      (bar?.getBoundingClientRect().top ||
+        node.closest(".editor-column").getBoundingClientRect().bottom) -
+      node.getBoundingClientRect().bottom
     );
   });
 async function signal(page, symbol = ".", keyboard = false) {

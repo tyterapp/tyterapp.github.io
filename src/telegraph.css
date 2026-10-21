@@ -65,6 +65,7 @@
     .focus-mode-toggle,
     .focus-typewriter-button,
     .focus-telegraph-button,
+    .focus-theme-button,
     .scroll-top-button
   ) {
   top: 8px;

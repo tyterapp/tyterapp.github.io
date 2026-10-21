@@ -535,7 +535,7 @@ test("F stays independent when other variants are first opened; switching does n
   await expect(action).toHaveText("Только вариант F.");
 });
 
-test("full screen hides UI, keeps readable hints, accepts typing and restores the caret", async ({
+test("full screen hides UI and formatting panels, accepts typing and restores the caret", async ({
   page,
 }, info) => {
   await page.addInitScript(() =>
@@ -556,8 +556,9 @@ test("full screen hides UI, keeps readable hints, accepts typing and restores th
   await expect(page.locator(".minimal-header")).not.toBeVisible();
   await expect(page.locator(".workspace-tools")).not.toBeVisible();
   await expect(page.locator(".doctor-drawer")).toHaveCount(0);
-  await expect(page.locator(".focus-format-hint")).toContainText("Ctrl+1");
-  await expect(page.locator(".focus-format-hint")).toHaveCSS("opacity", "1");
+  await expect(
+    page.locator(".focus-format-hint, .screenplay-format-bar"),
+  ).toHaveCount(0);
   await page.keyboard.press("End");
   await page.keyboard.type(" — NIGHT");
   await expect(scene(page, "scene-2")).toContainText("NIGHT");

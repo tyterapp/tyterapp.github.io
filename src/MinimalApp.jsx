@@ -35,6 +35,8 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  Sun,
+  Moon,
   Menu,
   Crop,
   ExternalLink,
@@ -89,7 +91,7 @@ import ScriptDoctor from "./ScriptDoctor.jsx";
 import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
 import { inspectDocumentScript } from "./script-doctor.js";
 import ComponentsPanel from "./ComponentsPanel.jsx";
-import FormatBar, { FORMATS } from "./FormatBar.jsx";
+import FormatBar from "./FormatBar.jsx";
 import {
   useEditorPreferences,
   useTypewriterSound,
@@ -139,6 +141,10 @@ import { applyPageVersionChanges } from "./page-version-history.js";
 import { isHistoryTransaction } from "@tiptap/pm/history";
 import { SCRIPT_VERSIONS, scriptVersion } from "./script-versions.js";
 import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
+import {
+  clearDocumentComponents,
+  componentClearState,
+} from "./component-clear.js";
 import {
   exportComponentLibrary,
   mergeComponentLibrary,
@@ -1939,6 +1945,12 @@ export default function MinimalApp({ onLogout }) {
         !entry ||
         entry.documentId !== activeId ||
         !!entry.notes !== notesOpen ||
+        (entry.kind === "components-clear" &&
+          JSON.stringify(
+            componentClearState(
+              documentsRef.current.find((doc) => doc.id === activeId),
+            ),
+          ) !== JSON.stringify(undo ? entry.afterState : entry.beforeState)) ||
         JSON.stringify(actual) !== JSON.stringify(expected)
       ) {
         if (
@@ -1960,6 +1972,12 @@ export default function MinimalApp({ onLogout }) {
       setDocuments((list) =>
         list.map((document) => {
           if (document.id !== entry.documentId) return document;
+          if (entry.kind === "components-clear")
+            return {
+              ...document,
+              ...(undo ? entry.beforeState : entry.afterState),
+              updatedAt: new Date().toISOString(),
+            };
           if (entry.kind === "folder")
             return {
               ...document,
@@ -2772,6 +2790,53 @@ export default function MinimalApp({ onLogout }) {
       components: d.components.filter((c) => c.id !== id),
     }));
     setComponentDialog(null);
+  };
+  const clearComponents = () => {
+    const latest = liveVersionDocument();
+    if (!latest.components.length) return false;
+    const next = clearDocumentComponents(latest);
+    const beforeContent = notesOpen ? latest.notes.content : latest.content;
+    editorRef.current?.restoreContent(
+      notesOpen ? next.notes.content : next.content,
+    );
+    const afterContent =
+      editorRef.current?.getJSON() ||
+      (notesOpen ? next.notes.content : next.content);
+    if (notesOpen) next.notes = { ...next.notes, content: afterContent };
+    else next.content = afterContent;
+    componentHistory.current.undo.push({
+      kind: "components-clear",
+      documentId: latest.id,
+      notes: notesOpen,
+      beforeContent,
+      afterContent,
+      beforeState: componentClearState(latest),
+      afterState: componentClearState(next),
+    });
+    componentHistory.current.redo = [];
+    latest.components.forEach((component) => clearEntityDraft(component));
+    update(() => next);
+    setComponentDialog(null);
+    return true;
+  };
+  const undoClearComponents = () => {
+    const entry = componentHistory.current.undo.at(-1);
+    if (
+      entry?.kind !== "components-clear" ||
+      entry.documentId !== current.id ||
+      !!entry.notes !== notesOpen ||
+      current.components.length > 0 ||
+      JSON.stringify(componentClearState(current)) !==
+        JSON.stringify(entry.afterState) ||
+      JSON.stringify(editorRef.current?.getJSON()) !==
+        JSON.stringify(entry.afterContent)
+    )
+      return false;
+    componentHistory.current.undo.pop();
+    componentHistory.current.redo.push(entry);
+    editorRef.current?.restoreContent(entry.beforeContent);
+    update((doc) => ({ ...doc, ...entry.beforeState }));
+    return true;
   };
   const deleteComponentFolder = (deleteComponents = false) => {
     if (!folderToDelete) return;
@@ -4227,6 +4292,7 @@ export default function MinimalApp({ onLogout }) {
             </article>
           </main>
           {!!documents.length &&
+            !focusMode &&
             !notesOpen &&
             !historyRevision &&
             !characterView &&
@@ -4247,6 +4313,39 @@ export default function MinimalApp({ onLogout }) {
                 <ScrollToTop containerRef={columnRef} />
                 {focusMode && (
                   <>
+                    <button
+                      type="button"
+                      className="icon-button focus-theme-button"
+                      aria-label={t(
+                        preferences.theme === "dark"
+                          ? "Включить светлую тему"
+                          : "Включить тёмную тему",
+                      )}
+                      data-tooltip={t(
+                        preferences.theme === "dark"
+                          ? "Включить светлую тему"
+                          : "Включить тёмную тему",
+                      )}
+                      aria-pressed={preferences.theme === "dark"}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() =>
+                        setPreferences({
+                          theme:
+                            preferences.theme === "dark" ? "light" : "dark",
+                        })
+                      }
+                    >
+                      <Sun
+                        size={20}
+                        className={`focus-theme-icon${preferences.theme === "dark" ? " is-visible" : ""}`}
+                        aria-hidden="true"
+                      />
+                      <Moon
+                        size={20}
+                        className={`focus-theme-icon${preferences.theme !== "dark" ? " is-visible" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
                     {!notesOpen && (
                       <button
                         type="button"
@@ -4349,21 +4448,6 @@ export default function MinimalApp({ onLogout }) {
               });
             }}
           />
-          {focusMode && !notesOpen && (
-            <div
-              className="focus-format-hint"
-              aria-label={t("Форматирование сценария")}
-            >
-              {FORMATS.map(([key, label], index) => (
-                <span
-                  className={selection?.format === key ? "current" : ""}
-                  key={key}
-                >
-                  {t(label)} <kbd>Ctrl+{index + 1}</kbd>
-                </span>
-              ))}
-            </div>
-          )}
           {focusMode &&
             telegraphOpen &&
             !notesOpen &&
@@ -4950,6 +5034,16 @@ export default function MinimalApp({ onLogout }) {
           mobile={mobile}
           screenplay={current}
           discovered={libraryDialog}
+          onClear={clearComponents}
+          onUndoClear={undoClearComponents}
+          canUndoClear={
+            !current.components.length &&
+            componentHistory.current.undo.at(-1)?.kind === "components-clear" &&
+            componentHistory.current.undo.at(-1)?.documentId === current.id &&
+            !!componentHistory.current.undo.at(-1)?.notes === notesOpen &&
+            JSON.stringify(componentClearState(current)) ===
+              JSON.stringify(componentHistory.current.undo.at(-1)?.afterState)
+          }
           onDetach={(id) =>
             update((doc) => ({
               ...doc,

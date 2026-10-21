@@ -375,6 +375,13 @@ export default {
   "Выйти из полноэкранного режима": "Exit full screen",
   "Печатная машинка": "Typewriter",
   "Библиотеки компонентов": "Component libraries",
+  "Включить светлую тему": "Switch to light theme",
+  "Включить тёмную тему": "Switch to dark theme",
+  "Очистить компоненты": "Clear components",
+  "Отменить очистку": "Undo clearing",
+  "Компоненты очищены. Текст сохранён.": "Components cleared. Text preserved.",
+  "Удалить все компоненты текущего документа. Текст и сохранённые библиотеки останутся.":
+    "Remove all components from the current document. Text and saved libraries will be preserved.",
   "Закрыть библиотеки": "Close libraries",
   "Экспорт библиотеки компонентов": "Export component library",
   "Импорт библиотеки компонентов": "Import component library",

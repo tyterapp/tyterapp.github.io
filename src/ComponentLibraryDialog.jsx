@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { LibraryBig, Upload, X, Link2, Unlink, Download } from "lucide-react";
+import {
+  LibraryBig,
+  Upload,
+  X,
+  Link2,
+  Unlink,
+  Download,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import {
   localComponentLibraries,
@@ -17,6 +26,9 @@ export default function ComponentLibraryDialog({
   discovered = [],
   onClose,
   onEmbed,
+  onClear,
+  onUndoClear,
+  canUndoClear = false,
 }) {
   useLanguage();
   const file = useRef(null);
@@ -111,6 +123,19 @@ export default function ComponentLibraryDialog({
   const isLocal = chosenId === "current-local";
   const chosen = isLocal ? local : all.find((lib) => lib.id === chosenId);
   const connected = !isLocal && linked.has(chosenId);
+  const localIds = local.components.map((component) => component.id).join("\0");
+  useEffect(() => {
+    if (isLocal) setSelected(local.components.map((component) => component.id));
+  }, [isLocal, localIds]);
+  const clear = () => {
+    // Keep available library choices even if their last document copy is removed.
+    const available = all;
+    if (onClear() !== false) {
+      setLibraries(available);
+      setSelected([]);
+      setError("");
+    }
+  };
   const choose = (id) => {
     setChosenId(id);
     setSelected(
@@ -357,7 +382,36 @@ export default function ComponentLibraryDialog({
             {t(error)}
           </p>
         )}
+        {isLocal && canUndoClear && (
+          <p className="settings-hint library-clear-status" role="status">
+            {t("Компоненты очищены. Текст сохранён.")}
+          </p>
+        )}
         <div className="dialog-actions">
+          {isLocal &&
+            onClear &&
+            (canUndoClear ? (
+              <button
+                className="quiet-button library-clear-action"
+                disabled={busy}
+                onClick={onUndoClear}
+              >
+                <Undo2 size={16} />
+                {t("Отменить очистку")}
+              </button>
+            ) : (
+              <button
+                className="quiet-button delete-component library-clear-action"
+                disabled={busy || !local.components.length}
+                onClick={clear}
+                data-tooltip={t(
+                  "Удалить все компоненты текущего документа. Текст и сохранённые библиотеки останутся.",
+                )}
+              >
+                <Trash2 size={16} />
+                {t("Очистить компоненты")}
+              </button>
+            ))}
           <button className="quiet-button" onClick={onClose}>
             {t("Закрыть")}
           </button>

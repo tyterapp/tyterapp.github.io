@@ -297,6 +297,7 @@
 .focus-mode-toggle,
 .focus-typewriter-button,
 .focus-telegraph-button,
+.focus-theme-button,
 .scroll-top-button {
   position: absolute;
   z-index: 30;
@@ -313,6 +314,8 @@
 .focus-typewriter-button:focus-visible,
 .focus-telegraph-button:hover,
 .focus-telegraph-button:focus-visible,
+.focus-theme-button:hover,
+.focus-theme-button:focus-visible,
 .scroll-top-button.is-visible:hover,
 .scroll-top-button.is-visible:focus-visible {
   opacity: 1;
@@ -321,10 +324,30 @@
   right: 68px;
 }
 .focus-mode .scroll-top-button {
-  right: 164px;
+  right: 212px;
 }
 .focus-telegraph-button {
   right: 116px;
+}
+.focus-theme-button {
+  right: 164px;
+  display: grid;
+  place-items: center;
+}
+.focus-theme-icon {
+  grid-area: 1 / 1;
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+  transition:
+    opacity 180ms cubic-bezier(0.2, 0, 0, 1),
+    scale 180ms cubic-bezier(0.2, 0, 0, 1),
+    filter 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.focus-theme-icon.is-visible {
+  opacity: 1;
+  scale: 1;
+  filter: blur(0);
 }
 .focus-telegraph-button[aria-pressed="true"] {
   opacity: 1;
@@ -354,6 +377,9 @@
     transition: none;
     transform: none;
   }
+  .focus-theme-icon {
+    transition: none;
+  }
 }
 .focus-mode .minimal-header,
 .focus-mode .app-message,
@@ -362,37 +388,6 @@
 .focus-mode .scene-variant-select,
 .focus-mode .outline-scene-link {
   display: none;
-}
-.focus-format-hint {
-  position: absolute;
-  z-index: 25;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  max-width: calc(100% - 424px);
-  width: max-content;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: var(--ui-surface);
-  color: var(--ui-muted);
-  border: 1px solid var(--ui-border);
-  font-size: 10px;
-  pointer-events: none;
-  opacity: 1;
-}
-.focus-format-hint .current {
-  color: var(--ui-text);
-}
-.focus-format-hint kbd {
-  font: inherit;
-  color: inherit;
-  background: var(--ui-soft);
-  border-color: var(--ui-border);
-  opacity: 1;
 }
 .modal-backdrop {
   position: fixed;
@@ -466,6 +461,22 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+.library-dialog .library-clear-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-right: auto;
+}
+.library-dialog .library-clear-status {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .library-dialog .library-clear-action {
+    flex-basis: 100%;
+    min-height: 44px;
+  }
 }
 .library-list span,
 .library-components span {
@@ -550,18 +561,14 @@
   .character-dialogue-heading {
     flex-wrap: wrap;
   }
-  .focus-format-hint {
-    bottom: 10px;
-    gap: 4px 8px;
-  }
 }
 @media print {
   .doctor-drawer,
   .focus-mode-toggle,
   .focus-typewriter-button,
   .focus-telegraph-button,
+  .focus-theme-button,
   .scroll-top-button,
-  .focus-format-hint,
   .modal-backdrop {
     display: none;
   }

@@ -56,9 +56,7 @@ export default function Telegraph({
   useLayoutEffect(() => {
     const node = element.current;
     const column = node.closest(".editor-column");
-    const bars = [
-      ...column.querySelectorAll(".focus-format-hint, .screenplay-format-bar"),
-    ];
+    const bars = [...column.querySelectorAll(".screenplay-format-bar")];
     const fit = () => {
       const bar = bars.find((candidate) => candidate.getClientRects().length);
       const bottom = bar
