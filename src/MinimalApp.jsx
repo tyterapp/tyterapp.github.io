@@ -124,7 +124,8 @@ import Telegraph from "./Telegraph.jsx";
 import { telegramText } from "./telegram.js";
 import { exportInstantHTML } from "./instant-html.js";
 import { revisionPageStyle } from "./script-revisions.js";
-import { useMobileWorkspace } from "./mobile-workspace.js";
+import { useMobileWorkspace, useMobileWriting } from "./mobile-workspace.js";
+import MobilePageControls from "./MobilePageControls.jsx";
 import { useWritingTimer } from "./writing-timer.js";
 import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
 import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
@@ -880,8 +881,15 @@ export default function MinimalApp({ onLogout }) {
   const [dramaTarget, setDramaTarget] = useState(null);
   const [storyFrameTarget, setStoryFrameTarget] = useState(null);
   const shots = useMemo(
-    () => storyboardScenes(current),
+    () =>
+      mobile && view !== "storyboard" && !dramaOpen && !shotTarget
+        ? []
+        : storyboardScenes(current),
     [
+      mobile,
+      view,
+      dramaOpen,
+      shotTarget,
       current.content,
       current.sceneShots,
       current.pageVersions,
@@ -2076,7 +2084,7 @@ export default function MinimalApp({ onLogout }) {
       (page) => page.id === pageId,
     );
     update((document) => setPageColor(document, pageId, color));
-    if (target)
+    if (target && !mobile)
       requestAnimationFrame(() =>
         editorRef.current?.focusPosition(target.from + 1),
       );
@@ -3115,6 +3123,18 @@ export default function MinimalApp({ onLogout }) {
       });
   };
   const columnRef = useRef(null);
+  const mobileWriting = useMobileWriting(
+    columnRef,
+    writingScope,
+    mobile &&
+      view === "screenplay" &&
+      !notesOpen &&
+      !historyRevision &&
+      !characterView &&
+      !mobileToolsOpen &&
+      !libraryDialog,
+    keyboard,
+  );
   const openLearning = () => {
     changeView("screenplay", { focus: false });
     setLearningOpen(true);
@@ -3509,14 +3529,6 @@ export default function MinimalApp({ onLogout }) {
         {mobile && (
           <>
             <button
-              className="icon-button mobile-components-toggle"
-              aria-label={t("Компоненты")}
-              aria-expanded={componentsOpen}
-              onClick={() => showSidebar("components")}
-            >
-              <Shapes size={21} />
-            </button>
-            <button
               className="icon-button mobile-tools-toggle"
               aria-label={t("Открыть инструменты")}
               aria-expanded={mobileToolsOpen}
@@ -3577,6 +3589,18 @@ export default function MinimalApp({ onLogout }) {
               </div>
             )}
             <div className="workspace-tools-scroll">
+              {mobile && view === "storyboard" && !!documents.length && (
+                <button
+                  className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                  aria-label={t("Компоненты")}
+                  aria-expanded={componentsOpen}
+                  onClick={() =>
+                    showSidebar(componentsOpen ? null : "components")
+                  }
+                >
+                  <Shapes size={17} />
+                </button>
+              )}
               {view === "screenplay" && !!documents.length && (
                 <div className="workspace-tools-primary">
                   <button
@@ -3952,6 +3976,18 @@ export default function MinimalApp({ onLogout }) {
                 onClose={closeDrama}
               />
             )}
+          {mobile &&
+            !notesOpen &&
+            !historyRevision &&
+            !characterView &&
+            activeVersionPages.length > 0 && (
+              <MobilePageControls
+                key={writingScope}
+                pages={visiblePages}
+                disabled={!filesReady || !!busy || deleting}
+                onChange={changeScriptVersion}
+              />
+            )}
           <main
             className="minimal-scroll"
             aria-label={t("Сценарий")}
@@ -3959,31 +3995,6 @@ export default function MinimalApp({ onLogout }) {
               !documents.length && filesReady ? { display: "none" } : undefined
             }
           >
-            {mobile &&
-              !notesOpen &&
-              !historyRevision &&
-              activeVersionPages.length > 0 && (
-                <div className="mobile-page-version-bar">
-                  <AppSelect
-                    label={t("Страница")}
-                    value={activePage?.id || activeVersionPages[0].id}
-                    options={activeVersionPages.map((page, index) => ({
-                      value: page.id,
-                      label: t("Страница {0}", index + 1),
-                    }))}
-                    onChange={(id) => {
-                      const page = activeVersionPages.find(
-                        (entry) => entry.id === id,
-                      );
-                      if (page) editorRef.current?.focusPosition(page.from + 1);
-                    }}
-                  />
-                  {renderPageVersionPicker(
-                    activePage || current.pageVersions.pages[0],
-                    Math.max(0, activeVersionPages.indexOf(activePage)) + 1,
-                  )}
-                </div>
-              )}
             <article
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}${notesOpen ? " notes-paper" : ""}`}
               onMouseDownCapture={(event) => {
@@ -4293,6 +4304,7 @@ export default function MinimalApp({ onLogout }) {
           </main>
           {!!documents.length &&
             !focusMode &&
+            (!mobile || mobileWriting) &&
             !notesOpen &&
             !historyRevision &&
             !characterView &&

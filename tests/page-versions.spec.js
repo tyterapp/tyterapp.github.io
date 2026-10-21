@@ -274,18 +274,10 @@ for (const language of ["ru", "en"])
       })
       .click();
     expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
-    await rail
-      .getByRole("button", {
+    await expect(
+      rail.getByRole("button", {
         name: language === "ru" ? "Реквизит" : "Props",
         exact: true,
-      })
-      .click();
-    await expect(
-      drawer.getByRole("button", {
-        name:
-          language === "ru"
-            ? "Скачать отчёт реквизита"
-            : "Download props report",
       }),
     ).toHaveCount(0);
   });

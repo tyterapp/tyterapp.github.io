@@ -233,6 +233,9 @@
   max-width: 760px;
   margin: 0 auto 24px;
 }
+.character-dialogue-heading > div {
+  min-width: 0;
+}
 .character-dialogue-heading h2 {
   margin: 0 0 6px;
   font-size: 20px;
@@ -248,6 +251,8 @@
   margin: auto;
 }
 .character-dialogue-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 24px;
   margin-bottom: 16px;
   border: 1px solid var(--line);
@@ -269,6 +274,12 @@
 }
 .character-dialogue-scene:hover {
   color: #66528c;
+}
+.character-dialogue-scene > span {
+  min-width: 0;
+}
+.character-dialogue-scene > svg {
+  flex-shrink: 0;
 }
 .character-dialogue-variant {
   display: inline-block;

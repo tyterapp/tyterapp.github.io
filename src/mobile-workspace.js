@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export const MOBILE_WORKSPACE_QUERY =
   "(min-width: 320px) and (max-width: 831px)";
@@ -58,6 +58,8 @@ export function useMobileWorkspace() {
         root.dataset.mobileWorkspace = "true";
         setKeyboard(metrics.keyboard);
         // Only reveal the caret when it actually falls behind the toolbar.
+        if (!typing || !document.activeElement?.closest(".screenplay-editor"))
+          return;
         const selection = window.getSelection();
         if (!selection?.isCollapsed || !selection.rangeCount) return;
         const scroller =
@@ -65,11 +67,16 @@ export function useMobileWorkspace() {
         if (!scroller) return;
         const caret = selection.getRangeAt(0).getBoundingClientRect();
         const visible = scroller.getBoundingClientRect();
+        const top =
+          visible.top +
+          (scroller.querySelector(".mobile-page-version-bar")?.offsetHeight ||
+            0) +
+          12;
         const bottom = visible.bottom - 88;
         if (caret.height && caret.bottom > bottom)
           scroller.scrollTop += caret.bottom - bottom;
-        else if (caret.height && caret.top < visible.top + 12)
-          scroller.scrollTop -= visible.top + 12 - caret.top;
+        else if (caret.height && caret.top < top)
+          scroller.scrollTop -= top - caret.top;
       });
     };
     window.addEventListener("resize", update);
@@ -93,4 +100,53 @@ export function useMobileWorkspace() {
     };
   }, [mobile]);
   return { mobile, keyboard };
+}
+
+export function useMobileWriting(containerRef, scope, enabled, keyboard) {
+  const [writing, setWriting] = useState(false);
+  const active = useRef(false);
+  const changeWriting = (value) => {
+    if (active.current === value) return;
+    active.current = value;
+    setWriting(value);
+  };
+  const previousKeyboard = useRef(keyboard);
+  useEffect(() => {
+    changeWriting(false);
+    if (!enabled) return;
+    const container = containerRef.current;
+    let frame;
+    const input = (event) => {
+      if (event.target.closest?.(".screenplay-editor")) changeWriting(true);
+    };
+    const paste = (event) => {
+      if (event.clipboardData?.getData("text/plain")) input(event);
+    };
+    const blur = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (
+          !container?.contains(document.activeElement) ||
+          !document.activeElement?.closest(
+            ".screenplay-editor, .minimal-footer",
+          )
+        )
+          changeWriting(false);
+      });
+    };
+    container?.addEventListener("input", input);
+    container?.addEventListener("paste", paste);
+    container?.addEventListener("focusout", blur);
+    return () => {
+      cancelAnimationFrame(frame);
+      container?.removeEventListener("input", input);
+      container?.removeEventListener("paste", paste);
+      container?.removeEventListener("focusout", blur);
+    };
+  }, [containerRef, scope, enabled]);
+  useEffect(() => {
+    if (previousKeyboard.current && !keyboard) changeWriting(false);
+    previousKeyboard.current = keyboard;
+  }, [keyboard]);
+  return writing;
 }

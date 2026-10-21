@@ -9,6 +9,7 @@ export default function ScriptVersionPicker({
   pageNumber = 1,
   disabled,
   onChange,
+  feedback = false,
 }) {
   useLanguage();
   const anchor = useRef(null);
@@ -16,6 +17,17 @@ export default function ScriptVersionPicker({
   const [open, setOpen] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
   const active = page?.active || "white";
+  const previous = useRef({ page: page?.id, active });
+  const [bounce, setBounce] = useState(0);
+  useEffect(() => {
+    if (
+      feedback &&
+      previous.current.page === page?.id &&
+      previous.current.active !== active
+    )
+      setBounce((value) => value + 1);
+    previous.current = { page: page?.id, active };
+  }, [feedback, page?.id, active]);
   const version =
     SCRIPT_VERSIONS.find(({ id }) => id === active) || SCRIPT_VERSIONS[0];
   const label = t("Цвет страницы {0}", pageNumber);
@@ -67,7 +79,17 @@ export default function ScriptVersionPicker({
           if (event.key === "Escape") close();
         }}
       >
-        <ScriptVersionIcon versionId={active} size={18} />
+        {feedback ? (
+          <span
+            key={bounce}
+            className={`mobile-version-icon${bounce ? " is-changing" : ""}`}
+            aria-hidden="true"
+          >
+            <ScriptVersionIcon versionId={active} size={18} />
+          </span>
+        ) : (
+          <ScriptVersionIcon versionId={active} size={18} />
+        )}
         <span className="script-version-mobile-label">{version.label}</span>
       </button>
       {open && !disabled && (
@@ -80,7 +102,10 @@ export default function ScriptVersionPicker({
             label: color.label,
             icon: <ScriptVersionIcon versionId={color.id} />,
           }))}
-          onSelect={onChange}
+          onSelect={(id) => {
+            if (feedback && keyboard) close(true);
+            onChange(id);
+          }}
           onClose={close}
           autoFocus={keyboard}
           onPointerEnter={cancelClose}

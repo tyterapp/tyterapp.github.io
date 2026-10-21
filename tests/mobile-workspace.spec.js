@@ -3,17 +3,22 @@ import { createProject, validateImport } from "../src/data.js";
 import { mobileViewport } from "../src/mobile-workspace.js";
 import { grantPro } from "./helpers/pro-access.js";
 
-test.use({ isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+test.use({
+  isMobile: true,
+  hasTouch: true,
+  deviceScaleFactor: 2,
+  serviceWorkers: "block",
+});
 const p = (format, text, blockId) => ({
   type: "paragraph",
   attrs: { format, blockId },
   content: [{ type: "text", text }],
 });
-function fixture() {
+function fixture(doctorErrors = false) {
   const doc = createProject("Мобильная история с длинным названием");
   doc.id = "mobile-document";
   doc.content.content = [
-    p("scene", "ИНТ. КАФЕ — ДЕНЬ", "scene"),
+    p("scene", doctorErrors ? "МЕСТО" : "ИНТ. КАФЕ — ДЕНЬ", "scene"),
     p("action", "Анна смотрит на улицу. ".repeat(10), "action"),
     p("character", "АННА", "anna"),
     p(
@@ -72,8 +77,7 @@ async function open(
   await page.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
   );
-  const doc = fixture();
-  if (doctorErrors) doc.content.content[0].content[0].text = "МЕСТО";
+  const doc = fixture(doctorErrors);
   await page.addInitScript(
     ({ doc, theme }) => {
       localStorage.setItem("tyter.onboarding.v1", "done");
@@ -175,7 +179,7 @@ for (const [width, theme] of [
   [390, "dark"],
   [831, "light"],
 ]) {
-  test(`${width}px ${theme}: the paper and all seven bottom controls fit without opening the keyboard`, async ({
+  test(`${width}px ${theme}: paper fills the screen and formatting appears after input`, async ({
     page,
   }, info) => {
     await open(page, { width, theme });
@@ -194,6 +198,9 @@ for (const [width, theme] of [
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
+    await expect(page.locator(".minimal-footer")).toHaveCount(0);
+    await page.locator('[data-block-id="action"]').tap();
+    await page.keyboard.insertText("Текст ");
     const buttons = await page
       .locator(".format-bar-button")
       .evaluateAll((nodes) =>
@@ -254,6 +261,7 @@ test("components open as an accessible sheet, edit the same document and close w
   page,
 }, info) => {
   await open(page, { theme: "dark" });
+  await tools(page);
   await page.getByRole("button", { name: "Компоненты", exact: true }).click();
   await expect(sheet(page)).toBeVisible();
   expect(
@@ -317,6 +325,7 @@ test("keyboard resize keeps formatting above the keyboard and touch formatting k
   await page.setViewportSize({ width: 832, height: 844 });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('[data-block-id="action"]').click();
+  await page.keyboard.insertText("Ввод ");
   await page.evaluate(() =>
     window.mobileTestViewport.dispatchEvent(new Event("resize")),
   );
@@ -346,7 +355,7 @@ test("keyboard resize keeps formatting above the keyboard and touch formatting k
   expect((await page.locator(".minimal-app").boundingBox()).height).toBe(844);
 });
 
-test("tools retain search, outline, libraries, settings, timer and full project export in a local session", async ({
+test("tools retain search, storyboard, libraries, settings, timer and full project export in a local session", async ({
   page,
   context,
 }, info) => {
@@ -358,7 +367,7 @@ test("tools retain search, outline, libraries, settings, timer and full project 
     "Статистика документа",
     "Доктор сценария",
     "Реплики персонажей",
-    "Реквизит",
+    "Компоненты",
     "Комментарии",
     "История изменений",
     "Скачать сценарий",
@@ -382,15 +391,19 @@ test("tools retain search, outline, libraries, settings, timer and full project 
   await sheet(page).getByRole("button", { name: "Закрыть настройки" }).click();
   await expect(sheet(page)).toHaveCount(0);
   expect((await page.locator(".script-paper").boundingBox()).width).toBe(390);
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
-  await expect(page.locator(".outline-card")).toContainText("Встреча");
+  await page.getByRole("button", { name: "Раскадровка", exact: true }).click();
+  await expect(page.locator(".storyboard-workspace")).toBeVisible();
   await page.getByRole("button", { name: "Сценарий", exact: true }).click();
+  await tools(page);
   await page.getByRole("button", { name: "Компоненты", exact: true }).click();
   await sheet(page)
     .getByRole("button", { name: /^АННА / })
     .click();
   const description = sheet(page).getByRole("textbox", { name: /Описание/ });
   await description.fill("Черновик с телефона");
+  await sheet(page)
+    .getByRole("button", { name: "Сохранить", exact: true })
+    .click();
   await sheet(page)
     .getByRole("button", { name: "Библиотеки компонентов", exact: true })
     .click();
@@ -399,6 +412,9 @@ test("tools retain search, outline, libraries, settings, timer and full project 
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("mobile-library.png") });
   await page.getByRole("button", { name: "Закрыть библиотеки" }).click();
+  await sheet(page)
+    .getByRole("button", { name: /^АННА / })
+    .click();
   await expect(description).toHaveValue("Черновик с телефона");
   await description.fill("Главная героиня");
   await sheet(page)
@@ -409,6 +425,9 @@ test("tools retain search, outline, libraries, settings, timer and full project 
     (await import("/src/workspace-session.js")).workspaceSession(),
   );
   const second = await context.newPage();
+  await second.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
   await grantPro(second);
   await second.goto("/beta");
   await expect(second.locator(".screenplay-editor")).toBeVisible();
@@ -461,7 +480,7 @@ test("free mobile editing persists across a desktop-width reload without unlocki
   await expect(page.locator('[data-block-id="action"]')).toContainText(
     "Общий склад",
   );
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
+  await page.getByRole("button", { name: "Раскадровка", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Полная версия Tyter" }),
   ).toBeVisible();
@@ -513,8 +532,8 @@ test("mobile search and comments open hidden scene variants and character readin
     .getByRole("button", { name: "Открыть во весь экран", exact: true })
     .click();
   await expect(page.locator(".minimal-header")).toBeHidden();
-  await expect(page.locator(".format-bar-button")).toHaveCount(7);
-  await expect(page.locator(".minimal-footer")).toBeVisible();
+  await expect(page.locator(".format-bar-button")).toHaveCount(0);
+  await expect(page.locator(".minimal-footer")).toHaveCount(0);
   await page
     .getByRole("button", {
       name: "Выйти из полноэкранного режима",

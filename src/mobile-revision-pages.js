@@ -21,6 +21,8 @@ export function useMobileRevisionPages(
     let frame,
       timer,
       cachedStarts,
+      forcedStarts = [],
+      measurementPending = false,
       lastWidth,
       stopped = false;
     const paint = (starts) => {
@@ -68,8 +70,9 @@ export function useMobileRevisionPages(
         !editor.view.dom.getClientRects().length
       )
         return;
+      forcedStarts = pageVersionBreaks(versionState.current?.());
       const pages = canonicalScreenplayPages(editor, fontSize, documentZoom, {
-        forcedStarts: pageVersionBreaks(versionState.current?.()),
+        forcedStarts,
       });
       try {
         cachedStarts = pages.starts;
@@ -81,10 +84,31 @@ export function useMobileRevisionPages(
     const schedule = () => {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
-      frame = requestAnimationFrame(measure);
+      measurementPending = true;
+      frame = requestAnimationFrame(() => {
+        measurementPending = false;
+        measure();
+      });
+    };
+    const repaint = () => {
+      // Metadata may arrive between scheduling and executing a resize/idle
+      // measurement. A cached repaint must never replace that full refresh.
+      if (measurementPending) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => paint(cachedStarts));
     };
     const changed = ({ transaction }) => {
-      if (transaction.getMeta("pageVersionLayout")) return schedule();
+      if (transaction.getMeta("pageVersionLayout")) {
+        const nextBreaks = pageVersionBreaks(versionState.current?.());
+        if (
+          !cachedStarts ||
+          JSON.stringify(nextBreaks) !== JSON.stringify(forcedStarts)
+        )
+          return schedule();
+        // Mapped ranges and color updates do not change canonical geometry.
+        // In particular, do not cancel the typing idle timer here.
+        return repaint();
+      }
       if (!transaction.docChanged) return;
       if (!cachedStarts || transaction.getMeta("preventUpdate"))
         return schedule();
@@ -100,8 +124,10 @@ export function useMobileRevisionPages(
             ),
         ),
       ];
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => paint(cachedStarts));
+      forcedStarts = forcedStarts.map((position) =>
+        transaction.mapping.map(position, 1),
+      );
+      repaint();
       // Keep mobile typing responsive: paint mapped page colours immediately,
       // then refresh the canonical page boundaries after a short typing pause.
       clearTimeout(timer);

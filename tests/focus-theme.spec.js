@@ -180,6 +180,9 @@ test.describe("touch fullscreen theme", () => {
     expect((await editorState(page)).content).toEqual(before.content);
     await page.screenshot({ path: info.outputPath("fullscreen-mobile.png") });
     await page.locator(".focus-mode-toggle").tap();
+    await expect(page.locator(".screenplay-format-bar")).toHaveCount(0);
+    await page.locator(".screenplay-editor").click();
+    await page.keyboard.insertText("Ввод ");
     await expect(page.locator(".screenplay-format-bar")).toBeVisible();
   });
 });

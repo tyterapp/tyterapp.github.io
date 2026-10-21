@@ -1,12 +1,15 @@
 /* A scoped presentation layer: desktop document geometry and exports stay intact. */
 @media screen and (min-width: 320px) and (max-width: 831px) {
   .minimal-app[data-mobile] {
+    --mobile-sheet-base: white;
+    --mobile-page-fill: var(--mobile-sheet-base);
     position: fixed;
     inset: var(--mobile-top, 0px) 0 auto;
     width: 100%;
     height: var(--mobile-height, 100dvh);
     min-height: 0;
     padding-top: env(safe-area-inset-top, 0px);
+    background: var(--mobile-page-fill);
   }
   .minimal-app[data-mobile] .minimal-header {
     height: auto;
@@ -18,8 +21,8 @@
   }
   .minimal-app[data-mobile] .document-switcher {
     order: 1;
-    flex: 1 1 calc(100% - 104px);
-    max-width: calc(100% - 96px);
+    flex: 1 1 calc(100% - 52px);
+    max-width: calc(100% - 48px);
   }
   .minimal-app[data-mobile] .document-trigger {
     height: 44px;
@@ -32,9 +35,6 @@
   .minimal-app[data-mobile] .document-title {
     font-size: 14px;
   }
-  .minimal-app[data-mobile] .mobile-components-toggle {
-    order: 2;
-  }
   .minimal-app[data-mobile] .mobile-tools-toggle {
     order: 3;
   }
@@ -42,11 +42,45 @@
     display: none;
   }
   .minimal-app[data-mobile] .mobile-page-version-bar .script-version-picker {
-    flex: 0 1 148px;
+    flex: 0 0 auto;
     min-width: 0;
   }
-  .minimal-app[data-mobile] .mobile-page-version-bar > .app-select-trigger {
+  .minimal-app[data-mobile] .mobile-page-version-bar {
+    position: relative;
+    flex: 0 0 44px;
     min-height: 44px;
+    padding: 0 12px;
+    gap: 6px;
+    background: var(--mobile-page-fill);
+    box-shadow: 0 1px 0 var(--ui-border);
+  }
+  .minimal-app[data-mobile] .mobile-page-number {
+    min-width: 24px;
+    color: var(--ui-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .minimal-app[data-mobile] .mobile-page-version-bar .script-version-trigger {
+    min-width: 44px;
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .minimal-app[data-mobile]
+    .mobile-page-version-bar
+    .script-version-mobile-label {
+    display: none;
+  }
+  .mobile-version-icon {
+    display: inline-flex;
+    transform-origin: center;
+  }
+  .mobile-version-icon.is-changing {
+    animation: mobile-version-bounce 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .minimal-app[data-mobile] .script-version-trigger {
     min-width: 0;
@@ -112,8 +146,8 @@
   .minimal-app[data-mobile] .editor-column .minimal-scroll {
     width: 100%;
     min-height: 0;
-    padding: 12px 0 max(92px, var(--navigation-bottom-space, 0px));
-    scroll-padding-block: 16px 100px;
+    padding: 0;
+    scroll-padding-block: 56px 100px;
     overflow-x: hidden;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
@@ -128,9 +162,43 @@
     margin: 0;
     padding: 24px 16px 80px;
     box-shadow: none;
+    background: var(--mobile-sheet-base);
+    border: 0;
   }
   .minimal-app[data-mobile] .page-guides {
     display: none;
+  }
+  .minimal-app[data-mobile]
+    .revision-page-background
+    + .revision-page-background {
+    border-top: 1px solid var(--ui-border);
+  }
+  .minimal-app[data-mobile]
+    :is(.minimal-header, .editor-column, .minimal-scroll, .mobile-mode-tabs) {
+    background: var(--mobile-page-fill);
+  }
+  .minimal-app[data-mobile][data-mobile-page-color]:not(
+      [data-mobile-page-color="white"]
+    ) {
+    --mobile-page-fill: oklch(
+      0.99 var(--mobile-page-chroma) var(--mobile-page-hue)
+    );
+  }
+  :root[data-theme="dark"] .minimal-app[data-mobile] {
+    --mobile-sheet-base: var(--dark-sheet);
+  }
+  :root[data-theme="dark"]
+    .minimal-app[data-mobile][data-mobile-page-color]:not(
+      [data-mobile-page-color="white"]
+    ) {
+    --mobile-page-fill: oklch(
+      from var(--dark-sheet) calc(l + 0.04) calc(var(--mobile-page-chroma) * 2)
+        var(--mobile-page-hue)
+    );
+  }
+  .minimal-app[data-mobile][data-script-version]
+    .script-paper:not(.notes-paper) {
+    box-shadow: none;
   }
   .minimal-app[data-mobile] .screenplay-editor {
     min-height: 0;
@@ -260,6 +328,10 @@
   }
   .minimal-app[data-mobile].focus-mode .minimal-header {
     display: none;
+  }
+  .minimal-app[data-mobile].focus-mode:has(.focus-telegraph)
+    .mobile-page-version-bar {
+    margin-top: 60px;
   }
   .minimal-app[data-mobile] .document-menu {
     position: fixed;
@@ -545,6 +617,25 @@
   }
   .library-dialog .dialog-actions {
     flex-wrap: wrap;
+  }
+}
+@keyframes mobile-version-bounce {
+  0% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.16) translateY(-1px);
+  }
+  72% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-version-icon.is-changing {
+    animation: none;
   }
 }
 @keyframes mobile-sheet-enter {
