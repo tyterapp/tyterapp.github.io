@@ -77,7 +77,7 @@ import {
   directoryComponentLibraries,
 } from "./browser-files.js";
 import AnnotationsPanel from "./AnnotationsPanel.jsx";
-import { documentFont } from "./document-fonts.js";
+import { documentFont, documentFontStyles } from "./document-fonts.js";
 import { CommentsPanel, Onboarding } from "./EditorPanels.jsx";
 import DocumentSearch from "./DocumentSearch.jsx";
 import DocumentSettings, { ExportSettings } from "./DocumentSettings.jsx";
@@ -3959,7 +3959,7 @@ export default function MinimalApp({ onLogout }) {
                 zoom: documentZoom / 100,
                 "--document-zoom": documentZoom / 100,
                 "--script-font-size": `${mobile ? (fontSize * documentZoom) / 100 : fontSize}pt`,
-                "--script-font-family": `"open-arrow", ${documentFont(fontFamily).family}`,
+                ...documentFontStyles(fontFamily),
                 "--page-margin": `${sheet.top}px`,
                 "--paper-width": `${sheet.width}px`,
                 "--paper-left": `${sheet.left}px`,

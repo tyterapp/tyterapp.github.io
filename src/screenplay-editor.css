@@ -23,6 +23,10 @@
   transition: background-color 120ms ease;
 }
 .screenplay-editor .screenplay-block[data-format="scene"] {
+  font-family: var(
+    --script-scene-font-family,
+    var(--script-font-family, "Courier New", monospace)
+  );
   font-weight: 700;
   text-transform: uppercase;
   margin-top: 27px;
@@ -130,17 +134,47 @@
   outline-color: oklch(1 0 0 / 0.1);
 }
 .character-thumbnail-anchor {
-  display: inline;
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  inset-inline-start: -37px;
+  top: calc(0.5em * var(--script-line-height, 1.5));
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
   user-select: none;
 }
+button.character-thumbnail-anchor {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button.character-thumbnail-anchor:hover .character-thumbnail {
+  outline-color: var(--ui-accent);
+}
+button.character-thumbnail-anchor:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
 .screenplay-editor .character-thumbnail {
-  position: absolute;
+  position: static;
   flex-basis: 18px;
   width: 18px;
   height: 18px;
-  inset-inline-start: -26px;
-  top: calc(0.5em * var(--script-line-height, 1.5));
-  transform: translateY(-50%);
+  transform: none;
+}
+@media (max-width: 831px), (pointer: coarse) {
+  .character-thumbnail-anchor {
+    width: 44px;
+    height: 44px;
+    inset-inline-start: -39px;
+  }
 }
 .show-components .script-entity,
 .screenplay-editor .script-entity:has(.entity-is-active),

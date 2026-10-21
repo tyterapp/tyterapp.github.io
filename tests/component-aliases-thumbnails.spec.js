@@ -194,6 +194,84 @@ async function componentEditor(page, mobile = false) {
 }
 
 for (const theme of ["light", "dark"])
+  test(`${theme}: clicking a character portrait opens that component without changing text or the caret`, async ({
+    page,
+  }) => {
+    await open(page, { theme });
+    await line(page, "speech").click();
+    const before = await editorJSON(page);
+    const selection = await page
+      .locator(".screenplay-editor")
+      .evaluate((node) => node.editor.state.selection.toJSON());
+    const portrait = line(page, "name").getByRole("button", {
+      name: "Открыть компонент «Джефф»",
+      exact: true,
+    });
+    await portrait.locator("img").click();
+    const panel = page.locator(".component-detail-drawer");
+    await expect(panel).toHaveAttribute("data-component-id", "jeff");
+    await expect(
+      panel.getByRole("heading", { name: "Джефф", exact: true }),
+    ).toBeVisible();
+    expect(await editorJSON(page)).toEqual(before);
+    expect(
+      await page
+        .locator(".screenplay-editor")
+        .evaluate((node) => node.editor.state.selection.toJSON()),
+    ).toEqual(selection);
+    await expect(page.locator(".component-picker")).toHaveCount(0);
+    await panel
+      .getByRole("button", { name: "Закрыть компоненты", exact: true })
+      .click();
+    await expect(panel).toHaveCount(0);
+    await page.getByRole("button", { name: "ENG", exact: true }).click();
+    const translated = line(page, "name").getByRole("button", {
+      name: "Open component “Джефф”",
+      exact: true,
+    });
+    for (const key of ["Enter", "Space"]) {
+      await translated.focus();
+      await page.keyboard.press(key);
+      await expect(panel).toHaveAttribute("data-component-id", "jeff");
+      await panel
+        .getByRole("button", { name: "Close components", exact: true })
+        .click();
+      expect(await editorJSON(page)).toEqual(before);
+    }
+    await page.keyboard.press("Control+Alt+e");
+    await expect(translated).toBeHidden();
+    await page.keyboard.press("Control+Alt+e");
+    await expect(translated).toBeVisible();
+  });
+
+test.describe("touch character portrait", () => {
+  test.use({ hasTouch: true });
+  test("320px: tapping a portrait opens character settings directly", async ({
+    page,
+  }) => {
+    await open(page, { width: 320 });
+    const before = await editorJSON(page);
+    const portrait = line(page, "name").getByRole("button", {
+      name: "Открыть компонент «Джефф»",
+      exact: true,
+    });
+    const bounds = await portrait.boundingBox();
+    expect(bounds.width).toBeGreaterThanOrEqual(44);
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    await portrait.tap();
+    const panel = page.locator(".component-detail-drawer");
+    await expect(panel).toHaveAttribute("data-component-id", "jeff");
+    await expect(panel.getByLabel("Алиасы", { exact: true })).toBeVisible();
+    expect(await editorJSON(page)).toEqual(before);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - innerWidth,
+      ),
+    ).toBe(0);
+  });
+});
+
+for (const theme of ["light", "dark"])
   test(`${theme}: aliases colour whole mentions and portraits work in Ctrl+3 rows and suggestions without changing screenplay text`, async ({
     page,
   }, info) => {

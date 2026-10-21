@@ -2,7 +2,7 @@ import { t, useLanguage, languageLocale } from "./i18n.js";
 import { ArrowLeft } from "lucide-react";
 import { selectedPageVersions } from "./page-versions.js";
 import { screenplayLayout } from "./document-layout.js";
-import { documentFont } from "./document-fonts.js";
+import { documentFontStyles } from "./document-fonts.js";
 import { revisionPageStyle } from "./script-revisions.js";
 import { SCRIPT_VERSIONS } from "./script-version-colors.js";
 import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
@@ -54,6 +54,11 @@ export default function HistoryPreview({ revision, onExit, notes = false }) {
     <div
       className="history-document-preview"
       aria-label={t("Текст выбранной версии")}
+      style={
+        notes
+          ? undefined
+          : documentFontStyles(revision.snapshot.metadata?.fontFamily)
+      }
     >
       <div className="history-preview-banner">
         <span>
@@ -77,9 +82,6 @@ export default function HistoryPreview({ revision, onExit, notes = false }) {
             "--history-page-height": `${layout.height}px`,
             "--history-page-margin": `${layout.top}px`,
             "--script-font-size": `${layout.fontSize}pt`,
-            "--script-font-family":
-              '"open-arrow", ' +
-              documentFont(revision.snapshot.metadata?.fontFamily).family,
           }}
         >
           {pages.map((page, index) => (

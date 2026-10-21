@@ -34,7 +34,7 @@ test("license has a static page, canonical metadata and a sitemap entry; origina
 });
 
 for (const language of ["ru", "en"])
-  test(`${language}: Marginalis loads both faces, remains selected after reload and preserves document text`, async ({
+  test(`${language}: Marginalis applies only to scene headings, follows format changes and persists after reload`, async ({
     page,
   }) => {
     const doc = createProject("Marginalis");
@@ -50,6 +50,13 @@ for (const language of ["ru", "en"])
         attrs: { format: "action", blockId: "action" },
         content: [{ type: "text", text: "Русский текст. English text. 123" }],
       },
+      ...["character", "speech", "parenthetical", "transition", "plain"].map(
+        (format) => ({
+          type: "paragraph",
+          attrs: { format, blockId: format },
+          content: [{ type: "text", text: "Русский текст. English text." }],
+        }),
+      ),
     ];
     await page.addInitScript(
       ({ doc, language }) => {
@@ -78,7 +85,25 @@ for (const language of ["ru", "en"])
       exact: true,
     });
     await selectAppOption(page, font, "marginalis");
-    await expect(editor).toHaveCSS("font-family", /Marginalis/);
+    const heading = editor.locator('[data-block-id="scene"]');
+    const action = editor.locator('[data-block-id="action"]');
+    await expect(heading).toHaveCSS("font-family", /Marginalis/);
+    await expect(editor).toHaveCSS(
+      "font-family",
+      /Screenplay Courier Cyrillic/,
+    );
+    for (const format of [
+      "action",
+      "character",
+      "speech",
+      "parenthetical",
+      "transition",
+      "plain",
+    ])
+      await expect(editor.locator(`[data-block-id="${format}"]`)).toHaveCSS(
+        "font-family",
+        /Screenplay Courier Cyrillic/,
+      );
     const faces = await page.evaluate(async () => {
       const loaded = [];
       for (const weight of [400, 700])
@@ -100,6 +125,18 @@ for (const language of ["ru", "en"])
       ]),
     );
     expect(await editor.evaluate((node) => node.editor.getText())).toBe(before);
+    await action.click();
+    await page.keyboard.press("Control+1");
+    await expect(action).toHaveCSS("font-family", /Marginalis/);
+    await page.keyboard.press("Control+2");
+    await expect(action).toHaveCSS(
+      "font-family",
+      /Screenplay Courier Cyrillic/,
+    );
+    await selectAppOption(page, font, "georgia");
+    await expect(heading).toHaveCSS("font-family", /Georgia/);
+    await expect(action).toHaveCSS("font-family", /Georgia/);
+    await selectAppOption(page, font, "marginalis");
     await expect
       .poll(() =>
         page.evaluate(
@@ -110,10 +147,53 @@ for (const language of ["ru", "en"])
       )
       .toBe("marginalis");
     await page.reload();
-    await expect(editor).toHaveCSS("font-family", /Marginalis/);
+    await expect(heading).toHaveCSS("font-family", /Marginalis/);
+    await expect(action).toHaveCSS(
+      "font-family",
+      /Screenplay Courier Cyrillic/,
+    );
     expect(await editor.evaluate((node) => node.editor.getText())).toBe(before);
     await page.screenshot({ path: `.cache/marginalis-${language}.png` });
   });
+
+test("320px: a saved Marginalis document uses Courier for dialogue and action", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  const doc = createProject("Marginalis mobile");
+  doc.id = "marginalis-mobile";
+  doc.metadata.fontFamily = "marginalis";
+  doc.content.content = ["scene", "action", "character", "speech"].map(
+    (format) => ({
+      type: "paragraph",
+      attrs: { format, blockId: format },
+      content: [{ type: "text", text: "Текст Text" }],
+    }),
+  );
+  await page.addInitScript((doc) => {
+    localStorage.setItem("tyter.projects.v1", JSON.stringify([doc]));
+    localStorage.setItem("tyter.active", doc.id);
+    localStorage.setItem("tyter.onboarding.v1", "done");
+    localStorage.setItem("tyter.editor-intro.v1", "seen");
+    localStorage.setItem("tyter.language.v1", "ru");
+  }, doc);
+  await page.goto("/free");
+  const editor = page.locator(".screenplay-editor");
+  await expect(editor.locator('[data-format="scene"]')).toHaveCSS(
+    "font-family",
+    /Marginalis/,
+  );
+  for (const format of ["action", "character", "speech"])
+    await expect(editor.locator(`[data-format="${format}"]`)).toHaveCSS(
+      "font-family",
+      /Screenplay Courier Cyrillic/,
+    );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - innerWidth,
+    ),
+  ).toBe(0);
+});
 
 for (const [theme, width] of [
   ["light", 1440],

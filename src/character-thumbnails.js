@@ -1,8 +1,9 @@
 import { Decoration } from "@tiptap/pm/view";
+import { t } from "./i18n.js";
 
 // These portraits belong to the editor view, not to the screenplay text. One
 // portrait identifies the character line, including rich text and aliases.
-export function characterThumbnailDecorations(doc, components) {
+export function characterThumbnailDecorations(doc, components, onOpen) {
   const decorations = [];
   if (!components.size) return decorations;
   doc.descendants((paragraph, position) => {
@@ -15,14 +16,27 @@ export function characterThumbnailDecorations(doc, components) {
       const component = components.get(entity?.attrs.id);
       if (!component) return;
       illustrated = true;
+      const label = t("Открыть компонент «{0}»", component.name);
       decorations.push(
         Decoration.widget(
           position + 1 + offset,
           () => {
-            const anchor = document.createElement("span");
+            const anchor = document.createElement(onOpen ? "button" : "span");
             anchor.className = "character-thumbnail-anchor";
             anchor.contentEditable = "false";
             anchor.dataset.entityId = entity.attrs.id;
+            if (onOpen) {
+              anchor.type = "button";
+              anchor.setAttribute("aria-label", label);
+              anchor.addEventListener("mousedown", (event) =>
+                event.preventDefault(),
+              );
+              anchor.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpen(entity.attrs.id);
+              });
+            }
             const image = document.createElement("img");
             image.className = "character-thumbnail";
             image.src = component.thumbnail;
@@ -33,9 +47,10 @@ export function characterThumbnailDecorations(doc, components) {
             return anchor;
           },
           {
-            key: `character-thumbnail-${paragraph.attrs.blockId}-${component.key}`,
+            key: `character-thumbnail-${paragraph.attrs.blockId}-${component.key}-${label}`,
             side: -1,
             ignoreSelection: true,
+            stopEvent: () => true,
           },
         ),
       );

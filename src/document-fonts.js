@@ -29,6 +29,7 @@ export const DOCUMENT_FONTS = [
   {
     id: "marginalis",
     name: "Marginalis",
+    sceneOnly: true,
     family: '"Marginalis", "Screenplay Courier Cyrillic", monospace',
   },
 ];
@@ -38,3 +39,11 @@ export const documentFonts = (language) =>
   );
 export const documentFont = (id, language) =>
   documentFonts(language).find((font) => font.id === id) || DOCUMENT_FONTS[0];
+
+export function documentFontStyles(id, language) {
+  const font = documentFont(id, language);
+  return {
+    "--script-font-family": `"open-arrow", ${(font.sceneOnly ? DOCUMENT_FONTS[0] : font).family}`,
+    "--script-scene-font-family": `"open-arrow", ${font.family}`,
+  };
+}

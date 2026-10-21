@@ -614,7 +614,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           )
           .map((component) => [
             component.id,
-            { thumbnail: component.thumbnail, key: makeId() },
+            {
+              name: component.name,
+              thumbnail: component.thumbnail,
+              key: makeId(),
+            },
           ]),
       ),
     [components],
@@ -872,6 +876,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           : characterThumbnailDecorations(
               state.doc,
               propsRef.current.characterThumbnails,
+              propsRef.current.onEditComponent
+                ? (id) => propsRef.current.onEditComponent?.(id)
+                : undefined,
             );
         const visibleShots = new Set();
         if (minimal)

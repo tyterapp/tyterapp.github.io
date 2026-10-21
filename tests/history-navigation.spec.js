@@ -16,11 +16,13 @@ async function open(page, theme, mobile = false) {
   );
   const doc = createProject("История версий");
   doc.id = "history-navigation";
+  doc.metadata.fontFamily = "georgia";
   doc.content.content = [
     paragraph("scene", "ИНТ. ДОМ — ДЕНЬ", "scene"),
     paragraph("action", "Текущий рабочий текст.", "action"),
   ];
   const snapshot = structuredClone(doc);
+  snapshot.metadata.fontFamily = "marginalis";
   snapshot.content = {
     type: "doc",
     content: [
@@ -165,6 +167,12 @@ for (const theme of ["light", "dark"]) {
       await expect(
         page.getByLabel("Текст выбранной версии", { exact: true }),
       ).toContainText("Прежний текст.");
+      await expect(
+        page.locator('.history-preview-content [data-format="scene"]'),
+      ).toHaveCSS("font-family", /Marginalis/);
+      await expect(
+        page.locator('.history-preview-content [data-format="action"]'),
+      ).toHaveCSS("font-family", /Screenplay Courier Cyrillic/);
       if (!mobile) {
         await current.focus();
         await page.keyboard.press("Space");
@@ -177,6 +185,12 @@ for (const theme of ["light", "dark"]) {
       await expect(
         page.locator('.screenplay-editor [data-block-id="action"]'),
       ).toHaveText("Текущий рабочий текст.");
+      await expect(
+        page.locator('.screenplay-editor [data-block-id="scene"]'),
+      ).toHaveCSS("font-family", /Georgia/);
+      await expect(
+        page.locator('.screenplay-editor [data-block-id="action"]'),
+      ).toHaveCSS("font-family", /Georgia/);
       await expect(page.locator(".screenplay-editor")).toHaveAttribute(
         "contenteditable",
         "true",
