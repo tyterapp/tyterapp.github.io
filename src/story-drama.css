@@ -7,15 +7,64 @@
   mask: url("/icons/line-segments.svg") center/contain no-repeat;
 }
 .story-drama-launch {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
   align-self: flex-start;
   margin: 16px 16px 0;
   flex: 0 0 auto;
 }
+.story-drama-launch[aria-expanded="true"] {
+  visibility: hidden;
+}
 .storyboard-workspace .story-drama-launch {
   justify-content: flex-start;
+  background: transparent;
   transition:
     background-color 140ms,
     scale 140ms;
+}
+.story-drama-levels {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  max-width: 100%;
+  border-radius: 10px;
+  background: var(--ui-soft);
+}
+.story-drama-levels button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.story-drama-levels button[aria-checked="true"] {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: 0 1px 4px #00000012;
+}
+.story-drama-levels button:hover {
+  color: var(--ui-text);
+}
+@media (max-width: 480px) {
+  .story-drama-levels {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    gap: 0;
+  }
+  .story-drama-levels button {
+    min-width: 0;
+    min-height: 44px;
+    flex: 1;
+    padding-inline: 4px;
+  }
 }
 .story-drama-launch:active {
   scale: 0.96;
@@ -166,6 +215,10 @@
   outline-offset: 2px;
 }
 @media (max-width: 831px) {
+  .storyboard-workspace:has(.story-drama-launch[aria-expanded="false"])
+    .story-board-scroll {
+    padding-top: 72px;
+  }
   .story-drama-panel {
     padding: 8px 12px 12px;
     max-height: 55dvh;

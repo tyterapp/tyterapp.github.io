@@ -218,3 +218,37 @@
   opacity: 1;
   visibility: visible;
 }
+.component-hints-setting {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 16px;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--ui-text);
+}
+.component-hints-setting input {
+  accent-color: var(--ui-accent);
+  width: 16px;
+  height: 16px;
+}
+.component-hints-setting kbd {
+  margin-inline-start: auto;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+.component-hints-hidden .script-entity:not(.script-entity-disabled) {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.component-hints-hidden .character-thumbnail {
+  display: none;
+}
+.component-picker button {
+  min-height: 40px;
+  gap: 8px;
+}

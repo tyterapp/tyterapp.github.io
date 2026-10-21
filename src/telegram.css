@@ -77,6 +77,14 @@
   margin-bottom: 0;
 }
 .telegram-page {
+  color-scheme: light;
+  --site-bg: #fff;
+  --ui-surface: #fff;
+  --ui-text: oklch(0.31 0.016 300);
+  --ui-muted: oklch(0.53 0.024 300);
+  --ui-border: oklch(0.9 0.012 300);
+  --ui-accent: oklch(0.49 0.054 300);
+  --ui-soft: oklch(0.97 0.008 300);
   min-height: 100dvh;
   padding: 24px max(16px, calc((100vw - 840px) / 2)) 48px;
   background: var(--site-bg);
@@ -170,7 +178,8 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  width: min(100%, 420px);
+  width: 64px;
+  flex: 0 0 64px;
   min-height: 64px;
   padding: 16px 24px;
   border: 0;
@@ -190,9 +199,6 @@
 }
 .telegram-replay:active {
   scale: 0.96;
-}
-:root[data-theme="dark"] .telegram-replay {
-  color: oklch(0.2 0.02 300);
 }
 .telegram-invalid p {
   line-height: 1.6;
@@ -228,6 +234,84 @@
   justify-content: center;
   gap: 16px;
   width: 100%;
+}
+.telegram-playback-tape {
+  position: relative;
+  height: 64px;
+  min-width: 100px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--ui-soft);
+  color: var(--ui-muted);
+}
+.telegram-playback-tape::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--ui-border);
+}
+.telegram-playback-tape svg {
+  position: relative;
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+.telegram-tape-line {
+  stroke: var(--ui-border);
+}
+.telegram-playback-tape rect {
+  fill: var(--ui-border);
+  transition:
+    fill 100ms,
+    filter 100ms;
+}
+.telegram-playback-tape rect[data-played="true"] {
+  fill: var(--ui-muted);
+}
+.telegram-playback-tape rect[data-active="true"] {
+  fill: var(--ui-accent);
+  filter: drop-shadow(0 0 4px oklch(0.65 0.13 300 / 0.4));
+}
+.telegram-write {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 64px;
+  padding: 0 20px;
+  border-radius: 16px;
+  color: var(--ui-text);
+  background: var(--ui-soft);
+  text-decoration: none;
+  font-size: 14px;
+}
+.telegram-write:hover {
+  background: var(--ui-border);
+}
+.telegram-playback-actions :is(a, button):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 831px) {
+  .telegram-playback-actions {
+    flex-wrap: wrap;
+  }
+  .telegram-playback-tape {
+    flex-basis: calc(100% - 80px);
+  }
+  .telegram-write {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .telegram-playback-tape rect {
+    transition: none;
+    filter: none;
+  }
 }
 .telegram-oiia {
   position: relative;

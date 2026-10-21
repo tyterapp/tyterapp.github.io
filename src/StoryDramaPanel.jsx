@@ -300,27 +300,49 @@ export default function StoryDramaPanel({
               {focused.title || tr("Без названия", "Untitled")}
             </strong>
           </span>
-          <label>
-            {tr("Драматичность", "Drama")}
-            <input
-              type="number"
-              min="1"
-              max="10"
-              step="1"
-              aria-label={tr(
-                "Драматичность выбранной сцены",
-                "Selected scene drama",
-              )}
-              value={valueOf(focused)}
-              onChange={(event) => {
-                if (event.target.value)
-                  onChange(focused.id, {
-                    drama: sceneDrama(event.target.value),
-                  });
-              }}
-            />
-            <span>/10</span>
-          </label>
+          <div
+            className="story-drama-levels"
+            role="radiogroup"
+            aria-label={tr(
+              "Драматичность выбранной сцены",
+              "Selected scene drama",
+            )}
+            onKeyDown={(event) => {
+              const direction = ["ArrowRight", "ArrowUp"].includes(event.key)
+                ? 1
+                : ["ArrowLeft", "ArrowDown"].includes(event.key)
+                  ? -1
+                  : 0;
+              if (!direction && !["Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const value =
+                event.key === "Home"
+                  ? 1
+                  : event.key === "End"
+                    ? 10
+                    : Math.max(1, Math.min(10, valueOf(focused) + direction));
+              onChange(focused.id, { drama: value });
+              event.currentTarget
+                .querySelector(`[data-value="${value}"]`)
+                ?.focus();
+            }}
+          >
+            {Array.from({ length: 10 }, (_, index) => index + 1).map(
+              (value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  data-value={value}
+                  aria-checked={valueOf(focused) === value}
+                  tabIndex={valueOf(focused) === value ? 0 : -1}
+                  onClick={() => onChange(focused.id, { drama: value })}
+                >
+                  {value}
+                </button>
+              ),
+            )}
+          </div>
         </footer>
       )}
     </section>

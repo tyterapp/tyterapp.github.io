@@ -115,6 +115,17 @@ for (const theme of ["light", "dark"])
     const before = await content(page);
     await start(page, 3);
     await expect(page.locator(".scene-reorder-zone")).toHaveCount(3);
+    await expect(page.locator(".scene-drag-handle").first()).toHaveCSS(
+      "visibility",
+      "hidden",
+    );
+    const paper = await page.locator(".script-paper").boundingBox();
+    const labels = await page
+      .locator(".scene-reorder-zone-label")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect().left),
+      );
+    expect(labels.every((left) => left >= paper.x + paper.width)).toBe(true);
     await expect(
       page.locator('.scene-reorder-zone[data-source="true"]'),
     ).toHaveCount(1);
@@ -124,6 +135,10 @@ for (const theme of ["light", "dark"])
       page.locator('.scene-reorder-zone[data-target="true"]'),
     ).toHaveCount(1);
     await expect(page.locator(".scene-reorder-insertion")).toBeVisible();
+    await expect(page.locator(".scene-reorder-preview")).toHaveCSS(
+      "opacity",
+      "1",
+    );
     await expect(page.locator(".scene-reorder-hint")).toContainText(
       "Перед сценой 1",
     );

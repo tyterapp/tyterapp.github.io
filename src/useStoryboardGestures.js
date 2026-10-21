@@ -126,6 +126,9 @@ export function useLongPressReorder(
       current.target = target?.getAttribute(targetAttribute);
       if (current.target && current.target !== current.id)
         target.classList.add("story-drop-target");
+      current.ghost.dataset.valid = String(
+        !!current.target && current.target !== current.id,
+      );
       current.scrollFrame = requestAnimationFrame(follow);
     };
     follow();

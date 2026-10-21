@@ -136,7 +136,10 @@ export default function Telegraph({
       window.removeEventListener("blur", cancel);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [language, morseTiming]);
+  }, [morseTiming]);
+  useEffect(() => {
+    keyer.current?.setLanguage(language);
+  }, [language]);
   const begin = useCallback(
     (id, type = "keyboard") => {
       if (active.current !== null || !keyer.current?.press()) return;
@@ -162,7 +165,7 @@ export default function Telegraph({
     active.current = null;
     setPressed(false);
     audio.current?.stop();
-    if (cancel) keyer.current?.cancel();
+    if (cancel) keyer.current?.abortPress();
     else {
       keyer.current?.release();
       releaseFeedback.current?.({ pointerType: pointerType.current });

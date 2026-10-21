@@ -135,8 +135,12 @@ for (const theme of ["light", "dark"])
     await dragPoint(page, 52, true);
     await expect(point(page)).toHaveAttribute("aria-valuenow", "10");
     await chart(page)
-      .getByLabel("Драматичность выбранной сцены", { exact: true })
-      .fill("6");
+      .getByRole("radiogroup", {
+        name: "Драматичность выбранной сцены",
+        exact: true,
+      })
+      .getByRole("radio", { name: "6", exact: true })
+      .click();
     await expect(rating).toHaveValue("6");
     await expect
       .poll(async () => (await saved(page))?.sceneShots["scene-0"])

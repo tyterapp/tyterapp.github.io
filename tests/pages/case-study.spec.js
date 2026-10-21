@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  await page.route("**/__tyter_local/**", (route) =>
+test.beforeEach(async ({ context }) => {
+  await context.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
   );
 });
@@ -59,9 +59,7 @@ for (const theme of ["light", "dark"])
     await seed(page, theme);
     await page.goto("/case");
     await expect(page.locator(".case-study")).toBeVisible();
-    await expect(page.locator(".site-nav a[aria-current=page]")).toHaveText(
-      "Кейс",
-    );
+    await expect(page.locator(".site-nav a[href='/case']")).toHaveCount(0);
     await expect(page.locator(".case-timeline li")).toHaveCount(3);
     await expect(page.locator(".case-version")).toHaveText([
       "1.0",
@@ -115,9 +113,7 @@ for (const theme of ["light", "dark"])
       "Outline",
       "Storyboards",
     ]);
-    await expect(page.locator(".site-nav a[aria-current=page]")).toHaveText(
-      "Case study",
-    );
+    await expect(page.locator(".site-nav a[href='/case']")).toHaveCount(0);
   });
 
 for (const width of [320, 390])
@@ -170,7 +166,7 @@ test("reduced motion keeps all case text visible without text or skeleton animat
   ).toBe(0);
 });
 
-test("site navigation prefetches the case route on intent", async ({
+test("logo context menu prefetches the case route on intent and opens it in a new tab", async ({
   page,
 }) => {
   await seed(page);
@@ -180,12 +176,16 @@ test("site navigation prefetches the case route on intent", async ({
       requests.push(request.url());
   });
   await page.goto("/");
-  await expect(page.locator(".site-nav a[href='/case']")).toBeVisible();
+  await expect(page.locator(".site-nav a[href='/case']")).toHaveCount(0);
   expect(requests).toHaveLength(0);
-  await page.locator(".site-nav a[href='/case']").hover();
+  await page.locator(".site-logo").click({ button: "right" });
+  await page.locator(".brand-context-menu a[href='/case']").hover();
   await expect.poll(() => requests.length).toBe(1);
-  await page.locator(".site-nav a[href='/case']").click();
-  await expect(page.locator(".case-study")).toBeVisible();
+  const opening = page.waitForEvent("popup");
+  await page.locator(".brand-context-menu a[href='/case']").click();
+  const destination = await opening;
+  await expect(destination.locator(".case-study")).toBeVisible();
+  await destination.close();
 });
 
 test("slow case route shows a skeleton before content", async ({ page }) => {

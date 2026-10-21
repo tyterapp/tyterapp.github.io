@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { t } from "./i18n.js";
-export default function BrandContextMenu({ position, onClose }) {
+export default function BrandContextMenu({ position, onClose, items }) {
   const ref = useRef(null);
   useEffect(() => {
     ref.current.querySelector("a")?.focus();
@@ -31,15 +31,19 @@ export default function BrandContextMenu({ position, onClose }) {
         top: Math.min(position.top, innerHeight - 144),
       }}
     >
-      {[
-        ["brandbook", "Брендбук"],
-        ["guidelines", "Гайдлайны"],
-        ["ui-kit", "UI кит"],
-      ].map(([id, label]) => (
+      {(
+        items || [
+          ["/design#brandbook", "Брендбук"],
+          ["/design#guidelines", "Гайдлайны"],
+          ["/design#ui-kit", "UI кит"],
+        ]
+      ).map(([href, label, prefetch]) => (
         <a
-          key={id}
+          key={href}
           role="menuitem"
-          href={`/design#${id}`}
+          href={href}
+          onPointerEnter={prefetch}
+          onFocus={prefetch}
           target="_blank"
           rel="noopener noreferrer"
           onClick={onClose}

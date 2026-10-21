@@ -10,6 +10,7 @@ import TelegraphAlphabet from "./TelegraphAlphabet.jsx";
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import BrandContextMenu from "./BrandContextMenu.jsx";
 import EmotionalReveal from "./EmotionalReveal.jsx";
+import FirstClickWave from "./FirstClickWave.jsx";
 import { TYTERGRAPH_TIMING } from "./morse.js";
 import { useLanguage } from "./i18n.js";
 import "./telegraph-page.css";
@@ -261,6 +262,7 @@ export default function TelegraphPage() {
       lang={language}
       data-mobile={mobile || undefined}
     >
+      <FirstClickWave />
       <header className="telegraph-composer-header">
         <a
           className="telegraph-composer-logo"

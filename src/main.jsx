@@ -10,6 +10,7 @@ import TelegraphPage from "./TelegraphPage.jsx";
 import { houseSnapshotScene } from "./house-snapshot.js";
 import { BlogPage, HelpPage } from "./SitePages.jsx";
 import DesignPage from "./DesignPage.jsx";
+import LegalPage from "./LegalPage.jsx";
 import { loadCasePage } from "./case-loader.js";
 import CaseLoading from "./CaseLoading.jsx";
 import { BLOG_ARTICLES, SITE_ROUTES } from "./site-content.js";
@@ -75,6 +76,8 @@ createRoot(document.getElementById("root")).render(
       <TelegraphPage />
     ) : pathname === "/design" ? (
       <DesignPage />
+    ) : pathname === "/license" ? (
+      <LegalPage />
     ) : pathname === "/case" ? (
       <Suspense fallback={<CaseLoading />}>
         <CasePage />

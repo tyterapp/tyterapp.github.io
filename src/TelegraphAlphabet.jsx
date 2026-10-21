@@ -55,11 +55,6 @@ export default function TelegraphAlphabet({ language, onClose }) {
         </button>
       </header>
       <div className="telegraph-alphabet-content">
-        <p className="telegraph-alphabet-hint">
-          {en
-            ? "Dot: 10–250 ms. Dash: 250–2000 ms. Pause between letters; pause longer between words. You can also use Ctrl+M."
-            : "Точка: 10–250 мс. Тире: 250–2000 мс. Пауза разделяет буквы, длинная пауза — слова. Можно нажимать Ctrl+M."}
-        </p>
         {alphabets.map(([code, letters]) => (
           <section key={code} aria-labelledby={`telegraph-alphabet-${code}`}>
             <h3 id={`telegraph-alphabet-${code}`}>

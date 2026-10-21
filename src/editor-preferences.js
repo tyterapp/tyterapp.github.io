@@ -6,6 +6,7 @@ const defaults = {
   typewriter: false,
   doctorFlies: false,
   thumbnailPreviews: true,
+  componentHints: true,
 };
 export function readEditorPreferences() {
   try {
@@ -15,6 +16,7 @@ export function readEditorPreferences() {
       typewriter: saved?.typewriter === true,
       doctorFlies: saved?.doctorFlies === true,
       thumbnailPreviews: saved?.thumbnailPreviews !== false,
+      componentHints: saved?.componentHints !== false,
     };
   } catch {
     return { ...defaults };

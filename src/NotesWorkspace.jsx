@@ -28,6 +28,7 @@ export default forwardRef(function NotesWorkspace(
     onEditComponent,
     onCreateProp,
     onEditProp,
+    componentHints = true,
   },
   ref,
 ) {
@@ -202,6 +203,7 @@ export default forwardRef(function NotesWorkspace(
         fontSize={13.5}
         fontFamily="inter"
         components={document.components}
+        componentHints={componentHints}
         props={document.props}
         showLineHighlight={false}
         spellcheck={document.settings.spellcheck}

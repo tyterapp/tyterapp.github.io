@@ -34,8 +34,10 @@ export default function ComponentsPanel({
   onExportReport,
   exporting,
   onImportLibrary,
+  componentHints = true,
+  onToggleHints,
 }) {
-  useLanguage();
+  const language = useLanguage();
   const { isPro: IS_PRO } = useEdition();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -95,6 +97,19 @@ export default function ComponentsPanel({
       <small>PDF</small>
     </button>
   );
+  const hintsSetting = onToggleHints && (
+    <label className="component-hints-setting">
+      <input
+        type="checkbox"
+        checked={componentHints}
+        onChange={onToggleHints}
+      />
+      <span>
+        {language === "en" ? "Component hints" : "Подсказки компонентов"}
+      </span>
+      <kbd>Ctrl + Alt + E</kbd>
+    </label>
+  );
   if (selected)
     return (
       <aside
@@ -122,6 +137,7 @@ export default function ComponentsPanel({
             <X size={18} />
           </button>
         </div>
+        {hintsSetting}
         {reportAction}
         <div className="component-detail-scroll">{renderEditor(selected)}</div>
       </aside>
@@ -165,6 +181,7 @@ export default function ComponentsPanel({
           </button>
         </div>
       </div>
+      {hintsSetting}
       {reportAction}
       {adding && (
         <form

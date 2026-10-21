@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Moon, Send, Sun } from "lucide-react";
 import { t, useLanguage } from "./i18n.js";
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import { useEditorPreferences } from "./editor-preferences.js";
 import { loadCasePage } from "./case-loader.js";
+import BrandContextMenu from "./BrandContextMenu.jsx";
 
 export const BOOSTY_URL = "https://boosty.to/sergeybuharev";
 export function ProLink({
@@ -38,10 +39,13 @@ export default function SiteLayout({
   children,
   feedRef,
   feedLabel,
+  legalSection,
 }) {
   const language = useLanguage();
   const [preferences, updatePreferences] = useEditorPreferences();
   const dark = preferences.theme === "dark";
+  const [brandMenu, setBrandMenu] = useState(null);
+  const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
   useEffect(() => {
     document.title =
       page === "product"
@@ -50,12 +54,36 @@ export default function SiteLayout({
   }, [language, title, page]);
   return (
     <div className={`site-shell${page === "product" ? " site-landing" : ""}`}>
+      {brandMenu && (
+        <BrandContextMenu
+          position={brandMenu}
+          onClose={closeBrandMenu}
+          items={[
+            ["/design", "Дизайн"],
+            ["/case", "Кейс", () => loadCasePage().catch(() => {})],
+          ]}
+        />
+      )}
       <aside className="site-fixed">
         <header className="site-nav">
           <a
             className={`site-logo${page === "product" ? " is-landing-logo" : ""}`}
             href="/"
             aria-label={t("Tyter — главная")}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setBrandMenu({ left: event.clientX, top: event.clientY });
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === "ContextMenu" ||
+                (event.shiftKey && event.key === "F10")
+              ) {
+                event.preventDefault();
+                const rect = event.currentTarget.getBoundingClientRect();
+                setBrandMenu({ left: rect.left, top: rect.bottom });
+              }
+            }}
           >
             <img
               src={
@@ -73,8 +101,6 @@ export default function SiteLayout({
               ["product", "/", "Продукт"],
               ["blog", "/blog", "Блог"],
               ["help", "/help", "Помощь"],
-              ["design", "/design", "Дизайн"],
-              ["case", "/case", "Кейс"],
             ].map(([id, href, label]) => (
               <a
                 key={id}
@@ -144,7 +170,23 @@ export default function SiteLayout({
             </button>
           </div>
           <div className="site-credits">
-            <span>{t("Сделал Сергей Бухарев в 2026")}</span>
+            <span className="site-credit-author">
+              {language === "en"
+                ? "Made by Sergey Buharev"
+                : "Сделал Сергей Бухарев"}{" "}
+              <a
+                className="site-copyright"
+                href="/license"
+                aria-label={
+                  language === "en"
+                    ? "Application license and user agreement"
+                    : "Лицензия приложения и пользовательское соглашение"
+                }
+              >
+                ©
+              </a>{" "}
+              2026
+            </span>
             <a
               href="https://t.me/ultraproduct"
               target="_blank"
@@ -162,6 +204,29 @@ export default function SiteLayout({
         tabIndex={0}
         aria-label={feedLabel || t("Функции Tyter")}
       >
+        {(page === "product" || page === "legal") && (
+          <nav
+            className="site-legal-switch"
+            aria-label={
+              language === "en" ? "Legal documents" : "Правовые документы"
+            }
+          >
+            <span>
+              {[
+                ["license", "Лицензия", "License"],
+                ["agreement", "Пользовательское соглашение", "User agreement"],
+              ].map(([id, ru, en]) => (
+                <a
+                  key={id}
+                  href={page === "legal" ? `#${id}` : `/license#${id}`}
+                  aria-current={legalSection === id ? "page" : undefined}
+                >
+                  {language === "en" ? en : ru}
+                </a>
+              ))}
+            </span>
+          </nav>
+        )}
         {children}
       </main>
     </div>

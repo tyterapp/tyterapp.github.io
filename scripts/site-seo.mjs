@@ -20,6 +20,10 @@ export function pageMetadata(html, route = "") {
   const houseScene = houseSnapshotScene(`/${route}`);
   const house = route === "house" || !!houseScene;
   const pages = {
+    license: [
+      "Лицензия и пользовательское соглашение — Tyter",
+      "Условия использования приложения Tyter: права на проекты, локальные файлы пользователя и хранение данных на вашем устройстве.",
+    ],
     tytergraph: [
       "Tytergraph — написать телеграмму",
       "Напишите телеграмму азбукой Морзе и поделитесь ею по ссылке. Телеграф, чистый лист и ничего лишнего.",
@@ -181,6 +185,7 @@ export async function writeSiteSeo(output) {
     "help",
     "design",
     "case",
+    "license",
     "tytergraph",
     ...BLOG_ARTICLES.map(({ slug }) => `blog/${slug}`),
   ];

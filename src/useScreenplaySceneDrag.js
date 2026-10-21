@@ -96,6 +96,14 @@ export function useScreenplaySceneDrag(ref, enabled, scope, onMove) {
       layer.append(sourceStyle);
       const zones = element("scene-reorder-zones");
       const preview = element("scene-reorder-preview");
+      const image = current.handle
+        .closest(headings)
+        ?.querySelector(".scene-shot-button img");
+      if (image) {
+        const thumbnail = image.cloneNode();
+        thumbnail.className = "scene-reorder-thumbnail";
+        preview.append(thumbnail);
+      }
       const meta = element(
         "scene-reorder-meta",
         t("Сцена {0}", current.index + 1) + " · " + current.letter,

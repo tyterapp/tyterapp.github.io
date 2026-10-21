@@ -192,7 +192,7 @@
   box-decoration-break: clone;
   text-decoration: none;
   border-radius: 3px;
-  cursor: pointer;
+  cursor: text;
 }
 .screenplay-editor a.script-text-link:hover {
   background: transparent;

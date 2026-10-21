@@ -1101,6 +1101,38 @@ export default function MinimalApp({ onLogout }) {
       : "",
   );
   const writingTimer = useWritingTimer(setMessage);
+  const toggleComponentHints = () => {
+    const enabled = !preferences.componentHints;
+    setPreferences({ componentHints: enabled });
+    setMessage(
+      language === "en"
+        ? enabled
+          ? "Component hints enabled"
+          : "Component hints disabled"
+        : enabled
+          ? "Подсказки компонентов включены"
+          : "Подсказки компонентов выключены",
+    );
+  };
+  useEffect(() => {
+    const key = (event) => {
+      if (
+        !event.ctrlKey ||
+        !event.altKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.repeat ||
+        event.isComposing ||
+        event.code !== "KeyE"
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleComponentHints();
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, [preferences.componentHints, language]);
   const [burningPage, setBurningPage] = useState(null);
   const burnInProgress = useRef(false);
   const burnFocus = useRef(null);
@@ -4011,6 +4043,7 @@ export default function MinimalApp({ onLogout }) {
                 />
               ) : filesReady && documents.length && notesOpen ? (
                 <NotesWorkspace
+                  componentHints={preferences.componentHints}
                   key={current.id}
                   ref={notesRef}
                   scope={current.id}
@@ -4113,6 +4146,7 @@ export default function MinimalApp({ onLogout }) {
                   showLineHighlight={false}
                   spellcheck={current.settings.spellcheck}
                   showComponents={componentsOpen}
+                  componentHints={preferences.componentHints}
                   searchQuery={searchOpen ? searchText : ""}
                   searchFormat={searchFormat}
                   searchIndex={visibleSearchIndex}
@@ -4592,6 +4626,8 @@ export default function MinimalApp({ onLogout }) {
           {componentsOpen && (
             <ComponentsPanel
               key={writingScope}
+              componentHints={preferences.componentHints}
+              onToggleHints={toggleComponentHints}
               exporting={busy === "props-pdf"}
               onExportReport={async () => {
                 setBusy("props-pdf");

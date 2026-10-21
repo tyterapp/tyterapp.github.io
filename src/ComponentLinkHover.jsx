@@ -15,7 +15,12 @@ function inTriangle(point, a, b, c) {
   const values = [side(point, a, b), side(point, b, c), side(point, c, a)];
   return !(values.some((v) => v < 0) && values.some((v) => v > 0));
 }
-export default function ComponentLinkHover({ editor, components, onEdit }) {
+export default function ComponentLinkHover({
+  editor,
+  components,
+  onEdit,
+  enabled = true,
+}) {
   const [active, setActive] = useState(null);
   const current = useRef(null),
     timer = useRef(null),
@@ -52,6 +57,7 @@ export default function ComponentLinkHover({ editor, components, onEdit }) {
         event.target.closest?.("a.script-text-link") ||
         event.target.closest?.("[data-entity-id]");
       if (!node || !editor.view.dom.contains(node)) return;
+      if (!enabled && !node.matches("a.script-text-link")) return;
       const component = components.find(
         (item) => item.id === node.dataset.entityId,
       );
@@ -144,7 +150,7 @@ export default function ComponentLinkHover({ editor, components, onEdit }) {
       document.removeEventListener("scroll", hide, true);
       window.removeEventListener("resize", hide);
     };
-  }, [editor, components]);
+  }, [editor, components, enabled]);
   if (!active) return null;
   return createPortal(
     <div

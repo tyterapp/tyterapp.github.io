@@ -27,6 +27,7 @@ export const TextLink = Mark.create({
         class: "script-text-link",
         target: "_blank",
         rel: "noopener noreferrer",
+        tabindex: "-1",
       },
       0,
     ];

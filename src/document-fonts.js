@@ -26,6 +26,11 @@ export const DOCUMENT_FONTS = [
   { id: "arial", name: "Arial", family: "Arial, sans-serif" },
   { id: "georgia", name: "Georgia", family: "Georgia, serif" },
   { id: "times", name: "Times New Roman", family: '"Times New Roman", serif' },
+  {
+    id: "marginalis",
+    name: "Marginalis",
+    family: '"Marginalis", "Screenplay Courier Cyrillic", monospace',
+  },
 ];
 export const documentFonts = (language) =>
   DOCUMENT_FONTS.filter(

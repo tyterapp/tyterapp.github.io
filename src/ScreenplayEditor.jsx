@@ -10,6 +10,7 @@ import { t, useLanguage } from "./i18n.js";
 import EditorContextMenu from "./EditorContextMenu.jsx";
 import ComponentLinkHover from "./ComponentLinkHover.jsx";
 import { TextLink } from "./TextLink.js";
+import ComponentPicker from "./ComponentPicker.jsx";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -570,6 +571,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     showLineHighlight = true,
     spellcheck = false,
     showComponents = false,
+    componentHints = true,
     activeEntity = null,
     searchQuery = "",
     searchFormat = "all",
@@ -618,6 +620,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     [components],
   );
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [componentPickerOpen, setComponentPickerOpen] = useState(false);
   const [sceneVariantMenu, setSceneVariantMenu] = useState(null);
   const [caretReady, setCaretReady] = useState(false);
   const caretReadyRef = useRef(false);
@@ -729,6 +732,29 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     ],
     content: initialContent.current,
     editorProps: {
+      handleDOMEvents: {
+        mousedown(view, event) {
+          if (
+            event.button === 1 &&
+            event.target.closest?.("a.script-text-link")
+          ) {
+            event.preventDefault();
+            view.focus();
+            return true;
+          }
+          return false;
+        },
+        auxclick(view, event) {
+          if (
+            event.target.closest?.("a.script-text-link") &&
+            view.dom.contains(event.target)
+          ) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
+      },
       transformCopied: copiedScreenplaySlice,
       transformPasted: (slice, view, plain) =>
         pastedScreenplaySlice(slice, propsRef.current.components, view, plain),
@@ -770,12 +796,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       handleClick(view, pos, event) {
         const textLink = event.target.closest?.("a.script-text-link");
         if (textLink && view.dom.contains(textLink)) {
-          const href = componentUrl(textLink.getAttribute("href"));
-          if (href) {
-            event.preventDefault();
-            window.open(href, "_blank", "noopener,noreferrer");
-            return true;
-          }
+          // Text remains editable; only the separate link icon navigates.
+          event.preventDefault();
+          view.focus();
         }
         if ((event.ctrlKey || event.metaKey) && event.button === 0) {
           const prop = event.target.closest?.("[data-prop-id]");
@@ -2114,7 +2137,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     <>
       <EditorContent
         editor={editor}
-        className={`screenplay-editor-shell${showComponents ? " show-components" : ""}`}
+        className={`screenplay-editor-shell${showComponents ? " show-components" : ""}${componentHints ? "" : " component-hints-hidden"}`}
       />
       <SelectionToolbar
         editor={editor}
@@ -2132,6 +2155,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         <ComponentLinkHover
           editor={editor}
           components={components}
+          enabled={componentHints}
           onEdit={onEditComponent}
         />
       )}
@@ -2145,11 +2169,27 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         onOpenChange={setContextMenuOpen}
       />
       {minimal && (
-        <Suggestions
+        <ComponentPicker
           editor={editor}
           components={enabledSuggestions}
+          enabled={
+            componentHints &&
+            !suggestionsDisabled &&
+            !contextMenuOpen &&
+            !sceneVariantMenu
+          }
+          onOpenChange={setComponentPickerOpen}
+        />
+      )}
+      {minimal && (
+        <Suggestions
+          editor={editor}
+          components={componentHints ? enabledSuggestions : []}
           disabled={
-            suggestionsDisabled || contextMenuOpen || !!sceneVariantMenu
+            suggestionsDisabled ||
+            contextMenuOpen ||
+            !!sceneVariantMenu ||
+            componentPickerOpen
           }
         />
       )}

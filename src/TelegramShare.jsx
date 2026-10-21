@@ -166,9 +166,9 @@ export default function TelegramShare({
         </p>
       )}
       <label className="telegram-share-link">
-        <span>{t("Ссылка на телеграмму")}</span>
         <input
           ref={input}
+          aria-label={t("Ссылка на телеграмму")}
           value={link}
           readOnly
           onFocus={(event) => event.target.select()}

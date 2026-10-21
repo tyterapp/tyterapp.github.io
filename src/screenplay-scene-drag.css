@@ -47,6 +47,9 @@
 .screenplay-scene-dragging .unified-tooltip {
   display: none;
 }
+.screenplay-scene-dragging .screenplay-editor .scene-number {
+  visibility: hidden;
+}
 .scene-hover-highlight {
   position: fixed;
   pointer-events: none;
@@ -88,7 +91,8 @@
 .scene-reorder-zone-label {
   position: absolute;
   top: 6px;
-  right: 8px;
+  left: calc(100% + 24px);
+  white-space: nowrap;
   padding: 3px 7px;
   border-radius: 5px;
   background: var(--ui-surface);
@@ -117,6 +121,8 @@
   background: var(--ui-accent);
 }
 .scene-reorder-preview {
+  opacity: 0.72;
+  transition: opacity 140ms ease;
   position: absolute;
   top: 0;
   left: 0;
@@ -136,6 +142,16 @@
   color: var(--ui-muted);
   font-size: 11px;
   white-space: nowrap;
+}
+.scene-reorder-preview[data-valid="true"] {
+  opacity: 1;
+}
+.scene-reorder-thumbnail {
+  width: 64px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex: 0 0 auto;
 }
 .scene-reorder-title {
   overflow: hidden;

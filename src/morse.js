@@ -107,11 +107,18 @@ const inverse = (alphabet) =>
   );
 const alphabets = { ru: inverse(cyrillic), en: inverse(latin) };
 export function encodeMorse(letter) {
-  return { ...latin, ...cyrillic, ...common }[letter.toUpperCase()] || null;
+  const normalized = letter.toUpperCase().replaceAll("Ё", "Е");
+  return { ...latin, ...cyrillic, ...common }[normalized] || null;
 }
 export function decodeMorse(code, language = "ru") {
   if (code === "...---...") return language === "en" ? "SOS" : "СОС";
-  return alphabets[language === "en" ? "en" : "ru"][code] || null;
+  // The reference shows both alphabets. Unique codes from either alphabet
+  // remain usable; shared codes follow the selected writing language.
+  return (
+    alphabets[language === "en" ? "en" : "ru"][code] ||
+    alphabets[language === "en" ? "ru" : "en"][code] ||
+    null
+  );
 }
 
 // No document references live here. Closing the key cancels every pending input.
@@ -124,6 +131,8 @@ export function createMorseKeyer({
   timing = {},
 }) {
   const { minPress = 0, dash = MORSE_DASH, maxPress = Infinity } = timing;
+  let currentLanguage = language,
+    codeLanguage = null;
   let downAt = null,
     lastUp = null,
     code = "",
@@ -131,23 +140,44 @@ export function createMorseKeyer({
     wordPending = false;
   let letterTimer,
     wordTimer,
+    deliveryTimer,
     disposed = false;
+  const pending = [];
+  const deliver = () => {
+    clearTimeout(deliveryTimer);
+    if (disposed) return;
+    while (pending.length) {
+      if (onText?.(pending[0]) === false) {
+        deliveryTimer = setTimeout(deliver, 50);
+        return;
+      }
+      pending.shift();
+    }
+  };
   const clearTimers = () => {
     clearTimeout(letterTimer);
     clearTimeout(wordTimer);
   };
+  const resume = () => {
+    if (lastUp === null) return;
+    const elapsed = performance.now() - lastUp;
+    letterTimer = setTimeout(letter, Math.max(0, MORSE_LETTER_GAP - elapsed));
+    wordTimer = setTimeout(word, Math.max(0, MORSE_WORD_GAP - elapsed));
+  };
   const letter = () => {
     if (!code || disposed) return;
-    const value = decodeMorse(code, language);
-    if (
-      value &&
-      onText((wordPending && hasText ? " " : "") + value) !== false
-    ) {
+    const value = decodeMorse(code, codeLanguage || currentLanguage);
+    if (value) {
+      // Composition can temporarily lock the document. Keep accepted letters
+      // in order until insertion is available instead of silently losing them.
+      pending.push((wordPending && hasText ? " " : "") + value);
       hasText = true;
       wordPending = false;
+      deliver();
     }
     onBoundary?.("letter", value);
     code = "";
+    codeLanguage = null;
     onCode?.(code);
   };
   const word = () => {
@@ -157,13 +187,19 @@ export function createMorseKeyer({
   };
   const cancel = () => {
     clearTimers();
+    clearTimeout(deliveryTimer);
+    pending.length = 0;
     downAt = null;
     lastUp = null;
     code = "";
+    codeLanguage = null;
     wordPending = false;
     onCode?.(code);
   };
   return {
+    setLanguage(value) {
+      currentLanguage = value;
+    },
     press() {
       if (disposed || downAt !== null) return false;
       const now = performance.now();
@@ -181,18 +217,12 @@ export function createMorseKeyer({
       downAt = null;
       if (duration < minPress || duration > maxPress) {
         // Ignore accidental/overlong presses without losing the valid sequence.
-        if (lastUp !== null) {
-          const elapsed = now - lastUp;
-          letterTimer = setTimeout(
-            letter,
-            Math.max(0, MORSE_LETTER_GAP - elapsed),
-          );
-          wordTimer = setTimeout(word, Math.max(0, MORSE_WORD_GAP - elapsed));
-        }
+        resume();
         return false;
       }
       const symbol = duration >= dash ? "-" : ".";
       lastUp = now;
+      if (!code) codeLanguage = currentLanguage;
       // Bound malformed sequences without ever turning them into valid letters.
       code = (code + symbol).slice(0, 9);
       onSignal?.(symbol);
@@ -202,6 +232,14 @@ export function createMorseKeyer({
       return true;
     },
     cancel,
+    abortPress() {
+      // Pointer cancellation rejects only the unfinished press, not the
+      // already accepted dots and dashes waiting for their letter boundary.
+      if (disposed || downAt === null) return;
+      downAt = null;
+      clearTimers();
+      resume();
+    },
     dispose() {
       cancel();
       disposed = true;
