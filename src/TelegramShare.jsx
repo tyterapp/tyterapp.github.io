@@ -6,7 +6,13 @@ import { telegramLink } from "./telegram.js";
 import { publishTelegram } from "./telegram-service.js";
 import "./telegram.css";
 
-export default function TelegramShare({ text, title, language, onClose }) {
+export default function TelegramShare({
+  text,
+  title,
+  language,
+  onClose,
+  showExplanations = true,
+}) {
   const portableLink = useMemo(
     () => telegramLink(text, language, location.href, title),
     [text, title, language],
@@ -138,19 +144,21 @@ export default function TelegramShare({ text, title, language, onClose }) {
           height="630"
         />
       )}
-      <p className="telegram-share-note">
-        {t(
-          "По ссылке откроется только текст телеграммы с воспроизведением Морзе.",
-        )}
-      </p>
-      {!publishedLink && (
+      {showExplanations && (
+        <p className="telegram-share-note">
+          {t(
+            "По ссылке откроется только текст телеграммы с воспроизведением Морзе.",
+          )}
+        </p>
+      )}
+      {showExplanations && !publishedLink && (
         <p className="telegram-cover-note">
           {t(
             "Превью ссылки в Telegram пока общее. Обложку вашей телеграммы можно скачать и отправить вместе со ссылкой.",
           )}
         </p>
       )}
-      {cover && !cover.qrAvailable && (
+      {showExplanations && cover && !cover.qrAvailable && (
         <p className="telegram-cover-note">
           {t(
             "Текст слишком длинный для QR-кода переносимой ссылки. Отправьте саму ссылку; после подключения сервиса QR будет доступен и для длинных телеграмм.",

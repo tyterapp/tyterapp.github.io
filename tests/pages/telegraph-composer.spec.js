@@ -23,7 +23,7 @@ async function open(page, { theme = "light", language = "en" } = {}) {
     },
     { theme, language },
   );
-  await page.goto("/telegraph/");
+  await page.goto("/tytergraph/");
   await expect(page.locator(".telegraph-document")).toBeVisible();
   await expect(page.locator(".telegraph-document")).toBeFocused();
   await expect(page.locator(".telegraph-key img").first()).toHaveJSProperty(
@@ -45,6 +45,21 @@ async function paste(page, value) {
       }),
     );
   }, value);
+}
+async function keyTap(page, paused = false, selector = ".telegraph-key") {
+  const rect = await page.locator(selector).boundingBox();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }],
+  });
+  if (paused) await page.clock.fastForward(20);
+  else await page.waitForTimeout(20);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await cdp.detach();
 }
 async function signal(page, symbol = ".", shortcut = false) {
   if (shortcut) {
@@ -70,16 +85,16 @@ async function signal(page, symbol = ".", shortcut = false) {
 test("standalone telegraph has static metadata and the exact supplied 1200×630 cover", async ({
   request,
 }) => {
-  for (const route of ["/telegraph", "/telegraph/"]) {
+  for (const route of ["/tytergraph", "/tytergraph/"]) {
     const response = await request.get(route);
     expect(response.status()).toBe(200);
     const html = await response.text();
-    expect(html).toContain("Телеграф Tyter — написать телеграмму");
+    expect(html).toContain("Tytergraph — написать телеграмму");
     expect(html).toMatch(
       /property="og:image"\s+content="https:\/\/tyterapp.github.io\/telegraph\/cover-white-v1.png"/,
     );
     expect(html).toContain(
-      'rel="canonical" href="https://tyterapp.github.io/telegraph/"',
+      'rel="canonical" href="https://tyterapp.github.io/tytergraph/"',
     );
   }
   const response = await request.get("/telegraph/cover.png");
@@ -95,7 +110,7 @@ test("standalone telegraph has static metadata and the exact supplied 1200×630 
   expect((await versioned.body()).equals(supplied)).toBe(true);
   expect((await request.get("/telegraph/normal.png")).status()).toBe(200);
   expect(await (await request.get("/sitemap.xml")).text()).toContain(
-    "<loc>https://tyterapp.github.io/telegraph</loc>",
+    "<loc>https://tyterapp.github.io/tytergraph</loc>",
   );
 });
 
@@ -122,10 +137,10 @@ for (const theme of ["light", "dark"])
       ),
     ).toHaveCount(0);
     const share = page.getByRole("button", {
-      name: "Share telegram",
+      name: "Share",
       exact: true,
     });
-    await expect(share).toBeDisabled();
+    await expect(share).toBeEnabled();
     await page.keyboard.type("HELLO");
     await page.keyboard.press("Control+b");
     await page.keyboard.type("!");
@@ -247,7 +262,7 @@ test.describe("touch-only standalone composer", () => {
         ),
       );
       expect(menuAllowed).toBe(true);
-      await page.locator(".telegraph-key").tap();
+      await keyTap(page);
       await expect(document).toHaveText("PASTEE");
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
@@ -287,7 +302,7 @@ test("long telegrams scroll inside the paper and keep the caret above the key", 
   const key = await page.locator(".focus-telegraph").boundingBox();
   expect(caret).toBeLessThan(key.y);
   await expect(
-    page.getByRole("button", { name: "Share telegram", exact: true }),
+    page.getByRole("button", { name: "Share", exact: true }),
   ).toBeVisible();
 });
 
@@ -452,7 +467,7 @@ for (const mode of ["vibration", "blocked", "unsupported"])
 test("standalone home-screen icons and manifest are scoped to telegraph", async ({
   request,
 }) => {
-  const html = await (await request.get("/telegraph/")).text();
+  const html = await (await request.get("/tytergraph/")).text();
   expect(html).toContain(
     'rel="icon" type="image/png" sizes="32x32" href="/telegraph/favicon-32.png"',
   );
@@ -460,19 +475,19 @@ test("standalone home-screen icons and manifest are scoped to telegraph", async 
     'rel="apple-touch-icon" sizes="180x180" href="/telegraph/apple-touch-icon.png"',
   );
   expect(html).toContain(
-    'rel="manifest" href="/telegraph/manifest.webmanifest"',
+    'rel="manifest" href="/tytergraph/manifest.webmanifest"',
   );
   expect(html).toContain('name="apple-mobile-web-app-capable" content="yes"');
-  const response = await request.get("/telegraph/manifest.webmanifest");
+  const response = await request.get("/tytergraph/manifest.webmanifest");
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain(
     "application/manifest+json",
   );
   const manifest = await response.json();
   expect(manifest).toMatchObject({
-    id: "/telegraph/",
-    start_url: "/telegraph/",
-    scope: "/telegraph/",
+    id: "/tytergraph/",
+    start_url: "/tytergraph/",
+    scope: "/tytergraph/",
     display: "standalone",
   });
   for (const [src, size] of [
@@ -498,7 +513,7 @@ test("standalone home-screen icons and manifest are scoped to telegraph", async 
     expect(other).toContain(
       'rel="icon" type="image/svg+xml" href="/brand/tyter-logo.svg"',
     );
-    expect(other).not.toContain("/telegraph/manifest.webmanifest");
+    expect(other).not.toContain("/tytergraph/manifest.webmanifest");
   }
 });
 
@@ -530,7 +545,7 @@ test.describe("standalone mobile haptics", () => {
     });
     await open(page);
     await expect(page.locator(".telegraph-native-haptic")).toHaveCount(0);
-    await page.locator(".telegraph-key").tap();
+    await keyTap(page);
     await expect(page.locator(".telegraph-document")).toHaveText("E");
     expect(await page.evaluate(() => window.mobileHaptics)).toEqual([
       { value: [25], activated: true },
@@ -592,7 +607,7 @@ test.describe("standalone mobile haptics", () => {
     const time = Date.now();
     await page.clock.install({ time });
     await page.clock.pauseAt(time + 1000);
-    await input.tap();
+    await keyTap(page, true, ".telegraph-native-haptic");
     await page.clock.fastForward(MORSE_LETTER_GAP);
     await expect(page.locator(".telegraph-document")).toHaveText("E");
     await expect(page.locator(".telegraph-document")).toBeFocused();
@@ -640,9 +655,9 @@ test("standalone X crawler receives static card tags and a fresh JPEG while Open
   request,
 }) => {
   for (const route of [
-    "/telegraph",
-    "/telegraph/",
-    "/telegraph/?share=20261021",
+    "/tytergraph",
+    "/tytergraph/",
+    "/tytergraph/?share=20261021",
   ]) {
     const response = await request.get(route, {
       headers: { "User-Agent": "Twitterbot/1.0" },
@@ -653,7 +668,7 @@ test("standalone X crawler receives static card tags and a fresh JPEG while Open
       ["twitter:card", "summary_large_image"],
       ["twitter:image", "https://tyterapp.github.io/telegraph/cover-x-v2.jpg"],
       ["og:image", "https://tyterapp.github.io/telegraph/cover-white-v1.png"],
-      ["og:url", "https://tyterapp.github.io/telegraph/"],
+      ["og:url", "https://tyterapp.github.io/tytergraph/"],
     ]) {
       const tags = html.match(
         new RegExp(
@@ -708,9 +723,7 @@ test("standalone Delete removes the final grapheme and line break, supports Undo
   expect(await draft()).toBe("A\n");
   await remove.click();
   expect(await text(page)).toBe("A");
-  await page
-    .getByRole("button", { name: "Share telegram", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Share", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Share telegram" });
   expect(
     readTelegram(new URL(await dialog.getByRole("textbox").inputValue()).hash)
@@ -720,8 +733,8 @@ test("standalone Delete removes the final grapheme and line break, supports Undo
   await remove.click();
   await expect(remove).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Share telegram", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "Share", exact: true }),
+  ).toBeEnabled();
   await page.keyboard.press("Control+z");
   expect(await text(page)).toBe("A");
 });
@@ -843,7 +856,7 @@ test.describe("standalone mobile word deletion", () => {
     await open(page);
     await paste(page, "ONE\nTWO 👩‍👩‍👧‍👦  \n\n");
     await pause(page);
-    await page.locator(".telegraph-key").tap();
+    await keyTap(page, true);
     let release = await startHold(page);
     await page.clock.fastForward(450);
     await release();
@@ -922,4 +935,149 @@ test("standalone desktop mouse hold still deletes only a character", async ({
   await expect(page.locator(".telegraph-document")).toHaveText("KEEP THIS");
   await page.mouse.up();
   await expect(page.locator(".telegraph-document")).toHaveText("KEEP THI");
+});
+
+test("standalone legacy address redirects to Tytergraph without losing the draft, query or hash", async ({
+  page,
+  request,
+}) => {
+  await open(page);
+  await page.keyboard.type("PRESERVED");
+  const response = await request.get("/telegraph/");
+  const html = await response.text();
+  expect(html).toContain('http-equiv="refresh" content="0;url=/tytergraph/"');
+  expect(html).toContain(
+    'rel="canonical" href="https://tyterapp.github.io/tytergraph/"',
+  );
+  await page.goto("/telegraph?from=legacy#draft");
+  await expect(page).toHaveURL(/\/tytergraph\/\?from=legacy#draft$/);
+  await expect(page.locator(".telegraph-document")).toHaveText("PRESERVED");
+});
+
+for (const language of ["en", "ru"])
+  test(`standalone ${language}: empty Share animates inside the paper, never enters the draft, and the populated popup contains no explanations`, async ({
+    page,
+  }, info) => {
+    await open(page, { language });
+    const share = page.getByRole("button", {
+      name: language === "en" ? "Share" : "Поделиться",
+      exact: true,
+    });
+    await expect(share).toBeEnabled();
+    await share.click();
+    const message = page.locator(
+      ".telegraph-compose-paper .telegraph-empty-message",
+    );
+    await expect(message).toBeVisible();
+    await expect(message).toContainText(
+      language === "en"
+        ? "Enter a telegram to share it."
+        : "Введите телеграмму, чтобы поделиться.",
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator(".telegraph-document")).toHaveText("");
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("tyter.telegraph-draft.v1"),
+      ),
+    ).toBe(null);
+    await expect
+      .poll(() =>
+        message.evaluate(
+          (node) => node.getAnimations({ subtree: true }).length,
+        ),
+      )
+      .toBeGreaterThan(0);
+    await message.evaluate((node) => (node.dataset.testPrevious = "true"));
+    await share.click();
+    await expect(message).not.toHaveAttribute("data-test-previous", "true");
+    await page.screenshot({
+      path: info.outputPath(`tytergraph-empty-${language}.png`),
+    });
+    await page.keyboard.type("HELLO");
+    await expect(message).toHaveCount(0);
+    await share.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.locator(".telegram-share-note,.telegram-cover-note"),
+    ).toHaveCount(0);
+    await expect(dialog.locator(".telegram-cover-preview")).toBeVisible();
+    expect(
+      readTelegram(new URL(await dialog.getByRole("textbox").inputValue()).hash)
+        .text,
+    ).toBe("HELLO");
+    await page.keyboard.press("Escape");
+    await page.locator(".telegraph-help-button").click();
+    const author = page
+      .getByRole("dialog")
+      .getByRole("link", { name: /ultraproduct/ });
+    await expect(author).toHaveAttribute("href", "https://t.me/ultraproduct");
+    await expect(author).toHaveAttribute("target", "_blank");
+  });
+
+for (const language of ["en", "ru"])
+  test(`standalone ${language}: SOS enters both as an uninterrupted distress sequence and as three letters`, async ({
+    page,
+  }) => {
+    await open(page, { language });
+    const time = Date.now();
+    await page.clock.install({ time });
+    await page.clock.pauseAt(time + 1000);
+    for (const character of "...---...") await signal(page, character);
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    const result = language === "en" ? "SOS" : "СОС";
+    await expect(page.locator(".telegraph-document")).toHaveText(result);
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Backspace");
+    for (const letter of ["...", "---", "..."]) {
+      for (const character of letter) await signal(page, character);
+      await page.clock.fastForward(MORSE_LETTER_GAP);
+    }
+    await expect(page.locator(".telegraph-document")).toHaveText(result);
+  });
+
+test("standalone press durations reject below 10ms and above 2000ms and switch from dot to dash at 250ms", async ({
+  page,
+}) => {
+  await open(page);
+  const time = Date.now();
+  await page.clock.install({ time });
+  await page.clock.pauseAt(time + 1000);
+  const key = page.locator(".telegraph-key");
+  const rect = await key.boundingBox();
+  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+  for (const [duration, expected] of [
+    [9, ""],
+    [10, "E"],
+    [249, "EE"],
+    [250, "EET"],
+    [2000, "EETT"],
+    [2001, "EETT"],
+  ]) {
+    await page.mouse.down();
+    await page.clock.fastForward(duration);
+    await page.mouse.up();
+    await page.clock.fastForward(MORSE_LETTER_GAP);
+    await expect(page.locator(".telegraph-document")).toHaveText(expected);
+  }
+});
+
+test("standalone empty message remains readable with reduced motion", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await open(page);
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  const message = page.locator(".telegraph-empty-message");
+  await expect(message).toBeVisible();
+  expect(
+    await message.evaluate(
+      (node) => node.getAnimations({ subtree: true }).length,
+    ),
+  ).toBe(0);
+  await expect(message.locator(".emotional-unit").first()).toHaveCSS(
+    "opacity",
+    "1",
+  );
 });

@@ -193,17 +193,42 @@
   width: min(100%, 920px);
   margin-inline: auto;
   box-sizing: border-box;
-  padding: 16px 40px;
+  padding: 16px 40px 40px;
   scroll-padding-block: 32px;
 }
 .telegraph-compose-paper {
+  position: relative;
+  --telegraph-paper-padding: clamp(28px, 5vw, 64px);
   min-height: 100%;
-  padding: clamp(28px, 5vw, 64px);
+  padding: var(--telegraph-paper-padding);
   border-radius: 16px;
   background: var(--ui-surface);
   box-shadow:
     0 0 0 1px var(--ui-border),
     0 8px 32px oklch(0 0 0 / 0.05);
+}
+.telegraph-empty-message {
+  position: absolute;
+  top: var(--telegraph-paper-padding);
+  inset-inline: var(--telegraph-paper-padding);
+  color: var(--ui-muted);
+  pointer-events: none;
+  font:
+    400 18px/1.7 "Tyter Courier Prime",
+    "Screenplay Courier Cyrillic",
+    Courier,
+    monospace;
+}
+.telegraph-empty-message p {
+  margin: 0;
+}
+.telegraph-alphabet-author {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 20px;
+  color: var(--ui-accent);
+  text-underline-offset: 3px;
 }
 .telegraph-document {
   min-height: 280px;
@@ -303,10 +328,10 @@
     height: 28px;
   }
   .telegraph-compose-scroll {
-    padding: 16px;
+    padding: 16px 16px 40px;
   }
   .telegraph-compose-paper {
-    padding: 24px;
+    --telegraph-paper-padding: 24px;
     border-radius: 12px;
   }
   .telegraph-document {

@@ -57,8 +57,8 @@ export default function TelegraphAlphabet({ language, onClose }) {
       <div className="telegraph-alphabet-content">
         <p className="telegraph-alphabet-hint">
           {en
-            ? "Tap for a dot, hold for a dash. Pause between letters; pause longer between words. You can also use Ctrl+M."
-            : "Короткое нажатие — точка, длинное — тире. Пауза разделяет буквы, длинная пауза — слова. Можно нажимать Ctrl+M."}
+            ? "Dot: 10–250 ms. Dash: 250–2000 ms. Pause between letters; pause longer between words. You can also use Ctrl+M."
+            : "Точка: 10–250 мс. Тире: 250–2000 мс. Пауза разделяет буквы, длинная пауза — слова. Можно нажимать Ctrl+M."}
         </p>
         {alphabets.map(([code, letters]) => (
           <section key={code} aria-labelledby={`telegraph-alphabet-${code}`}>
@@ -100,6 +100,14 @@ export default function TelegraphAlphabet({ language, onClose }) {
             )}
           </section>
         ))}
+        <a
+          className="telegraph-alphabet-author"
+          href="https://t.me/ultraproduct"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {en ? "Author" : "Автор"} · @ultraproduct
+        </a>
       </div>
     </dialog>,
     document.body,

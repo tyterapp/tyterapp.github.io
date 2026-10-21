@@ -3,6 +3,11 @@ export const MORSE_UNIT = 180;
 export const MORSE_DASH = MORSE_UNIT * 2;
 export const MORSE_LETTER_GAP = MORSE_UNIT * 3;
 export const MORSE_WORD_GAP = MORSE_UNIT * 7;
+export const TYTERGRAPH_TIMING = Object.freeze({
+  minPress: 10,
+  dash: 250,
+  maxPress: 2000,
+});
 
 const latin = {
   A: ".-",
@@ -105,6 +110,7 @@ export function encodeMorse(letter) {
   return { ...latin, ...cyrillic, ...common }[letter.toUpperCase()] || null;
 }
 export function decodeMorse(code, language = "ru") {
+  if (code === "...---...") return language === "en" ? "SOS" : "СОС";
   return alphabets[language === "en" ? "en" : "ru"][code] || null;
 }
 
@@ -115,7 +121,9 @@ export function createMorseKeyer({
   onSignal,
   onBoundary,
   onCode,
+  timing = {},
 }) {
+  const { minPress = 0, dash = MORSE_DASH, maxPress = Infinity } = timing;
   let downAt = null,
     lastUp = null,
     code = "",
@@ -169,8 +177,21 @@ export function createMorseKeyer({
     release() {
       if (disposed || downAt === null) return false;
       const now = performance.now();
-      const symbol = now - downAt >= MORSE_DASH ? "-" : ".";
+      const duration = now - downAt;
       downAt = null;
+      if (duration < minPress || duration > maxPress) {
+        // Ignore accidental/overlong presses without losing the valid sequence.
+        if (lastUp !== null) {
+          const elapsed = now - lastUp;
+          letterTimer = setTimeout(
+            letter,
+            Math.max(0, MORSE_LETTER_GAP - elapsed),
+          );
+          wordTimer = setTimeout(word, Math.max(0, MORSE_WORD_GAP - elapsed));
+        }
+        return false;
+      }
+      const symbol = duration >= dash ? "-" : ".";
       lastUp = now;
       // Bound malformed sequences without ever turning them into valid letters.
       code = (code + symbol).slice(0, 9);

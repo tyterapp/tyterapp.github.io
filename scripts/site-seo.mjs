@@ -15,12 +15,13 @@ const escape = (value) =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 export function pageMetadata(html, route = "") {
+  const telegraph = ["telegraph", "tytergraph"].includes(route);
   const article = BLOG_ARTICLES.find(({ slug }) => route === `blog/${slug}`);
   const houseScene = houseSnapshotScene(`/${route}`);
   const house = route === "house" || !!houseScene;
   const pages = {
-    telegraph: [
-      "Телеграф Tyter — написать телеграмму",
+    tytergraph: [
+      "Tytergraph — написать телеграмму",
       "Напишите телеграмму азбукой Морзе и поделитесь ею по ссылке. Телеграф, чистый лист и ничего лишнего.",
     ],
     case: [
@@ -74,13 +75,13 @@ export function pageMetadata(html, route = "") {
   };
   const [title, description] = article
     ? [`${article.title[0]} — Tyter`, article.summary[0]]
-    : pages[house ? "house" : route] || pages.free;
+    : pages[house ? "house" : telegraph ? "tytergraph" : route] || pages.free;
   const url =
     origin +
     (houseScene
       ? houseSnapshotRoute(houseScene)
-      : route === "telegraph"
-        ? "/telegraph/"
+      : telegraph
+        ? "/tytergraph/"
         : route
           ? `/${route}`
           : "/");
@@ -88,13 +89,13 @@ export function pageMetadata(html, route = "") {
     ? `${origin}${houseSnapshotRoute(houseScene || HOUSE_SNAPSHOT_SCENES[0])}cover.png`
     : route === "telegram"
       ? `${origin}/telegram/cover-generic-v2.png`
-      : route === "telegraph"
+      : telegraph
         ? `${origin}/telegraph/cover-white-v1.png`
         : null;
   const imageAlt =
     route === "telegram"
       ? "Телеграмма Tyter"
-      : route === "telegraph"
+      : telegraph
         ? "Телеграф Tyter"
         : houseScene?.skin
           ? "Домик с котиком OiiA в Tyter"
@@ -123,10 +124,9 @@ export function pageMetadata(html, route = "") {
           "og:image:height": "630",
           "og:image:alt": imageAlt,
           "twitter:card": "summary_large_image",
-          "twitter:image":
-            route === "telegraph"
-              ? `${origin}/telegraph/cover-x-v2.jpg`
-              : cover,
+          "twitter:image": telegraph
+            ? `${origin}/telegraph/cover-x-v2.jpg`
+            : cover,
           "twitter:image:alt": imageAlt,
         }
       : {}),
@@ -146,7 +146,7 @@ export function pageMetadata(html, route = "") {
       "</head>",
       '<meta name="robots" content="noindex" /></head>',
     );
-  if (route === "telegraph") {
+  if (telegraph) {
     html = html.replace(
       /<link\s+rel="icon"[^>]*>/,
       '<link rel="icon" type="image/png" sizes="32x32" href="/telegraph/favicon-32.png" />',
@@ -155,14 +155,19 @@ export function pageMetadata(html, route = "") {
       "</head>",
       `
     <link rel="apple-touch-icon" sizes="180x180" href="/telegraph/apple-touch-icon.png" />
-    <link rel="manifest" href="/telegraph/manifest.webmanifest" />
+    <link rel="manifest" href="/tytergraph/manifest.webmanifest" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Telegraph" />
+    <meta name="apple-mobile-web-app-title" content="Tytergraph" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     </head>`,
     );
   }
+  if (route === "telegraph")
+    html = html.replace(
+      "</head>",
+      '<script>location.replace("/tytergraph/" + location.search + location.hash);</script><meta http-equiv="refresh" content="0;url=/tytergraph/" /></head>',
+    );
   return html;
 }
 
@@ -176,7 +181,7 @@ export async function writeSiteSeo(output) {
     "help",
     "design",
     "case",
-    "telegraph",
+    "tytergraph",
     ...BLOG_ARTICLES.map(({ slug }) => `blog/${slug}`),
   ];
   await writeFile(

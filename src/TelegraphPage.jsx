@@ -9,6 +9,8 @@ import Telegraph from "./Telegraph.jsx";
 import TelegraphAlphabet from "./TelegraphAlphabet.jsx";
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import BrandContextMenu from "./BrandContextMenu.jsx";
+import EmotionalReveal from "./EmotionalReveal.jsx";
+import { TYTERGRAPH_TIMING } from "./morse.js";
 import { useLanguage } from "./i18n.js";
 import "./telegraph-page.css";
 
@@ -83,6 +85,7 @@ export default function TelegraphPage() {
   const mobileRef = useRef(mobile);
   mobileRef.current = mobile;
   const [text, setText] = useState(readDraft);
+  const [emptyMessage, setEmptyMessage] = useState(0);
   const initial = useRef(text);
   const editor = useEditor({
     extensions: [
@@ -190,8 +193,8 @@ export default function TelegraphPage() {
   }, [editor]);
   useEffect(() => {
     document.title = en
-      ? "Tyter Telegraph — write a telegram"
-      : "Телеграф Tyter — написать телеграмму";
+      ? "Tytergraph — write a telegram"
+      : "Tytergraph — написать телеграмму";
   }, [en]);
 
   const insert = (value) => {
@@ -297,11 +300,28 @@ export default function TelegraphPage() {
       <div className="telegraph-compose-scroll">
         <div className="telegraph-compose-paper">
           <EditorContent editor={editor} />
+          {emptyMessage > 0 && !text.trim() && (
+            <EmotionalReveal
+              key={emptyMessage}
+              as="div"
+              language={language}
+              className="telegraph-empty-message"
+              role="status"
+              aria-live="polite"
+            >
+              <p>
+                {en
+                  ? "Enter a telegram to share it."
+                  : "Введите телеграмму, чтобы поделиться."}
+              </p>
+            </EmotionalReveal>
+          )}
         </div>
       </div>
       <div className="telegraph-compose-dock">
         <Telegraph
           language={language}
+          morseTiming={TYTERGRAPH_TIMING}
           editorSelector=".telegraph-document"
           onText={insert}
           onPress={feedback}
@@ -310,6 +330,12 @@ export default function TelegraphPage() {
           onDelete={deleteLast}
           onDeleteWord={mobile ? () => deleteLast(true) : undefined}
           canDelete={text.length > 0}
+          shareLabel={en ? "Share" : "Поделиться"}
+          compactShare
+          onEmptyShare={() => {
+            setEmptyMessage((value) => value + 1);
+            editor?.commands.focus("end", { scrollIntoView: true });
+          }}
           telegram={text.trim() ? text : ""}
           title={en ? "Telegram" : "Телеграмма"}
         />

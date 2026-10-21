@@ -35,6 +35,8 @@ const desktop =
 const CasePage = lazy(loadCasePage);
 const pathname = location.pathname.replace(/\/+$/, "") || "/";
 if (!desktop && pathname === "/pay") location.replace("/beta");
+if (!desktop && pathname === "/telegraph")
+  location.replace(`/tytergraph/${location.search}${location.hash}`);
 const webPro = ["/pro", "/beta"].includes(pathname);
 const editor = desktop || ["/free", "/app"].includes(pathname) || webPro;
 const housePage = pathname === "/house" || !!houseSnapshotScene(pathname);
@@ -69,7 +71,7 @@ createRoot(document.getElementById("root")).render(
       <HouseSnapshotPage />
     ) : pathname === "/telegram" ? (
       <TelegramPage />
-    ) : pathname === "/telegraph" ? (
+    ) : ["/telegraph", "/tytergraph"].includes(pathname) ? (
       <TelegraphPage />
     ) : pathname === "/design" ? (
       <DesignPage />

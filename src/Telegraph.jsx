@@ -26,7 +26,12 @@ export default function Telegraph({
   onDelete,
   onDeleteWord,
   canDelete = false,
+  morseTiming,
+  shareLabel,
+  onEmptyShare,
+  compactShare = false,
 }) {
+  const dashThreshold = morseTiming?.dash ?? MORSE_DASH;
   const [sharedText, setSharedText] = useState(null);
   const [pressed, setPressed] = useState(false);
   const [heldDash, setHeldDash] = useState(false);
@@ -39,6 +44,7 @@ export default function Telegraph({
     audio = useRef(null),
     keyer = useRef(null),
     dashTimer = useRef(null);
+  const limitTimer = useRef(null);
   const insert = useRef(onText);
   insert.current = onText;
   const pressFeedback = useRef(onPress);
@@ -79,6 +85,7 @@ export default function Telegraph({
     audio.current = sound;
     const input = createMorseKeyer({
       language,
+      timing: morseTiming,
       onText(value) {
         if (!insert.current?.(value)) return false;
         setText((previous) => (previous + value).slice(-80));
@@ -107,6 +114,7 @@ export default function Telegraph({
     keyer.current = input;
     const cancel = () => {
       clearTimeout(dashTimer.current);
+      clearTimeout(limitTimer.current);
       active.current = null;
       setPressed(false);
       input.cancel();
@@ -119,6 +127,7 @@ export default function Telegraph({
     document.addEventListener("visibilitychange", visibility);
     return () => {
       clearTimeout(dashTimer.current);
+      clearTimeout(limitTimer.current);
       input.dispose();
       keyer.current = null;
       active.current = null;
@@ -127,20 +136,29 @@ export default function Telegraph({
       window.removeEventListener("blur", cancel);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [language]);
-  const begin = useCallback((id, type = "keyboard") => {
-    if (active.current !== null || !keyer.current?.press()) return;
-    active.current = id;
-    pointerType.current = type;
-    setHeldDash(false);
-    setPressed(true);
-    dashTimer.current = setTimeout(() => setHeldDash(true), MORSE_DASH);
-    audio.current?.start();
-    pressFeedback.current?.({ pointerType: type });
-  }, []);
+  }, [language, morseTiming]);
+  const begin = useCallback(
+    (id, type = "keyboard") => {
+      if (active.current !== null || !keyer.current?.press()) return;
+      active.current = id;
+      pointerType.current = type;
+      setHeldDash(false);
+      setPressed(true);
+      dashTimer.current = setTimeout(() => setHeldDash(true), dashThreshold);
+      audio.current?.start();
+      if (Number.isFinite(morseTiming?.maxPress))
+        limitTimer.current = setTimeout(
+          () => audio.current?.stop(),
+          morseTiming.maxPress,
+        );
+      pressFeedback.current?.({ pointerType: type });
+    },
+    [dashThreshold, morseTiming],
+  );
   const end = useCallback((id, cancel = false) => {
     if (active.current !== id) return;
     clearTimeout(dashTimer.current);
+    clearTimeout(limitTimer.current);
     active.current = null;
     setPressed(false);
     audio.current?.stop();
@@ -241,7 +259,7 @@ export default function Telegraph({
       onClick={(event) => {
         if (event.detail === 0) {
           begin("assistive");
-          end("assistive");
+          setTimeout(() => end("assistive"), morseTiming?.minPress || 0);
         }
       }}
     >
@@ -266,15 +284,21 @@ export default function Telegraph({
     <button
       type="button"
       className="telegraph-share-button"
-      disabled={!telegram || telegram.length > TELEGRAM_MAX_TEXT}
-      onClick={() => setSharedText(telegram)}
+      disabled={
+        (!telegram && !onEmptyShare) || telegram.length > TELEGRAM_MAX_TEXT
+      }
+      onClick={() => {
+        if (!telegram && onEmptyShare) onEmptyShare();
+        else setSharedText(telegram);
+      }}
     >
       <Share2 size={16} aria-hidden="true" />
-      {t("Поделиться телеграммой")}
+      {shareLabel || t("Поделиться телеграммой")}
     </button>
   );
   const erase = (callback) => {
     clearTimeout(dashTimer.current);
+    clearTimeout(limitTimer.current);
     active.current = null;
     setPressed(false);
     keyer.current?.cancel();
@@ -379,6 +403,7 @@ export default function Telegraph({
           text={sharedText}
           title={title}
           language={language}
+          showExplanations={!compactShare}
           onClose={() => setSharedText(null)}
         />
       )}

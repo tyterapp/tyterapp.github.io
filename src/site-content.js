@@ -140,6 +140,7 @@ export const BLOG_ARTICLES = [
   },
 ];
 export const SITE_ROUTES = [
+  "tytergraph",
   "telegraph",
   "case",
   "telegram",
