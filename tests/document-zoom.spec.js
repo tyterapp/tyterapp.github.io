@@ -151,10 +151,11 @@ test("on a wide viewport document zoom scales sheet and text together without re
         .locator(".script-paper")
         .evaluate((node) => node.getBoundingClientRect().width),
     )
-    .toBeCloseTo(580, 0);
+    .toBeCloseTo(390, 0);
   await expect
-    .poll(() => page.locator(".page-guide").count())
-    .toBeGreaterThan(original.pages);
+    .poll(() => page.locator(".revision-page-background").count())
+    .toBe(original.pages);
+  await expect(page.locator(".mobile-page-version-bar")).toBeVisible();
   await page.screenshot({
     path: info.outputPath("document-200-percent-mobile.png"),
   });

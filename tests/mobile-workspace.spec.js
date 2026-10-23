@@ -107,11 +107,28 @@ async function open(
   await page.evaluate(() => document.fonts.ready);
 }
 const stored = (page) =>
-  page.evaluate(async () =>
-    (
-      await (await import("/src/browser-files.js")).browserRequest("documents")
-    ).documents.find((doc) => doc.id === "mobile-document"),
-  );
+  page.evaluate(async () => {
+    // Read the persisted snapshot directly so this assertion also works in
+    // production builds, which intentionally do not expose /src modules.
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("tyter.local-files.v1");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const documents = await new Promise((resolve, reject) => {
+        const request = db
+          .transaction("files")
+          .objectStore("files")
+          .get("documents");
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+      return documents.find((doc) => doc.id === "mobile-document");
+    } finally {
+      db.close();
+    }
+  });
 const tools = async (page) => {
   await page
     .getByRole("button", { name: "Открыть инструменты", exact: true })

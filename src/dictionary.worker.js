@@ -37,7 +37,7 @@ const englishDictionary = () =>
 self.onmessage = async ({
   data: { prefix, id, type, word, language = "ru" },
 }) => {
-  if (type === "spell" && language === "en") {
+  if ((type === "spell" || type === "check") && language === "en") {
     const spell = await englishDictionary();
     if (!spell) {
       englishReady = undefined;
@@ -50,12 +50,12 @@ self.onmessage = async ({
       type: "spelling",
       id,
       correct,
-      words: correct ? [] : spell.suggest(normalized).slice(0, 5),
+      words: correct || type === "check" ? [] : spell.suggest(normalized).slice(0, 5),
     });
     return;
   }
   await ready;
-  if (type === "spell") {
+  if (type === "spell" || type === "check") {
     if (!russianAvailable) {
       postMessage({ type: "spelling", id, unavailable: true, words: [] });
       return;
@@ -63,6 +63,10 @@ self.onmessage = async ({
     const key = word.toLocaleLowerCase("ru");
     if (words.includes(key)) {
       postMessage({ type: "spelling", id, correct: true, words: [] });
+      return;
+    }
+    if (type === "check") {
+      postMessage({ type: "spelling", id, correct: false, words: [] });
       return;
     }
     const distance = (a, b) => {

@@ -119,6 +119,8 @@ import BurningPaper from "./BurningPaper.jsx";
 import NotesWorkspace from "./NotesWorkspace.jsx";
 import ScrollToTop from "./ScrollToTop.jsx";
 import TypewriterIcon from "./TypewriterIcon.jsx";
+import FocusTypewriter from "./FocusTypewriter.jsx";
+import { useLampSwitchSound } from "./typewriter-lamp-audio.js";
 import TelegraphIcon from "./TelegraphIcon.jsx";
 import Telegraph from "./Telegraph.jsx";
 import { telegramText } from "./telegram.js";
@@ -931,6 +933,8 @@ export default function MinimalApp({ onLogout }) {
   const handledSearchSelection = useRef(0);
   const [searchCount, setSearchCount] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
+  const [typewriterOpen, setTypewriterOpen] = useState(false);
+  const [typewriterLamp, setTypewriterLamp] = useState(false);
   const [telegraphOpen, setTelegraphOpen] = useState(false);
   useEffect(() => {
     if (!focusMode) setTelegraphOpen(false);
@@ -3123,6 +3127,21 @@ export default function MinimalApp({ onLogout }) {
       });
   };
   const columnRef = useRef(null);
+  const typewriterAvailable =
+    !mobile &&
+    focusMode &&
+    preferences.theme === "dark" &&
+    !notesOpen &&
+    view === "screenplay" &&
+    !historyRevision &&
+    !characterView &&
+    !libraryDialog;
+  const typewriterActive = typewriterAvailable && typewriterOpen;
+  const playLampSwitch = useLampSwitchSound(typewriterActive);
+  useEffect(() => {
+    setTypewriterOpen(false);
+    setTypewriterLamp(false);
+  }, [typewriterAvailable, writingScope]);
   const mobileWriting = useMobileWriting(
     columnRef,
     writingScope,
@@ -3216,6 +3235,10 @@ export default function MinimalApp({ onLogout }) {
       data-script-version={activeScriptVersion.id}
       data-mobile={mobile || undefined}
       data-keyboard={keyboard || undefined}
+      data-typewriter={typewriterActive || undefined}
+      data-typewriter-lamp={
+        typewriterActive ? (typewriterLamp ? "on" : "off") : undefined
+      }
       inert={burningPage ? true : undefined}
       style={{
         "--script-version-hue": activeScriptVersion.hue,
@@ -4031,7 +4054,9 @@ export default function MinimalApp({ onLogout }) {
               }}
               style={{
                 minHeight:
-                  mobile || notesOpen ? "100%" : pageCount * pageHeight,
+                  mobile || notesOpen || typewriterActive
+                    ? "100%"
+                    : pageCount * pageHeight,
                 zoom: documentZoom / 100,
                 "--document-zoom": documentZoom / 100,
                 "--script-font-size": `${mobile ? (fontSize * documentZoom) / 100 : fontSize}pt`,
@@ -4182,6 +4207,7 @@ export default function MinimalApp({ onLogout }) {
                   }
                   minimal
                   continuous={mobile}
+                  typewriterMode={typewriterActive}
                   onSceneVariant={changeSceneVariant}
                   sceneShots={current.sceneShots}
                   activeShot={shotTarget}
@@ -4377,15 +4403,53 @@ export default function MinimalApp({ onLogout }) {
                         <TelegraphIcon />
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="icon-button focus-typewriter-button"
-                      aria-label={t("Печатная машинка")}
-                      data-tooltip={t("Печатная машинка")}
-                      onMouseDown={(event) => event.preventDefault()}
-                    >
-                      <TypewriterIcon />
-                    </button>
+                    {typewriterActive && (
+                      <button
+                        type="button"
+                        className="icon-button focus-lamp-button"
+                        aria-label={language === "ru" ? "Лампа" : "Lamp"}
+                        data-tooltip={language === "ru" ? "Лампа" : "Lamp"}
+                        aria-pressed={typewriterLamp}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          playLampSwitch();
+                          setTypewriterLamp((value) => !value);
+                        }}
+                      >
+                        <img
+                          src="/typewriter/off/flashlight-32_128x128.svg"
+                          alt=""
+                        />
+                      </button>
+                    )}
+                    {(mobile ||
+                      (preferences.theme === "dark" && !notesOpen)) && (
+                      <button
+                        type="button"
+                        className="icon-button focus-typewriter-button"
+                        aria-label={t("Печатная машинка")}
+                        data-tooltip={t("Печатная машинка")}
+                        aria-pressed={mobile ? undefined : typewriterActive}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={
+                          mobile
+                            ? undefined
+                            : () => {
+                                setTypewriterOpen((value) => !value);
+                                setTypewriterLamp(false);
+                              }
+                        }
+                      >
+                        {mobile ? (
+                          <TypewriterIcon />
+                        ) : (
+                          <img
+                            src="/typewriter/off/typewriter_128x128.svg"
+                            alt=""
+                          />
+                        )}
+                      </button>
+                    )}
                   </>
                 )}
                 <button
@@ -4417,6 +4481,14 @@ export default function MinimalApp({ onLogout }) {
                 </button>
               </>
             )}
+          {typewriterActive && (
+            <FocusTypewriter
+              key={writingScope}
+              containerRef={columnRef}
+              scope={writingScope}
+              lampOn={typewriterLamp}
+            />
+          )}
           <WritingTimer
             visible={
               !!documents.length &&

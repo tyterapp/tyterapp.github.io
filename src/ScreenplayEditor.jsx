@@ -546,6 +546,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onWritingActivity,
     trackWritingActivity = false,
     continuous = false,
+    typewriterMode = false,
     plainOnly = false,
     onSelection,
     onComments,
@@ -1421,7 +1422,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   }, [editor]);
   useScreenplayPagination(
     editor,
-    minimal && !continuous,
+    minimal && !continuous && !typewriterMode,
     onPageCount,
     fontSize,
     fontFamily,
@@ -1431,7 +1432,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   );
   useMobileRevisionPages(
     editor,
-    minimal && continuous && (!!revision || !!pageVersions),
+    minimal && (continuous || typewriterMode) && (!!revision || !!pageVersions),
     (pages) => propsRef.current.onRevisionPages?.(pages),
     fontSize,
     fontFamily,

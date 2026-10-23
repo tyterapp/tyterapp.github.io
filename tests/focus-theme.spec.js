@@ -64,12 +64,21 @@ async function ordered(page, minimum = 40) {
   ];
   const boxes = await page.locator(selectors.join(",")).evaluateAll(
     (elements, selectors) =>
-      selectors.map((selector) => {
-        const rect = elements
-          .find((element) => element.matches(selector))
-          .getBoundingClientRect();
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-      }),
+      selectors
+        .filter((selector) =>
+          elements.some((element) => element.matches(selector)),
+        )
+        .map((selector) => {
+          const rect = elements
+            .find((element) => element.matches(selector))
+            .getBoundingClientRect();
+          return {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
     selectors,
   );
   for (let i = 1; i < boxes.length; i++) {

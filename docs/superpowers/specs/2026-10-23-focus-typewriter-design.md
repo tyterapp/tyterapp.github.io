@@ -1,0 +1,13 @@
+# Desktop fullscreen typewriter
+
+User supplied the complete visual/interaction brief and SVG assets. Work only on desktop fullscreen screenplay editing in the dark theme. Mobile behavior and styles remain unchanged. No new dependency or remote publication.
+
+- Dark desktop fullscreen shows the typewriter button. Toggle mounts a physical rail/carriage using the supplied SVG parts. Light desktop theme hides this button. Mobile keeps its existing controls and behavior.
+- The active mode sets the gap between all screenplay paragraph formats to4px, preserving existing in-paragraph leading and horizontal format alignment. Use continuous live layout with canonical page measurement, so presentation does not change export geometry or document text.
+- Carriage shows current format, red for a misspelled word, blue for an entity/link at the caret. Reuse the local dictionary worker with a debounced check-only request; stale/unavailable results do not light an error.
+- Lamp button appears only while the apparatus is active. Crossfade the supplied on/off parts and supplied Light_on.png with1000ms ease-in-out. Temporarily dim the paper/canvas as in the reference. Play a short local WebAudio switch sound from the gesture, preserving typing-sound preferences.
+- Drag bg vertically to move the entire rail and horizontally to move only the carriage. Move the editor caret to the nearest existing text position at the carriage's pointer. Do not insert blank paragraphs/spaces. Selection updates keep format/status current. On release align with the resulting caret; Escape/cancel releases capture safely. Arrow controls provide keyboard movement.
+- Default rail aligns to the active caret, and follows caret changes while editing; manual drag takes priority until release. Geometry uses viewport coordinates and the paper's actual bounds. At document zoom100–200%, only Tube stretches in width. Carriage64×32, caps, bulbs, format icon, cursor knob, and483×168.5 light remain fixed in CSS pixels. No scale transform on the apparatus.
+- Leaving fullscreen, dark theme, screenplay editing, document scope or desktop unmounts the rig/lamp and restores normal spacing. Dispose observers/listeners/worker/audio. Respect reduced motion and print visibility.
+
+Tests use synthetic documents with `/__tyter_local/` intercepted before navigation. Validate caret/content/history preservation, all formats, links/components, spelling and unavailable dictionary, drag axes, zoom, lamp transition/audio trigger, theme/fullscreen lifecycle, and unchanged mobile. Build and package established local outputs; never touch publication/github-pages-repo.

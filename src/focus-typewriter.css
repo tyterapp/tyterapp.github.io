@@ -1,0 +1,246 @@
+/* Apparatus dimensions are CSS pixels, outside the paper's zoom context. */
+.focus-lamp-button {
+  display: none;
+}
+@media screen and (min-width: 832px) {
+  .minimal-app[data-typewriter="true"] .screenplay-editor .screenplay-block {
+    margin-top: 0 !important;
+    margin-bottom: 4px !important;
+  }
+  .minimal-app[data-typewriter="true"] .page-guide {
+    display: none;
+  }
+  .minimal-app[data-typewriter="true"],
+  .minimal-app[data-typewriter="true"] .script-paper,
+  .minimal-app[data-typewriter="true"] .revision-page-background,
+  .minimal-app[data-typewriter="true"] .minimal-scroll {
+    transition: background-color 1000ms ease-in-out;
+  }
+  .minimal-app[data-typewriter-lamp="on"],
+  .minimal-app[data-typewriter-lamp="on"] .minimal-scroll,
+  .minimal-app[data-typewriter-lamp="on"] .script-paper,
+  .minimal-app[data-typewriter-lamp="on"] .revision-page-background {
+    background-color: #0c0b0e !important;
+  }
+  .minimal-app[data-typewriter="true"] .focus-lamp-button {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 212px;
+    bottom: 20px;
+    width: 40px;
+    height: 40px;
+    z-index: 30;
+    border-radius: 10px;
+    color: var(--ui-text);
+    background: var(--ui-field);
+    opacity: 0.7;
+  }
+  .minimal-app[data-typewriter="true"] .focus-lamp-button:hover,
+  .minimal-app[data-typewriter="true"] .focus-lamp-button[aria-pressed="true"] {
+    opacity: 1;
+  }
+  .minimal-app[data-typewriter="true"] .scroll-top-button {
+    right: 260px;
+  }
+  .focus-typewriter-button img {
+    width: 26px;
+    height: 26px;
+  }
+  .focus-lamp-button img {
+    width: 24px;
+    height: 24px;
+  }
+  .typewriter-rig {
+    position: fixed;
+    height: 32px;
+    z-index: 24;
+    pointer-events: none;
+    isolation: isolate;
+  }
+  .typewriter-tube {
+    position: absolute;
+    left: 12px;
+    top: 11px;
+    width: calc(100% - 24px);
+    height: 10px;
+    overflow: visible;
+  }
+  .typewriter-cap {
+    position: absolute;
+    top: 0;
+    width: 12px;
+    height: 32px;
+  }
+  .typewriter-left {
+    left: 0;
+  }
+  .typewriter-right {
+    right: 0;
+  }
+  .typewriter-cap img {
+    position: absolute;
+    width: 36px;
+    height: 56px;
+    top: -12px;
+    left: -12px;
+    max-width: none;
+  }
+  .typewriter-right .typewriter-off {
+    width: 24px;
+    height: 44px;
+    top: -5px;
+    left: -9px;
+  }
+  .typewriter-on {
+    opacity: 0;
+  }
+  .typewriter-off {
+    opacity: 1;
+  }
+  .typewriter-on,
+  .typewriter-off {
+    transition: opacity 1000ms ease-in-out;
+  }
+  .typewriter-rig[data-lamp="on"] .typewriter-on {
+    opacity: 1;
+  }
+  .typewriter-rig[data-lamp="on"] .typewriter-off {
+    opacity: 0;
+  }
+  .typewriter-carriage {
+    position: absolute;
+    top: -4px;
+    width: 64px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+    outline-offset: 8px;
+  }
+  .typewriter-carriage:active {
+    cursor: grabbing;
+  }
+  .typewriter-carriage:focus-visible {
+    outline: 2px solid #ccb4ef;
+    border-radius: 12px;
+  }
+  .typewriter-body {
+    position: absolute;
+    width: 64px;
+    height: 32px;
+    left: 0;
+    top: 4px;
+  }
+  .typewriter-body img {
+    position: absolute;
+    width: 100px;
+    height: 68px;
+    max-width: none;
+    left: -18px;
+    top: -15px;
+  }
+  .typewriter-cursor {
+    position: absolute;
+    left: 17px;
+    top: -6px;
+    width: 30px;
+    height: 12px;
+  }
+  .typewriter-cursor img {
+    position: absolute;
+    inset: 0;
+    width: 30px;
+    height: 12px;
+  }
+  .typewriter-light-indicator {
+    position: absolute;
+    left: 20px;
+    top: 4px;
+    width: 24px;
+    height: 3px;
+  }
+  .typewriter-light-indicator img {
+    position: absolute;
+    inset: 0;
+    width: 24px;
+    height: 3px;
+  }
+  .typewriter-bulb {
+    position: absolute;
+    top: 15px;
+    width: 11px;
+    height: 11px;
+  }
+  .typewriter-blue {
+    left: 4px;
+  }
+  .typewriter-red {
+    left: 16px;
+  }
+  .typewriter-bulb > img {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    inset: 0;
+  }
+  .typewriter-bulb > .typewriter-bulb-glow {
+    width: 31px;
+    height: 31px;
+    left: -10px;
+    top: -11px;
+    max-width: none;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+  .typewriter-bulb[data-on="true"] .typewriter-bulb-glow {
+    opacity: 1;
+  }
+  .typewriter-format {
+    position: absolute;
+    left: 40px;
+    top: 13px;
+    width: 18px;
+    height: 18px;
+    filter: brightness(0) saturate(100%) invert(78%);
+    transition: filter 1000ms ease-in-out;
+  }
+  .typewriter-rig[data-lamp="on"] .typewriter-format {
+    filter: brightness(0) saturate(100%) invert(90%) sepia(30%) saturate(500%)
+      hue-rotate(322deg);
+  }
+  .typewriter-beam {
+    position: absolute;
+    width: 483px;
+    height: 168.5px;
+    max-width: none;
+    left: calc(50% - 241.5px);
+    bottom: 36px;
+    pointer-events: none;
+    opacity: 0;
+    mix-blend-mode: screen;
+    transition: opacity 1000ms ease-in-out;
+    z-index: -1;
+  }
+  .typewriter-rig[data-lamp="on"] .typewriter-beam {
+    opacity: 0.8;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .minimal-app[data-typewriter="true"],
+  .minimal-app[data-typewriter="true"] .script-paper,
+  .minimal-app[data-typewriter="true"] .revision-page-background,
+  .minimal-app[data-typewriter="true"] .minimal-scroll,
+  .typewriter-rig img {
+    transition-duration: 0s !important;
+  }
+}
+@media print {
+  .typewriter-rig,
+  .focus-lamp-button {
+    display: none !important;
+  }
+}
