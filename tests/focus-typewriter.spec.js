@@ -112,7 +112,7 @@ const editorState = (page) =>
 
 test("format icon follows every screenplay format and blue bulb detects characters, links and plain text", async ({
   page,
-}) => {
+}, info) => {
   await activate(page);
   const formats = [
     "scene",
@@ -123,12 +123,47 @@ test("format icon follows every screenplay format and blue bulb detects characte
     "transition",
     "plain",
   ];
-  for (let i = 0; i < formats.length; i++) {
-    await selectBlock(page, `f-${i}`, 2);
-    await expect(page.locator(".typewriter-format")).toHaveAttribute(
-      "data-format",
-      formats[i],
+  const files = [
+    "INT-EXT.svg",
+    "Action.svg",
+    "Charachter.svg",
+    "Speal.svg",
+    "Remark.svg",
+    "Cut.svg",
+    "Plain-text.svg",
+  ];
+  for (const lamp of ["off", "on"]) {
+    if (lamp === "on") await page.locator(".focus-lamp-button").click();
+    await expect(page.locator(".typewriter-rig")).toHaveAttribute(
+      "data-lamp",
+      lamp,
     );
+    for (let i = 0; i < formats.length; i++) {
+      await selectBlock(page, `f-${i}`, 2);
+      const icon = page.locator(".typewriter-format");
+      await expect(icon).toHaveAttribute("data-format", formats[i]);
+      await expect(icon).toHaveAttribute(
+        "src",
+        `/typewriter/formats/${files[i]}`,
+      );
+      await expect
+        .poll(() =>
+          icon.evaluate(
+            (img) =>
+              img.complete &&
+              img.naturalWidth === 18 &&
+              img.naturalHeight === 18,
+          ),
+        )
+        .toBe(true);
+      await expect(icon).toHaveCSS("width", "18px");
+      await expect(icon).toHaveCSS("height", "18px");
+      await page
+        .locator(".typewriter-body")
+        .screenshot({
+          path: info.outputPath(`format-${formats[i]}-${lamp}.png`),
+        });
+    }
   }
   await selectBlock(page, "f-2", 2);
   await expect(page.locator(".typewriter-blue")).toHaveAttribute(

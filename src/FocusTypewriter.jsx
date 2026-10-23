@@ -10,6 +10,15 @@ import {
 import "./focus-typewriter.css";
 
 const asset = (state, file) => `/typewriter/${state}/${file}`;
+const FORMAT_ICONS = {
+  scene: "INT-EXT.svg",
+  action: "Action.svg",
+  character: "Charachter.svg",
+  speech: "Speal.svg",
+  parenthetical: "Remark.svg",
+  transition: "Cut.svg",
+  plain: "Plain-text.svg",
+};
 const CARET_OFFSET = 34;
 function Layers({ file, className, ...props }) {
   return (
@@ -168,10 +177,7 @@ export default function FocusTypewriter({ containerRef, lampOn, scope }) {
     controller.current?.refresh();
   };
   if (!geometry) return null;
-  const format =
-    caret.format === "scene"
-      ? asset("off", "Line_format.svg")
-      : `/icons/format/${caret.format}.svg`;
+  const format = `/typewriter/formats/${FORMAT_ICONS[caret.format] || FORMAT_ICONS.action}`;
   return (
     <div
       ref={rig}
