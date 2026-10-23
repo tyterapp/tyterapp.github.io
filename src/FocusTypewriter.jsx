@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { TYPEWRITER_LAYOUT_EVENT } from "./typewriter-popup.js";
 import { t, useLanguage } from "./i18n.js";
 import { FORMATS } from "./FormatBar.jsx";
 import {
@@ -9,6 +10,7 @@ import {
 import "./focus-typewriter.css";
 
 const asset = (state, file) => `/typewriter/${state}/${file}`;
+const CARET_OFFSET = 34;
 function Layers({ file, className, ...props }) {
   return (
     <span className={className} {...props} aria-hidden="true">
@@ -41,6 +43,14 @@ export default function FocusTypewriter({ containerRef, lampOn, scope }) {
     drag = useRef(null),
     controller = useRef(null);
 
+  useLayoutEffect(() => {
+    if (geometry) window.dispatchEvent(new Event(TYPEWRITER_LAYOUT_EVENT));
+  }, [geometry]);
+  useEffect(
+    () => () => window.dispatchEvent(new Event(TYPEWRITER_LAYOUT_EVENT)),
+    [],
+  );
+
   useEffect(() => {
     const dom = containerRef.current?.querySelector(".screenplay-editor");
     const editor = dom?.editor,
@@ -61,7 +71,10 @@ export default function FocusTypewriter({ containerRef, lampOn, scope }) {
       const left = bounds.left - 12,
         width = bounds.width + 24;
       const point = clampTypewriterPosition(
-        { x: coords.left - left, y: (coords.top + coords.bottom) / 2 + 32 },
+        {
+          x: coords.left - left,
+          y: (coords.top + coords.bottom) / 2 + CARET_OFFSET,
+        },
         { width, top: 40, bottom: window.innerHeight - 70 },
       );
       setGeometry({ left, width, ...point });
@@ -141,7 +154,12 @@ export default function FocusTypewriter({ containerRef, lampOn, scope }) {
       { width: geometry.width, top: 40, bottom: window.innerHeight - 70 },
     );
     setGeometry({ ...geometry, ...point });
-    moveTypewriterCaret(editor, geometry.left + point.x, point.y - 32, focus);
+    moveTypewriterCaret(
+      editor,
+      geometry.left + point.x,
+      point.y - CARET_OFFSET,
+      focus,
+    );
   };
   const finish = (event) => {
     if (!drag.current || drag.current.id !== event.pointerId) return;

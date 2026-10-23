@@ -4,6 +4,10 @@ import { createPortal } from "react-dom";
 import { Shapes, ArrowLeftRight } from "lucide-react";
 import { SCENE_TIMES } from "./scene-times.js";
 import { componentNameCandidates, componentNames } from "./component-names.js";
+import {
+  TYPEWRITER_LAYOUT_EVENT,
+  typewriterPopupPosition,
+} from "./typewriter-popup.js";
 
 const characters = (components) =>
   components.filter(
@@ -292,6 +296,7 @@ export default function Suggestions({
         viewportBottom - Math.max(60, viewportTop + 12) - 42,
       );
       const height = Math.min(items.length * 34 + 8, maxHeight);
+      const typewriter = typewriterPopupPosition(editor, width);
       setPopup((previous) => {
         const sameContext =
           previous && signature(previous.context) === signature(c);
@@ -309,6 +314,7 @@ export default function Suggestions({
               : rect.bottom + 5,
           width,
           maxHeight,
+          ...typewriter,
         };
         return sameContext &&
           previous.left === next.left &&
@@ -562,6 +568,7 @@ export default function Suggestions({
     events.forEach((event) => editor.on(event, schedule));
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
+    window.addEventListener(TYPEWRITER_LAYOUT_EVENT, schedule);
     window.visualViewport?.addEventListener("resize", schedule);
     window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
@@ -571,6 +578,7 @@ export default function Suggestions({
       events.forEach((event) => editor.off(event, schedule));
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
+      window.removeEventListener(TYPEWRITER_LAYOUT_EVENT, schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
       document.removeEventListener("keydown", captureShortcut, true);

@@ -17,10 +17,44 @@
     transition: background-color 1000ms ease-in-out;
   }
   .minimal-app[data-typewriter-lamp="on"],
-  .minimal-app[data-typewriter-lamp="on"] .minimal-scroll,
-  .minimal-app[data-typewriter-lamp="on"] .script-paper,
+  .minimal-app[data-typewriter-lamp="on"] .minimal-scroll {
+    background-color: #121015 !important;
+  }
+  .minimal-app[data-typewriter-lamp="on"] .script-paper {
+    background-color: #0a090c !important;
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
   .minimal-app[data-typewriter-lamp="on"] .revision-page-background {
-    background-color: #0c0b0e !important;
+    background-color: var(--typewriter-page-color, #0a090c) !important;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="white"] {
+    --typewriter-page-color: #0a090c;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="blue"] {
+    --typewriter-page-color: #06090d;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="pink"] {
+    --typewriter-page-color: #0f090c;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="yellow"] {
+    --typewriter-page-color: #151411;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="green"] {
+    --typewriter-page-color: #0b0f0b;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="goldenrod"] {
+    --typewriter-page-color: #14110b;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="buff"] {
+    --typewriter-page-color: #110e0b;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="salmon"] {
+    --typewriter-page-color: #15100f;
+  }
+  .minimal-app[data-typewriter-lamp="on"] [data-revision-color="cherry"] {
+    --typewriter-page-color: #0f080a;
   }
   .minimal-app[data-typewriter="true"] .focus-lamp-button {
     display: grid;
@@ -73,7 +107,7 @@
     height: 32px;
   }
   .typewriter-left {
-    left: 0;
+    left: 2px;
   }
   .typewriter-right {
     right: 0;
@@ -202,7 +236,7 @@
   .typewriter-format {
     position: absolute;
     left: 40px;
-    top: 13px;
+    top: 12px;
     width: 18px;
     height: 18px;
     filter: brightness(0) saturate(100%) invert(78%);

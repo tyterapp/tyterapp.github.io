@@ -122,7 +122,7 @@ for (const language of ["ru", "en"])
     );
   });
 
-test("OpenArrow replaces typed arrows, centers a standalone arrow and aligns the page picker with the page number", async ({
+test("OpenArrow replaces typed arrows, centers a standalone arrow and keeps the page picker outside the sheet", async ({
   page,
 }, info) => {
   await open(page);
@@ -151,25 +151,18 @@ test("OpenArrow replaces typed arrows, centers a standalone arrow and aligns the
   );
   const position = await page.evaluate(() => {
     const paper = document.querySelector(".script-paper"),
-      version = paper.querySelector(".script-version-value > span"),
-      number = paper.querySelector(".paper-label");
-    const rect = (node) => {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      return range.getBoundingClientRect();
-    };
-    const left = rect(version),
-      right = rect(number),
+      picker = paper.querySelector(
+        ".page-version-control .script-version-trigger",
+      ),
+      icon = picker.querySelector("svg"),
+      left = icon.getBoundingClientRect(),
       bounds = paper.getBoundingClientRect();
     return {
-      left: left.left - bounds.left,
-      top: left.top - bounds.top,
-      numberTop: right.top - bounds.top,
-      background: getComputedStyle(version.closest("button")).backgroundColor,
+      gap: left.left - bounds.right,
+      background: getComputedStyle(picker).backgroundColor,
     };
   });
-  expect(Math.abs(position.left - 32)).toBeLessThanOrEqual(2);
-  expect(Math.abs(position.top - position.numberTop)).toBeLessThanOrEqual(2);
+  expect(position.gap).toBeCloseTo(16, 0);
   expect(position.background).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
   await page.screenshot({
     path: info.outputPath("open-arrow-and-page-version.png"),

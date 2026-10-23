@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shapes } from "lucide-react";
 import { useLanguage } from "./i18n.js";
+import {
+  TYPEWRITER_LAYOUT_EVENT,
+  typewriterPopupPosition,
+} from "./typewriter-popup.js";
 
 export default function ComponentPicker({
   editor,
@@ -134,6 +138,7 @@ export default function ComponentPicker({
             rect.bottom + 6,
           ),
         ),
+        ...typewriterPopupPosition(editor, Math.min(260, innerWidth - 24)),
       });
     };
     const outside = (event) => {
@@ -183,6 +188,18 @@ export default function ComponentPicker({
     };
     window.addEventListener("scroll", scroll, true);
     window.addEventListener("resize", close);
+    const reposition = () => {
+      if (!current.current) return;
+      const position = typewriterPopupPosition(
+        editor,
+        Math.min(260, innerWidth - 24),
+      );
+      if (position)
+        setPopup((previous) =>
+          previous ? { ...previous, ...position } : previous,
+        );
+    };
+    window.addEventListener(TYPEWRITER_LAYOUT_EVENT, reposition);
     return () => {
       config.current.onOpenChange?.(false);
       editor.view.dom.removeEventListener("click", click);
@@ -191,6 +208,7 @@ export default function ComponentPicker({
       document.removeEventListener("keydown", key, true);
       window.removeEventListener("scroll", scroll, true);
       window.removeEventListener("resize", close);
+      window.removeEventListener(TYPEWRITER_LAYOUT_EVENT, reposition);
     };
   }, [editor]);
   useEffect(() => {
@@ -209,7 +227,7 @@ export default function ComponentPicker({
         left: popup.left,
         top: popup.top,
         width: Math.min(260, innerWidth - 24),
-        maxHeight: Math.min(300, innerHeight - 24),
+        maxHeight: Math.min(300, innerHeight - 24, popup.maxHeight ?? Infinity),
         overflowY: "auto",
       }}
       onPointerDown={(event) => event.preventDefault()}

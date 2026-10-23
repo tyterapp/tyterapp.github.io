@@ -205,15 +205,15 @@ test("lamp crossfades for one second, clicks once per press and preserves docume
   await expect(beam).toHaveCSS("opacity", "0.8");
   await expect(page.locator(".script-paper")).toHaveCSS(
     "background-color",
-    "rgb(12, 11, 14)",
+    "rgb(10, 9, 12)",
   );
   await expect(page.locator(".minimal-app")).toHaveCSS(
     "background-color",
-    "rgb(12, 11, 14)",
+    "rgb(18, 16, 21)",
   );
   await expect(page.locator(".minimal-scroll")).toHaveCSS(
     "background-color",
-    "rgb(12, 11, 14)",
+    "rgb(18, 16, 21)",
   );
   expect(await page.evaluate(() => window.lampClicks)).toBe(1);
   expect(await editorState(page)).toEqual(before);
@@ -472,5 +472,162 @@ test("silent content replacement at the same caret position refreshes the spelli
   await expect(page.locator(".typewriter-red")).toHaveAttribute(
     "data-on",
     "false",
+  );
+});
+
+test("lamp uses all nine exact page colors without a sheet outline and restores the normal theme", async ({
+  page,
+}, info) => {
+  await activate(page);
+  await page.locator(".focus-lamp-button").click();
+  const palette = [
+    ["white", "10, 9, 12"],
+    ["blue", "6, 9, 13"],
+    ["pink", "15, 9, 12"],
+    ["yellow", "21, 20, 17"],
+    ["green", "11, 15, 11"],
+    ["goldenrod", "20, 17, 11"],
+    ["buff", "17, 14, 11"],
+    ["salmon", "21, 16, 15"],
+    ["cherry", "15, 8, 10"],
+  ];
+  const picker = page
+    .locator(".page-version-control .script-version-trigger")
+    .first();
+  for (const [id, rgb] of palette) {
+    await picker.click();
+    await page.getByRole("listbox").locator(`[data-value="${id}"]`).click();
+    await expect(page.locator(".revision-page-background").first()).toHaveCSS(
+      "background-color",
+      `rgb(${rgb})`,
+    );
+    await expect(page.locator(".script-paper")).toHaveCSS("box-shadow", "none");
+    await expect(page.locator(".script-paper")).toHaveCSS(
+      "border-top-width",
+      "0px",
+    );
+    await expect(page.locator(".minimal-app")).toHaveCSS(
+      "background-color",
+      "rgb(18, 16, 21)",
+    );
+  }
+  await page.screenshot({ path: info.outputPath("lamp-cherry.png") });
+  await page.locator(".focus-lamp-button").click();
+  await expect(page.locator(".revision-page-background").first()).not.toHaveCSS(
+    "background-color",
+    "rgb(15, 8, 10)",
+  );
+  await expect(page.locator(".script-paper")).not.toHaveCSS(
+    "box-shadow",
+    "none",
+  );
+});
+
+test("rig is two pixels lower, the format icon one pixel higher inside it and the left cap meets the sheet", async ({
+  page,
+}) => {
+  await activate(page);
+  const rects = await page.evaluate(() => {
+    const rect = (selector) =>
+      document.querySelector(selector).getBoundingClientRect().toJSON();
+    const dom = document.querySelector(".screenplay-editor");
+    return {
+      rail: rect(".typewriter-rig"),
+      body: rect(".typewriter-carriage"),
+      format: rect(".typewriter-format"),
+      cap: rect(".typewriter-left .typewriter-off"),
+      paper: rect(".script-paper"),
+      caret: dom.editor.view.coordsAtPos(dom.editor.state.selection.head),
+    };
+  });
+  expect(
+    rects.rail.top - (rects.caret.top + rects.caret.bottom) / 2,
+  ).toBeCloseTo(18, 0);
+  expect(rects.format.top - rects.body.top).toBe(12);
+  // Left SVG's visible path ends at x=22 within its 36px viewBox.
+  expect(rects.cap.left + 22).toBeCloseTo(rects.paper.left, 0);
+});
+
+test("scene suggestions sit six pixels below the carriage, follow zoom and accept input", async ({
+  page,
+}, info) => {
+  await activate(page);
+  await page.locator(".focus-lamp-button").click();
+  await page.locator(".screenplay-editor").evaluate((dom) => {
+    const editor = dom.editor,
+      end = editor.state.doc.firstChild.content.size + 1;
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: 1, to: end })
+      .deleteSelection()
+      .setTextSelection(1)
+      .run();
+  });
+  expect((await editorState(page)).doc.content[0].content || []).toEqual([]);
+  const popup = page.getByRole("listbox", { name: "Suggestions", exact: true });
+  await expect(popup).toBeVisible();
+  const follows = async () => {
+    await expect
+      .poll(async () => {
+        const box = await popup.boundingBox(),
+          body = await page.locator(".typewriter-body").boundingBox();
+        return {
+          gap: Math.round(box.y - body.y - body.height),
+          left: Math.round(box.x - body.x),
+        };
+      })
+      .toEqual({ gap: 6, left: 0 });
+  };
+  await follows();
+  for (let i = 0; i < 10; i++)
+    await page
+      .locator(".script-paper")
+      .dispatchEvent("wheel", { ctrlKey: true, deltaY: -100 });
+  await expect(page.locator(".script-paper")).toHaveCSS("zoom", "2");
+  await follows();
+  await page.screenshot({
+    path: info.outputPath("suggestions-below-typewriter.png"),
+  });
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator('[data-block-id="f-0"]')).toContainText("INT.");
+});
+
+test("component replacement picker also stays below the carriage and preserves keyboard selection", async ({
+  page,
+}) => {
+  await activate(page);
+  await selectBlock(page, "f-1", 2);
+  await page.locator(".screenplay-editor").evaluate((dom) => {
+    const editor = dom.editor,
+      start = editor.state.selection.$head.start();
+    editor.view.dispatch(
+      editor.state.tr.addMark(
+        start,
+        start + 5,
+        editor.schema.marks.entity.create({ id: "anna", automatic: false }),
+      ),
+    );
+  });
+  await page.locator('[data-block-id="f-1"] [data-entity-id="anna"]').click();
+  const popup = page.getByRole("listbox", {
+    name: "Change component",
+    exact: true,
+  });
+  await expect(popup).toBeVisible();
+  await expect
+    .poll(async () => {
+      const box = await popup.boundingBox(),
+        body = await page.locator(".typewriter-body").boundingBox();
+      return {
+        gap: Math.round(box.y - body.y - body.height),
+        left: Math.round(box.x - body.x),
+      };
+    })
+    .toEqual({ gap: 6, left: 0 });
+  await page.keyboard.press("Enter");
+  await expect(popup).toHaveCount(0);
+  await expect(page.locator('[data-block-id="f-1"]')).toContainText(
+    "Hello world",
   );
 });
