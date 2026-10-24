@@ -8,16 +8,17 @@ import EmotionalReveal from "./EmotionalReveal.jsx";
 export default function EditorFirstVisit() {
   const english = useLanguage() === "en";
   return (
-    <EmotionalReveal
-      language={english ? "en" : "ru"}
+    <section
       className="editor-first-visit"
       aria-labelledby="editor-first-visit-title"
     >
-      <h2 id="editor-first-visit-title">
-        {english
-          ? "How to work with text faster?"
-          : "Как быстрее работать с текстом?"}
-      </h2>
+      <EmotionalReveal as="header" language={english ? "en" : "ru"}>
+        <h2 id="editor-first-visit-title">
+          {english
+            ? "How to work with text faster?"
+            : "Как быстрее работать с текстом?"}
+        </h2>
+      </EmotionalReveal>
       <p>
         {english
           ? "To delete the whole word before the cursor, use "
@@ -79,6 +80,6 @@ export default function EditorFirstVisit() {
         </span>
         {english ? " and much more." : " и многое другое."}
       </p>
-    </EmotionalReveal>
+    </section>
   );
 }

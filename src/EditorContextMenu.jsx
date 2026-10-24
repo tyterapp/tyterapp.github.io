@@ -8,7 +8,6 @@ import { componentUrl, selectedComponentId } from "./component-url.js";
 export default function EditorContextMenu({
   editor,
   onCreateComponent,
-  onCreateProp,
   onPasteImages,
   onPasteComponentUrl,
   onOpenChange,
@@ -27,14 +26,12 @@ export default function EditorContextMenu({
     request = useRef(0);
   const handlers = useRef({
     onCreateComponent,
-    onCreateProp,
     onPasteImages,
     onOpenChange,
   });
   handlers.current = {
     onPasteComponentUrl,
     onCreateComponent,
-    onCreateProp,
     onPasteImages,
     onOpenChange,
   };
@@ -48,11 +45,11 @@ export default function EditorContextMenu({
         editor.state.selection.to,
       );
     const nativeAction = (action) => {
+      if (!["component", "bold", "italic"].includes(action)) return;
       if (plainOnly && ["bold", "italic"].includes(action)) return;
       const source = currentSource();
       if (!source) return;
       if (action === "component") handlers.current.onCreateComponent?.(source);
-      else if (action === "prop") handlers.current.onCreateProp?.(source);
       else
         editor
           .chain()
@@ -266,7 +263,6 @@ export default function EditorContextMenu({
       } else if (action === "all") editor.chain().focus().selectAll().run();
       else if (action === "component")
         handlers.current.onCreateComponent?.(source);
-      else if (action === "prop") handlers.current.onCreateProp?.(source);
       else
         editor
           .chain()
@@ -310,7 +306,6 @@ export default function EditorContextMenu({
             ]
           : []),
         ["component", t("Компонент"), selected],
-        ...(onCreateProp ? [["prop", t("Реквизит"), selected]] : []),
       ].map(([action, label, enabled], index) => (
         <button
           role="menuitem"
@@ -330,7 +325,6 @@ export default function EditorContextMenu({
                 bold: "Ctrl+B",
                 italic: "Ctrl+I",
                 component: "Ctrl+D",
-                prop: "Ctrl+E",
               }[action]
             }
           </small>

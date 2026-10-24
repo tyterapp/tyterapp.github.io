@@ -81,7 +81,7 @@ const board = (page) =>
     .getByRole("button", { name: "Раскадровка", exact: true })
     .click();
 
-test("welcome reveal uses one sequential timeline, completes each paragraph before the next and runs forty percent faster", async ({
+test("welcome animates only its heading at the existing speed and shows body text immediately", async ({
   page,
 }, info) => {
   await page.addInitScript(() => {
@@ -112,12 +112,9 @@ test("welcome reveal uses one sequential timeline, completes each paragraph befo
     return blocks;
   });
   expect(timing[0][0].duration).toBeCloseTo(680 / 1.4);
-  for (let index = 1; index < timing.length; index++) {
-    const previous = timing[index - 1].at(-1);
-    expect(timing[index][0].delay).toBeGreaterThanOrEqual(
-      previous.delay + previous.duration - 1,
-    );
-  }
+  expect(timing).toHaveLength(1);
+  await expect(root.locator("p .emotional-unit")).toHaveCount(0);
+  await expect(root.locator("p").first()).toBeVisible();
   await page.screenshot({ path: info.outputPath("welcome-sequential.png") });
 });
 for (const theme of ["light", "dark"])

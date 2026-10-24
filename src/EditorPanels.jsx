@@ -1,6 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import { useEffect, useRef, useState } from "react";
-import { SHORTCUT_GROUPS } from "./keyboard-shortcuts.js";
+import KeyboardShortcuts from "./KeyboardShortcuts.jsx";
 import { commentText, quoteDiff } from "./comment-review.js";
 import AppSelect from "./AppSelect.jsx";
 import {
@@ -394,7 +394,7 @@ const STEPS = [
   ],
   [
     "Компоненты вашей истории",
-    "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Компонент сразу создаётся и открывается для редактирования в сайдбаре; существующий откроется без дубликата. Бесплатно доступны 10 компонентов на сценарий. В Pro Ctrl+E сразу создаёт реквизит и открывает его в сайдбаре: задайте количество, и все совпадения названия подсветятся в тексте.",
+    "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Компонент сразу создаётся и открывается для редактирования в сайдбаре; существующий откроется без дубликата. Бесплатно доступны 10 компонентов на сценарий.",
     "Ctrl+D — создать из выделения · Ctrl+Enter — вставить подсказку",
   ],
   [
@@ -429,7 +429,6 @@ export function Onboarding({ onClose }) {
   const [tab, setTab] = useState("onboarding");
   const ref = useRef(null);
   const body = useRef(null);
-  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   useEffect(() => {
     ref.current.showModal();
     return () => ref.current?.close();
@@ -542,39 +541,7 @@ export function Onboarding({ onClose }) {
             </div>
           </>
         ) : (
-          <>
-            <h2>{t("Горячие клавиши")}</h2>
-            <p className="shortcuts-intro">
-              {t(
-                "Сочетания для работы в редакторе. Действия с компонентами и реквизитом используют выделенный текст.",
-              )}
-            </p>
-            {SHORTCUT_GROUPS.map((group) => (
-              <section
-                className="shortcuts-section"
-                key={t(group.title)}
-                aria-label={t(group.title)}
-              >
-                <h3>{t(group.title)}</h3>
-                <dl>
-                  {group.items.map(([keys, description, macKeys], index) => (
-                    <div className="shortcut-row" key={index}>
-                      <dt>
-                        <kbd>
-                          {t(
-                            mac
-                              ? macKeys || keys.replaceAll("Ctrl", "⌘")
-                              : keys,
-                          )}
-                        </kbd>
-                      </dt>
-                      <dd>{t(description)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))}
-          </>
+          <KeyboardShortcuts />
         )}
       </div>
     </dialog>

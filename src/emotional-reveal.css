@@ -42,10 +42,58 @@
   box-shadow: 0 0 0 1px var(--ui-border);
 }
 .learning-paper .editor-first-visit {
-  margin-top: 56px;
   font:
     16px/1.6 "Screenplay Courier Cyrillic",
     monospace;
+}
+.learning-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.learning-tabs.help-tabs {
+  margin: 0;
+  background: var(--ui-soft);
+}
+.learning-tabs button {
+  flex: none;
+  padding: 8px 12px;
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+.learning-tabs button[aria-selected="true"] {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.learning-content {
+  margin-top: 56px;
+  outline-offset: 6px;
+}
+.learning-content > h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  text-wrap: balance;
+}
+.learning-content .shortcuts-intro {
+  margin: 0 0 28px;
+  color: var(--ui-muted);
+  line-height: 1.5;
+}
+.learning-content .shortcuts-section h3,
+.learning-content .shortcut-row kbd {
+  color: var(--ui-text);
+}
+.learning-content .shortcut-row kbd {
+  background: var(--ui-soft);
+  border-color: var(--ui-border);
+}
+.learning-content .shortcut-row dd {
+  color: var(--ui-muted);
+}
+.learning-content .shortcut-row {
+  border-color: var(--ui-border);
 }
 .learning-back {
   display: inline-flex;
@@ -70,6 +118,9 @@
     font-size: 14px;
   }
   .learning-back {
+    min-height: 44px;
+  }
+  .learning-tabs button {
     min-height: 44px;
   }
 }

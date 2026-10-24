@@ -555,7 +555,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onPasteComponentUrl,
     onPasteImages,
     onEditComponent,
-    onCreateProp,
     onEditProp,
     onEditAnnotations,
     outlineCards = [],
@@ -2155,7 +2154,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           selectionToolbarDisabled || contextMenuOpen || !!sceneVariantMenu
         }
         onCreateComponent={onCreateComponent}
-        onCreateProp={onCreateProp}
         onPasteComponentUrl={onPasteComponentUrl}
         onComment={onCommentFromSelection || onComments}
       />
@@ -2173,7 +2171,6 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
         onCreateComponent={onCreateComponent}
         onPasteImages={onPasteImages}
         onPasteComponentUrl={onPasteComponentUrl}
-        onCreateProp={onCreateProp}
         onOpenChange={setContextMenuOpen}
       />
       {minimal && (

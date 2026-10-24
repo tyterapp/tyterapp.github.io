@@ -527,8 +527,6 @@ export default {
     "All acts and cards in outline order. Click a point to open its card, or drag it up and down to change dramatic intensity.",
   "Не удалось вставить сцену. Вернитесь в сценарий и попробуйте снова.":
     "Could not insert the scene. Return to the screenplay and try again.",
-  "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Компонент сразу создаётся и открывается для редактирования в сайдбаре; существующий откроется без дубликата. Бесплатно доступны 10 компонентов на сценарий. В Pro Ctrl+E сразу создаёт реквизит и открывает его в сайдбаре: задайте количество, и все совпадения названия подсветятся в тексте.":
-    "Select a name or location and press Ctrl+D or the component icon. The component is created immediately and opens for editing in the sidebar; existing components reopen without duplication. Free allows 10 components per screenplay. In Pro, Ctrl+E immediately creates a prop and opens it in the sidebar: set its quantity, and all matching names will be highlighted in the text.",
   "Все версии сохраняются на этом устройстве без ограничения срока.":
     "All versions are saved on this device without a time limit.",
   Вставить: "Paste",
@@ -548,8 +546,6 @@ export default {
   "Выделенный текст изменился. Выделите его снова.":
     "The selected text has changed. Select it again.",
   "Выделите важное": "Highlight what matters",
-  "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Новый компонент можно сохранить в своей папке; существующий откроется для редактирования. Бесплатно доступны 10 компонентов на сценарий. В Pro реквизит создаётся через Ctrl+E: задайте количество, и все совпадения названия подсветятся в тексте.":
-    "Select a name or location and press Ctrl+D or the component icon. Save a new component in a folder, or edit an existing one. Free includes 10 components per screenplay. In Pro, press Ctrl+E to create a prop, set its quantity, and highlight every matching occurrence.",
   "Выделите текст и нажмите на иконку комментария.":
     "Select text and click the comment icon.",
   "Выделите фрагмент, чтобы сделать его жирным, курсивным или подчёркнутым, создать компонент или оставить комментарий.":
@@ -560,6 +556,20 @@ export default {
   "Вырезать выделенный текст": "Cut selected text",
   Год: "Year",
   "Горячие клавиши": "Keyboard shortcuts",
+  "Привет!": "Hi!",
+  "HTML презентация": "HTML presentation",
+  "Включить или выключить подсказки компонентов": "Toggle component hints",
+  "Редактировать компонент в тексте": "Edit a component in the text",
+  "Создать / сохранить компонент; отправить комментарий":
+    "Create / save a component; send a comment",
+  "Удалить слово перед курсором": "Delete the word before the cursor",
+  "Удалить слово после курсора": "Delete the word after the cursor",
+  "Переместить курсор на слово": "Move the cursor by one word",
+  "Выделить текст по словам": "Select text word by word",
+  "Сочетания для работы в редакторе. Действия с компонентами используют выделенный текст.":
+    "Shortcuts for the editor. Component actions use selected text.",
+  "Выделите имя или место и нажмите Ctrl+D либо иконку компонента. Компонент сразу создаётся и открывается для редактирования в сайдбаре; существующий откроется без дубликата. Бесплатно доступны 10 компонентов на сценарий.":
+    "Select a name or location and press Ctrl+D or the component icon. The component is created immediately and opens for editing in the sidebar; existing components reopen without duplication. Free allows 10 components per screenplay.",
   "График драматичности": "Dramatic intensity chart",
   Графитовый: "Charcoal",
   Далее: "Next",
@@ -761,7 +771,6 @@ export default {
     "New paragraph with the appropriate format",
   "Новый компонент": "New component",
   "Новый реквизит": "New prop",
-  "Новый реквизит · Ctrl+E для выделения": "New prop · Ctrl+E for selection",
   "Новый сценарий": "New screenplay",
   Обложка: "Cover",
   "Обложка и авторство": "Cover and credits",

@@ -187,6 +187,7 @@ import {
 } from "./local-files.js";
 import ScreenplayEditor from "./ScreenplayEditor.jsx";
 import EditorFirstVisit from "./EditorFirstVisit.jsx";
+import EditorLearning from "./EditorLearning.jsx";
 import { createProject, uid, validateImport } from "./data.js";
 import {
   exportPDF,
@@ -2673,37 +2674,6 @@ export default function MinimalApp({ onLogout }) {
     }
     setPropDialog(value);
   };
-  const propFromSelection = (source) => {
-    if (!IS_PRO) {
-      setSubscriptionOpen(true);
-      return;
-    }
-    const existing = current.props.find(
-      (item) =>
-        item.name.trim().toLocaleLowerCase() ===
-        source.text.trim().toLocaleLowerCase(),
-    );
-    if (existing) {
-      const paired = current.components.find(
-        (item) =>
-          item.id === source.entityId ||
-          item.id === existing.componentId ||
-          item.name.trim().toLocaleLowerCase() ===
-            existing.name.trim().toLocaleLowerCase(),
-      );
-      if (paired) openAnnotations(paired, existing);
-      else editProp(existing);
-    } else
-      saveProp(
-        {
-          name: source.text.trim().slice(0, 200),
-          quantity: 1,
-          category: "Objects",
-          description: "",
-        },
-        { edit: true },
-      );
-  };
   const saveProp = (value, { edit = false } = {}) => {
     if (!IS_PRO) return;
     const duplicate = current.props.find(
@@ -3864,21 +3834,7 @@ export default function MinimalApp({ onLogout }) {
           />
         )}
         {learningOpen && (
-          <main
-            className="learning-workspace"
-            aria-label={t("Документ обучения")}
-          >
-            <article className="learning-paper">
-              <button
-                className="learning-back"
-                onClick={() => setLearningOpen(false)}
-              >
-                <ArrowLeft size={16} />
-                {t("Вернуться к сценарию")}
-              </button>
-              <EditorFirstVisit key={language} />
-            </article>
-          </main>
+          <EditorLearning onBack={() => setLearningOpen(false)} />
         )}
         <StoryboardPaste
           view={view}
@@ -4218,7 +4174,6 @@ export default function MinimalApp({ onLogout }) {
                   components={current.components}
                   props={IS_PRO ? current.props : EMPTY_PROPS}
                   activeProp={propDialog?.id}
-                  onCreateProp={propFromSelection}
                   comments={current.comments.filter((comment) => {
                     const reference = commentScenes.get(comment.id);
                     return (

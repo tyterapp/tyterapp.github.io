@@ -245,6 +245,13 @@
   background: transparent !important;
   box-shadow: none !important;
 }
+.component-hints-hidden a.script-text-link:has(.script-entity),
+.component-hints-hidden .script-entity a.script-text-link,
+a.script-text-link:has(.script-entity-disabled) {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
 .component-hints-hidden :is(.character-thumbnail, .character-thumbnail-anchor) {
   display: none;
 }

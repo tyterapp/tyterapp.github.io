@@ -5,7 +5,6 @@ import {
   Bold,
   Italic,
   Underline,
-  Box,
   Shapes,
   MessageSquarePlus,
   Link2,
@@ -130,7 +129,6 @@ function selectionRect(editor, source, bounds) {
 export default function SelectionToolbar({
   editor,
   onCreateComponent,
-  onCreateProp,
   onPasteComponentUrl,
   onComment,
   disabled = false,
@@ -144,8 +142,6 @@ export default function SelectionToolbar({
   const refreshRef = useRef(null);
   const createComponentRef = useRef(onCreateComponent);
   createComponentRef.current = onCreateComponent;
-  const createPropRef = useRef(onCreateProp);
-  createPropRef.current = onCreateProp;
   const commentRef = useRef(onComment);
   commentRef.current = onComment;
   const [position, setPosition] = useState(null);
@@ -252,22 +248,18 @@ export default function SelectionToolbar({
         (event.code === "KeyD" || key === "d") && !event.shiftKey;
       const boldAlias =
         (event.code === "KeyB" || key === "b") && event.shiftKey;
-      const createProp =
-        !!createPropRef.current &&
-        (event.code === "KeyE" || key === "e") &&
-        !event.shiftKey;
       const createComment =
         (event.code === "KeyQ" || key === "q") && !event.shiftKey;
       if (
         !minimal ||
-        (!createComponent && !createProp && !createComment && !boldAlias) ||
+        (!createComponent && !createComment && !boldAlias) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         (!editor.isFocused &&
           !toolbarRef.current?.contains(document.activeElement))
       )
         return;
-      if (createComponent || createProp) event.preventDefault();
+      if (createComponent) event.preventDefault();
       const source = nativeSelectedSource(editor) || selectedSource(editor);
       if (!source) return;
       event.preventDefault();
@@ -280,7 +272,6 @@ export default function SelectionToolbar({
       dismissedRef.current = sourceKey(source);
       setPosition(null);
       if (createComment) commentRef.current?.(source);
-      else if (createProp) createPropRef.current?.(source);
       else createComponentRef.current?.(source);
     };
     refreshRef.current = scheduleUpdate;
@@ -391,23 +382,6 @@ export default function SelectionToolbar({
               <span className="selection-toolbar-divider" aria-hidden="true" />
             </>
           )}
-          {!minimal && !plainOnly && (
-            <button
-              type="button"
-              aria-label="Add selection to props"
-              aria-describedby="selection-tip-prop"
-              onClick={() => createFromSelection(onCreateProp)}
-            >
-              <Box size={21} strokeWidth={1.65} aria-hidden="true" />
-              <span
-                className="selection-shortcut"
-                role="tooltip"
-                id="selection-tip-prop"
-              >
-                Add to props
-              </span>
-            </button>
-          )}
         </>
       }
       {!plainOnly && (
@@ -429,25 +403,6 @@ export default function SelectionToolbar({
             id="selection-tip-component"
           >
             {minimal ? `${shortcut} + D` : "Create component"}
-          </span>
-        </button>
-      )}
-      {minimal && !plainOnly && onCreateProp && (
-        <button
-          type="button"
-          aria-label={t("Создать реквизит из выделения")}
-          aria-keyshortcuts="Control+E Meta+E"
-          aria-describedby="selection-tip-prop"
-          onClick={() => createFromSelection(onCreateProp)}
-        >
-          <Box size={21} strokeWidth={1.65} aria-hidden="true" />
-          <span
-            className="selection-shortcut"
-            role="tooltip"
-            id="selection-tip-prop"
-          >
-            {t("Реквизит · ")}
-            {shortcut} + E
           </span>
         </button>
       )}

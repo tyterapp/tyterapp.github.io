@@ -99,6 +99,9 @@ for (const mobile of [false, true]) {
   }, info) => {
     await open(page, { mobile, theme: mobile ? "dark" : "light" });
     const menu = await exportMenu(page, mobile);
+    await expect(
+      menu.getByText("HTML презентация", { exact: true }),
+    ).toBeVisible();
     const numbers = menu.getByRole("switch", {
       name: "Нумерация сцен",
       exact: true,
@@ -155,6 +158,9 @@ for (const mobile of [false, true]) {
     await page
       .getByRole("button", { name: "Download screenplay", exact: true })
       .click();
+    await expect(
+      menu.getByText("HTML presentation", { exact: true }),
+    ).toBeVisible();
     await expect(
       menu.getByRole("switch", { name: "Scene numbers", exact: true }),
     ).toBeChecked();

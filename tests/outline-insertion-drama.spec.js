@@ -18,8 +18,8 @@ const paragraphText = (node) => {
 const sceneText = (scene) => scene.evaluate(paragraphText);
 const stored = (page) =>
   page.evaluate(async () => {
-    const { browserRequest } = await import("/src/browser-files.js");
-    return (await browserRequest("documents")).documents[0];
+    const { sessionLibraryRequest } = await import("/src/workspace-session.js");
+    return (await sessionLibraryRequest("documents")).documents[0];
   });
 async function open(page, project) {
   await grantPro(page);
@@ -64,7 +64,7 @@ async function select(page, blockId, start, end = start) {
   await page.keyboard.press("Shift");
 }
 
-test("document annotations: create a component immediately in its sidebar, then pair its prop without a popup", async ({
+test("document annotations: create a component immediately in its sidebar without creating props", async ({
   page,
 }) => {
   const project = createProject("Аннотации из текста");
@@ -89,56 +89,53 @@ test("document annotations: create a component immediately in its sidebar, then 
   await page.keyboard.press("Control+Enter");
   await page.keyboard.press("Escape");
   await select(page, "text", 0, 5);
-  await page.keyboard.press("Control+e");
-  const annotations = page.getByRole("complementary", {
-    name: "Компонент и реквизит",
-  });
-  await expect(annotations).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await annotations.getByLabel("Количество реквизита").fill("3");
-  await annotations
-    .getByRole("button", { name: "Сохранить", exact: true })
-    .last()
-    .click();
-  await expect
-    .poll(async () => (await stored(page))?.props[0]?.quantity)
-    .toBe(3);
-  expect((await stored(page)).components).toHaveLength(1);
-  expect((await stored(page)).props).toHaveLength(1);
+  await expect(
+    page.getByRole("button", { name: "Создать реквизит из выделения" }),
+  ).toHaveCount(0);
+  await expect.poll(async () => (await stored(page))?.components.length).toBe(1);
+  expect((await stored(page)).props).toHaveLength(0);
   expect((await stored(page)).components[0].description).toBe(
     "Практический свет",
   );
-  expect((await stored(page)).props[0].componentId).toBe(
-    (await stored(page)).components[0].id,
-  );
 });
 
-test("document props: selection toolbar creates immediately in the editing sidebar and reopens the existing item", async ({
+test("existing props remain in the document when editing their component", async ({
   page,
 }) => {
   const project = createProject("Реквизит из текста");
   project.content.content = [paragraph("text", "Лампа стоит. Лампа горит.")];
+  project.components = [
+    { id: "lamp-component", name: "Лампа", type: "object", color: "#9977aa" },
+  ];
+  project.props = [
+    {
+      id: "lamp-prop",
+      name: "Лампа",
+      componentId: "lamp-component",
+      quantity: 2,
+      category: "Objects",
+      description: "Для съёмок",
+    },
+  ];
   await open(page, project);
-  await select(page, "text", 0, 5);
-  await page
-    .getByRole("button", { name: "Создать реквизит из выделения" })
-    .click();
-  const props = page.getByRole("complementary", { name: "Реквизит сценария" });
-  await expect(props.getByLabel("Название", { exact: true })).toHaveValue(
-    "Лампа",
-  );
-  await expect(props.getByLabel("Название", { exact: true })).toBeFocused();
+  await editor(page)
+    .locator('[data-entity-id="lamp-component"]')
+    .first()
+    .click({ modifiers: ["Control"] });
+  const component = page.getByRole("complementary", {
+    name: "Компоненты сценария",
+  });
+  await expect(component).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(editor(page).locator("[data-prop-id]")).toHaveCount(2);
-  await props.getByLabel("Количество реквизита").fill("2");
-  await props.getByLabel("Описание", { exact: false }).fill("Для съёмок");
-  await props.getByRole("button", { name: "Сохранить", exact: true }).click();
-  await page.keyboard.press("Escape");
-  await select(page, "text", 13, 18);
-  await page.keyboard.press("Control+e");
-  await expect(props.getByLabel("Количество реквизита")).toHaveValue("2");
-  await expect(props.getByLabel("Описание", { exact: false })).toHaveValue(
-    "Для съёмок",
-  );
+  await component
+    .getByLabel("Описание", { exact: false })
+    .fill("Практический свет");
+  await component
+    .getByRole("button", { name: "Сохранить", exact: true })
+    .last()
+    .click();
   await expect.poll(async () => (await stored(page))?.props.length).toBe(1);
+  expect((await stored(page)).props[0].quantity).toBe(2);
+  expect((await stored(page)).props[0].description).toBe("Для съёмок");
 });

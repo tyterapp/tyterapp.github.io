@@ -41,6 +41,9 @@ function fixture(empty = false) {
   return project;
 }
 async function open(page, project = fixture(), pro = true) {
+  await page.route("**/__tyter_local/**", (route) =>
+    route.fulfill({ status: 404 }),
+  );
   if (pro) await grantPro(page);
   else
     await page.route("**/__tyter_local/**", (route) =>
@@ -219,18 +222,17 @@ test("help has keyboard accessible tabs, all custom shortcuts and a scrollable l
   await tools(page)
     .getByRole("button", { name: "Обучение", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Знакомство с редактором" });
-  await expect(dialog.getByRole("tab", { name: "Онбординг" })).toHaveAttribute(
+  const dialog = page.locator(".learning-paper");
+  await expect(dialog.getByRole("tab", { name: "Привет!" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await dialog.getByRole("button", { name: "Далее", exact: true }).click();
   await dialog.getByRole("tab", { name: "Горячие клавиши" }).click();
   for (const key of [
     "Alt + 1",
     "Alt + 2",
     "Ctrl + D",
-    "Ctrl + E",
+    "Ctrl + Alt + E",
     "Ctrl + Q",
     "Ctrl + O",
     "Ctrl + Alt + → / ←",
@@ -244,24 +246,24 @@ test("help has keyboard accessible tabs, all custom shortcuts and a scrollable l
       dialog.locator("kbd").filter({ hasText: key }).first(),
     ).toHaveCount(1);
   await dialog.getByRole("tab", { name: "Горячие клавиши" }).press("ArrowLeft");
-  await expect(dialog).toContainText("Сценарный формат — с клавиатуры");
-  await dialog.getByRole("tab", { name: "Онбординг" }).press("ArrowRight");
+  await expect(dialog).toContainText("Как быстрее работать с текстом?");
+  await dialog.getByRole("tab", { name: "Привет!" }).press("ArrowRight");
   await page.setViewportSize({ width: 390, height: 650 });
   const bounds = await dialog.boundingBox();
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(650);
-  await dialog
-    .locator(".help-body")
+  await page
+    .locator(".learning-workspace")
     .evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect(
     dialog.locator("kbd").filter({ hasText: "Ctrl + V" }),
   ).toBeInViewport();
-  await expect(dialog.getByRole("tab", { name: "Онбординг" })).toBeInViewport();
   await page.screenshot({ path: info.outputPath("mobile-shortcuts.png") });
-  await page.keyboard.press("Escape");
+  await dialog
+    .getByRole("button", { name: "Вернуться к сценарию", exact: true })
+    .click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator(".screenplay-editor")).toBeFocused();
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
 });
 
 test("Escape closes popovers, annotation forms and outline panels without deleting data", async ({

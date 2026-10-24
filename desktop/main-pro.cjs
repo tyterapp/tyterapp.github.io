@@ -124,7 +124,6 @@ async function contextMenu(event, params) {
     { label: "Жирный", enabled: selected, click: action("bold") },
     { label: "Курсив", enabled: selected, click: action("italic") },
     { label: "Компонент", enabled: selected, click: action("component") },
-    { label: "Реквизит", enabled: selected, click: action("prop") },
     { type: "separator" },
     { label: "Орфография · русский", enabled: false },
     ...suggestions,

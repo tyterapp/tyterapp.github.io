@@ -444,7 +444,7 @@ test("Instant HTML opens offline with both read-only views and opens the free ed
     const pending = page.waitForEvent("download");
     await page
       .locator(".rail-export-menu")
-      .getByRole("button", { name: /Instant link · HTML/ })
+      .getByRole("button", { name: /HTML презентация/ })
       .click();
     const download = await pending;
     expect(download.suggestedFilename()).toMatch(/\.html$/);
@@ -549,7 +549,7 @@ test("reader footer shares and downloads the active view offline without exposin
   const pending = page.waitForEvent("download");
   await page
     .locator(".rail-export-menu")
-    .getByRole("button", { name: /Instant link · HTML/ })
+    .getByRole("button", { name: /HTML презентация/ })
     .click();
   const exported = await pending,
     file = info.outputPath("reader-actions.html");
