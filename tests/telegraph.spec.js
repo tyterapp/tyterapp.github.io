@@ -598,7 +598,7 @@ test("release before the audio context resumes cannot start a delayed tone", asy
   expect(closed).toBe(1);
 });
 
-test("telegram marks survive reopening, exclude ordinary typing and share an immutable snapshot", async ({
+test("telegram marks survive reopening and exclude ordinary typing without a fullscreen share action", async ({
   page,
 }, info) => {
   await open(page);
@@ -606,7 +606,7 @@ test("telegram marks survive reopening, exclude ordinary typing and share an imm
     name: "Share telegram",
     exact: true,
   });
-  await expect(share).toBeDisabled();
+  await expect(share).toHaveCount(0);
   await letter(page, "....");
   await letter(page, "..");
   const marked = page.locator(".screenplay-editor .telegraph-text");
@@ -621,37 +621,8 @@ test("telegram marks survive reopening, exclude ordinary typing and share an imm
   await expect(marked).toHaveText("HI");
   await page.locator(".focus-telegraph-button").click();
   await page.locator(".focus-telegraph-button").click();
-  await expect(share).toBeEnabled();
-  await page.evaluate(() => {
-    window.copiedTelegram = "";
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (text) => {
-          window.copiedTelegram = text;
-        },
-      },
-    });
-  });
-  await share.click();
-  const dialog = page.getByRole("dialog", { name: "Share telegram" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator(".telegram-share-preview")).toHaveText("HI");
-  await expect(dialog.locator(".telegram-cover-preview")).toBeVisible();
-  const coverDownload = page.waitForEvent("download");
-  await dialog
-    .getByRole("link", { name: "Download cover", exact: true })
-    .click();
-  expect((await coverDownload).suggestedFilename()).toBe("tyter-telegram.png");
-  const link = await dialog.getByRole("textbox").inputValue();
-  expect(readTelegram(new URL(link).hash).text).toBe("HI");
-  expect(link).not.toContain("ORDINARY");
-  await dialog.getByRole("button", { name: "Copy link" }).click();
-  expect(await page.evaluate(() => window.copiedTelegram)).toBe(link);
-  await page.screenshot({ path: info.outputPath("telegram-share.png") });
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(share).toBeFocused();
+  await expect(share).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("telegram-fullscreen.png") });
   await page.clock.runFor(1800);
   await page.reload();
   await expect(page.locator(".screenplay-editor .telegraph-text")).toHaveText(
@@ -665,23 +636,14 @@ test("each downloaded telegram cover QR opens exactly the user link and its own 
 }, info) => {
   test.setTimeout(60000);
   await open(page, { clock: false });
+  await page.goto("/tytergraph/");
+  await expect(page.locator(".telegraph-document")).toBeVisible();
   const links = [];
   for (const text of ["I LOVE YOU", "SECOND MESSAGE"]) {
-    await page.locator(".screenplay-editor").evaluate((node, text) => {
-      node.editor.commands.setContent({
-        type: "doc",
-        content: [
-          {
-            type: "paragraph",
-            attrs: { format: "action" },
-            content: [{ type: "text", text, marks: [{ type: "telegraph" }] }],
-          },
-        ],
-      });
-    }, text);
-    await page
-      .getByRole("button", { name: "Share telegram", exact: true })
-      .click();
+    await page.locator(".telegraph-document").focus();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.insertText(text);
+    await page.locator(".telegraph-share-button").click();
     const dialog = page.getByRole("dialog", { name: "Share telegram" });
     await expect(dialog.locator(".telegram-share-preview")).toHaveText(text);
     const link = await dialog.getByRole("textbox").inputValue();

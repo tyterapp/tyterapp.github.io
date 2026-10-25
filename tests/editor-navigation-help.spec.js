@@ -132,39 +132,44 @@ test("all tools and comments are on the left, the mode switch stays right and ex
   ).toBeGreaterThanOrEqual(100);
 });
 
-test("Alt+1 and Alt+2 switch views from the editor and outline inputs, while Free remains gated", async ({
+test("Ctrl+Alt+1 and Ctrl+Alt+2 switch modes from editor and storyboard inputs, old Alt shortcuts do nothing and Free remains gated", async ({
   page,
 }) => {
   await open(page);
   await page.keyboard.press("Alt+2");
+  await expect(page.locator(".screenplay-editor")).toBeVisible();
+  await page.keyboard.press("Control+Alt+2");
   await expect(
-    page.getByRole("button", { name: "Аутлайн", exact: true }),
+    page
+      .locator(".document-view-toggle")
+      .getByRole("button", { name: "Раскадровка", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(tools(page)).toBeVisible();
-  await expect(
-    tools(page).getByRole("button", { name: "Компоненты", exact: true }),
-  ).toHaveCount(0);
-  await page.locator('.outline-card[data-card-id="card"]').click();
-  await page
-    .getByLabel("Текст карточки", { exact: true })
-    .fill("Новый текст карточки");
   await page.keyboard.press("Alt+1");
+  await expect(page.locator(".storyboard-workspace")).toBeVisible();
+  await page.locator('.story-card[data-scene="scene"]').click();
+  const block = page.locator('.story-inspector [data-block="last"]');
+  await block.locator(".story-block-title").click();
+  await block.locator("textarea").fill("Новый текст сцены");
+  await page.keyboard.press("Control+Alt+1");
   await expect(page.locator(".screenplay-editor")).toBeFocused();
-  await expect(page.locator(".outline-card-drawer")).toHaveCount(0);
-  await page.keyboard.press("Alt+2");
-  await expect(page.locator(".outline-card")).toContainText(
-    "Новый текст карточки",
-  );
-  await page.keyboard.press("Alt+1");
   await expect(page.locator(".screenplay-editor")).toContainText(
-    "Последняя строка.",
+    "Новый текст сцены",
   );
+  await expect(
+    page.locator('.document-view-toggle button[aria-pressed="true"]'),
+  ).toHaveAttribute("aria-keyshortcuts", "Control+Alt+1");
+  await page.keyboard.press("Control+Alt+2");
+  await expect(
+    page.locator('.document-view-toggle button[aria-pressed="true"]'),
+  ).toHaveAttribute("aria-keyshortcuts", "Control+Alt+2");
+  await page.keyboard.press("Control+Alt+1");
   await open(page, fixture(), false);
-  await page.keyboard.press("Alt+2");
+  await page.keyboard.press("Control+Alt+2");
   await expect(
     page.getByRole("dialog", { name: "Полная версия Tyter" }),
   ).toBeVisible();
-  await expect(page.locator(".outline-layout")).toHaveCount(0);
+  await expect(page.locator(".storyboard-workspace")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".screenplay-editor")).toBeFocused();
@@ -229,8 +234,8 @@ test("help has keyboard accessible tabs, all custom shortcuts and a scrollable l
   );
   await dialog.getByRole("tab", { name: "Горячие клавиши" }).click();
   for (const key of [
-    "Alt + 1",
-    "Alt + 2",
+    "Ctrl + Alt + 1",
+    "Ctrl + Alt + 2",
     "Ctrl + D",
     "Ctrl + Alt + E",
     "Ctrl + Q",
@@ -279,7 +284,7 @@ test("Escape closes popovers, annotation forms and outline panels without deleti
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".components-drawer")).toHaveCount(0);
-  await page.keyboard.press("Alt+2");
+  await page.keyboard.press("Control+Alt+2");
   await page.locator('.outline-card[data-card-id="card"]').click();
   await page
     .getByRole("button", { name: "График драматичности", exact: true })

@@ -30,6 +30,7 @@ export default function Telegraph({
   shareLabel,
   onEmptyShare,
   compactShare = false,
+  showShare = true,
 }) {
   const dashThreshold = morseTiming?.dash ?? MORSE_DASH;
   const [sharedText, setSharedText] = useState(null);
@@ -281,7 +282,7 @@ export default function Telegraph({
       />
     </button>
   );
-  const shareButton = (
+  const shareButton = showShare && (
     <button
       type="button"
       className="telegraph-share-button"
@@ -394,12 +395,12 @@ export default function Telegraph({
       ) : (
         shareButton
       )}
-      {telegram.length > TELEGRAM_MAX_TEXT && (
+      {showShare && telegram.length > TELEGRAM_MAX_TEXT && (
         <span className="telegraph-share-limit" role="status">
           {t("Для ссылки оставьте не более 20 000 символов телеграммы.")}
         </span>
       )}
-      {sharedText !== null && (
+      {showShare && sharedText !== null && (
         <TelegramShare
           text={sharedText}
           title={title}

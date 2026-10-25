@@ -35,8 +35,14 @@ export default function EditorFirstVisit() {
         {english
           ? "To move through text quickly, use "
           : "Для быстрого перемещения по тексту используй сочетания "}
-        <strong>CTRL + →</strong> {english ? "and" : "и"}{" "}
-        <strong>CTRL + ←</strong>.
+        <strong>
+          CTRL + <span className="script-arrow">→</span>
+        </strong>{" "}
+        {english ? "and" : "и"}{" "}
+        <strong>
+          CTRL + <span className="script-arrow">←</span>
+        </strong>
+        .
       </p>
       <p>
         {english
@@ -51,8 +57,14 @@ export default function EditorFirstVisit() {
         {english
           ? "To select text word by word, use "
           : "Для выделения текста по словам используй "}
-        <strong>CTRL + SHIFT + ←</strong> {english ? "and" : "и"}{" "}
-        <strong>CTRL + SHIFT + →</strong>.
+        <strong>
+          CTRL + SHIFT + <span className="script-arrow">←</span>
+        </strong>{" "}
+        {english ? "and" : "и"}{" "}
+        <strong>
+          CTRL + SHIFT + <span className="script-arrow">→</span>
+        </strong>
+        .
       </p>
       <p>
         {english

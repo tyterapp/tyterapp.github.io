@@ -306,11 +306,11 @@ for (const paste of ["keyboard", "menu"])
     await select(page, "source-scene");
     await page.keyboard.press("Control+c");
     await otherDocument(page);
-    await page.keyboard.press("Alt+2");
+    await page.keyboard.press("Control+Alt+2");
     await page
       .getByRole("button", { name: "Добавить сцену", exact: true })
       .click();
-    await page.keyboard.press("Alt+1");
+    await page.keyboard.press("Control+Alt+1");
     const scenes = page.locator('.screenplay-editor p[data-format="scene"]');
     await expect(scenes).toHaveCount(2);
     const id = await scenes.last().getAttribute("data-block-id");

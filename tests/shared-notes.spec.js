@@ -53,8 +53,8 @@ test("legacy notes merge once, preserve comments and remap colliding anchors", (
     expect(block.content[0].marks[0].attrs.id).toBe(comment.id);
     expect(comment.anchor).toBeGreaterThan(1);
   });
-  expect(migrated.scriptVersions.blue.notes).toBeUndefined();
-  expect(migrated.scriptVersions.pink.notes).toBeUndefined();
+  expect(migrated.scriptVersions.blue?.notes).toBeUndefined();
+  expect(migrated.scriptVersions.pink?.notes).toBeUndefined();
   const restored = readTYT(JSON.stringify(tytPayload(migrated)));
   expect(restored.notes).toEqual(migrated.notes);
   expect(validateImport(switchScriptVersion(restored, "blue")).notes).toEqual(

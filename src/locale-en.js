@@ -70,8 +70,8 @@ export default {
   "Посмотрите историю в раскадровке": "See your story in a storyboard",
   "В Pro переключатель «Раскадровка / Сценарий» открывает сцены со слайдами. В «Структуре» редактируйте текст сцены, в «Инфо» — изображения, длительности, статус и драматичность. На телефоне режимы переключаются снизу, щипок меняет размер карточек, а долгое нажатие позволяет их переставить.":
     "In Pro, Storyboard / Screenplay opens scenes with slides. Edit scene text in Structure; use Info for images, timing, status and drama. On mobile, switch modes in the bottom tabs, pinch to resize cards, and long press to reorder.",
-  "Alt+1 — сценарий · Alt+2 — раскадровка · TYT сохраняет оба режима.":
-    "Alt+1 — screenplay · Alt+2 — storyboard · TYT saves both modes.",
+  "Ctrl+Alt+1 — сценарий · Ctrl+Alt+2 — раскадровка · TYT сохраняет оба режима.":
+    "Ctrl+Alt+1 — screenplay · Ctrl+Alt+2 — storyboard · TYT saves both modes.",
   "Собирайте слайды внутри сцен, задавайте время показа и съёмочные настройки. Структура сцены синхронизируется со сценарием.":
     "Add slides to scenes, set playback timing and shot details. Scene structure stays in sync with the screenplay.",
   "Раскадровка: слайды, драматургия и настройки сцен":
@@ -438,8 +438,8 @@ export default {
     "2 documents · 10 components · 14 days of history",
   "2 документа и 10 компонентов на сценарий":
     "2 documents and 10 components per screenplay",
-  "Alt+1 — сценарий · Alt+2 — аутлайн · TYT сохраняет оба режима.":
-    "Alt+1 — screenplay · Alt+2 — outline · TYT saves both views.",
+  "Ctrl+Alt+1 — сценарий · Ctrl+Alt+2 — аутлайн · TYT сохраняет оба режима.":
+    "Ctrl+Alt+1 — screenplay · Ctrl+Alt+2 — outline · TYT saves both views.",
   "Ctrl + клик": "Ctrl + click",
   "Ctrl + колесо мыши": "Ctrl + mouse wheel",
   "Ctrl + колесо мыши на листе": "Ctrl + mouse wheel over the page",
@@ -496,8 +496,8 @@ export default {
   "Без текста": "No text",
   "Бесплатная веб-версия": "Free web app",
   "Бесплатная версия": "Free version",
-  "В Pro переключатель справа сверху открывает «Сценарий / Аутлайн». Alt+1 ведёт к сценарию, Alt+2 — к карточкам. Добавляйте акты, карточки, цвета и комментарии; ищите нужную карточку. Новая карточка создаёт сцену, затем текст карточки и сценария редактируется независимо. Прицел ведёт к сцене, синий значок рядом с номером сцены — обратно к карточке.":
-    "In Pro, switch between Screenplay and Outline at the top right. Alt+1 opens the screenplay and Alt+2 opens the cards. Add acts, cards, colors and comments, or search for a card. Each new card creates a scene; their texts can then be edited independently. The target icon takes you to the scene, and the blue icon next to the scene number takes you back to its card.",
+  "В Pro переключатель справа сверху открывает «Сценарий / Аутлайн». Ctrl+Alt+1 ведёт к сценарию, Ctrl+Alt+2 — к карточкам. Добавляйте акты, карточки, цвета и комментарии; ищите нужную карточку. Новая карточка создаёт сцену, затем текст карточки и сценария редактируется независимо. Прицел ведёт к сцене, синий значок рядом с номером сцены — обратно к карточке.":
+    "In Pro, switch between Screenplay and Outline at the top right. Ctrl+Alt+1 opens the screenplay and Ctrl+Alt+2 opens the cards. Add acts, cards, colors and comments, or search for a card. Each new card creates a scene; their texts can then be edited independently. The target icon takes you to the scene, and the blue icon next to the scene number takes you back to its card.",
   "В браузере": "In your browser",
   "В настройках выбирайте шрифт для работы, добавляйте постер, автора, год и email. Экспорт всегда использует Courier. Масштаб документа меняется от 100% до 200% ползунком или Ctrl + колесо мыши на листе. Текст, лист и отступы увеличиваются вместе; масштаб не меняет экспорт и хронометраж. В статистике одна страница равна одной минуте хронометража.":
     "Choose your working font and add a poster, author, year and email in settings. Exports always use Courier. Zoom from 100% to 200% with the slider or Ctrl + mouse wheel over the page. Text, pages and margins scale together; zoom does not affect exports or running time. Statistics treat one page as one minute.",

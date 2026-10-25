@@ -186,7 +186,6 @@ import {
   sessionExportSnapshot,
 } from "./local-files.js";
 import ScreenplayEditor from "./ScreenplayEditor.jsx";
-import EditorFirstVisit from "./EditorFirstVisit.jsx";
 import EditorLearning from "./EditorLearning.jsx";
 import { createProject, uid, validateImport } from "./data.js";
 import {
@@ -835,17 +834,6 @@ export default function MinimalApp({ onLogout }) {
   const [emptyDocument] = useState(newDocument);
   const current =
     documents.find((d) => d.id === activeId) || documents[0] || emptyDocument;
-  const [introDocumentId, setIntroDocumentId] = useState(() => {
-    try {
-      return !initial.hasSaved &&
-        !localStorage.getItem("tyter.onboarding.v1") &&
-        !localStorage.getItem("tyter.editor-intro.v1")
-        ? current.id
-        : null;
-    } catch {
-      return null;
-    }
-  });
   const [learningOpen, setLearningOpen] = useState(false);
   const [brandMenu, setBrandMenu] = useState(null);
   const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
@@ -974,30 +962,8 @@ export default function MinimalApp({ onLogout }) {
     },
     [notesOpen],
   );
-  const [tourOpen, setTourOpen] = useState(() => {
-    try {
-      return !localStorage.getItem("tyter.onboarding.v1");
-    } catch {
-      return true;
-    }
-  });
+  const [tourOpen, setTourOpen] = useState(false);
   const [filesReady, setFilesReady] = useState(false);
-  const showEditorIntro =
-    filesReady &&
-    !tourOpen &&
-    current.id === introDocumentId &&
-    view === "screenplay" &&
-    !notesOpen &&
-    !historyRevision &&
-    !current.content.content.some((block) =>
-      block.content?.some((part) => part.text),
-    );
-  useEffect(() => {
-    if (!showEditorIntro) return;
-    try {
-      localStorage.setItem("tyter.editor-intro.v1", "seen");
-    } catch {}
-  }, [showEditorIntro]);
   const [diskAvailable, setDiskAvailable] = useState(false);
   const [diskState, setDiskState] = useState("loading");
   const diskRevision = useRef(0);
@@ -1596,12 +1562,6 @@ export default function MinimalApp({ onLogout }) {
   );
   const changeContent = useCallback(
     (content, anchors, activity, mapping, versionChanges, transaction) => {
-      if (
-        content.content.some((block) =>
-          block.content?.some((part) => part.text),
-        )
-      )
-        setIntroDocumentId(null);
       update((d) => {
         if (transaction)
           pageFlowEdit.current = {
@@ -2021,7 +1981,6 @@ export default function MinimalApp({ onLogout }) {
   }, [activeId, writingScope, notesOpen]);
   const switchDocument = (doc, { keepSearch = false } = {}) => {
     setLearningOpen(false);
-    setIntroDocumentId(null);
     setNotesOpen(false);
     componentHistory.current = { undo: [], redo: [] };
     setQuestOverlay(false);
@@ -2336,7 +2295,7 @@ export default function MinimalApp({ onLogout }) {
       }
       if (
         !event.altKey ||
-        event.ctrlKey ||
+        !event.ctrlKey ||
         event.metaKey ||
         event.shiftKey ||
         document.querySelector(
@@ -3501,7 +3460,7 @@ export default function MinimalApp({ onLogout }) {
             <button
               aria-pressed={view === "storyboard"}
               disabled={!documents.length}
-              aria-keyshortcuts="Alt+2"
+              aria-keyshortcuts="Control+Alt+2"
               onClick={() => changeView("storyboard")}
             >
               <Crop size={18} />
@@ -3510,7 +3469,7 @@ export default function MinimalApp({ onLogout }) {
             <button
               aria-pressed={view === "screenplay"}
               disabled={!documents.length}
-              aria-keyshortcuts="Alt+1"
+              aria-keyshortcuts="Control+Alt+1"
               onClick={() => changeView("screenplay")}
             >
               <AlignLeft size={18} />
@@ -3978,20 +3937,6 @@ export default function MinimalApp({ onLogout }) {
               className={`script-paper${historyRevision ? " history-preview-paper" : ""}${notesOpen ? " notes-paper" : ""}`}
               onMouseDownCapture={(event) => {
                 if (
-                  showEditorIntro &&
-                  event.button === 0 &&
-                  event.target.closest(
-                    ".editor-first-visit, .screenplay-editor",
-                  )
-                ) {
-                  event.preventDefault();
-                  setIntroDocumentId(null);
-                  requestAnimationFrame(() =>
-                    editorRef.current?.focusPosition(1),
-                  );
-                  return;
-                }
-                if (
                   historyRevision ||
                   event.button !== 0 ||
                   (event.target !== event.currentTarget &&
@@ -4091,7 +4036,6 @@ export default function MinimalApp({ onLogout }) {
                   )}
                 </div>
               )}
-              {showEditorIntro && <EditorFirstVisit />}
               {historyRevision ? (
                 <HistoryPreview
                   revision={historyRevision}
@@ -4136,7 +4080,7 @@ export default function MinimalApp({ onLogout }) {
                     setEditorReadyEpoch((epoch) => epoch + 1);
                   }}
                   autoFocus={
-                    !mobile &&
+                    (!mobile || !currentTelegram.trim()) &&
                     filesReady &&
                     view === "screenplay" &&
                     !tourOpen &&
@@ -4498,6 +4442,7 @@ export default function MinimalApp({ onLogout }) {
               <Telegraph
                 key={`${writingScope}:${language}`}
                 language={language}
+                showShare={false}
                 telegram={currentTelegram}
                 title={current.title}
                 onText={(text) => editorRef.current?.insertTelegraphText(text)}

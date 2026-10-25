@@ -7,10 +7,16 @@ import "./arrow-typography.css";
 export const ArrowTypography = Extension.create({
   name: "arrowTypography",
   addInputRules() {
-    return [textInputRule({ find: /->$/, replace: "→" })];
+    return [
+      textInputRule({ find: /->$/, replace: "→" }),
+      textInputRule({ find: /<-$/, replace: "←" }),
+    ];
   },
   addPasteRules() {
-    return [textPasteRule({ find: /->/g, replace: "→" })];
+    return [
+      textPasteRule({ find: /->/g, replace: "→" }),
+      textPasteRule({ find: /<-/g, replace: "←" }),
+    ];
   },
   addProseMirrorPlugins() {
     return [

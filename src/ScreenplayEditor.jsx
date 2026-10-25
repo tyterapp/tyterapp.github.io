@@ -444,6 +444,7 @@ const ScreenplayBehavior = Extension.create({
     return {
       onComments: () => {},
       minimal: false,
+      resetEmptyScene: false,
     };
   },
   addCommands() {
@@ -511,12 +512,46 @@ const ScreenplayBehavior = Extension.create({
     return shortcuts;
   },
   addProseMirrorPlugins() {
+    const resetEmptyScene = this.options.resetEmptyScene;
     return [
       new Plugin({
         key: new PluginKey("screenplayBlockIds"),
         appendTransaction(transactions, oldState, newState) {
-          if (!transactions.some((transaction) => transaction.docChanged))
-            return null;
+          const change = transactions.find(
+            (transaction) => transaction.docChanged,
+          );
+          if (!change) return null;
+          if (
+            resetEmptyScene &&
+            oldState.doc.textContent.trim() &&
+            !newState.doc.textContent.trim() &&
+            change.getMeta("preventUpdate") === undefined &&
+            change.getMeta("addToHistory") !== false &&
+            !isHistoryTransaction(change)
+          ) {
+            const first = newState.doc.firstChild;
+            const previous = oldState.doc.firstChild;
+            const scene =
+              first?.attrs.format === "scene"
+                ? first
+                : previous?.attrs.format === "scene"
+                  ? previous
+                  : null;
+            const paragraph = newState.schema.nodes.paragraph.create({
+              ...first?.attrs,
+              format: "scene",
+              sceneVariant: scene?.attrs.sceneVariant || null,
+              blockId: scene?.attrs.blockId || first?.attrs.blockId || makeId(),
+            });
+            const transaction = newState.tr.replaceWith(
+              0,
+              newState.doc.content.size,
+              paragraph,
+            );
+            return transaction
+              .setSelection(TextSelection.atStart(transaction.doc))
+              .setStoredMarks([]);
+          }
           const seen = new Set();
           const transaction = newState.tr;
           newState.doc.descendants((node, pos) => {
@@ -731,6 +766,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
       ScreenplayBehavior.configure({
         onComments: (selection) => propsRef.current.onComments?.(selection),
         minimal,
+        resetEmptyScene: minimal && !plainOnly,
       }),
       ...(plainOnly ? [PlainNotes] : []),
     ],

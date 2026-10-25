@@ -266,7 +266,7 @@ for (const language of ["ru", "en"]) {
 }
 
 for (const language of ["ru", "en"]) {
-  test(`${language}: first visit tips are UI only and disappear on writing, reload and new documents`, async ({
+  test(`${language}: greeting is only in learning and stays absent from writing, reload and new documents`, async ({
     page,
   }, info) => {
     await page.route("**/__tyter_local/**", (route) =>
@@ -282,12 +282,16 @@ for (const language of ["ru", "en"]) {
       );
     }, language);
     await page.goto("/free");
+    await expect(page.locator(".script-paper .editor-first-visit")).toHaveCount(
+      0,
+    );
+    await expect(page.locator(".screenplay-editor")).toBeFocused();
     await page
       .getByRole("button", {
-        name: language === "ru" ? "Закрыть обучение" : "Close help",
+        name: language === "ru" ? "Обучение" : "Help",
       })
       .click();
-    const tips = page.locator(".editor-first-visit");
+    const tips = page.locator(".learning-paper .editor-first-visit");
     await expect(tips).toContainText(
       language === "ru"
         ? "Как быстрее работать с текстом?"
@@ -324,13 +328,14 @@ for (const language of ["ru", "en"]) {
     expect((await tips.boundingBox()).width).toBeLessThanOrEqual(288);
     expect(
       await page
-        .locator(".minimal-scroll")
+        .locator(".learning-workspace")
         .evaluate((node) => node.scrollWidth - node.clientWidth),
     ).toBe(0);
     const switches = await page.locator(".header-switches").boundingBox();
     expect(switches.x + switches.width).toBeLessThanOrEqual(320);
     await page.screenshot({ path: info.outputPath("first-visit-mobile.png") });
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(".learning-back").click();
     await page.locator(".screenplay-editor").focus();
     await page.keyboard.insertText(
       language === "ru" ? "ИНТ. ДОМ" : "INT. HOUSE",

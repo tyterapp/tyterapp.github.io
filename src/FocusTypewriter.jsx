@@ -19,7 +19,7 @@ const FORMAT_ICONS = {
   transition: "Cut.svg",
   plain: "Plain-text.svg",
 };
-const CARET_OFFSET = 34;
+const CARET_OFFSET = 36;
 function Layers({ file, className, ...props }) {
   return (
     <span className={className} {...props} aria-hidden="true">

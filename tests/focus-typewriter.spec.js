@@ -158,11 +158,9 @@ test("format icon follows every screenplay format and blue bulb detects characte
         .toBe(true);
       await expect(icon).toHaveCSS("width", "18px");
       await expect(icon).toHaveCSS("height", "18px");
-      await page
-        .locator(".typewriter-body")
-        .screenshot({
-          path: info.outputPath(`format-${formats[i]}-${lamp}.png`),
-        });
+      await page.locator(".typewriter-body").screenshot({
+        path: info.outputPath(`format-${formats[i]}-${lamp}.png`),
+      });
     }
   }
   await selectBlock(page, "f-2", 2);
@@ -558,7 +556,7 @@ test("lamp uses all nine exact page colors without a sheet outline and restores 
   );
 });
 
-test("rig is two pixels lower, the format icon one pixel higher inside it and the left cap meets the sheet", async ({
+test("rig and beam retain their requested offsets, the format icon alignment and the cap contact", async ({
   page,
 }) => {
   await activate(page);
@@ -569,6 +567,7 @@ test("rig is two pixels lower, the format icon one pixel higher inside it and th
     return {
       rail: rect(".typewriter-rig"),
       body: rect(".typewriter-carriage"),
+      beam: rect(".typewriter-beam"),
       format: rect(".typewriter-format"),
       cap: rect(".typewriter-left .typewriter-off"),
       paper: rect(".script-paper"),
@@ -577,7 +576,13 @@ test("rig is two pixels lower, the format icon one pixel higher inside it and th
   });
   expect(
     rects.rail.top - (rects.caret.top + rects.caret.bottom) / 2,
-  ).toBeCloseTo(18, 0);
+  ).toBeCloseTo(20, 0);
+  expect(
+    rects.beam.left +
+      rects.beam.width / 2 -
+      rects.body.left -
+      rects.body.width / 2,
+  ).toBeCloseTo(7, 0);
   expect(rects.format.top - rects.body.top).toBe(12);
   // Left SVG's visible path ends at x=22 within its 36px viewBox.
   expect(rects.cap.left + 22).toBeCloseTo(rects.paper.left, 0);

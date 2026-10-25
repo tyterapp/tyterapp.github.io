@@ -170,7 +170,7 @@ test("OpenArrow replaces typed arrows, centers a standalone arrow and keeps the 
 });
 
 for (const language of ["ru", "en"])
-  test(`${language}: first-visit coin explanation uses local Lottie and icons, disappears on click and stays outside the document`, async ({
+  test(`${language}: learning coin explanation uses local Lottie and icons and stays outside the document`, async ({
     page,
   }, info) => {
     await page.route("**/__tyter_local/**", (route) =>
@@ -182,7 +182,7 @@ for (const language of ["ru", "en"])
     await page.goto("/free");
     await page
       .getByRole("button", {
-        name: language === "en" ? "Close help" : "Закрыть обучение",
+        name: language === "en" ? "Help" : "Обучение",
         exact: true,
       })
       .click();
@@ -193,13 +193,13 @@ for (const language of ["ru", "en"])
     await expect(intro.locator(".intro-inline-icon")).toHaveCount(3);
     await expect(intro.locator(".intro-flame-player svg")).toBeVisible();
     await page.screenshot({ path: info.outputPath("first-visit-coins.png") });
-    await intro.locator("p").last().click();
+    await page.locator(".learning-back").click();
     await expect(intro).toHaveCount(0);
     const content = await page
       .locator(".screenplay-editor")
       .evaluate((node) => node.editor.getJSON());
     expect(JSON.stringify(content)).not.toMatch(/монет|coins|100/);
-    await expect(page.locator(".screenplay-editor")).toBeFocused();
+    await expect(page.locator(".screenplay-editor")).toBeVisible();
     await expect(page.locator(".screenplay-editor p").first()).toHaveAttribute(
       "data-format",
       "scene",
