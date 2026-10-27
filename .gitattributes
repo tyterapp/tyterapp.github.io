@@ -1,0 +1,3 @@
+# Preserve the bytes of the separately frozen edition across Git checkouts.
+/frozen/dildamode/** -text
+/public/dildamode/** -text

@@ -12,7 +12,7 @@ export function offlineEditorPlugin() {
     configResolved(value) {
       config = value;
     },
-    async closeBundle() {
+    async writeBundle() {
       if (config.base !== "/") return;
       const output = path.resolve(config.root, config.build.outDir);
       const resources = ["/index.html"];

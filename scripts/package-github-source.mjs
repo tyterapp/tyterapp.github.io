@@ -20,6 +20,7 @@ const directories = [
 ];
 const rootFiles = [
   "AGENTS.md",
+  ".gitattributes",
   ".prettierignore",
   "package.json",
   "package-lock.json",
