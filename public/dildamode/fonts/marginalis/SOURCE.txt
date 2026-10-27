@@ -1,0 +1,5 @@
+Marginalis 1.002 — original, unmodified web fonts.
+Source: https://github.com/Bloorgard/marginalis
+Design: Pyotr Pustota (https://pustota.name).
+Copyright 2026 Dmitrii Osadchuk (https://marginalis.art), with Reserved Font Name "Marginalis".
+Licensed under the SIL Open Font License 1.1; see OFL.txt in this directory.

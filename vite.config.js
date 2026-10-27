@@ -3,8 +3,15 @@ import react from "@vitejs/plugin-react";
 import { localFilesPlugin } from "./local-files-plugin.js";
 import { webProPlugin } from "./web-pro-plugin.js";
 import { offlineEditorPlugin } from "./scripts/offline-editor-plugin.mjs";
+import { frozenDildaModePlugin } from "./scripts/frozen-dildamode-plugin.mjs";
 export default defineConfig({
-  plugins: [react(), webProPlugin(), localFilesPlugin(), offlineEditorPlugin()],
+  plugins: [
+    frozenDildaModePlugin(),
+    react(),
+    webProPlugin(),
+    localFilesPlugin(),
+    offlineEditorPlugin(),
+  ],
   server: {
     fs: {
       deny: [

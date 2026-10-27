@@ -9,6 +9,7 @@ const directories = [
   ".github",
   "src",
   "public",
+  "frozen",
   "scripts",
   "server",
   "desktop",
@@ -18,6 +19,8 @@ const directories = [
   "checks",
 ];
 const rootFiles = [
+  "AGENTS.md",
+  ".prettierignore",
   "package.json",
   "package-lock.json",
   "index.html",

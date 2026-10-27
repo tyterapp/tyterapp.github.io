@@ -60,6 +60,7 @@ createServer(async (req, res) => {
                 "/app",
                 "/pro",
                 "/beta",
+                "/dildamode",
                 ...SITE_ROUTES.map((path) => `/${path}`),
               ].includes(pathname) || houseSnapshotScene(pathname)
             ? pathname.slice(1) + "/index.html"
