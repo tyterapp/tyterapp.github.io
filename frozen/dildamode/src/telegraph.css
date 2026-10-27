@@ -1,0 +1,87 @@
+.focus-telegraph {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: 280px;
+  max-width: calc(100% - 24px);
+  display: grid;
+  gap: 8px;
+  color: var(--ui-muted);
+}
+.telegraph-key {
+  display: grid;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  border-radius: 8px;
+}
+.telegraph-key:active:not(:disabled) {
+  scale: 1;
+}
+.telegraph-key img {
+  grid-area: 1 / 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+.telegraph-key .telegraph-pressed {
+  opacity: 0;
+}
+.telegraph-key[aria-pressed="true"] .telegraph-pressed {
+  opacity: 1;
+}
+.telegraph-key[aria-pressed="true"] img:first-child {
+  opacity: 0;
+}
+.telegraph-tape {
+  display: block;
+  width: 100%;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--ui-soft);
+  fill: var(--ui-muted);
+}
+.telegraph-baseline {
+  stroke: var(--ui-border);
+  fill: none;
+}
+.telegraph-signals {
+  transition: transform 120ms ease-out;
+}
+.telegraph-signal {
+  transition: width 80ms linear;
+}
+.minimal-app[data-mobile].focus-mode:has(.focus-telegraph)
+  :is(
+    .focus-mode-toggle,
+    .focus-typewriter-button,
+    .focus-telegraph-button,
+    .focus-theme-button,
+    .scroll-top-button
+  ) {
+  top: 8px;
+  bottom: auto;
+}
+.minimal-app[data-mobile][data-keyboard] .focus-telegraph {
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .telegraph-signals,
+  .telegraph-signal {
+    transition: none;
+  }
+}
+@media print {
+  .focus-telegraph {
+    display: none;
+  }
+}

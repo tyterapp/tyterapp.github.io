@@ -68,11 +68,16 @@ git pull --ff-only origin main
 
 ```bash
 cd /d/Tyter/publication/github-pages-repo
-cp -R ../tyterapp.github.io/{.github,build-resources,checks,desktop,docs,public,scripts,server,src,tests} .
-cp ../tyterapp.github.io/{.env.example,.gitignore,README.md,index.html,local-files-plugin.js,package.json,package-lock.json,payment-plugin.js,playwright.config.js,playwright.pages.config.js,vite.config.js,web-pro-plugin.js} .
+cp -R ../tyterapp.github.io/{.github,build-resources,checks,desktop,docs,scripts,server,src,tests} .
+cp ../tyterapp.github.io/{.env.example,.gitignore,.prettierignore,AGENTS.md,README.md,index.html,local-files-plugin.js,package.json,package-lock.json,payment-plugin.js,playwright.config.js,playwright.pages.config.js,vite.config.js,web-pro-plugin.js} .
+mkdir -p public
+find ../tyterapp.github.io/public -mindepth 1 -maxdepth 1 ! -name dildamode -exec cp -R {} public/ \;
+if [ ! -e frozen ]; then cp -R ../tyterapp.github.io/frozen .; fi
+if [ ! -e public/dildamode ]; then cp -R ../tyterapp.github.io/public/dildamode public/; fi
+node scripts/verify-frozen-dildamode.mjs
 ```
 
-Команды заменяют совпадающие исходники и добавляют новые. `.git`, зависимости, личные документы и реальный список ключей не копируются. В текущем обновлении удалять старые файлы вручную не требуется.
+Команды заменяют совпадающие исходники и добавляют новые. Зафиксированная версия копируется только при первом отсутствии и не перезаписывается при последующих обновлениях. Проверка контрольных сумм должна завершиться успешно. `.git`, зависимости, личные документы и реальный список ключей не копируются. В текущем обновлении удалять старые файлы вручную не требуется.
 
 Проверьте результат:
 

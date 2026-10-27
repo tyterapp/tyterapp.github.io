@@ -1,0 +1,5131 @@
+import { t, useLanguage, languageLocale } from "./i18n.js";
+import LanguageSwitch from "./LanguageSwitch.jsx";
+import StoryDramaPanel from "./StoryDramaPanel.jsx";
+import AppSelect from "./AppSelect.jsx";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  ChevronDown,
+  Download,
+  FileText,
+  FolderOpen,
+  Pencil,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Shapes,
+  Trash2,
+  X,
+  ChartNoAxesColumn,
+  CircleHelp,
+  Settings2,
+  RefreshCw,
+  History,
+  Box,
+  AlignLeft,
+  MessageSquare,
+  LogOut,
+  Maximize2,
+  Minimize2,
+  Sun,
+  Moon,
+  Menu,
+  Crop,
+  ExternalLink,
+  ArrowLeft,
+} from "lucide-react";
+import {
+  StoryboardBoard,
+  StoryboardInspector,
+  StoryboardPaste,
+} from "./Storyboard.jsx";
+import {
+  storyboardScenes,
+  moveStoryboardScene,
+  addStoryboardScene,
+  changeSceneBlock,
+  addSceneBlock,
+  removeSceneBlock,
+  moveSceneBlock,
+  migrateStoryboard,
+  pasteStoryboardImages,
+  moveStoryboardFrame,
+} from "./storyboard-model.js";
+import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { useScreenplaySceneDrag } from "./useScreenplaySceneDrag.js";
+import { componentUrl } from "./component-url.js";
+import {
+  exportStoryboard,
+  exportScreenplayJSON,
+  STORYBOARD_EXPORT_FORMATS,
+} from "./storyboard-export.js";
+import { updateShotSettings } from "./shot-info.js";
+import { exportTYT } from "./tyt-format.js";
+import {
+  chooseTytCopyTarget,
+  rememberTytFileName,
+  tytCopyFileName,
+} from "./tyt-copy.js";
+import {
+  chooseLocalDirectory,
+  directoryComponentLibraries,
+} from "./browser-files.js";
+import AnnotationsPanel from "./AnnotationsPanel.jsx";
+import { documentFont, documentFontStyles } from "./document-fonts.js";
+import { CommentsPanel, Onboarding } from "./EditorPanels.jsx";
+import DocumentSearch from "./DocumentSearch.jsx";
+import DocumentSettings, { ExportSettings } from "./DocumentSettings.jsx";
+import SubscriptionDialog from "./SubscriptionDialog.jsx";
+import { IS_PRO as BUILD_IS_PRO, useEdition } from "./edition.js";
+import { importDocument } from "./imports.js";
+import StatisticsPanel from "./StatisticsPanel.jsx";
+import ScriptDoctor from "./ScriptDoctor.jsx";
+import ScriptDoctorIcon from "./ScriptDoctorIcon.jsx";
+import { inspectDocumentScript } from "./script-doctor.js";
+import ComponentsPanel from "./ComponentsPanel.jsx";
+import FormatBar from "./FormatBar.jsx";
+import {
+  useEditorPreferences,
+  useTypewriterSound,
+} from "./editor-preferences.js";
+import {
+  switchSceneVariant,
+  sceneRange,
+  sceneLetter,
+} from "./scene-variants.js";
+import { activeSceneForBlock, commentSceneIndex } from "./comment-scenes.js";
+import { cleanCommentOptions } from "./comment-options.js";
+import {
+  documentSearchMatches,
+  searchMatchKey,
+  scriptSearchMatches,
+} from "./document-search.js";
+import CharacterDialogue from "./CharacterDialogue.jsx";
+import ChatsCircleIcon from "./ChatsCircleIcon.jsx";
+import AppMessage, { useAppMessage } from "./AppMessage.jsx";
+import WritingTimer from "./WritingTimer.jsx";
+import DildaMode from "./DildaMode.jsx";
+import useSpeechDictation from "./useSpeechDictation.js";
+import MobileSheet from "./MobileSheet.jsx";
+import DoctorFlies from "./DoctorFlies.jsx";
+import BurningPaper from "./BurningPaper.jsx";
+import NotesWorkspace from "./NotesWorkspace.jsx";
+import ScrollToTop from "./ScrollToTop.jsx";
+import TypewriterIcon from "./TypewriterIcon.jsx";
+import FocusTypewriter from "./FocusTypewriter.jsx";
+import { useLampSwitchSound } from "./typewriter-lamp-audio.js";
+import TelegraphIcon from "./TelegraphIcon.jsx";
+import Telegraph from "./Telegraph.jsx";
+import { telegramText } from "./telegram.js";
+import { exportInstantHTML } from "./instant-html.js";
+import { revisionPageStyle } from "./script-revisions.js";
+import { useMobileWorkspace, useMobileWriting } from "./mobile-workspace.js";
+import MobilePageControls from "./MobilePageControls.jsx";
+import { useWritingTimer } from "./writing-timer.js";
+import { RESET_PROGRESS_PRICE } from "./writing-wallet.js";
+import DailyQuests, { QuestOverlay } from "./pro/quests/DailyQuests.jsx";
+import { useDailyQuests } from "./pro/quests/index.js";
+import ScriptVersionPicker from "./ScriptVersionPicker.jsx";
+import {
+  pageVersionAt,
+  mapPageVersionRanges,
+  rebasePageVersionContent,
+} from "./page-versions.js";
+import { setPageColor } from "./page-colors.js";
+import { preparePageVersionLayout } from "./page-version-layout.js";
+import { applyPageVersionChanges } from "./page-version-history.js";
+import { isHistoryTransaction } from "@tiptap/pm/history";
+import { SCRIPT_VERSIONS, scriptVersion } from "./script-versions.js";
+import ComponentLibraryDialog from "./ComponentLibraryDialog.jsx";
+import {
+  clearDocumentComponents,
+  componentClearState,
+} from "./component-clear.js";
+import {
+  exportComponentLibrary,
+  mergeComponentLibrary,
+} from "./component-library.js";
+import HistoryPanel from "./HistoryPanel.jsx";
+import HistoryPreview from "./HistoryPreview.jsx";
+import TooltipLayer from "./TooltipLayer.jsx";
+import BrandContextMenu from "./BrandContextMenu.jsx";
+import "./design-page.css";
+import ThumbnailField from "./ThumbnailField.jsx";
+import { cleanComponentAliases, componentNames } from "./component-names.js";
+import ThumbnailPreviewLayer from "./ThumbnailPreviewLayer.jsx";
+import ImageComponentPaste from "./ImageComponentPaste.jsx";
+import {
+  changeLabel,
+  deleteRevisions,
+  recordRevision,
+  importRevisions,
+  snapshotOf,
+  snapshotForArea,
+  restoreSnapshotForArea,
+  revisionArea,
+} from "./history.js";
+import { pageHeightFor } from "./pagination.js";
+import { scrollDocumentPages } from "./document-page-scroll.js";
+import {
+  screenplayLayout,
+  screenplayBlockLayout,
+  clampDocumentZoom,
+} from "./document-layout.js";
+import {
+  localRequest,
+  saveLocalFiles,
+  deleteLocalFile,
+  usesBrowserLibrary,
+  sessionExportSnapshot,
+} from "./local-files.js";
+import ScreenplayEditor from "./ScreenplayEditor.jsx";
+import EditorLearning from "./EditorLearning.jsx";
+import { createProject, uid, validateImport } from "./data.js";
+import {
+  exportPDF,
+  exportDOCX,
+  exportFDX,
+  exportPropsPDF,
+  exportShotReportPDF,
+  saveBlob,
+} from "./exports.js";
+import {
+  exportShotReportCSV,
+  exportShotReportXML,
+  exportShotReportXLSX,
+} from "./shot-report-tables.js";
+const STORAGE = "tyter.dildamode.projects.v1";
+const EMPTY_PROPS = [];
+const BLOCK_LAYOUT_STYLE = Object.fromEntries(
+  ["character", "speech", "parenthetical"].flatMap((format) => {
+    const layout = screenplayBlockLayout(format);
+    return [
+      [`--${format}-left`, `${layout.left * 100}%`],
+      [`--${format}-width`, `${layout.width * 100}%`],
+    ];
+  }),
+);
+const grandfatherDocuments = (documents, isPro = BUILD_IS_PRO) =>
+  !isPro &&
+  !window.tyterDesktop?.request &&
+  documents.length > 2 &&
+  !documents.some((doc) => doc.quotaExempt)
+    ? documents.map((doc) => ({
+        ...doc,
+        quotaExempt: true,
+      }))
+    : documents;
+const quotaFull = (documents, isPro = BUILD_IS_PRO) =>
+  !isPro && documents.filter((doc) => !doc.quotaExempt).length >= 2;
+function newDocument() {
+  const doc = createProject(t("Без названия"));
+  doc.content.content = [
+    {
+      type: "paragraph",
+      attrs: {
+        format: "scene",
+        blockId: uid(),
+      },
+    },
+  ];
+  return doc;
+}
+function sampleDocuments() {
+  const cat = createProject("Глазами кошки");
+  cat.content.content = [
+    {
+      type: "paragraph",
+      attrs: {
+        format: "scene",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "ИНТ. КВАРТИРА — УТРО",
+        },
+      ],
+    },
+    {
+      type: "paragraph",
+      attrs: {
+        format: "action",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "Кошка наблюдает за городом с подоконника. Внизу спешат люди, а на кухне тихо звенит её пустая миска.",
+        },
+      ],
+    },
+    {
+      type: "paragraph",
+      attrs: {
+        format: "character",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "КОШКА",
+        },
+      ],
+    },
+    {
+      type: "paragraph",
+      attrs: {
+        format: "speech",
+        blockId: uid(),
+      },
+      content: [
+        {
+          type: "text",
+          text: "Кажется, у них опять свои планы на завтрак.",
+        },
+      ],
+    },
+  ];
+  return [newDocument(), cat];
+}
+function loadDocuments(isPro = BUILD_IS_PRO) {
+  try {
+    const raw = localStorage.getItem(STORAGE);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) throw new Error();
+      if (parsed.length)
+        return {
+          documents: grandfatherDocuments(parsed.map(validateImport), isPro),
+          error: false,
+          hasSaved: true,
+        };
+    }
+    return {
+      documents: sampleDocuments(),
+      error: false,
+    };
+  } catch {
+    // Keep the original storage untouched if an older or damaged file cannot be read.
+    return {
+      documents: [newDocument()],
+      error: !usesBrowserLibrary(),
+    };
+  }
+}
+function Dialog({ title, children, onClose }) {
+  const language = useLanguage();
+  const ref = useRef(null);
+  const close = useRef(onClose);
+  const backdropPress = useRef(false);
+  close.current = onClose;
+  const isBackdrop = (event) => {
+    if (event.target !== event.currentTarget) return false;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return (
+      event.clientX < bounds.left ||
+      event.clientX >= bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY >= bounds.bottom
+    );
+  };
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog.showModal();
+    dialog
+      .querySelector("[data-dialog-autofocus]")
+      ?.focus({ preventScroll: true });
+    return () => dialog.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="minimal-dialog"
+      aria-label={t(title)}
+      onCancel={(e) => {
+        e.preventDefault();
+        close.current();
+      }}
+      onPointerDownCapture={(event) => {
+        backdropPress.current = event.button === 0 && isBackdrop(event);
+      }}
+      onPointerCancelCapture={() => {
+        backdropPress.current = false;
+      }}
+      onClick={(event) => {
+        const startedOnBackdrop = backdropPress.current;
+        backdropPress.current = false;
+        if (startedOnBackdrop && isBackdrop(event)) close.current();
+      }}
+    >
+      <div className="dialog-heading">
+        <h2>{t(title)}</h2>
+        <button
+          className="icon-button"
+          onClick={onClose}
+          aria-label={t("Закрыть")}
+        >
+          <X size={18} />
+        </button>
+      </div>
+      {children}
+    </dialog>
+  );
+}
+function DeleteComponentFolderDialog({ folder, onClose, onConfirm }) {
+  const language = useLanguage();
+  const [deleteComponents, setDeleteComponents] = useState(false);
+  const propsFolder = folder.kind === "props";
+  return (
+    <Dialog title={t("Удалить папку?")} onClose={onClose}>
+      <p className="delete-document-copy">
+        {t("Папка «")}
+        {folder.name}
+        {t(
+          propsFolder
+            ? "» исчезнет. Реквизит останется в разделе «Без папки»."
+            : "» исчезнет. Без галочки компоненты останутся в разделах «Персонажи» и «Места».",
+        )}
+      </p>
+      {!propsFolder && (
+        <label className="folder-delete-option">
+          <input
+            type="checkbox"
+            checked={deleteComponents}
+            onChange={(event) => setDeleteComponents(event.target.checked)}
+          />
+          <span>{t("Удалить компоненты в папке")}</span>
+        </label>
+      )}
+      <div className="dialog-actions">
+        <button className="quiet-button" onClick={onClose}>
+          {t("Отмена")}
+        </button>
+        <button
+          className="primary-button"
+          onClick={() => onConfirm(deleteComponents)}
+        >
+          {t("Удалить папку")}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+function ComponentForm({
+  value,
+  components,
+  folders = [],
+  inline = false,
+  prop = false,
+  onSubmit,
+  onDelete,
+  onClose,
+  onOpenComponent,
+  onDraftChange,
+}) {
+  const language = useLanguage();
+  const [name, setName] = useState(value.name || "");
+  const [description, setDescription] = useState(value.description || "");
+  const [quantity, setQuantity] = useState(value.quantity ?? 1);
+  const [url, setUrl] = useState(value.url || "");
+  const [urlEnabled, setUrlEnabled] = useState(value.urlEnabled !== false);
+  useEffect(() => {
+    setUrl(value.url || "");
+    setUrlEnabled(value.urlEnabled !== false);
+  }, [value.id, value.url, value.urlEnabled]);
+  const [thumbnail, setThumbnail] = useState(value.thumbnail || null);
+  const [aliases, setAliases] = useState(
+    typeof value.aliases === "string"
+      ? value.aliases
+      : cleanComponentAliases(value.aliases, value.name).join("\n"),
+  );
+  const aliasesHint = useId();
+  const aliasesError = useId();
+  const [folderId, setFolderId] = useState(
+    value.folderId || (prop ? "" : value.type || "character"),
+  );
+  const Wrapper = inline ? "div" : Dialog;
+  const duplicate = components.some(
+    (c) =>
+      c.id !== value.id &&
+      (prop ? [c.name] : componentNames(c)).some(
+        (candidate) =>
+          candidate.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
+      ),
+  );
+  const cleanedAliases = cleanComponentAliases(aliases, name);
+  const aliasConflicts = prop
+    ? []
+    : [
+        ...new Map(
+          components
+            .filter((component) => component.id !== value.id)
+            .map((component) => ({
+              component,
+              aliases: cleanedAliases.filter((alias) =>
+                componentNames(component).some(
+                  (candidate) =>
+                    alias.toLocaleLowerCase() === candidate.toLocaleLowerCase(),
+                ),
+              ),
+            }))
+            .filter((entry) => entry.aliases.length)
+            .map((entry) => [entry.component.id, entry]),
+        ).values(),
+      ];
+  const draft = {
+    ...value,
+    name,
+    description,
+    quantity,
+    url,
+    urlEnabled,
+    thumbnail,
+    aliases,
+    folderId,
+    type:
+      folderId === "place"
+        ? "place"
+        : folderId === "character"
+          ? "character"
+          : value.type || "character",
+  };
+  useEffect(() => {
+    onDraftChange?.(draft);
+  }, [
+    value,
+    name,
+    description,
+    quantity,
+    url,
+    urlEnabled,
+    thumbnail,
+    aliases,
+    folderId,
+    onDraftChange,
+  ]);
+  return (
+    <Wrapper
+      {...(inline
+        ? {
+            className: "component-editor minimal-dialog",
+          }
+        : {
+            title: prop
+              ? value.id
+                ? t("Реквизит")
+                : t("Новый реквизит")
+              : value.id
+                ? t("Компонент")
+                : t("Новый компонент"),
+            onClose,
+          })}
+    >
+      <form
+        onKeyDown={(event) => {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key === "Enter" &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            if (!event.repeat) event.currentTarget.requestSubmit();
+          }
+        }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim() && !duplicate && !aliasConflicts.length)
+            onSubmit({
+              ...value,
+              name: name.trim(),
+              quantity: Math.max(0, Math.min(999999, Number(quantity) || 0)),
+              ...(!prop ? { url: componentUrl(url), urlEnabled } : {}),
+              ...(prop ? { category: "Objects" } : { aliases: cleanedAliases }),
+              type:
+                folderId === "place"
+                  ? "place"
+                  : folderId === "character"
+                    ? "character"
+                    : value.type || "character",
+              description: description.trim(),
+              thumbnail,
+              folderId: prop
+                ? folderId || null
+                : folderId === "place" || folderId === "character"
+                  ? null
+                  : folderId,
+            });
+        }}
+      >
+        <label>
+          {t("Название")}
+          <input
+            autoFocus
+            data-dialog-autofocus
+            required
+            maxLength={200}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("Например, Анна")}
+          />
+        </label>
+        {!prop && (
+          <div className="component-url-settings">
+            <label>
+              {t("Ссылка компонента")}
+              <input
+                type="url"
+                aria-label={t("Ссылка компонента")}
+                value={url}
+                maxLength={2048}
+                placeholder="https://…"
+                onChange={(event) => setUrl(event.target.value)}
+                onBlur={() => {
+                  if (componentUrl(url)) setUrl(componentUrl(url));
+                }}
+                pattern="https?://.*"
+              />
+            </label>
+            {!!url && (
+              <>
+                <div className="component-url-actions">
+                  <label className="component-url-toggle">
+                    <input
+                      type="checkbox"
+                      checked={urlEnabled}
+                      aria-label={t("Использовать ссылку компонента")}
+                      onChange={(event) => setUrlEnabled(event.target.checked)}
+                    />
+                    {t("Использовать ссылку компонента")}
+                  </label>
+                  {componentUrl(url) && urlEnabled && (
+                    <a
+                      href={componentUrl(url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={t("Открыть ссылку")}
+                      title={t("Открыть ссылку")}
+                    >
+                      <ExternalLink size={16} aria-hidden="true" />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t("Удалить ссылку")}
+                    onClick={() => {
+                      setUrl("");
+                      setUrlEnabled(false);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <label>
+          {t("Количество")}
+          <input
+            aria-label={
+              prop ? t("Количество реквизита") : t("Количество компонента")
+            }
+            type="number"
+            min="0"
+            max="999999"
+            step="any"
+            required
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </label>
+        <label>
+          {t("Папка")}
+          <select
+            aria-label={t("Папка")}
+            value={folderId}
+            onChange={(e) => setFolderId(e.target.value)}
+          >
+            {prop ? (
+              <option value="">{t("Без папки")}</option>
+            ) : (
+              <>
+                <option value="character">{t("Персонажи")}</option>
+                <option value="place">{t("Места")}</option>
+              </>
+            )}
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("Описание ")}
+          <span className="muted">{t("· необязательно")}</span>
+          <textarea
+            rows={3}
+            maxLength={5000}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={
+              prop
+                ? t("Что важно помнить об этом реквизите")
+                : t("Что важно помнить об этом компоненте")
+            }
+          />
+        </label>
+        {duplicate && (
+          <p className="form-error" role="alert">
+            {prop
+              ? t("Реквизит с таким названием уже есть.")
+              : t("Компонент с таким названием уже есть.")}
+          </p>
+        )}
+        {!prop && (
+          <label>
+            {t("Алиасы")}
+            <span className="muted">{t("· необязательно")}</span>
+            <textarea
+              rows={2}
+              maxLength={20100}
+              value={aliases}
+              aria-label={t("Алиасы")}
+              onChange={(event) => setAliases(event.target.value)}
+              placeholder={t("Например, Джеффу, Джеффа")}
+              aria-invalid={aliasConflicts.length > 0 || undefined}
+              aria-describedby={`${aliasesHint}${aliasConflicts.length ? ` ${aliasesError}` : ""}`}
+            />
+            <small className="muted" id={aliasesHint}>
+              {t("Варианты написания через запятую или с новой строки.")}
+            </small>
+          </label>
+        )}
+        {aliasConflicts.length > 0 && (
+          <div
+            className="form-error component-alias-conflicts"
+            role="alert"
+            id={aliasesError}
+          >
+            <p>{t("Алиасы уже используются:")}</p>
+            <ul>
+              {aliasConflicts.map(({ component, aliases: occupied }) => (
+                <li key={component.id}>
+                  <span>{occupied.join(", ")} → </span>
+                  {onOpenComponent ? (
+                    <button
+                      type="button"
+                      className="component-alias-conflict-link"
+                      aria-label={t("Открыть компонент «{0}»", component.name)}
+                      onClick={() => {
+                        onDraftChange?.(draft);
+                        onOpenComponent(component);
+                      }}
+                    >
+                      {component.name}
+                    </button>
+                  ) : (
+                    component.name
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <ThumbnailField
+          value={thumbnail}
+          onChange={setThumbnail}
+          name={name || (prop ? t("Реквизит") : t("Компонент"))}
+        />
+        <div className="dialog-actions">
+          {value.id && (
+            <button
+              type="button"
+              className="icon-button delete-component"
+              aria-label={prop ? t("Удалить реквизит") : t("Удалить компонент")}
+              data-tooltip={
+                prop ? t("Удалить реквизит") : t("Удалить компонент")
+              }
+              onClick={() => onDelete(value.id)}
+            >
+              <Trash2 size={17} />
+            </button>
+          )}
+          <button type="button" className="quiet-button" onClick={onClose}>
+            {t("Отмена")}
+          </button>
+          <button
+            className="primary-button"
+            aria-keyshortcuts="Control+Enter Meta+Enter"
+            disabled={!name.trim() || duplicate || aliasConflicts.length > 0}
+          >
+            {value.id ? t("Сохранить") : t("Создать")}
+          </button>
+        </div>
+      </form>
+    </Wrapper>
+  );
+}
+export default function MinimalApp({ onLogout }) {
+  const language = useLanguage();
+  const { isPro: IS_PRO, historyDays } = useEdition();
+  const [preferences, setPreferences] = useEditorPreferences();
+  useEffect(() => {
+    const keyboard = (event) => {
+      if (event.key === "Tab" && !event.ctrlKey && !event.metaKey)
+        document.documentElement.dataset.keyboardFocus = "true";
+    };
+    const pointer = () => {
+      delete document.documentElement.dataset.keyboardFocus;
+    };
+    document.addEventListener("keydown", keyboard, true);
+    document.addEventListener("pointerdown", pointer, true);
+    return () => {
+      document.removeEventListener("keydown", keyboard, true);
+      document.removeEventListener("pointerdown", pointer, true);
+      delete document.documentElement.dataset.keyboardFocus;
+    };
+  }, []);
+  const [initial] = useState(() => loadDocuments(IS_PRO));
+  const [documents, setDocuments] = useState(initial.documents);
+  useEffect(() => {
+    if (
+      language !== "ru" ||
+      !documents.some((doc) => doc.metadata?.fontFamily === "courier-prime")
+    )
+      return;
+    setDocuments((list) =>
+      list.map((doc) =>
+        doc.metadata?.fontFamily === "courier-prime"
+          ? {
+              ...doc,
+              metadata: { ...doc.metadata, fontFamily: "courier" },
+              updatedAt: new Date().toISOString(),
+            }
+          : doc,
+      ),
+    );
+  }, [language, documents]);
+  useEffect(() => {
+    if (
+      !IS_PRO &&
+      !window.tyterDesktop?.request &&
+      documents.length > 2 &&
+      !documents.some((doc) => doc.quotaExempt)
+    )
+      setDocuments(grandfatherDocuments(documents, IS_PRO));
+  }, [documents]);
+  const [activeId, setActiveId] = useState(() => {
+    try {
+      return (
+        localStorage.getItem("tyter.dildamode.active") ||
+        initial.documents[0].id
+      );
+    } catch {
+      return initial.documents[0].id;
+    }
+  });
+  const [emptyDocument] = useState(newDocument);
+  const current =
+    documents.find((d) => d.id === activeId) || documents[0] || emptyDocument;
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [brandMenu, setBrandMenu] = useState(null);
+  const closeBrandMenu = useCallback(() => setBrandMenu(null), []);
+  const writingScope = current.id;
+  const currentTelegram = useMemo(
+    () => telegramText(current.content),
+    [current.content],
+  );
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+  const editorRef = useRef(null),
+    menuRef = useRef(null),
+    exportRef = useRef(null),
+    exportMenuRef = useRef(null),
+    importRef = useRef(null);
+  const imagePasteRef = useRef(null);
+  const quickExportRef = useRef(null);
+  const copyInProgress = useRef(false);
+  const [editorReadyEpoch, setEditorReadyEpoch] = useState(0);
+  const componentHistory = useRef({
+    undo: [],
+    redo: [],
+  });
+  const [menu, setMenu] = useState(null);
+  const [exportPosition, setExportPosition] = useState(null);
+  const [documentActions, setDocumentActions] = useState(null);
+  const [query, setQuery] = useState("");
+  const [componentsOpen, setComponentsOpen] = useState(false);
+  const { mobile, keyboard } = useMobileWorkspace();
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notesRef = useRef(null);
+  const [view, setView] = useState("screenplay");
+  const [shotTarget, setShotTarget] = useState(null);
+  const [dramaOpen, setDramaOpen] = useState(false);
+  const [dramaTarget, setDramaTarget] = useState(null);
+  const [storyFrameTarget, setStoryFrameTarget] = useState(null);
+  const shots = useMemo(
+    () =>
+      mobile && view !== "storyboard" && !dramaOpen && !shotTarget
+        ? []
+        : storyboardScenes(current),
+    [
+      mobile,
+      view,
+      dramaOpen,
+      shotTarget,
+      current.content,
+      current.sceneShots,
+      current.pageVersions,
+      current.metadata?.fontSize,
+    ],
+  );
+  const selectedShot = shots.find((scene) => scene.id === shotTarget);
+  const [sceneTarget, setSceneTarget] = useState(null);
+  const [propsOpen, setPropsOpen] = useState(false);
+  const [annotations, setAnnotations] = useState(null);
+  const [propDialog, setPropDialog] = useState(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [statisticsOpen, setStatisticsOpen] = useState(false);
+  const [doctorOpen, setDoctorOpen] = useState(false);
+  const [questsOpen, setQuestsOpen] = useState(false);
+  const [questOverlay, setQuestOverlay] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const historyTracked = useRef(new Map());
+  const notesHistoryTracked = useRef(new Map());
+  const historyWritten = useRef(new Map());
+  const pendingOutlineHistory = useRef(new Map());
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [commentQuote, setCommentQuote] = useState(null);
+  const [activeComment, setActiveComment] = useState(null);
+  const commentPreview = useRef(null);
+  const pendingCommentFocus = useRef(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [searchFormat, setSearchFormat] = useState("all");
+  const [searchIndex, setSearchIndex] = useState(0);
+  const [searchCardSelection, setSearchCardSelection] = useState(null);
+  const searchCardRequest = useRef(0);
+  const handledSearchCardRequest = useRef(0);
+  const handledSearchSelection = useRef(0);
+  const [searchCount, setSearchCount] = useState(0);
+  const [focusMode, setFocusMode] = useState(false);
+  const [typewriterOpen, setTypewriterOpen] = useState(false);
+  const [typewriterLamp, setTypewriterLamp] = useState(false);
+  const [telegraphOpen, setTelegraphOpen] = useState(false);
+  useEffect(() => {
+    if (!focusMode) setTelegraphOpen(false);
+  }, [focusMode]);
+  useEffect(() => setTelegraphOpen(false), [writingScope, notesOpen, view]);
+  const [characterView, setCharacterView] = useState(null);
+  const [libraryDialog, setLibraryDialog] = useState(null);
+  const checkedFolderLibraries = useRef(false);
+  const showSidebar = useCallback(
+    (kind) => {
+      setMobileToolsOpen(false);
+      setQuestOverlay(false);
+      if (kind) {
+        setFocusMode(false);
+        setCharacterView(null);
+      }
+      setShotTarget(null);
+      if (kind !== "annotations") setAnnotations(null);
+      const noteTool =
+        notesOpen && ["search", "comments", "statistics"].includes(kind);
+      if (notesOpen && ["doctor", "quests"].includes(kind)) setNotesOpen(false);
+      notesRef.current?.openTool(noteTool ? kind : null);
+      setSearchOpen(kind === "search" && !noteTool);
+      if (kind !== "search") setSearchCardSelection(null);
+      setComponentsOpen(kind === "components");
+      setPropsOpen(kind === "props");
+      if (kind !== "props") setPropDialog(null);
+      setCommentsOpen(kind === "comments" && !noteTool);
+      setStatisticsOpen(kind === "statistics" && !noteTool);
+      setDoctorOpen(kind === "doctor");
+      setQuestsOpen(kind === "quests");
+      setSettingsOpen(kind === "settings");
+      setHistoryOpen(kind === "history");
+      if (kind !== "history") setHistoryRevision(null);
+      if (kind !== "components") setComponentDialog(null);
+    },
+    [notesOpen],
+  );
+  const [tourOpen, setTourOpen] = useState(false);
+  const [filesReady, setFilesReady] = useState(false);
+  const [diskAvailable, setDiskAvailable] = useState(false);
+  const [diskState, setDiskState] = useState("loading");
+  const diskRevision = useRef(0);
+  const folderConnecting = useRef(false);
+  const [componentDialog, setComponentDialog] = useState(null);
+  const entityDrafts = useRef(new Map());
+  const entityDraftKey = (value, prop = false) =>
+    `${current.id}:${prop ? "prop" : "component"}:${value.id || "new"}`;
+  const entityFormValue = (value, prop = false) => ({
+    ...value,
+    ...entityDrafts.current.get(entityDraftKey(value, prop)),
+  });
+  const rememberEntityDraft = (value, draft, prop = false) => {
+    entityDrafts.current.set(entityDraftKey(value, prop), draft);
+  };
+  const clearEntityDraft = (value, prop = false) => {
+    entityDrafts.current.delete(entityDraftKey(value, prop));
+  };
+  const [folderToDelete, setFolderToDelete] = useState(null);
+  const [rename, setRename] = useState(null);
+  const [selection, setSelection] = useState({
+    format: "scene",
+  });
+  const activePage = pageVersionAt(current, selection?.from || 0);
+  const activeVersionPages = (current.pageVersions?.pages || []).filter(
+    (page) => page.to > page.from,
+  );
+  const activeScriptVersion =
+    SCRIPT_VERSIONS.find((version) => version.id === activePage?.active) ||
+    scriptVersion(current);
+  const [pageCount, setPageCount] = useState(1);
+  const pageFlowEdit = useRef(null);
+  const [pageRevisionState, setPageRevisionState] = useState({
+    scope: null,
+    pages: [],
+  });
+  const revisionPages =
+    pageRevisionState.scope === writingScope ? pageRevisionState.pages : [];
+  const changeRevisionPages = useCallback(
+    (pages) => {
+      setPageRevisionState((previous) =>
+        previous.scope === writingScope &&
+        JSON.stringify(previous.pages) === JSON.stringify(pages)
+          ? previous
+          : { scope: writingScope, pages },
+      );
+      if (
+        !pages.length ||
+        !editorRef.current?.measurePages ||
+        document.fonts.status !== "loaded"
+      )
+        return;
+      const starts = pages.map((page) => page.from).filter(Number.isInteger);
+      if (!starts.length) return;
+      setDocuments((list) =>
+        list.map((doc) => {
+          if (doc.id !== current.id) return doc;
+          const next = preparePageVersionLayout(
+            doc,
+            starts,
+            (content, options) =>
+              editorRef.current.measurePages(content, options),
+          );
+          const pending = pageFlowEdit.current;
+          if (
+            next !== doc &&
+            pending?.content === doc.content &&
+            pending.before.pageVersions &&
+            !pending.recorded &&
+            !isHistoryTransaction(pending.transaction) &&
+            !pending.transaction.getMeta("skipWritingReward") &&
+            !pending.transaction.getMeta("preventUpdate")
+          ) {
+            queueMicrotask(() => {
+              if (pageFlowEdit.current !== pending || pending.recorded) return;
+              pending.recorded =
+                editorRef.current?.recordPageLayout(
+                  pending.before,
+                  next,
+                  pending.transaction,
+                ) || false;
+            });
+          }
+          if (!doc.pageVersions && next.pageVersions && next !== doc) {
+            const tracked = historyTracked.current.get(doc.id);
+            // Initial migration changes storage representation, not the user's
+            // work. Preserve an outstanding edit by advancing only an exact
+            // baseline that already matches the document before migration.
+            if (tracked?.signature === JSON.stringify(snapshotOf(doc))) {
+              const snapshot = snapshotOf(next);
+              historyTracked.current.set(doc.id, {
+                snapshot,
+                signature: JSON.stringify(snapshot),
+              });
+            }
+          }
+          return next === doc
+            ? doc
+            : { ...next, updatedAt: new Date().toISOString() };
+        }),
+      );
+    },
+    [writingScope],
+  );
+  const [saveState, setSaveState] = useState("saving");
+  useEffect(() => {
+    if (!revisionPages.length) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) changeRevisionPages(revisionPages);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [revisionPages, changeRevisionPages]);
+  const [busy, setBusy] = useState("");
+  const { notice, setMessage, dismissMessage } = useAppMessage(
+    initial.error
+      ? "Не удалось прочитать сохранённые документы. Исходные данные сохранены; новые изменения можно скачать в файл."
+      : "",
+  );
+  const writingTimer = useWritingTimer(setMessage);
+  const [dildaOpen, setDildaOpen] = useState(false);
+  const toggleComponentHints = () => {
+    const enabled = !preferences.componentHints;
+    setPreferences({ componentHints: enabled });
+    setMessage(
+      language === "en"
+        ? enabled
+          ? "Component hints enabled"
+          : "Component hints disabled"
+        : enabled
+          ? "Подсказки компонентов включены"
+          : "Подсказки компонентов выключены",
+    );
+  };
+  useEffect(() => {
+    const key = (event) => {
+      if (document.querySelector("dialog.dm-game[open]")) return;
+      if (
+        !event.ctrlKey ||
+        !event.altKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.repeat ||
+        event.isComposing ||
+        event.code !== "KeyE"
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleComponentHints();
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, [preferences.componentHints, language]);
+  const [burningPage, setBurningPage] = useState(null);
+  const burnInProgress = useRef(false);
+  const burnFocus = useRef(null);
+  const [burnSequence, setBurnSequence] = useState(0);
+  useLayoutEffect(() => {
+    if (burningPage || !burnFocus.current) return;
+    const position = burnFocus.current;
+    burnFocus.current = null;
+    // Return focus only after React removes inert from the document.
+    editorRef.current?.focus(position);
+  }, [burningPage]);
+  const dictation = useSpeechDictation({
+    enabled:
+      writingTimer.hasRadio &&
+      !!documents.length &&
+      !notesOpen &&
+      !historyRevision &&
+      !burningPage &&
+      !characterView &&
+      view === "screenplay",
+    scope: writingScope,
+    language: languageLocale(),
+    editorRef,
+  });
+  useEffect(() => {
+    if (!writingTimer.hasDoctor) setDoctorOpen(false);
+  }, [writingTimer.hasDoctor]);
+  useEffect(() => {
+    let timeout;
+    const visit = () => {
+      if (!document.hidden) writingTimer.claimVisit();
+      clearTimeout(timeout);
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 20);
+      timeout = setTimeout(
+        visit,
+        Math.max(1000, midnight.getTime() - Date.now()),
+      );
+    };
+    visit();
+    window.addEventListener("focus", visit);
+    document.addEventListener("visibilitychange", visit);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("focus", visit);
+      document.removeEventListener("visibilitychange", visit);
+    };
+  }, [writingTimer.claimVisit]);
+  const dailyQuests = useDailyQuests(IS_PRO, writingScope, writingTimer);
+  const writeStorage = useCallback(() => {
+    if (folderConnecting.current) return;
+    if (initial.error) {
+      setSaveState("error");
+      return;
+    }
+    try {
+      const desktop = !!window.tyterDesktop?.request;
+      const browserPro = usesBrowserLibrary();
+      if (!desktop && (!IS_PRO || !browserPro)) {
+        localStorage.setItem(STORAGE, JSON.stringify(documentsRef.current));
+        setSaveState("saved");
+      }
+      if (diskAvailable) {
+        const revision = ++diskRevision.current;
+        setDiskState("saving");
+        return saveLocalFiles(documentsRef.current)
+          .then((result) => {
+            if (revision === diskRevision.current) {
+              setDiskState(result?.needsPermission ? "error" : "saved");
+              if (desktop || browserPro) setSaveState("saved");
+            }
+          })
+          .catch((error) => {
+            if (revision === diskRevision.current) {
+              setDiskState("error");
+              if (desktop || browserPro) setSaveState("error");
+              if (
+                error.message ===
+                "Папка сценариев изменена в другой вкладке. Обновите страницу."
+              )
+                setMessage(error.message);
+            }
+          });
+      } else if (desktop || browserPro) setSaveState("error");
+    } catch {
+      setSaveState("error");
+    }
+  }, [initial.error, diskAvailable]);
+  useEffect(() => {
+    let cancelled = false;
+    if (initial.error) {
+      setFilesReady(true);
+      setDiskState("error");
+      return;
+    }
+    localRequest("documents")
+      .then(({ documents: stored, deletedIds = [], directoryName }) => {
+        if (cancelled) return;
+        const disk = stored.map(validateImport);
+        if (usesBrowserLibrary() && directoryName) {
+          setDocuments(disk);
+          showSidebar(null);
+          setActiveId((id) =>
+            disk.some((doc) => doc.id === id) ? id : disk[0]?.id || "",
+          );
+        } else if (disk.length || deletedIds.length)
+          setDocuments((list) => {
+            const merged = new Map(
+              (initial.hasSaved ? list : [])
+                .filter((d) => !deletedIds.includes(d.id))
+                .map((d) => [d.id, d]),
+            );
+            for (const doc of disk) {
+              const existing = merged.get(doc.id);
+              // IndexedDB is authoritative in web Pro; editor initialization may
+              // touch stale migration data before the local library finishes loading.
+              if (
+                usesBrowserLibrary() ||
+                !existing ||
+                doc.updatedAt > existing.updatedAt
+              )
+                merged.set(doc.id, doc);
+            }
+            return merged.size
+              ? grandfatherDocuments([...merged.values()], IS_PRO)
+              : [newDocument()];
+          });
+        setDiskAvailable(true);
+        setDiskState("saved");
+      })
+      .catch(() => {
+        if (!cancelled) setDiskState("unavailable");
+      })
+      .finally(() => {
+        if (!cancelled) setFilesReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initial]);
+  const flushOutlineHistory = useCallback(
+    async (documentId) => {
+      const writes = [];
+      for (const [id, pending] of pendingOutlineHistory.current) {
+        if (documentId && id !== documentId) continue;
+        clearTimeout(pending.timer);
+        pendingOutlineHistory.current.delete(id);
+        writes.push(
+          recordRevision(
+            pending.documentId || id,
+            pending.snapshot,
+            pending.label,
+            historyDays,
+            "storyboard",
+          ),
+        );
+      }
+      if (writes.length) {
+        await Promise.all(writes);
+        setHistoryVersion((version) => version + 1);
+      }
+    },
+    [historyDays],
+  );
+  const historyFlushRef = useRef(flushOutlineHistory);
+  historyFlushRef.current = flushOutlineHistory;
+  useEffect(() => {
+    const flush = () => historyFlushRef.current().catch(() => {});
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
+  useEffect(() => {
+    if (!filesReady) return;
+    setSaveState("saving");
+    const timeout = setTimeout(writeStorage, 350);
+    window.addEventListener("pagehide", writeStorage);
+    window.addEventListener("beforeunload", writeStorage);
+    window.addEventListener("tyter:save-now", writeStorage);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("pagehide", writeStorage);
+      window.removeEventListener("beforeunload", writeStorage);
+      window.removeEventListener("tyter:save-now", writeStorage);
+    };
+  }, [documents, writeStorage, filesReady, historyVersion]);
+  useEffect(() => {
+    if (!window.tyterDesktop?.onBeforeClose) return;
+    return window.tyterDesktop.onBeforeClose(async () => {
+      try {
+        await saveLocalFiles(documentsRef.current);
+      } finally {
+        window.tyterDesktop.confirmClose();
+      }
+    });
+  }, []);
+  useEffect(() => {
+    if (!filesReady || !documents.length) return;
+    const snapshot = snapshotOf(current);
+    const signature = JSON.stringify(snapshot);
+    const previous = historyTracked.current.get(writingScope);
+    if (previous && previous.signature !== signature) {
+      const now = Date.now();
+      const screenplayKey = `${writingScope}:screenplay`;
+      if (
+        JSON.stringify(snapshotForArea(previous.snapshot, "screenplay")) !==
+          JSON.stringify(snapshotForArea(snapshot, "screenplay")) &&
+        now - (historyWritten.current.get(screenplayKey) || 0) > 30000
+      ) {
+        historyWritten.current.set(screenplayKey, now);
+        recordRevision(
+          current.id,
+          previous.snapshot,
+          changeLabel(
+            snapshotForArea(previous.snapshot, "screenplay"),
+            snapshotForArea(snapshot, "screenplay"),
+          ),
+          historyDays,
+          "screenplay",
+        )
+          .then(() => setHistoryVersion((version) => version + 1))
+          .catch(() => {});
+      }
+      if (
+        JSON.stringify(previous.snapshot.sceneShots) !==
+        JSON.stringify(snapshot.sceneShots)
+      ) {
+        const pending = pendingOutlineHistory.current.get(writingScope) || {
+          snapshot: previous.snapshot,
+          documentId: current.id,
+        };
+        clearTimeout(pending.timer);
+        pending.label = "раскадровки";
+        pending.timer = setTimeout(
+          () => flushOutlineHistory(writingScope).catch(() => {}),
+          650,
+        );
+        pendingOutlineHistory.current.set(writingScope, pending);
+      }
+    }
+    historyTracked.current.set(writingScope, {
+      snapshot,
+      signature,
+    });
+  }, [current, filesReady, historyDays, flushOutlineHistory, documents.length]);
+  useEffect(() => {
+    if (!filesReady || !documents.length) return;
+    const notes = current.notes || null;
+    const signature = JSON.stringify(notes);
+    const previous = notesHistoryTracked.current.get(current.id);
+    const key = `${current.id}:notes`;
+    if (
+      previous &&
+      previous.signature !== signature &&
+      Date.now() - (historyWritten.current.get(key) || 0) > 30000
+    ) {
+      historyWritten.current.set(key, Date.now());
+      recordRevision(
+        current.id,
+        { ...snapshotOf(current), notes: previous.notes },
+        "заметок",
+        historyDays,
+        "notes",
+      )
+        .then(() => setHistoryVersion((version) => version + 1))
+        .catch(() => {});
+    }
+    notesHistoryTracked.current.set(current.id, { notes, signature });
+  }, [current, filesReady, documents.length, historyDays]);
+  const restoreHistory = async (entry) => {
+    const area = notesOpen ? "notes" : revisionArea(entry);
+    try {
+      await flushOutlineHistory(writingScope);
+      historyWritten.current.set(
+        `${area === "notes" ? current.id : writingScope}:${area}`,
+        Date.now(),
+      );
+      await recordRevision(
+        current.id,
+        snapshotOf(current),
+        "восстановления",
+        historyDays,
+        area,
+      );
+      update((document) => {
+        const restored = restoreSnapshotForArea(document, entry.snapshot, area);
+        const snapshot = snapshotOf(restored);
+        notesHistoryTracked.current.set(document.id, {
+          notes: restored.notes || null,
+          signature: JSON.stringify(restored.notes || null),
+        });
+        historyTracked.current.set(document.id, {
+          snapshot,
+          signature: JSON.stringify(snapshot),
+        });
+        return restored;
+      });
+      setHistoryRevision(null);
+      setHistoryVersion((version) => version + 1);
+    } catch {
+      setMessage("Не удалось восстановить локальную версию.");
+    }
+  };
+  useEffect(() => {
+    window.document.title = `${current.title} — Tyter${IS_PRO ? " Pro" : ""}`;
+    try {
+      localStorage.setItem("tyter.dildamode.active", current.id);
+    } catch {
+      setSaveState("error");
+    }
+  }, [current.id, current.title]);
+  const changeView = useCallback(
+    (next, { focus = true } = {}) => {
+      if (!documents.length) return;
+      if (next === "storyboard" && !IS_PRO) {
+        setSubscriptionOpen(true);
+        return;
+      }
+      showSidebar(null);
+      setLearningOpen(false);
+      setNotesOpen(false);
+      componentHistory.current = { undo: [], redo: [] };
+      setView(next);
+      setFocusMode(false);
+      setCharacterView(null);
+      setMenu(null);
+      if (next === "screenplay" && focus)
+        requestAnimationFrame(() => editorRef.current?.focus());
+    },
+    [IS_PRO, showSidebar, documents.length],
+  );
+  const openCharacterDialogues = (name = true) => {
+    showSidebar(null);
+    setNotesOpen(false);
+    setView("screenplay");
+    setFocusMode(false);
+    setCharacterView(name);
+    setMenu(null);
+  };
+  useLayoutEffect(() => {
+    if (menu !== "export") {
+      setExportPosition(null);
+      return;
+    }
+    const place = () => {
+      const anchor = exportRef.current?.getBoundingClientRect();
+      const popup = exportMenuRef.current?.getBoundingClientRect();
+      if (!anchor || !popup) return;
+      setExportPosition({
+        left: Math.max(
+          8,
+          Math.min(
+            exportRef.current
+              .closest(".workspace-tools")
+              .getBoundingClientRect().right + 8,
+            innerWidth - popup.width - 8,
+          ),
+        ),
+        top: Math.max(8, Math.min(anchor.top, innerHeight - popup.height - 8)),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    document.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      document.removeEventListener("scroll", place, true);
+    };
+  }, [menu]);
+  useEffect(() => {
+    const outside = (e) => {
+      if (
+        ![menuRef, exportRef, exportMenuRef].some((ref) =>
+          ref.current?.contains(e.target),
+        )
+      ) {
+        setMenu(null);
+        setDocumentActions(null);
+      }
+    };
+    const keys = (e) => {
+      if (document.querySelector("dialog.dm-game[open]")) return;
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.code === "KeyF" || e.key.toLowerCase() === "f") &&
+        !window.document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        )
+      ) {
+        e.preventDefault();
+        showSidebar("search");
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.isComposing &&
+        (e.code === "KeyS" || e.key.toLowerCase() === "s")
+      ) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          e.stopPropagation();
+          if (
+            !e.repeat &&
+            !window.document.querySelector(
+              'dialog[open], [role="dialog"][aria-modal="true"]',
+            )
+          )
+            quickExportRef.current?.();
+        } else writeStorage();
+      }
+    };
+    window.document.addEventListener("pointerdown", outside);
+    window.document.addEventListener("keydown", keys, true);
+    return () => {
+      window.document.removeEventListener("pointerdown", outside);
+      window.document.removeEventListener("keydown", keys, true);
+    };
+  }, [writeStorage, showSidebar, view]);
+  const update = useCallback(
+    (fn) =>
+      setDocuments((list) =>
+        list.map((d) =>
+          d.id === current.id
+            ? (() => {
+                let next = fn(d);
+                if (
+                  next.pageVersions === d.pageVersions &&
+                  next.content !== d.content
+                )
+                  next = {
+                    ...next,
+                    pageVersions: rebasePageVersionContent(d, next.content)
+                      .pageVersions,
+                  };
+                return { ...next, updatedAt: new Date().toISOString() };
+              })()
+            : d,
+        ),
+      ),
+    [current.id],
+  );
+  const changeContent = useCallback(
+    (content, anchors, activity, mapping, versionChanges, transaction) => {
+      update((d) => {
+        if (transaction)
+          pageFlowEdit.current = {
+            before: d,
+            content,
+            transaction,
+            recorded: false,
+          };
+        const next = applyPageVersionChanges(
+          mapping
+            ? mapPageVersionRanges(d, mapping, content)
+            : rebasePageVersionContent(d, content),
+          versionChanges,
+        );
+        return {
+          ...next,
+          content,
+          comments: anchors
+            ? next.comments.map((c) => ({
+                ...c,
+                anchor: anchors[c.id] ?? c.anchor,
+              }))
+            : next.comments,
+        };
+      });
+      if (activity?.wordDelta) dailyQuests.recordWords(activity.wordDelta);
+    },
+    [update, dailyQuests.recordWords],
+  );
+  const applyStoryboardEdit = (transform, group) => {
+    const before =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    let next = transform(before);
+    if (next === before) return;
+    if (next.content !== before.content && editorRef.current?.measurePages)
+      next = preparePageVersionLayout(
+        next,
+        editorRef.current.measurePages(next.content),
+      );
+    if (!editorRef.current?.applyStoryboardChange(before, next, group)) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+  };
+  const changeSceneShot = (id, patch) =>
+    applyStoryboardEdit(
+      (doc) =>
+        updateShotSettings(
+          doc,
+          id,
+          sceneLetter(sceneRange(doc.content, id)?.nodes[0]),
+          patch,
+        ),
+      id + Object.keys(patch).join(),
+    );
+  const closeDrama = useCallback(() => {
+    setDramaOpen(false);
+    requestAnimationFrame(() =>
+      document
+        .querySelector(
+          view === "storyboard" ? ".story-drama-launch" : ".story-chart-toggle",
+        )
+        ?.focus({ preventScroll: true }),
+    );
+  }, [view]);
+  const selectStoryboardScene = (id) => {
+    showSidebar(null);
+    setShotTarget(id);
+    setDramaTarget(id);
+    setStoryFrameTarget(null);
+  };
+  const moveFrameToScene = (sourceId, letter, frameId, targetId) => {
+    try {
+      applyStoryboardEdit((doc) =>
+        moveStoryboardFrame(doc, sourceId, letter, frameId, targetId),
+      );
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+  const downloadStoryboard = async (format) => {
+    if (busy) return;
+    setMobileToolsOpen(false);
+    setMenu(null);
+    setBusy("storyboard");
+    writeStorage();
+    try {
+      await flushOutlineHistory();
+      const live =
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        current;
+      const snapshot = structuredClone(
+        historyRevision
+          ? migrateStoryboard(
+              restoreSnapshotForArea(
+                live,
+                historyRevision.snapshot,
+                revisionArea(historyRevision),
+              ),
+            )
+          : live,
+      );
+      const document =
+        view === "screenplay" ? exportPageDocument(snapshot) : snapshot;
+      const blob =
+        format === "tyt"
+          ? await exportTYT(document)
+          : await exportStoryboard(document, format);
+      saveBlob(
+        blob,
+        document.title + " — " + t("Раскадровка"),
+        ["png", "webp"].includes(format) ? "zip" : format,
+      );
+    } catch (error) {
+      setMessage(
+        error.message || "Не удалось сохранить файл. Попробуйте ещё раз.",
+      );
+    } finally {
+      setBusy("");
+    }
+  };
+  const burnLastPage = () => {
+    if (
+      burnInProgress.current ||
+      !writingTimer.hasLighter ||
+      notesOpen ||
+      historyRevision ||
+      view !== "screenplay"
+    )
+      return;
+    burnInProgress.current = true;
+    try {
+      const latest = prepareVersionDocument();
+      const beforeContent = latest.content;
+      const burn = editorRef.current?.preparePageBurn(latest);
+      if (!burn) {
+        burnInProgress.current = false;
+        return;
+      }
+      const commit = () => {
+        historyWritten.current.set(`${writingScope}:screenplay`, Date.now());
+        if (!burn.commit()) return false;
+        recordRevision(
+          current.id,
+          snapshotOf({ ...latest, content: beforeContent }),
+          "До сжигания последней страницы",
+          historyDays,
+          "screenplay",
+        )
+          .then(() => setHistoryVersion((version) => version + 1))
+          .catch(() => {});
+        writingTimer.recordBurn().catch(() => {});
+        return true;
+      };
+      editorRef.current?.setEditable(false);
+      setBurnSequence((sequence) => sequence + 1);
+      setBurningPage({ ...burn, commit });
+      setMessage("");
+    } catch {
+      burnInProgress.current = false;
+      editorRef.current?.setEditable(true);
+      setMessage("Не удалось сжечь страницу. Попробуйте ещё раз.");
+    }
+  };
+  const finishPageBurn = () => {
+    if (!burnInProgress.current) return;
+    burnInProgress.current = false;
+    burnFocus.current = burningPage?.single ? "start" : "end";
+    setBurningPage(null);
+    editorRef.current?.setEditable(true);
+  };
+  const changeSceneVariant = (id, letter) => {
+    const content = editorRef.current?.getJSON();
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const next = switchSceneVariant(
+      { ...latest, content: content || latest.content },
+      id,
+      letter,
+    );
+    editorRef.current?.restoreContent(next.content);
+    update(() => next);
+    editorRef.current?.focusBlock(id, { highlight: false });
+  };
+  const resolveCommentScene = commentSceneIndex(current);
+  const commentScenes = new Map(
+    current.comments.map((comment) => [
+      comment.id,
+      resolveCommentScene(comment),
+    ]),
+  );
+  const showCommentVariant = (document, reference) => {
+    const range = reference && sceneRange(document.content, reference.sceneId);
+    const original = range && sceneLetter(range.nodes[0]);
+    if (range && original !== reference.variant) {
+      if (commentPreview.current?.documentId !== current.id)
+        commentPreview.current = {
+          documentId: current.id,
+          variants: new Map(),
+          caret: editorRef.current?.getCaret(),
+          viewport: (() => {
+            const scroller =
+              columnRef.current?.querySelector(".minimal-scroll");
+            return scroller
+              ? { top: scroller.scrollTop, left: scroller.scrollLeft }
+              : null;
+          })(),
+        };
+      const preview = commentPreview.current;
+      if (!preview.variants.has(reference.sceneId))
+        preview.variants.set(reference.sceneId, original);
+      const next = switchSceneVariant(
+        document,
+        reference.sceneId,
+        reference.variant,
+      );
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+      return next;
+    }
+    return document;
+  };
+  const focusComment = (comment) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const document = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    const reference = commentSceneIndex(document)(comment);
+    showCommentVariant(document, reference);
+    pendingCommentFocus.current = {
+      documentId: current.id,
+      id: comment.id,
+      blockId: comment.blockId,
+      sceneId: reference?.sceneId,
+    };
+    setCommentQuote(null);
+    setActiveComment(comment.id);
+    // Also handle clicking the same comment twice without a variant change.
+    requestAnimationFrame(() => {
+      const pending = pendingCommentFocus.current;
+      if (!pending || pending.documentId !== current.id) return;
+      pendingCommentFocus.current = null;
+      editorRef.current?.focusComment(
+        pending.id,
+        pending.blockId,
+        pending.sceneId,
+      );
+    });
+  };
+  useEffect(() => {
+    if (!commentsOpen || pendingCommentFocus.current?.documentId !== current.id)
+      pendingCommentFocus.current = null;
+    const preview = commentPreview.current;
+    if (!preview || (commentsOpen && preview.documentId === current.id)) return;
+    commentPreview.current = null;
+    pendingCommentFocus.current = null;
+    const latest = documentsRef.current.find(
+      (doc) => doc.id === preview.documentId,
+    );
+    if (!latest) return;
+    const sameDocument = preview.documentId === current.id;
+    let next = {
+      ...latest,
+      content: sameDocument
+        ? editorRef.current?.getJSON() || latest.content
+        : latest.content,
+    };
+    for (const [sceneId, variant] of preview.variants)
+      next = switchSceneVariant(next, sceneId, variant);
+    if (sameDocument) {
+      editorRef.current?.restoreContent(next.content);
+      editorRef.current?.restoreCaret(preview.caret);
+      const scroller = columnRef.current?.querySelector(".minimal-scroll");
+      if (scroller && preview.viewport) {
+        scroller.scrollTop = preview.viewport.top;
+        scroller.scrollLeft = preview.viewport.left;
+      }
+    }
+    setDocuments((list) =>
+      list.map((doc) =>
+        doc.id === preview.documentId
+          ? { ...next, updatedAt: new Date().toISOString() }
+          : doc,
+      ),
+    );
+    setActiveComment(null);
+  }, [commentsOpen, current.id]);
+  const embedLibrary = (library, selected) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const merged = mergeComponentLibrary(latest, library, selected);
+    if (!IS_PRO && merged.document.components.length > 10) {
+      setSubscriptionOpen(true);
+      return false;
+    }
+    for (const component of merged.document.components) {
+      const previous = latest.components.find(
+        (item) => item.id === component.id,
+      );
+      if (previous && previous.name !== component.name)
+        editorRef.current?.renameEntity(component.id, component.name);
+    }
+    const content = editorRef.current?.getJSON();
+    if (notesOpen)
+      merged.document.notes = {
+        ...latest.notes,
+        content: content || latest.notes?.content,
+      };
+    else merged.document.content = content || latest.content;
+    update(() => merged.document);
+    setMessage({
+      key: "Компоненты: добавлено {0}, обновлено {1}, совпадений пропущено {2}.",
+      values: [merged.added, merged.updated, merged.skipped],
+    });
+    return true;
+  };
+  useEffect(() => {
+    if (view !== "screenplay" || !sceneTarget) return;
+    let attempts = 0;
+    let frame = requestAnimationFrame(function focusScene() {
+      if (editorRef.current?.focusBlock(sceneTarget)) setSceneTarget(null);
+      else if (++attempts < 60) frame = requestAnimationFrame(focusScene);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [view, sceneTarget, current.content]);
+  useEffect(() => {
+    setSceneTarget(null);
+    setShotTarget(null);
+    setDramaOpen(false);
+    setDramaTarget(null);
+  }, [writingScope]);
+  useEffect(() => {
+    const onUndoRedo = (event) => {
+      if (document.querySelector("dialog.dm-game[open]")) return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      const undo = key === "z" && !event.shiftKey;
+      const redo = key === "y" || (key === "z" && event.shiftKey);
+      if (!undo && !redo) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          "input, textarea, select, [contenteditable]:not(.tiptap)",
+        )
+      )
+        return;
+      const stack = componentHistory.current[undo ? "undo" : "redo"];
+      const entry = stack.at(-1);
+      const editor = editorRef.current;
+      const actual = editor?.getJSON();
+      const expected = undo ? entry?.afterContent : entry?.beforeContent;
+      if (
+        !entry ||
+        entry.documentId !== activeId ||
+        !!entry.notes !== notesOpen ||
+        (entry.kind === "components-clear" &&
+          JSON.stringify(
+            componentClearState(
+              documentsRef.current.find((doc) => doc.id === activeId),
+            ),
+          ) !== JSON.stringify(undo ? entry.afterState : entry.beforeState)) ||
+        JSON.stringify(actual) !== JSON.stringify(expected)
+      ) {
+        if (
+          event.target instanceof Element &&
+          !event.target.closest(".tiptap")
+        ) {
+          event.preventDefault();
+          if (undo) editor?.undo();
+          else editor?.redo();
+        }
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      stack.pop();
+      componentHistory.current[undo ? "redo" : "undo"].push(entry);
+      const content = undo ? entry.beforeContent : entry.afterContent;
+      editor.restoreContent(content);
+      setDocuments((list) =>
+        list.map((document) => {
+          if (document.id !== entry.documentId) return document;
+          if (entry.kind === "components-clear")
+            return {
+              ...document,
+              ...(undo ? entry.beforeState : entry.afterState),
+              updatedAt: new Date().toISOString(),
+            };
+          if (entry.kind === "folder")
+            return {
+              ...document,
+              ...(undo ? entry.beforeFolderState : entry.afterFolderState),
+              ...(notesOpen
+                ? { notes: { ...document.notes, content } }
+                : { content }),
+              updatedAt: new Date().toISOString(),
+            };
+          const collection = entry.collection || "components";
+          const components = document[collection].filter(
+            (item) => item.id !== entry.component.id,
+          );
+          if (undo) components.splice(entry.index, 0, entry.component);
+          return {
+            ...document,
+            [collection]: components,
+            ...(notesOpen
+              ? { notes: { ...document.notes, content } }
+              : { content }),
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      );
+    };
+    document.addEventListener("keydown", onUndoRedo, true);
+    return () => document.removeEventListener("keydown", onUndoRedo, true);
+  }, [activeId, writingScope, notesOpen]);
+  const switchDocument = (doc, { keepSearch = false } = {}) => {
+    setLearningOpen(false);
+    setNotesOpen(false);
+    componentHistory.current = { undo: [], redo: [] };
+    setQuestOverlay(false);
+    setFocusMode(false);
+    setCharacterView(null);
+    setLibraryDialog(null);
+    setActiveId(doc.id);
+    setView("screenplay");
+    setMenu(null);
+    setDocumentActions(null);
+    setQuery("");
+    setComponentDialog(null);
+    setPropDialog(null);
+    setRename(null);
+    setCommentQuote(null);
+    setActiveComment(null);
+    if (!keepSearch) {
+      setSearchText("");
+      setSearchIndex(0);
+      setSearchCardSelection(null);
+    }
+    setPageCount(1);
+    setHistoryRevision(null);
+  };
+  const liveVersionDocument = () => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const live = {
+      ...latest,
+      ...(notesOpen
+        ? {
+            notes: {
+              ...latest.notes,
+              content: editorRef.current?.getJSON() || latest.notes?.content,
+            },
+          }
+        : { content: editorRef.current?.getJSON() || latest.content }),
+    };
+    return notesOpen
+      ? live
+      : {
+          ...live,
+          pageVersions: rebasePageVersionContent(latest, live.content)
+            .pageVersions,
+        };
+  };
+  const prepareVersionDocument = () => {
+    let outgoing = liveVersionDocument();
+    // Comment navigation can temporarily open another scene letter. Archive
+    // the user's working letters rather than that temporary preview.
+    const preview = commentPreview.current;
+    if (preview?.documentId === current.id) {
+      for (const [sceneId, letter] of preview.variants)
+        outgoing = switchSceneVariant(outgoing, sceneId, letter);
+      editorRef.current?.restoreContent(outgoing.content);
+      editorRef.current?.restoreCaret(preview.caret);
+    }
+    commentPreview.current = null;
+    pendingCommentFocus.current = null;
+    return outgoing;
+  };
+  const changeScriptVersion = (color, pageId = activePage?.id) => {
+    if (!filesReady || busy || !pageId) return;
+    const target = current.pageVersions?.pages.find(
+      (page) => page.id === pageId,
+    );
+    update((document) => setPageColor(document, pageId, color));
+    if (target && !mobile)
+      requestAnimationFrame(() =>
+        editorRef.current?.focusPosition(target.from + 1),
+      );
+  };
+  const openComments = useCallback(
+    (source) => {
+      showSidebar("comments");
+      if (source?.commentId) {
+        setActiveComment(source.commentId);
+        setCommentQuote(null);
+      } else {
+        setActiveComment(null);
+        const latest =
+          documentsRef.current.find((doc) => doc.id === current.id) || current;
+        const scope =
+          source?.blockId &&
+          activeSceneForBlock(
+            {
+              ...latest,
+              content: editorRef.current?.getJSON() || latest.content,
+            },
+            source.blockId,
+          );
+        setCommentQuote(
+          source && source.from !== source.to && source.text
+            ? { ...source, ...scope }
+            : null,
+        );
+      }
+    },
+    [showSidebar, current.id],
+  );
+  const addComment = (text, options = {}) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    let document = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    if (commentQuote?.sceneId && commentQuote.sceneVariant) {
+      document = showCommentVariant(document, {
+        sceneId: commentQuote.sceneId,
+        variant: commentQuote.sceneVariant,
+      });
+    }
+    const comment = {
+      id: uid(),
+      text,
+      quote: commentQuote?.text || "",
+      blockId: commentQuote?.blockId || null,
+      ...activeSceneForBlock(document, commentQuote?.blockId),
+      author: "Вы",
+      createdAt: new Date().toISOString(),
+      ...cleanCommentOptions(options),
+      anchor: commentQuote?.from ?? null,
+    };
+    if (
+      commentQuote &&
+      !editorRef.current?.addComment(comment.id, commentQuote)
+    ) {
+      setMessage("Выделенный текст изменился. Выделите его снова.");
+      return;
+    }
+    update((d) => ({
+      ...d,
+      comments: [...d.comments, comment],
+    }));
+    setCommentQuote(null);
+    setActiveComment(comment.id);
+  };
+  const searchMatches = useMemo(
+    () => scriptSearchMatches(current, searchText, searchFormat),
+    [
+      current.content,
+      current.sceneVariants,
+      current.scriptVersion,
+      current.scriptVersions,
+      current.pageVersions,
+      searchText,
+      searchFormat,
+    ],
+  );
+  const doctorFindings = useMemo(
+    () => (writingTimer.hasDoctor ? inspectDocumentScript(current) : []),
+    [writingTimer.hasDoctor, current.content, current.sceneVariants],
+  );
+  const locateDoctorFinding = (finding) => {
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const live = {
+      ...latest,
+      content: editorRef.current?.getJSON() || latest.content,
+    };
+    const next = finding.sceneId
+      ? switchSceneVariant(live, finding.sceneId, finding.variant)
+      : live;
+    if (next !== live) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+    setSceneTarget(finding.blockId);
+  };
+  const activeSearchMatch = searchMatches[searchIndex];
+  const visibleSearchIndex = documentSearchMatches(
+    { ...current, sceneVariants: {} },
+    searchText,
+    searchFormat,
+  ).findIndex(
+    (match) =>
+      (!activeSearchMatch?.pageId ||
+        current.pageVersions?.pages.find(
+          (page) => page.id === activeSearchMatch.pageId,
+        )?.active === activeSearchMatch.versionId) &&
+      match.sceneId === activeSearchMatch?.sceneId &&
+      match.variant === activeSearchMatch?.variant &&
+      match.blockId === activeSearchMatch?.blockId &&
+      match.at === activeSearchMatch?.at,
+  );
+  useEffect(() => {
+    setSearchCount(searchOpen ? searchMatches.length : 0);
+    if (!searchOpen || !searchMatches.length) return;
+    if (searchIndex >= searchMatches.length) {
+      setSearchIndex(0);
+      setSearchCardSelection(null);
+      return;
+    }
+    const match = searchMatches[searchIndex];
+    const selected =
+      searchCardSelection?.index === searchIndex &&
+      searchCardSelection.key === searchMatchKey(match);
+    const fromCard = selected && searchCardSelection.fromCard;
+    const explicitNavigation =
+      selected &&
+      handledSearchSelection.current !== searchCardSelection.request;
+    // Updating search results while typing must not move the user's caret or
+    // open another copy when the edited occurrence no longer matches.
+    if (
+      !explicitNavigation &&
+      document.activeElement?.closest(".screenplay-editor")
+    )
+      return;
+    if (fromCard && view !== "screenplay") setView("screenplay");
+    const latest =
+      documentsRef.current.find((doc) => doc.id === current.id) || current;
+    const next = match.sceneId
+      ? switchSceneVariant(latest, match.sceneId, match.variant)
+      : latest;
+    if (next !== latest) {
+      editorRef.current?.restoreContent(next.content);
+      update(() => next);
+    }
+    const request = JSON.stringify([
+      current.id,
+      match.pageId,
+      match.versionId,
+      searchText,
+      searchFormat,
+      match.sceneId,
+      match.variant,
+      match.blockId,
+      match.at,
+      searchCardSelection?.request,
+    ]);
+    const scroll = handledSearchCardRequest.current !== request;
+    const frame = requestAnimationFrame(() => {
+      handledSearchCardRequest.current = request;
+      const focused = editorRef.current?.focusSearchMatch(match, {
+        fromCard,
+        scroll,
+        onComplete:
+          fromCard && mobile
+            ? () => {
+                setSearchOpen(false);
+                setSearchCardSelection(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }
+            : undefined,
+      });
+      if (focused && selected)
+        handledSearchSelection.current = searchCardSelection.request;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    searchOpen,
+    searchMatches,
+    searchIndex,
+    searchCardSelection,
+    current.id,
+    editorReadyEpoch,
+  ]);
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    try {
+      localStorage.setItem("tyter.dildamode.onboarding.v1", "done");
+    } catch {}
+  }, []);
+  useEffect(() => {
+    const keyboard = (event) => {
+      if (event.isComposing || document.querySelector("dialog.dm-game[open]"))
+        return;
+      if (document.querySelector("dialog.daily-quest-overlay[open]")) return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        (event.code === "KeyO" || event.key.toLowerCase() === "o")
+      ) {
+        event.preventDefault();
+        if (
+          !event.repeat &&
+          !document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"]',
+          )
+        ) {
+          setMenu(null);
+          importRef.current?.click();
+        }
+        return;
+      }
+      if (event.key === "Escape") {
+        if (
+          document.querySelector(
+            "dialog.story-player[open], dialog.telegram-share[open]",
+          )
+        )
+          return;
+        if (document.querySelector("[data-app-select-menu]")) return;
+        event.preventDefault();
+        setMenu(null);
+        setDocumentActions(null);
+        showSidebar(null);
+        setCommentQuote(null);
+        setActiveComment(null);
+        setFocusMode(false);
+        setCharacterView(null);
+        setLibraryDialog(null);
+        setSubscriptionOpen(false);
+        setRename(null);
+        setFolderToDelete(null);
+        if (!deleting) setDeleteTarget(null);
+        if (tourOpen) closeTour();
+        if (view === "screenplay" && !deleting)
+          requestAnimationFrame(() => editorRef.current?.focus());
+        return;
+      }
+      if (
+        !event.altKey ||
+        !event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        )
+      )
+        return;
+      const next =
+        event.code === "Digit1" || event.key === "1"
+          ? "screenplay"
+          : event.code === "Digit2" || event.key === "2"
+            ? "storyboard"
+            : null;
+      if (next) {
+        event.preventDefault();
+        if (!event.repeat) changeView(next);
+      }
+    };
+    document.addEventListener("keydown", keyboard, true);
+    return () => document.removeEventListener("keydown", keyboard, true);
+  }, [showSidebar, closeTour, changeView, view, tourOpen, deleting]);
+  const openLocalFolder = async () => {
+    if (usesBrowserLibrary()) {
+      try {
+        const beforeConnect = writeStorage();
+        folderConnecting.current = true;
+        const { documents: disk, name } = await chooseLocalDirectory({
+          beforeConnect,
+        });
+        setDocuments(disk);
+        documentsRef.current = disk;
+        showSidebar(null);
+        setMenu(null);
+        setQuery("");
+        setView("screenplay");
+        setActiveId(disk[0]?.id || "");
+        if (disk[0]) switchDocument(disk[0]);
+        setMessage({
+          key: "Подключена папка «{0}». Файлы TYT будут сохраняться автоматически.",
+          values: [name],
+        });
+        setDiskAvailable(true);
+        const libraries = await directoryComponentLibraries().catch(() => []);
+        if (libraries.length && disk.length) setLibraryDialog(libraries);
+      } catch (error) {
+        if (error.name !== "AbortError") setMessage(error.message);
+      } finally {
+        folderConnecting.current = false;
+      }
+      return;
+    }
+    if (!diskAvailable) {
+      setMessage(
+        "Папка доступна при локальном запуске Tyter. Сейчас документ сохранён в браузере; скачайте копию через «Скачать».",
+      );
+      return;
+    }
+    setBusy("folder");
+    try {
+      await saveLocalFiles(documentsRef.current);
+      setDiskState("saved");
+      await localRequest("open-folder", {});
+    } catch {
+      setMessage(
+        "Не удалось открыть папку локальных файлов. Проверьте, что Tyter запущен на этом компьютере.",
+      );
+    } finally {
+      setBusy("");
+    }
+  };
+  useEffect(() => {
+    if (
+      !filesReady ||
+      !documents.length ||
+      !usesBrowserLibrary() ||
+      checkedFolderLibraries.current
+    )
+      return;
+    checkedFolderLibraries.current = true;
+    let cancelled = false;
+    directoryComponentLibraries()
+      .then((libraries) => {
+        if (
+          cancelled ||
+          document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"]',
+          )
+        )
+          return;
+        const existing =
+          documentsRef.current.find((doc) => doc.id === current.id)
+            ?.components || [];
+        const available = libraries.filter((library) =>
+          library.components.some(
+            (component) =>
+              !existing.some(
+                (item) =>
+                  item.librarySource?.libraryId === library.id &&
+                  item.librarySource.componentId === component.id,
+              ),
+          ),
+        );
+        if (available.length) setLibraryDialog(available);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [filesReady, !!documents.length]);
+  const createDocument = () => {
+    if (quotaFull(documents, IS_PRO)) {
+      setMenu(null);
+      setSubscriptionOpen(true);
+      return;
+    }
+    const doc = newDocument();
+    showSidebar(null);
+    setDocuments((list) => [doc, ...list]);
+    switchDocument(doc);
+  };
+  const deleteDocument = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      if (diskAvailable) {
+        if (!usesBrowserLibrary()) await saveLocalFiles([deleteTarget]);
+        await deleteLocalFile(deleteTarget.id);
+      }
+      const remaining = documentsRef.current.filter(
+        (d) => d.id !== deleteTarget.id,
+      );
+      if (!remaining.length) remaining.push(newDocument());
+      if (!window.tyterDesktop?.request)
+        localStorage.setItem(STORAGE, JSON.stringify(remaining));
+      deleteRevisions(deleteTarget.id).catch(() => {});
+      setDocuments(remaining);
+      if (current.id === deleteTarget.id) switchDocument(remaining[0]);
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Document deletion failed", error);
+      setMessage("Не удалось удалить документ. Попробуйте ещё раз.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const saveComponent = (value, { edit = false } = {}) => {
+    const { source, ...fields } = value;
+    const duplicate = current.components.find(
+      (c) =>
+        c.id !== fields.id &&
+        componentNames(c).some(
+          (candidate) =>
+            candidate.toLocaleLowerCase() === fields.name.toLocaleLowerCase(),
+        ),
+    );
+    if (duplicate) {
+      setMessage("Компонент с таким названием уже есть.");
+      return;
+    }
+    if (!fields.id && !IS_PRO && current.components.length >= 10) {
+      setComponentDialog(null);
+      setSubscriptionOpen(true);
+      return;
+    }
+    const next = {
+      ...fields,
+      quantity: fields.quantity ?? 1,
+      aliases: cleanComponentAliases(fields.aliases, fields.name),
+      id: fields.id || uid(),
+      color: fields.color || (fields.type === "place" ? "#738598" : "#8a799a"),
+    };
+    clearEntityDraft(value);
+    if (
+      fields.id &&
+      current.components.some((c) => c.id === fields.id && c.name !== next.name)
+    )
+      editorRef.current?.renameEntity(fields.id, next.name);
+    update((d) => ({
+      ...d,
+      components: fields.id
+        ? d.components.map((c) => (c.id === fields.id ? next : c))
+        : [...d.components, next],
+    }));
+    if (source) editorRef.current?.addEntity(next, source);
+    setComponentDialog(null);
+    const pairedProp = current.props.find(
+      (item) =>
+        item.componentId === next.id ||
+        item.name.trim().toLocaleLowerCase() ===
+          next.name.trim().toLocaleLowerCase() ||
+        (fields.id &&
+          item.name ===
+            current.components.find((c) => c.id === fields.id)?.name),
+    );
+    if (IS_PRO && pairedProp) {
+      if (pairedProp.name !== next.name)
+        editorRef.current?.renameProp(pairedProp, next.name);
+      update((d) => ({
+        ...d,
+        props: d.props.map((item) =>
+          item.id === pairedProp.id
+            ? {
+                ...item,
+                name: next.name,
+                componentId: next.id,
+              }
+            : item,
+        ),
+      }));
+      openAnnotations(next, pairedProp);
+    } else if (edit) editComponent(next);
+    else showSidebar("components");
+  };
+  const openAnnotations = (component, prop) => {
+    showSidebar("annotations");
+    setAnnotations({
+      componentId: component.id,
+      propId: prop.id,
+    });
+  };
+  const editComponent = (component) => {
+    showSidebar("components");
+    setComponentDialog(component);
+    const folderId = component.folderId || component.type;
+    if (current.collapsedComponentFolders?.includes(folderId))
+      update((d) => ({
+        ...d,
+        collapsedComponentFolders: d.collapsedComponentFolders.filter(
+          (id) => id !== folderId,
+        ),
+      }));
+  };
+  const componentFromSelection = (source) => {
+    const existing =
+      current.components.find((c) => c.id === source.entityId) ||
+      current.components.find(
+        (c) =>
+          c.name.trim().toLocaleLowerCase() ===
+          source.text.trim().toLocaleLowerCase(),
+      );
+    if (existing) {
+      if (!source.entityId) editorRef.current?.addEntity(existing, source);
+      editComponent(existing);
+    } else
+      saveComponent(
+        {
+          name: source.text.trim().slice(0, 200),
+          type: source.format === "scene" ? "place" : "character",
+          description: "",
+          source,
+        },
+        { edit: true },
+      );
+  };
+  const pasteComponentUrl = (source, rawUrl) => {
+    editorRef.current?.addTextLink(source, rawUrl);
+  };
+  const beginComponent = (value) => {
+    if (!IS_PRO && current.components.length >= 10) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    setComponentDialog(value);
+  };
+  const canCreateImageComponents = (amount, documentId) => {
+    const doc = documentsRef.current.find((item) => item.id === documentId);
+    if (!doc) return false;
+    if (!IS_PRO && doc.components.length + amount > 10) {
+      setSubscriptionOpen(true);
+      return false;
+    }
+    return true;
+  };
+  const createImageComponents = (thumbnails, documentId, baseName) => {
+    if (!canCreateImageComponents(thumbnails.length, documentId)) return;
+    const doc = documentsRef.current.find((item) => item.id === documentId);
+    const names = new Set(
+      doc.components.map((component) => component.name.toLocaleLowerCase()),
+    );
+    let number = 1;
+    const added = thumbnails.map((thumbnail) => {
+      let name;
+      do {
+        name = number === 1 ? baseName : `${baseName} ${number}`;
+        number++;
+      } while (names.has(name.toLocaleLowerCase()));
+      names.add(name.toLocaleLowerCase());
+      return {
+        id: uid(),
+        name,
+        type: "character",
+        folderId: null,
+        quantity: 1,
+        description: "",
+        thumbnail,
+        color: "#8a799a",
+      };
+    });
+    const next = documentsRef.current.map((document) =>
+      document.id === documentId
+        ? {
+            ...document,
+            components: [...document.components, ...added],
+            collapsedComponentFolders: (
+              document.collapsedComponentFolders || []
+            ).filter((id) => id !== "character"),
+            updatedAt: new Date().toISOString(),
+          }
+        : document,
+    );
+    documentsRef.current = next;
+    setDocuments(next);
+    showSidebar("components");
+    setComponentDialog(added.at(-1));
+  };
+  const editProp = (prop) => {
+    showSidebar("props");
+    setPropDialog(prop);
+    const folderId = prop.folderId || "";
+    if (current.collapsedPropFolders?.includes(folderId))
+      update((document) => ({
+        ...document,
+        collapsedPropFolders: document.collapsedPropFolders.filter(
+          (id) => id !== folderId,
+        ),
+      }));
+  };
+  useEffect(() => {
+    setAnnotations(null);
+  }, [current.id]);
+  const beginProp = (value = {}) => {
+    if (!IS_PRO) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    setPropDialog(value);
+  };
+  const saveProp = (value, { edit = false } = {}) => {
+    if (!IS_PRO) return;
+    const duplicate = current.props.find(
+      (item) =>
+        item.id !== value.id &&
+        item.name.toLocaleLowerCase() === value.name.toLocaleLowerCase(),
+    );
+    if (duplicate) {
+      setMessage("Реквизит с таким названием уже есть.");
+      return;
+    }
+    const previous = current.props.find((item) => item.id === value.id);
+    if (previous && previous.name !== value.name)
+      editorRef.current?.renameProp(previous, value.name);
+    const paired = current.components.find(
+      (item) =>
+        item.id === value.componentId ||
+        item.name.trim().toLocaleLowerCase() ===
+          (previous?.name || value.name).trim().toLocaleLowerCase(),
+    );
+    if (paired && paired.name !== value.name)
+      editorRef.current?.renameEntity(paired.id, value.name);
+    const next = {
+      ...value,
+      id: value.id || uid(),
+      color: "#aa6032",
+      ...(paired
+        ? {
+            componentId: paired.id,
+          }
+        : {}),
+    };
+    clearEntityDraft(value, true);
+    update((d) => ({
+      ...d,
+      props: value.id
+        ? d.props.map((item) => (item.id === value.id ? next : item))
+        : [...d.props, next],
+      components: paired
+        ? d.components.map((item) =>
+            item.id === paired.id
+              ? {
+                  ...item,
+                  name: value.name,
+                }
+              : item,
+          )
+        : d.components,
+    }));
+    setPropDialog(null);
+    if (paired) openAnnotations(paired, next);
+    else if (edit) editProp(next);
+    else showSidebar("props");
+  };
+  const deleteProp = (id) => {
+    const prop = current.props.find((item) => item.id === id);
+    if (!prop) return;
+    clearEntityDraft(prop, true);
+    const beforeContent = editorRef.current?.getJSON() || current.content;
+    editorRef.current?.removeEntity(id);
+    const afterContent = editorRef.current?.getJSON() || current.content;
+    componentHistory.current.undo.push({
+      documentId: current.id,
+      collection: "props",
+      notes: notesOpen,
+      component: structuredClone(prop),
+      index: current.props.findIndex((item) => item.id === id),
+      beforeContent,
+      afterContent,
+    });
+    componentHistory.current.redo = [];
+    update((d) => ({
+      ...d,
+      props: d.props.filter((item) => item.id !== id),
+    }));
+    setPropDialog(null);
+  };
+  const deleteComponent = (id) => {
+    const component = current.components.find((item) => item.id === id);
+    if (!component) return;
+    clearEntityDraft(component);
+    const beforeContent = editorRef.current?.getJSON() || current.content;
+    editorRef.current?.removeEntity(id);
+    const afterContent = editorRef.current?.getJSON() || current.content;
+    componentHistory.current.undo.push({
+      documentId: current.id,
+      notes: notesOpen,
+      component: structuredClone(component),
+      index: current.components.findIndex((item) => item.id === id),
+      beforeContent,
+      afterContent,
+    });
+    componentHistory.current.redo = [];
+    update((d) => ({
+      ...d,
+      components: d.components.filter((c) => c.id !== id),
+    }));
+    setComponentDialog(null);
+  };
+  const clearComponents = () => {
+    const latest = liveVersionDocument();
+    if (!latest.components.length) return false;
+    const next = clearDocumentComponents(latest);
+    const beforeContent = notesOpen ? latest.notes.content : latest.content;
+    editorRef.current?.restoreContent(
+      notesOpen ? next.notes.content : next.content,
+    );
+    const afterContent =
+      editorRef.current?.getJSON() ||
+      (notesOpen ? next.notes.content : next.content);
+    if (notesOpen) next.notes = { ...next.notes, content: afterContent };
+    else next.content = afterContent;
+    componentHistory.current.undo.push({
+      kind: "components-clear",
+      documentId: latest.id,
+      notes: notesOpen,
+      beforeContent,
+      afterContent,
+      beforeState: componentClearState(latest),
+      afterState: componentClearState(next),
+    });
+    componentHistory.current.redo = [];
+    latest.components.forEach((component) => clearEntityDraft(component));
+    update(() => next);
+    setComponentDialog(null);
+    return true;
+  };
+  const undoClearComponents = () => {
+    const entry = componentHistory.current.undo.at(-1);
+    if (
+      entry?.kind !== "components-clear" ||
+      entry.documentId !== current.id ||
+      !!entry.notes !== notesOpen ||
+      current.components.length > 0 ||
+      JSON.stringify(componentClearState(current)) !==
+        JSON.stringify(entry.afterState) ||
+      JSON.stringify(editorRef.current?.getJSON()) !==
+        JSON.stringify(entry.afterContent)
+    )
+      return false;
+    componentHistory.current.undo.pop();
+    componentHistory.current.redo.push(entry);
+    editorRef.current?.restoreContent(entry.beforeContent);
+    update((doc) => ({ ...doc, ...entry.beforeState }));
+    return true;
+  };
+  const deleteComponentFolder = (deleteComponents = false) => {
+    if (!folderToDelete) return;
+    const folderId = folderToDelete.id;
+    if (folderToDelete.kind === "props") {
+      update((d) => ({
+        ...d,
+        propFolders: (d.propFolders || []).filter(
+          (folder) => folder.id !== folderId,
+        ),
+        collapsedPropFolders: (d.collapsedPropFolders || []).filter(
+          (id) => id !== folderId,
+        ),
+        props: d.props.map((item) =>
+          item.folderId === folderId ? { ...item, folderId: null } : item,
+        ),
+      }));
+      setPropDialog(null);
+      setFolderToDelete(null);
+      return;
+    }
+    const ids = new Set(
+      current.components
+        .filter((component) => component.folderId === folderId)
+        .map((component) => component.id),
+    );
+    const beforeContent = editorRef.current?.getJSON() || current.content;
+    if (deleteComponents && ids.size)
+      editorRef.current?.removeEntities([...ids]);
+    const afterContent = editorRef.current?.getJSON() || beforeContent;
+    const beforeFolderState = {
+      componentFolders: structuredClone(current.componentFolders || []),
+      collapsedComponentFolders: structuredClone(
+        current.collapsedComponentFolders || [],
+      ),
+      components: structuredClone(current.components),
+    };
+    const afterFolderState = {
+      componentFolders: beforeFolderState.componentFolders.filter(
+        (folder) => folder.id !== folderId,
+      ),
+      collapsedComponentFolders:
+        beforeFolderState.collapsedComponentFolders.filter(
+          (id) => id !== folderId,
+        ),
+      components: deleteComponents
+        ? beforeFolderState.components.filter(
+            (component) => !ids.has(component.id),
+          )
+        : beforeFolderState.components.map((component) =>
+            component.folderId === folderId
+              ? {
+                  ...component,
+                  folderId: null,
+                }
+              : component,
+          ),
+    };
+    componentHistory.current.undo.push({
+      kind: "folder",
+      documentId: current.id,
+      notes: notesOpen,
+      beforeContent,
+      afterContent,
+      beforeFolderState,
+      afterFolderState,
+    });
+    componentHistory.current.redo = [];
+    update((d) => ({
+      ...d,
+      ...afterFolderState,
+      ...(notesOpen
+        ? { notes: { ...d.notes, content: afterContent } }
+        : { content: afterContent }),
+    }));
+    setComponentDialog(null);
+    setFolderToDelete(null);
+  };
+  const changeExportSettings = (patch) =>
+    update((document) => ({
+      ...document,
+      settings: { ...document.settings, ...patch },
+    }));
+  const exportPageDocument = (document) => {
+    if (notesOpen || !editorRef.current?.measurePages) return document;
+    const starts = editorRef.current.measurePages(document.content, {
+      locked: true,
+    });
+    return preparePageVersionLayout(document, starts, (content, options) =>
+      editorRef.current.measurePages(content, options),
+    );
+  };
+  const download = async (format) => {
+    setMobileToolsOpen(false);
+    setMenu(null);
+    setBusy(format);
+    setMessage("");
+    writeStorage();
+    try {
+      await flushOutlineHistory();
+      const savedDocument =
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        structuredClone(current);
+      const document = exportPageDocument(savedDocument);
+      const blob = await {
+        pdf: exportPDF,
+        docx: exportDOCX,
+        fdx: exportFDX,
+        json: exportScreenplayJSON,
+        html: exportInstantHTML,
+        tyt: exportTYT,
+      }[format](document);
+      saveBlob(blob, document.title, format);
+    } catch (error) {
+      console.error(error);
+      setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+    } finally {
+      setBusy("");
+    }
+  };
+  quickExportRef.current = async () => {
+    if (!filesReady || !documents.length || busy || copyInProgress.current)
+      return;
+    if (!IS_PRO) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    copyInProgress.current = true;
+    setMenu(null);
+    setBusy("tyt-copy");
+    setMessage("");
+    // Freeze the active file before opening a dialog or waiting for persistence.
+    const snapshot = structuredClone(documentsRef.current);
+    const source = snapshot.find((doc) => doc.id === current.id);
+    try {
+      const target = await chooseTytCopyTarget(tytCopyFileName(source));
+      writeStorage();
+      await flushOutlineHistory();
+      const document = exportPageDocument(
+        (await sessionExportSnapshot(snapshot, source.id)) || source,
+      );
+      const result = await target.write(await exportTYT(document));
+      if (result?.name) rememberTytFileName(source, result.name);
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("TYT copy failed", error);
+        setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+      }
+    } finally {
+      copyInProgress.current = false;
+      setBusy("");
+    }
+  };
+  const downloadShotReport = async (format = "pdf") => {
+    if (!["pdf", "xlsx", "xml", "csv"].includes(format)) return;
+    setBusy("shot-report");
+    setMessage("");
+    writeStorage();
+    try {
+      const savedDocument =
+        (await sessionExportSnapshot(documentsRef.current, current.id)) ||
+        structuredClone(current);
+      const document = exportPageDocument(savedDocument);
+      const exporter = {
+        pdf: exportShotReportPDF,
+        xlsx: exportShotReportXLSX,
+        xml: exportShotReportXML,
+        csv: exportShotReportCSV,
+      }[format];
+      const blob = await exporter(document);
+      saveBlob(blob, `${document.title} — ${t("Отчёт по кадрам")}`, format);
+    } catch (error) {
+      console.error(error);
+      setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+    } finally {
+      setBusy("");
+    }
+  };
+  const openFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (/\.tyt$/i.test(file.name) && !IS_PRO) {
+      setSubscriptionOpen(true);
+      return;
+    }
+    if (quotaFull(documentsRef.current, IS_PRO)) {
+      setMenu(null);
+      setSubscriptionOpen(true);
+      return;
+    }
+    setBusy("import");
+    try {
+      if (file.size > (/\.tyt$/i.test(file.name) ? 50 : 20) * 1024 * 1024)
+        throw new Error("Файл слишком большой.");
+      const imported = await importDocument(file);
+      const doc = validateImport(imported);
+      const deletedIds =
+        usesBrowserLibrary() && /\.tyt$/i.test(file.name)
+          ? (await localRequest("documents")).deletedIds || []
+          : [];
+      if (
+        documentsRef.current.some((document) => document.id === doc.id) ||
+        deletedIds.includes(doc.id)
+      )
+        doc.id = uid();
+      await importRevisions(
+        doc.id,
+        imported.importedHistory || [],
+        historyDays,
+      );
+      if (quotaFull(documentsRef.current, IS_PRO)) {
+        setSubscriptionOpen(true);
+        return;
+      }
+      setDocuments((list) => [doc, ...list]);
+      switchDocument(doc);
+      if (/\.tyt$/i.test(file.name)) rememberTytFileName(doc, file.name);
+      if (/\.pdf$/i.test(file.name))
+        setMessage(
+          "PDF импортирован. Проверьте типы абзацев: они определены по расположению текста.",
+        );
+    } catch (error) {
+      setMessage(error.message || "Не удалось открыть сценарий.");
+    } finally {
+      setBusy("");
+    }
+  };
+  const fontSize = current.metadata?.fontSize || 12;
+  const fontFamily = documentFont(current.metadata?.fontFamily, language).id;
+  const documentZoom = clampDocumentZoom(current.metadata?.documentZoom);
+  const sheet = screenplayLayout(fontSize);
+  const pageHeight = pageHeightFor(fontSize);
+  const visiblePages = (
+    revisionPages.length
+      ? revisionPages
+      : Array.from(
+          {
+            length: Math.max(1, activeVersionPages.length || pageCount),
+          },
+          (_, index) => ({
+            from: activeVersionPages[index]?.from || 0,
+            top: index * pageHeight,
+            height: pageHeight,
+          }),
+        )
+  ).map((physical, index) => ({
+    ...physical,
+    number: index + 1,
+    page: pageVersionAt(current, physical.from || 0),
+  }));
+  const renderPageVersionPicker = (page, number) => (
+    <ScriptVersionPicker
+      page={page}
+      pageNumber={number}
+      disabled={!page || !filesReady || !!busy || deleting}
+      onChange={(id) => changeScriptVersion(id, page?.id)}
+    />
+  );
+  const changeMetadata = (fields) => {
+    update((d) => ({
+      ...d,
+      metadata: {
+        ...d.metadata,
+        ...fields,
+      },
+    }));
+    if (fields.fontFamily && fields.fontFamily !== fontFamily)
+      setMessage({
+        key: "Для сценария лучше всего использовать Courier — это стандарт индустрии.",
+        action: {
+          label: "Подробнее",
+          href: "https://tyterapp.github.io/blog/standarty-v-kino",
+          desktopSupport: "screenplay-standards",
+        },
+      });
+  };
+  const columnRef = useRef(null);
+  const typewriterAvailable =
+    !mobile &&
+    focusMode &&
+    preferences.theme === "dark" &&
+    !notesOpen &&
+    view === "screenplay" &&
+    !historyRevision &&
+    !characterView &&
+    !libraryDialog;
+  const typewriterActive = typewriterAvailable && typewriterOpen;
+  const playLampSwitch = useLampSwitchSound(typewriterActive);
+  useEffect(() => {
+    setTypewriterOpen(false);
+    setTypewriterLamp(false);
+  }, [typewriterAvailable, writingScope]);
+  const mobileWriting = useMobileWriting(
+    columnRef,
+    writingScope,
+    mobile &&
+      view === "screenplay" &&
+      !notesOpen &&
+      !historyRevision &&
+      !characterView &&
+      !mobileToolsOpen &&
+      !libraryDialog,
+    keyboard,
+  );
+  const openLearning = () => {
+    changeView("screenplay", { focus: false });
+    setLearningOpen(true);
+    setMenu(null);
+    setMobileToolsOpen(false);
+  };
+  useScreenplaySceneDrag(
+    columnRef,
+    filesReady &&
+      !learningOpen &&
+      !mobile &&
+      view === "screenplay" &&
+      !notesOpen &&
+      !historyRevision &&
+      !characterView &&
+      !focusMode &&
+      !burningPage &&
+      !busy &&
+      !tourOpen &&
+      !libraryDialog,
+    writingScope,
+    (id, target, placement) => {
+      applyStoryboardEdit((doc) =>
+        moveStoryboardScene(doc, id, target, placement),
+      );
+      setSceneTarget(id);
+    },
+  );
+  useTypewriterSound(preferences.typewriter, columnRef);
+  const setDocumentZoom = useCallback(
+    (zoom) =>
+      update((d) => ({
+        ...d,
+        metadata: {
+          ...d.metadata,
+          documentZoom: clampDocumentZoom(zoom),
+        },
+      })),
+    [update],
+  );
+  useEffect(() => {
+    const column = columnRef.current;
+    const wheel = (event) => {
+      if (event.defaultPrevented) return;
+      if (event.shiftKey) {
+        const delta = event.deltaY || event.deltaX;
+        const scroller = event.target.closest?.(".minimal-scroll");
+        if (
+          delta &&
+          scrollDocumentPages(
+            scroller,
+            Math.sign(delta) * (event.ctrlKey ? 1 : 10),
+          )
+        )
+          event.preventDefault();
+        return;
+      }
+      if (!event.ctrlKey || !event.deltaY) return;
+      event.preventDefault();
+      update((d) => ({
+        ...d,
+        metadata: {
+          ...d.metadata,
+          documentZoom: clampDocumentZoom(
+            clampDocumentZoom(d.metadata?.documentZoom) +
+              (event.deltaY < 0 ? 10 : -10),
+          ),
+        },
+      }));
+    };
+    column?.addEventListener("wheel", wheel, {
+      passive: false,
+    });
+    return () => column?.removeEventListener("wheel", wheel);
+  }, [update]);
+  return (
+    <div
+      className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}${notesOpen ? " notes-mode" : ""}`}
+      data-script-version={activeScriptVersion.id}
+      data-mobile={mobile || undefined}
+      data-keyboard={keyboard || undefined}
+      data-typewriter={typewriterActive || undefined}
+      data-typewriter-lamp={
+        typewriterActive ? (typewriterLamp ? "on" : "off") : undefined
+      }
+      inert={burningPage ? true : undefined}
+      style={{
+        "--script-version-hue": activeScriptVersion.hue,
+        "--script-version-chroma": activeScriptVersion.chroma,
+      }}
+    >
+      <TooltipLayer />
+      {brandMenu && (
+        <BrandContextMenu position={brandMenu} onClose={closeBrandMenu} />
+      )}
+      {!focusMode && preferences.thumbnailPreviews && (
+        <ThumbnailPreviewLayer
+          components={current.components.filter((c) => c.enabled !== false)}
+          props={current.props || EMPTY_PROPS}
+        />
+      )}
+      <header className="minimal-header">
+        <div className="document-switcher" ref={menuRef}>
+          <button
+            className="document-trigger"
+            aria-label={t("Документы")}
+            aria-expanded={menu === "documents"}
+            onClick={() => {
+              setDocumentActions(null);
+              setMenu(menu === "documents" ? null : "documents");
+            }}
+          >
+            <img
+              className="brand-mark"
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                setMenu(null);
+                setBrandMenu({ left: rect.left, top: rect.bottom + 8 });
+              }}
+              src="/dildamode/brand/tyter-logo.svg"
+              alt=""
+              width="31"
+              height="31"
+            />
+            <span className="document-title">
+              {learningOpen ? t("Обучение") : current.title}
+            </span>
+            <ChevronDown size={15} />
+          </button>
+          {menu === "documents" && (
+            <div className="minimal-popover document-menu">
+              <div className="popover-heading">
+                {t("Документы ")}
+                <span>{t("На этом устройстве")}</span>
+              </div>
+              <label className="document-search">
+                <Search size={15} />
+                <input
+                  autoFocus
+                  aria-label={t("Найти документ")}
+                  placeholder={t("Найти документ…")}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setDocumentActions(null);
+                  }}
+                />
+              </label>
+              <div
+                className="document-list"
+                onScroll={() => setDocumentActions(null)}
+              >
+                <button
+                  className="document-item"
+                  onClick={openLearning}
+                  aria-current={learningOpen ? "true" : undefined}
+                >
+                  <CircleHelp size={17} />
+                  <span>
+                    <strong>{t("Обучение")}</strong>
+                    <small>{t("Приветствие и основы редактора")}</small>
+                  </span>
+                </button>
+                {[...documents]
+                  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                  .filter((d) =>
+                    d.title
+                      .toLocaleLowerCase()
+                      .includes(query.toLocaleLowerCase()),
+                  )
+                  .map((d) => (
+                    <div
+                      className={`document-row${current.id === d.id ? " active" : ""}`}
+                      data-document-id={d.id}
+                      key={d.id}
+                    >
+                      <button
+                        className="document-item"
+                        aria-current={d.id === current.id ? "true" : undefined}
+                        onClick={() => switchDocument(d)}
+                      >
+                        {d.metadata?.poster ? (
+                          <img
+                            className="document-cover"
+                            src={d.metadata.poster}
+                            alt=""
+                          />
+                        ) : (
+                          <FileText size={17} />
+                        )}
+                        <span>
+                          <strong>{d.title}</strong>
+                          <small>
+                            {new Date(d.updatedAt).toLocaleDateString(
+                              languageLocale(),
+                              {
+                                day: "numeric",
+                                month: "short",
+                              },
+                            )}
+                          </small>
+                        </span>
+                      </button>
+                      <button
+                        className="document-more"
+                        aria-label={t("Действия с документом: {0}", d.title)}
+                        aria-expanded={documentActions?.id === d.id}
+                        data-tooltip={t("Действия с документом")}
+                        onClick={(event) => {
+                          if (documentActions?.id === d.id) {
+                            setDocumentActions(null);
+                            return;
+                          }
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
+                          setDocumentActions({
+                            id: d.id,
+                            top: Math.min(
+                              rect.bottom + 4,
+                              window.innerHeight - 96,
+                            ),
+                            left: Math.max(
+                              8,
+                              Math.min(
+                                rect.right - 174,
+                                window.innerWidth - 182,
+                              ),
+                            ),
+                          });
+                        }}
+                      >
+                        <MoreHorizontal size={17} />
+                      </button>
+                    </div>
+                  ))}
+                {query &&
+                  !documents.some((d) =>
+                    d.title
+                      .toLocaleLowerCase()
+                      .includes(query.toLocaleLowerCase()),
+                  ) && <p className="empty-search">{t("Ничего не найдено")}</p>}
+              </div>
+              {documentActions &&
+                (() => {
+                  const target = documents.find(
+                    (doc) => doc.id === documentActions.id,
+                  );
+                  return target ? (
+                    <div
+                      className="document-actions-popover"
+                      style={{
+                        top: documentActions.top,
+                        left: documentActions.left,
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setRename({
+                            id: target.id,
+                            title: target.title,
+                          });
+                          setDocumentActions(null);
+                          setMenu(null);
+                        }}
+                      >
+                        <Pencil size={15} />
+                        {t(" Переименовать")}
+                      </button>
+                      <button
+                        className="danger-action"
+                        onClick={() => {
+                          setDeleteTarget(target);
+                          setDocumentActions(null);
+                          setMenu(null);
+                        }}
+                      >
+                        <Trash2 size={15} />
+                        {t(" Удалить документ")}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+              <div className="menu-divider" />
+              <button className="menu-item" onClick={createDocument}>
+                <Plus size={17} />
+                {t("Новый сценарий")}
+              </button>
+              <button
+                className="menu-item"
+                onClick={() => {
+                  setMenu(null);
+                  if (quotaFull(documents, IS_PRO)) {
+                    setSubscriptionOpen(true);
+                    return;
+                  }
+                  importRef.current?.click();
+                }}
+              >
+                <FolderOpen size={17} />
+                {IS_PRO
+                  ? t("Открыть TYT, FDX, DOCX, PDF")
+                  : t("Открыть FDX, DOCX, PDF")}
+              </button>
+              <div className="menu-divider" />
+              <a
+                className="menu-item"
+                href={window.tyterDesktop ? "https://tyterapp.github.io/" : "/"}
+                onClick={async (event) => {
+                  if (
+                    !window.tyterDesktop &&
+                    (event.ctrlKey ||
+                      event.metaKey ||
+                      event.shiftKey ||
+                      event.altKey)
+                  )
+                    return;
+                  event.preventDefault();
+                  await writeStorage();
+                  await flushOutlineHistory().catch(() => {});
+                  if (window.tyterDesktop?.openSupport) {
+                    setMenu(null);
+                    window.tyterDesktop.openSupport("home");
+                  } else window.location.assign("/");
+                }}
+              >
+                <ArrowLeft size={17} aria-hidden="true" />
+                {t("На главную")}
+              </a>
+            </div>
+          )}
+        </div>
+        <button
+          className={`save-status ${saveState === "error" || diskState === "error" ? "save-error" : ""}`}
+          aria-label={t("Открыть папку сценариев")}
+          data-tooltip={
+            saveState === "error"
+              ? t("Не сохранено — скачайте файл")
+              : diskState === "error"
+                ? t("Файл не обновлён · копия в браузере")
+                : t("Открыть папку локальных файлов")
+          }
+          onClick={openLocalFolder}
+        >
+          {saveState === "saving" || diskState === "saving" || busy ? (
+            <RefreshCw size={16} className="saving-spinner" />
+          ) : (
+            <FolderOpen size={16} />
+          )}
+          <span role="status" className="visually-hidden">
+            {saveState === "saved" ? (
+              <>
+                {diskState === "saved"
+                  ? t("Сохранено на устройстве")
+                  : diskState === "saving"
+                    ? t("Сохранение файла…")
+                    : diskState === "error"
+                      ? t("Файл не обновлён · копия в браузере")
+                      : t("Сохранено в браузере")}
+              </>
+            ) : saveState === "saving" ? (
+              t("Сохранение…")
+            ) : (
+              t("Не сохранено — скачайте файл")
+            )}
+          </span>
+        </button>
+        <div className="header-switches">
+          <div
+            className="document-view-toggle"
+            role="group"
+            aria-label={t("Режим документа")}
+          >
+            <button
+              aria-pressed={view === "storyboard"}
+              disabled={!documents.length}
+              aria-keyshortcuts="Control+Alt+2"
+              onClick={() => changeView("storyboard")}
+            >
+              <Crop size={18} />
+              {t("Раскадровка")}
+            </button>
+            <button
+              aria-pressed={view === "screenplay"}
+              disabled={!documents.length}
+              aria-keyshortcuts="Control+Alt+1"
+              onClick={() => changeView("screenplay")}
+            >
+              <AlignLeft size={18} />
+              {t("Сценарий")}
+            </button>
+          </div>
+          <LanguageSwitch />
+        </div>
+        {mobile && (
+          <>
+            <button
+              className="icon-button mobile-tools-toggle"
+              aria-label={t("Открыть инструменты")}
+              aria-expanded={mobileToolsOpen}
+              onClick={() => {
+                showSidebar(null);
+                setMenu(null);
+                setMobileToolsOpen(true);
+              }}
+            >
+              <Menu size={22} />
+            </button>
+          </>
+        )}
+      </header>
+      {notice && (
+        <AppMessage
+          key={notice.id}
+          notice={notice}
+          onDismiss={dismissMessage}
+        />
+      )}
+      {mobile && !focusMode && !keyboard && (
+        <nav className="mobile-mode-tabs" aria-label={t("Режим документа")}>
+          <button
+            aria-pressed={view === "storyboard"}
+            disabled={!documents.length}
+            onClick={() => changeView("storyboard")}
+          >
+            <Crop size={20} />
+            {t("Раскадровка")}
+          </button>
+          <button
+            aria-pressed={view === "screenplay"}
+            disabled={!documents.length}
+            onClick={() => changeView("screenplay")}
+          >
+            <AlignLeft size={20} />
+            {t("Сценарий")}
+          </button>
+        </nav>
+      )}
+      <div className="minimal-workspace">
+        <MobileSheet
+          mobile={mobile}
+          ready={filesReady}
+          open={mobileToolsOpen && !tourOpen}
+          label={t("Инструменты редактора")}
+          onClose={() => setMobileToolsOpen(false)}
+        >
+          <nav
+            className="workspace-tools"
+            aria-label={t("Инструменты редактора")}
+          >
+            {mobile && (
+              <div className="mobile-tools-heading">
+                <h2>{t("Инструменты редактора")}</h2>
+                <p>{t("Сессия этого устройства")}</p>
+              </div>
+            )}
+            <div className="workspace-tools-scroll">
+              {mobile && view === "storyboard" && !!documents.length && (
+                <button
+                  className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                  aria-label={t("Компоненты")}
+                  aria-expanded={componentsOpen}
+                  onClick={() =>
+                    showSidebar(componentsOpen ? null : "components")
+                  }
+                >
+                  <Shapes size={17} />
+                </button>
+              )}
+              {view === "screenplay" && !!documents.length && (
+                <div className="workspace-tools-primary">
+                  <button
+                    className={`icon-button${searchOpen ? " active" : ""}`}
+                    aria-expanded={searchOpen}
+                    aria-label={t("Поиск по сценарию")}
+                    data-tooltip={t("Поиск · Ctrl+F")}
+                    onClick={() => showSidebar(searchOpen ? null : "search")}
+                  >
+                    <Search size={17} />
+                  </button>
+                  <button
+                    className={`icon-button${statisticsOpen ? " active" : ""}`}
+                    aria-label={t("Статистика документа")}
+                    data-tooltip={t("Статистика документа")}
+                    aria-expanded={statisticsOpen}
+                    onClick={() => {
+                      showSidebar(statisticsOpen ? null : "statistics");
+                    }}
+                  >
+                    <ChartNoAxesColumn size={17} />
+                  </button>
+                  {writingTimer.hasDoctor && (
+                    <button
+                      className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
+                      aria-label={t("Доктор сценария")}
+                      data-tooltip={`${t("Доктор сценария")} · ${t("Замечаний: {0}", doctorFindings.length)}`}
+                      aria-expanded={doctorOpen}
+                      aria-describedby="script-doctor-condition"
+                      onClick={() => showSidebar(doctorOpen ? null : "doctor")}
+                    >
+                      <ScriptDoctorIcon count={doctorFindings.length} />
+                      <span
+                        className="visually-hidden"
+                        id="script-doctor-condition"
+                      >
+                        {t("Замечаний: {0}", doctorFindings.length)}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    className={`icon-button${characterView ? " active" : ""}`}
+                    aria-label={t("Реплики персонажей")}
+                    data-tooltip={t("Реплики персонажей")}
+                    aria-pressed={!!characterView}
+                    onClick={() => {
+                      if (characterView) {
+                        setCharacterView(null);
+                        requestAnimationFrame(() => editorRef.current?.focus());
+                      } else openCharacterDialogues();
+                    }}
+                  >
+                    <ChatsCircleIcon size={18} />
+                  </button>
+                  <button
+                    className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
+                    aria-label={t("Компоненты")}
+                    data-tooltip={t("Компоненты")}
+                    aria-expanded={componentsOpen}
+                    onClick={() => {
+                      showSidebar(componentsOpen ? null : "components");
+                    }}
+                  >
+                    <Shapes size={17} />
+                    {current.components.some((c) => c.enabled !== false) && (
+                      <small>
+                        {
+                          current.components.filter((c) => c.enabled !== false)
+                            .length
+                        }
+                      </small>
+                    )}
+                  </button>
+                  <button
+                    className={`icon-button comments-toggle${commentsOpen ? " active" : ""}`}
+                    aria-label={t("Комментарии")}
+                    data-tooltip={t("Комментарии")}
+                    aria-expanded={commentsOpen}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      if (commentsOpen) {
+                        showSidebar(null);
+                        setCommentQuote(null);
+                      } else openComments(editorRef.current?.getSelection());
+                    }}
+                  >
+                    <MessageSquare size={17} />
+                    {current.comments.some((comment) => !comment.resolved) && (
+                      <small>
+                        {
+                          current.comments.filter(
+                            (comment) => !comment.resolved,
+                          ).length
+                        }
+                      </small>
+                    )}
+                  </button>
+                </div>
+              )}
+              <div className="workspace-tools-secondary">
+                <button
+                  className={`icon-button${historyOpen ? " active" : ""}`}
+                  aria-label={t("История изменений")}
+                  disabled={!documents.length}
+                  data-tooltip={t("История изменений")}
+                  aria-expanded={historyOpen}
+                  onClick={() => {
+                    showSidebar(historyOpen ? null : "history");
+                    flushOutlineHistory(writingScope).catch(() => {});
+                  }}
+                >
+                  <History size={17} />
+                </button>
+                <div ref={exportRef} className="export-control">
+                  <button
+                    className={`icon-button${menu === "export" ? " active" : ""}`}
+                    disabled={!!busy || !documents.length}
+                    aria-label={
+                      view === "storyboard"
+                        ? t("Скачать раскадровку")
+                        : t("Скачать сценарий")
+                    }
+                    data-tooltip={
+                      busy
+                        ? t("Подготовка файла…")
+                        : view === "storyboard"
+                          ? t("Скачать раскадровку")
+                          : t("Скачать сценарий")
+                    }
+                    aria-expanded={menu === "export"}
+                    onClick={() => setMenu(menu === "export" ? null : "export")}
+                  >
+                    <Download size={17} />
+                  </button>
+                </div>
+                <button
+                  className={`icon-button${settingsOpen ? " active" : ""}`}
+                  aria-label={t("Настройки документа")}
+                  disabled={!documents.length}
+                  data-tooltip={t("Настройки документа")}
+                  aria-expanded={settingsOpen}
+                  onClick={() => showSidebar(settingsOpen ? null : "settings")}
+                >
+                  <Settings2 size={17} />
+                </button>
+              </div>
+            </div>
+            <div className="workspace-tools-footer">
+              {mobile && (
+                <button
+                  className="icon-button"
+                  aria-label={t("Открыть папку сценариев")}
+                  onClick={() => {
+                    setMobileToolsOpen(false);
+                    openLocalFolder();
+                  }}
+                >
+                  <FolderOpen size={17} />
+                </button>
+              )}
+              <button
+                className="icon-button"
+                aria-label={t("Обучение")}
+                data-tooltip={t("Онбординг и горячие клавиши")}
+                onClick={openLearning}
+              >
+                <CircleHelp size={17} />
+              </button>
+              {onLogout && (
+                <button
+                  className="icon-button workspace-signout"
+                  aria-label={t("Выйти из аккаунта")}
+                  data-tooltip={t("Выйти из аккаунта")}
+                  onClick={onLogout}
+                >
+                  <LogOut size={17} />
+                </button>
+              )}
+            </div>
+          </nav>
+        </MobileSheet>
+        {view === "storyboard" && (
+          <StoryboardBoard
+            key={writingScope}
+            scenes={
+              historyRevision
+                ? storyboardScenes(
+                    migrateStoryboard(
+                      restoreSnapshotForArea(
+                        current,
+                        historyRevision.snapshot,
+                        revisionArea(historyRevision),
+                      ),
+                    ),
+                  )
+                : shots
+            }
+            selectedId={shotTarget}
+            readonly={!!historyRevision}
+            onSelect={selectStoryboardScene}
+            onFrameSelect={(id, frameId) => {
+              selectStoryboardScene(id);
+              setStoryFrameTarget({
+                scope: writingScope,
+                sceneId: id,
+                frameId,
+              });
+            }}
+            onMoveFrame={moveFrameToScene}
+            onMove={(id, target) =>
+              applyStoryboardEdit((doc) => moveStoryboardScene(doc, id, target))
+            }
+            onAdd={() => {
+              let id;
+              applyStoryboardEdit((doc) => {
+                const added = addStoryboardScene(doc);
+                id = added.id;
+                return added.document;
+              });
+              if (id) selectStoryboardScene(id);
+            }}
+            onExport={downloadStoryboard}
+            dramaOpen={dramaOpen}
+            onOpenDrama={() => setDramaOpen((open) => !open)}
+            dramaPanel={
+              dramaOpen &&
+              !historyRevision && (
+                <StoryDramaPanel
+                  scenes={shots}
+                  selectedId={shotTarget || dramaTarget}
+                  onSelect={selectStoryboardScene}
+                  onDragSelect={mobile ? setDramaTarget : selectStoryboardScene}
+                  onChange={changeSceneShot}
+                  onClose={closeDrama}
+                />
+              )
+            }
+          />
+        )}
+        {learningOpen && (
+          <EditorLearning onBack={() => setLearningOpen(false)} />
+        )}
+        <StoryboardPaste
+          view={view}
+          scope={writingScope}
+          scenes={shots}
+          selectedId={shotTarget}
+          enabled={
+            filesReady &&
+            !historyRevision &&
+            !tourOpen &&
+            !notesOpen &&
+            (view === "storyboard" || !!selectedShot)
+          }
+          onError={setMessage}
+          onAppend={(images, id, letter) => {
+            let selected;
+            try {
+              applyStoryboardEdit((doc) => {
+                const result = pasteStoryboardImages(doc, images, id, letter);
+                selected = result.id;
+                return result.document;
+              });
+              if (selected) selectStoryboardScene(selected);
+            } catch (error) {
+              setMessage(error.message);
+            }
+          }}
+          onFill={(id, letter, frameId, images) => {
+            applyStoryboardEdit((doc) => {
+              const frames = [
+                ...storyboardFrames(doc.sceneShots?.[id]?.[letter]),
+              ];
+              let remaining = [...images];
+              const at = frames.findIndex(
+                (frame) => frame.id === frameId && !frame.image,
+              );
+              if (at >= 0)
+                frames[at] = { ...frames[at], image: remaining.shift() };
+              return updateShotSettings(doc, id, letter, {
+                frames: [...frames, ...remaining.map(newFrame)].slice(0, 200),
+              });
+            });
+            selectStoryboardScene(id);
+          }}
+        />
+        <div
+          className="editor-column"
+          ref={columnRef}
+          style={
+            view === "storyboard" || learningOpen
+              ? {
+                  display: "none",
+                }
+              : undefined
+          }
+        >
+          <ImageComponentPaste
+            ref={imagePasteRef}
+            containerRef={columnRef}
+            documentId={writingScope}
+            enabled={
+              filesReady &&
+              !!documents.length &&
+              view === "screenplay" &&
+              !selectedShot &&
+              !historyRevision &&
+              !characterView &&
+              !libraryDialog &&
+              !questOverlay &&
+              !tourOpen &&
+              !subscriptionOpen &&
+              !deleteTarget &&
+              !rename &&
+              !folderToDelete &&
+              !(componentDialog && !componentDialog.id) &&
+              !(propDialog && !propDialog.id)
+            }
+            canCreate={canCreateImageComponents}
+            onCreate={createImageComponents}
+            onError={setMessage}
+          />
+          {filesReady && !documents.length && (
+            <div className="local-library-empty" role="status">
+              <p>{t("В папке нет сценариев")}</p>
+              <button className="primary-button" onClick={createDocument}>
+                <Plus size={17} />
+                {t("Новый сценарий")}
+              </button>
+            </div>
+          )}
+          {characterView && (
+            <CharacterDialogue
+              content={current.content}
+              name={characterView}
+              onCharacter={setCharacterView}
+              onClose={() => {
+                setCharacterView(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }}
+              onGo={(id) => {
+                setCharacterView(null);
+                setSceneTarget(id);
+              }}
+            />
+          )}
+          {dramaOpen &&
+            view === "screenplay" &&
+            !notesOpen &&
+            !learningOpen &&
+            !historyRevision &&
+            !focusMode && (
+              <StoryDramaPanel
+                scenes={shots}
+                selectedId={shotTarget || dramaTarget}
+                onSelect={selectStoryboardScene}
+                onDragSelect={mobile ? setDramaTarget : selectStoryboardScene}
+                onChange={changeSceneShot}
+                onClose={closeDrama}
+              />
+            )}
+          {mobile &&
+            !notesOpen &&
+            !historyRevision &&
+            !characterView &&
+            activeVersionPages.length > 0 && (
+              <MobilePageControls
+                key={writingScope}
+                pages={visiblePages}
+                disabled={!filesReady || !!busy || deleting}
+                onChange={changeScriptVersion}
+              />
+            )}
+          <main
+            className="minimal-scroll"
+            aria-label={t("Сценарий")}
+            style={
+              !documents.length && filesReady ? { display: "none" } : undefined
+            }
+          >
+            <article
+              className={`script-paper${historyRevision ? " history-preview-paper" : ""}${notesOpen ? " notes-paper" : ""}`}
+              onMouseDownCapture={(event) => {
+                if (
+                  historyRevision ||
+                  event.button !== 0 ||
+                  (event.target !== event.currentTarget &&
+                    !event.target.matches(
+                      ".screenplay-editor, .screenplay-editor-shell",
+                    ))
+                )
+                  return;
+                if (
+                  editorRef.current?.focusBlankSpace(
+                    event.clientX,
+                    event.clientY,
+                  )
+                )
+                  event.preventDefault();
+              }}
+              style={{
+                minHeight:
+                  mobile || notesOpen || typewriterActive
+                    ? "100%"
+                    : pageCount * pageHeight,
+                zoom: documentZoom / 100,
+                "--document-zoom": documentZoom / 100,
+                "--script-font-size": `${mobile ? (fontSize * documentZoom) / 100 : fontSize}pt`,
+                ...documentFontStyles(fontFamily),
+                "--page-margin": `${sheet.top}px`,
+                "--paper-width": `${sheet.width}px`,
+                "--paper-left": `${sheet.left}px`,
+                "--paper-right": `${sheet.right}px`,
+                "--paper-left-ratio": sheet.left / sheet.width,
+                "--paper-right-ratio": sheet.right / sheet.width,
+                "--block-gap": `${sheet.gap}px`,
+                "--plain-gap": `${sheet.plainGap}px`,
+                "--scene-action-gap": `${sheet.sceneActionGap}px`,
+                "--action-gap": `${sheet.actionGap}px`,
+                "--sheet-line-height": sheet.lineHeight,
+                ...BLOCK_LAYOUT_STYLE,
+              }}
+            >
+              {!historyRevision && !notesOpen && (
+                <div className="revision-page-backgrounds" aria-hidden="true">
+                  {visiblePages.map((physical, index) => (
+                    <div
+                      key={index}
+                      className="revision-page-background"
+                      data-page={index + 1}
+                      data-revision-color={physical.page?.active || "white"}
+                      style={{
+                        top: physical.top,
+                        height: physical.height,
+                        ...revisionPageStyle(physical.page?.active || "white"),
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {!mobile &&
+                !historyRevision &&
+                !notesOpen &&
+                view === "screenplay" && (
+                  <div className="page-version-controls">
+                    {visiblePages.map((physical) => (
+                      <div
+                        className="page-version-control"
+                        key={physical.number}
+                        data-page-version-id={physical.page?.id}
+                        data-page-number={physical.number}
+                        style={{ top: physical.top + 20 }}
+                      >
+                        {renderPageVersionPicker(
+                          physical.page,
+                          physical.number,
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              {!historyRevision && !notesOpen && (
+                <div className="page-guides" aria-hidden="true">
+                  {Array.from(
+                    {
+                      length: pageCount,
+                    },
+                    (_, index) => (
+                      <div
+                        className="page-guide"
+                        key={index}
+                        style={{
+                          top: index * pageHeight,
+                          height: pageHeight,
+                        }}
+                      >
+                        {index > 0 && <div className="page-separator" />}
+                        <span className="paper-label">{index + 1}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+              {historyRevision ? (
+                <HistoryPreview
+                  revision={historyRevision}
+                  notes={notesOpen}
+                  onExit={() => setHistoryRevision(null)}
+                />
+              ) : filesReady && documents.length && notesOpen ? (
+                <NotesWorkspace
+                  componentHints={preferences.componentHints}
+                  key={current.id}
+                  ref={notesRef}
+                  scope={current.id}
+                  editorRef={editorRef}
+                  document={current}
+                  mobile={mobile}
+                  onChange={(notes) =>
+                    update((document) => ({ ...document, notes }))
+                  }
+                  onClose={() => {
+                    showSidebar(null);
+                    setNotesOpen(false);
+                  }}
+                  onCreateComponent={componentFromSelection}
+                  onEditComponent={(id) => {
+                    const component = current.components.find(
+                      (item) => item.id === id,
+                    );
+                    if (component) editComponent(component);
+                  }}
+                  onEditProp={(id) => {
+                    const prop = current.props.find((item) => item.id === id);
+                    if (prop) editProp(prop);
+                  }}
+                />
+              ) : filesReady && documents.length ? (
+                <ScreenplayEditor
+                  key={writingScope}
+                  ref={editorRef}
+                  documentId={writingScope}
+                  pageVersions={current.pageVersions}
+                  onReady={(editor) => {
+                    setEditorReadyEpoch((epoch) => epoch + 1);
+                  }}
+                  autoFocus={
+                    (!mobile || !currentTelegram.trim()) &&
+                    filesReady &&
+                    view === "screenplay" &&
+                    !tourOpen &&
+                    !subscriptionOpen &&
+                    !deleteTarget &&
+                    !folderToDelete &&
+                    !rename &&
+                    !menu &&
+                    !componentDialog &&
+                    !propDialog &&
+                    !searchOpen &&
+                    !settingsOpen &&
+                    !doctorOpen &&
+                    !questsOpen &&
+                    !questOverlay &&
+                    !historyOpen &&
+                    !selectedShot &&
+                    !commentsOpen &&
+                    !componentsOpen &&
+                    !propsOpen &&
+                    !annotations &&
+                    !characterView &&
+                    !libraryDialog
+                  }
+                  minimal
+                  continuous={mobile}
+                  typewriterMode={typewriterActive}
+                  onSceneVariant={changeSceneVariant}
+                  sceneShots={current.sceneShots}
+                  activeShot={shotTarget}
+                  onEditShot={(id) => {
+                    showSidebar(null);
+                    setShotTarget(id);
+                  }}
+                  components={current.components}
+                  props={IS_PRO ? current.props : EMPTY_PROPS}
+                  activeProp={propDialog?.id}
+                  comments={current.comments.filter((comment) => {
+                    const reference = commentScenes.get(comment.id);
+                    return (
+                      !reference ||
+                      sceneLetter(
+                        sceneRange(current.content, reference.sceneId)
+                          ?.nodes[0],
+                      ) === reference.variant
+                    );
+                  })}
+                  activeComment={commentsOpen ? activeComment : null}
+                  onPageCount={setPageCount}
+                  onRevisionPages={changeRevisionPages}
+                  fontSize={fontSize}
+                  documentZoom={documentZoom}
+                  fontFamily={fontFamily}
+                  content={current.content}
+                  onChange={changeContent}
+                  onWritingActivity={(activity) =>
+                    writingTimer.recordWriting({
+                      ...activity,
+                      scope: writingScope,
+                    })
+                  }
+                  trackWritingActivity
+                  onSelection={setSelection}
+                  showLineHighlight={false}
+                  spellcheck={current.settings.spellcheck}
+                  showComponents={componentsOpen}
+                  componentHints={preferences.componentHints}
+                  searchQuery={searchOpen ? searchText : ""}
+                  searchFormat={searchFormat}
+                  searchIndex={visibleSearchIndex}
+                  searchCardIndex={
+                    searchOpen &&
+                    searchCardSelection?.fromCard &&
+                    searchCardSelection.key ===
+                      searchMatchKey(activeSearchMatch)
+                      ? visibleSearchIndex
+                      : null
+                  }
+                  onComments={openComments}
+                  onCommentFromSelection={openComments}
+                  selectionToolbarDisabled={
+                    !!burningPage ||
+                    view === "storyboard" ||
+                    (!!componentDialog && !componentDialog.id) ||
+                    (!!propDialog && !propDialog.id) ||
+                    rename !== null ||
+                    menu !== null ||
+                    tourOpen ||
+                    subscriptionOpen ||
+                    !!deleteTarget ||
+                    searchOpen ||
+                    doctorOpen ||
+                    questsOpen ||
+                    questOverlay ||
+                    focusMode ||
+                    !!characterView ||
+                    !!libraryDialog ||
+                    !!selectedShot
+                  }
+                  suggestionsDisabled={
+                    !!burningPage ||
+                    view === "storyboard" ||
+                    (!!componentDialog && !componentDialog.id) ||
+                    (!!propDialog && !propDialog.id) ||
+                    rename !== null ||
+                    menu !== null ||
+                    tourOpen ||
+                    subscriptionOpen ||
+                    !!deleteTarget ||
+                    !!folderToDelete ||
+                    questsOpen ||
+                    questOverlay ||
+                    !!characterView ||
+                    !!libraryDialog ||
+                    (mobile &&
+                      (mobileToolsOpen ||
+                        searchOpen ||
+                        settingsOpen ||
+                        statisticsOpen ||
+                        doctorOpen ||
+                        historyOpen ||
+                        commentsOpen ||
+                        componentsOpen ||
+                        propsOpen ||
+                        !!annotations ||
+                        !!selectedShot))
+                  }
+                  onCreateComponent={componentFromSelection}
+                  onPasteComponentUrl={pasteComponentUrl}
+                  onPasteImages={(files) =>
+                    imagePasteRef.current?.insert(files)
+                  }
+                  onEditComponent={(id) => {
+                    const component = current.components.find(
+                      (c) => c.id === id,
+                    );
+                    if (component) editComponent(component);
+                  }}
+                />
+              ) : (
+                <p className="sidebar-empty" role="status">
+                  {t("Открываем локальный документ…")}
+                </p>
+              )}
+            </article>
+          </main>
+          {!!documents.length &&
+            !focusMode &&
+            (!mobile || mobileWriting) &&
+            !notesOpen &&
+            !historyRevision &&
+            !characterView &&
+            !libraryDialog &&
+            view === "screenplay" && (
+              <FormatBar
+                format={selection?.format}
+                displayMode={mobile ? "icons" : current.metadata?.formatBarMode}
+                onFormat={(key) => editorRef.current?.setFormat(key)}
+              />
+            )}
+          {!!documents.length &&
+            !historyRevision &&
+            !characterView &&
+            !libraryDialog &&
+            view === "screenplay" && (
+              <>
+                <ScrollToTop containerRef={columnRef} />
+                {focusMode && (
+                  <>
+                    <button
+                      type="button"
+                      className="icon-button focus-theme-button"
+                      aria-label={t(
+                        preferences.theme === "dark"
+                          ? "Включить светлую тему"
+                          : "Включить тёмную тему",
+                      )}
+                      data-tooltip={t(
+                        preferences.theme === "dark"
+                          ? "Включить светлую тему"
+                          : "Включить тёмную тему",
+                      )}
+                      aria-pressed={preferences.theme === "dark"}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() =>
+                        setPreferences({
+                          theme:
+                            preferences.theme === "dark" ? "light" : "dark",
+                        })
+                      }
+                    >
+                      <Sun
+                        size={20}
+                        className={`focus-theme-icon${preferences.theme === "dark" ? " is-visible" : ""}`}
+                        aria-hidden="true"
+                      />
+                      <Moon
+                        size={20}
+                        className={`focus-theme-icon${preferences.theme !== "dark" ? " is-visible" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {!notesOpen && (
+                      <button
+                        type="button"
+                        className="icon-button focus-telegraph-button"
+                        aria-label={t("Телеграф")}
+                        data-tooltip={t("Телеграф")}
+                        aria-pressed={telegraphOpen}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setTelegraphOpen((value) => !value);
+                          if (telegraphOpen)
+                            requestAnimationFrame(() =>
+                              editorRef.current?.focus(),
+                            );
+                        }}
+                      >
+                        <TelegraphIcon />
+                      </button>
+                    )}
+                    {typewriterActive && (
+                      <button
+                        type="button"
+                        className="icon-button focus-lamp-button"
+                        aria-label={language === "ru" ? "Лампа" : "Lamp"}
+                        data-tooltip={language === "ru" ? "Лампа" : "Lamp"}
+                        aria-pressed={typewriterLamp}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          playLampSwitch();
+                          setTypewriterLamp((value) => !value);
+                        }}
+                      >
+                        <img
+                          src="/dildamode/typewriter/off/flashlight-32_128x128.svg"
+                          alt=""
+                        />
+                      </button>
+                    )}
+                    {(mobile ||
+                      (preferences.theme === "dark" && !notesOpen)) && (
+                      <button
+                        type="button"
+                        className="icon-button focus-typewriter-button"
+                        aria-label={t("Печатная машинка")}
+                        data-tooltip={t("Печатная машинка")}
+                        aria-pressed={mobile ? undefined : typewriterActive}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={
+                          mobile
+                            ? undefined
+                            : () => {
+                                setTypewriterOpen((value) => !value);
+                                setTypewriterLamp(false);
+                              }
+                        }
+                      >
+                        {mobile ? (
+                          <TypewriterIcon />
+                        ) : (
+                          <img
+                            src="/dildamode/typewriter/off/typewriter_128x128.svg"
+                            alt=""
+                          />
+                        )}
+                      </button>
+                    )}
+                  </>
+                )}
+                <button
+                  className="icon-button focus-mode-toggle"
+                  aria-label={t(
+                    focusMode
+                      ? "Выйти из полноэкранного режима"
+                      : "Открыть во весь экран",
+                  )}
+                  data-tooltip={t(
+                    focusMode
+                      ? "Выйти из полноэкранного режима"
+                      : "Открыть во весь экран",
+                  )}
+                  aria-pressed={focusMode}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    showSidebar(null);
+                    setMenu(null);
+                    setFocusMode((value) => !value);
+                    requestAnimationFrame(() => editorRef.current?.focus());
+                  }}
+                >
+                  {focusMode ? (
+                    <Minimize2 size={20} />
+                  ) : (
+                    <Maximize2 size={20} />
+                  )}
+                </button>
+              </>
+            )}
+          {typewriterActive && (
+            <FocusTypewriter
+              key={writingScope}
+              containerRef={columnRef}
+              scope={writingScope}
+              lampOn={typewriterLamp}
+            />
+          )}
+          <WritingTimer
+            visible={
+              !!documents.length &&
+              !focusMode &&
+              !historyRevision &&
+              !characterView &&
+              !libraryDialog &&
+              view === "screenplay"
+            }
+            timer={writingTimer}
+            onOpenDilda={() => {
+              if (writingTimer.hasDilda) setDildaOpen(true);
+            }}
+            dictation={dictation}
+            onBurnPage={burnLastPage}
+            burnDisabled={!!burningPage || notesOpen}
+            onResetProgress={() => {
+              let confirming = false;
+              setMessage({
+                key: "Сброс за {0} монет обнулит баланс, покупки, стрики и награды. Домик и доктор снова станут доступны для покупки. Сценарии сохранятся.",
+                values: [RESET_PROGRESS_PRICE],
+                kind: "progress-reset",
+                action: {
+                  label: "Сбросить за 200 монет",
+                  icon: <RefreshCw size={14} aria-hidden="true" />,
+                  onClick: async () => {
+                    if (confirming) return;
+                    confirming = true;
+                    try {
+                      const result = await writingTimer.resetProgress();
+                      if (!result.ok)
+                        setMessage(
+                          result.reason === "coins"
+                            ? "Для сброса прогресса нужно 200 монет."
+                            : "Не удалось сохранить сброс. Прогресс не изменён.",
+                        );
+                    } catch {
+                      setMessage(
+                        "Не удалось сохранить сброс. Прогресс не изменён.",
+                      );
+                    }
+                  },
+                },
+              });
+            }}
+          />
+          {focusMode &&
+            telegraphOpen &&
+            !notesOpen &&
+            !historyRevision &&
+            !characterView &&
+            !libraryDialog &&
+            view === "screenplay" &&
+            !!documents.length && (
+              <Telegraph
+                key={`${writingScope}:${language}`}
+                language={language}
+                showShare={false}
+                telegram={currentTelegram}
+                title={current.title}
+                onText={(text) => editorRef.current?.insertTelegraphText(text)}
+              />
+            )}
+        </div>
+        <MobileSheet
+          mobile={mobile}
+          ready={filesReady}
+          open={
+            !tourOpen &&
+            !!(
+              searchOpen ||
+              settingsOpen ||
+              statisticsOpen ||
+              doctorOpen ||
+              questsOpen ||
+              historyOpen ||
+              commentsOpen ||
+              componentsOpen ||
+              propsOpen ||
+              annotations ||
+              !!selectedShot
+            )
+          }
+          label={t("Панель сценария")}
+          onClose={() => showSidebar(null)}
+        >
+          {selectedShot && !historyRevision && (
+            <StoryboardInspector
+              key={writingScope}
+              scope={writingScope}
+              scene={selectedShot}
+              scenes={shots}
+              view={view}
+              frameTarget={
+                storyFrameTarget?.scope === writingScope &&
+                storyFrameTarget.sceneId === selectedShot.id
+                  ? storyFrameTarget
+                  : null
+              }
+              onMoveFrame={moveFrameToScene}
+              onClose={() => showSidebar(null)}
+              onRevealBlock={(id) => {
+                changeView("screenplay", { focus: false });
+                setShotTarget(selectedShot.id);
+                setSceneTarget(id);
+              }}
+              onSelect={selectStoryboardScene}
+              onView={(next) => {
+                const id = selectedShot.id;
+                changeView(next, { focus: false });
+                setShotTarget(id);
+                if (next === "screenplay") setSceneTarget(id);
+              }}
+              onVariant={(id, letter) =>
+                applyStoryboardEdit(
+                  (doc) => switchSceneVariant(doc, id, letter),
+                  "variant",
+                )
+              }
+              onOpenDrama={() => {
+                setDramaOpen(true);
+                if (mobile) showSidebar(null);
+              }}
+              dramaOpen={dramaOpen}
+              onChange={changeSceneShot}
+              onBlock={(id, patch) =>
+                applyStoryboardEdit(
+                  (doc) => changeSceneBlock(doc, selectedShot.id, id, patch),
+                  id + Object.keys(patch).join(),
+                )
+              }
+              onAddBlock={(format) =>
+                applyStoryboardEdit((doc) =>
+                  addSceneBlock(doc, selectedShot.id, format),
+                )
+              }
+              onRemoveBlock={(id) =>
+                applyStoryboardEdit((doc) =>
+                  removeSceneBlock(doc, selectedShot.id, id),
+                )
+              }
+              onMoveBlock={(id, target) =>
+                applyStoryboardEdit((doc) =>
+                  moveSceneBlock(doc, selectedShot.id, id, target),
+                )
+              }
+              onExport={downloadShotReport}
+              busy={!!busy}
+            />
+          )}
+          {searchOpen && (
+            <DocumentSearch
+              matches={searchMatches}
+              query={searchText}
+              format={searchFormat}
+              onFormat={(value) => {
+                setSearchFormat(value);
+                setSearchIndex(0);
+                setSearchCardSelection(null);
+              }}
+              onQuery={(value) => {
+                setSearchText(value);
+                setSearchIndex(0);
+                setSearchCardSelection(null);
+              }}
+              index={searchIndex}
+              onSelect={(index, source) => {
+                setSearchIndex(index);
+                setSearchCardSelection({
+                  index,
+                  key: searchMatchKey(searchMatches[index]),
+                  fromCard: source === "card",
+                  request: ++searchCardRequest.current,
+                });
+              }}
+              onClose={() => {
+                setSearchOpen(false);
+                setSearchCardSelection(null);
+                requestAnimationFrame(() => editorRef.current?.focus());
+              }}
+            />
+          )}
+          {settingsOpen && (
+            <DocumentSettings
+              key={writingScope}
+              preferences={preferences}
+              onPreferences={setPreferences}
+              metadata={current.metadata}
+              spellcheck={current.settings.spellcheck}
+              exportSettings={current.settings}
+              onExportSettings={changeExportSettings}
+              onSpellcheck={(spellcheck) =>
+                update((document) => ({
+                  ...document,
+                  settings: { ...document.settings, spellcheck },
+                }))
+              }
+              documentZoom={documentZoom}
+              onZoom={setDocumentZoom}
+              onChange={changeMetadata}
+              onClose={() => setSettingsOpen(false)}
+            />
+          )}
+          {statisticsOpen && (
+            <StatisticsPanel
+              document={current}
+              pageCount={mobile ? undefined : pageCount}
+              onCharacter={openCharacterDialogues}
+              onClose={() => setStatisticsOpen(false)}
+            />
+          )}
+          {writingTimer.hasDoctor && doctorOpen && (
+            <ScriptDoctor
+              key={writingScope}
+              findings={doctorFindings}
+              fliesEnabled={preferences.doctorFlies}
+              onFliesChange={(doctorFlies) => setPreferences({ doctorFlies })}
+              onGo={locateDoctorFinding}
+              onClose={() => showSidebar(null)}
+            />
+          )}
+          {questsOpen && IS_PRO && (
+            <DailyQuests
+              key={writingScope}
+              scope={writingScope}
+              quests={dailyQuests}
+              timer={writingTimer}
+              onCards={() => setQuestOverlay(true)}
+              onComplete={setMessage}
+              onClose={() => showSidebar(null)}
+            />
+          )}
+          {historyOpen && (
+            <HistoryPanel
+              key={writingScope}
+              documentId={current.id}
+              scriptVersion={
+                current.pageVersions ? null : activeScriptVersion.id
+              }
+              notes={notesOpen}
+              version={historyVersion}
+              selectedId={historyRevision?.id}
+              onSelect={(revision) => {
+                setHistoryRevision(revision);
+                if (revision)
+                  setView(
+                    notesOpen || revisionArea(revision) === "screenplay"
+                      ? "screenplay"
+                      : "storyboard",
+                  );
+              }}
+              onRestore={restoreHistory}
+              onClose={() => {
+                setHistoryOpen(false);
+                setHistoryRevision(null);
+              }}
+            />
+          )}
+          {commentsOpen && (
+            <CommentsPanel
+              key={writingScope}
+              comments={current.comments}
+              content={current.content}
+              commentScenes={commentScenes}
+              quote={commentQuote}
+              activeId={activeComment}
+              onClose={() => {
+                setCommentsOpen(false);
+                setCommentQuote(null);
+                pendingCommentFocus.current = null;
+              }}
+              onClearQuote={() => setCommentQuote(null)}
+              onAdd={addComment}
+              onToggle={(comment) => {
+                setActiveComment(null);
+                update((d) => ({
+                  ...d,
+                  comments: d.comments.map((c) =>
+                    c.id === comment.id
+                      ? {
+                          ...c,
+                          resolved: !c.resolved,
+                          status: c.resolved ? "open" : "resolved",
+                        }
+                      : c,
+                  ),
+                }));
+              }}
+              onUpdate={(id, changes) => {
+                if (changes.status) setActiveComment(null);
+                update((d) => ({
+                  ...d,
+                  comments: d.comments.map((comment) =>
+                    comment.id === id
+                      ? {
+                          ...comment,
+                          ...cleanCommentOptions({ ...comment, ...changes }),
+                        }
+                      : comment,
+                  ),
+                }));
+              }}
+              onFilterChange={() => setActiveComment(null)}
+              onFocus={focusComment}
+            />
+          )}
+          {componentsOpen && (
+            <ComponentsPanel
+              key={writingScope}
+              componentHints={preferences.componentHints}
+              onToggleHints={toggleComponentHints}
+              exporting={busy === "props-pdf"}
+              onExportReport={async () => {
+                setBusy("props-pdf");
+                try {
+                  saveBlob(
+                    await exportPropsPDF(current),
+                    t("{0} — реквизит", current.title),
+                    "pdf",
+                  );
+                } catch {
+                  setMessage("Не удалось сохранить отчёт реквизита.");
+                } finally {
+                  setBusy("");
+                }
+              }}
+              onExportLibrary={() =>
+                saveBlob(
+                  exportComponentLibrary(current),
+                  `${current.title} — ${t("Компоненты")}`,
+                  "tytl",
+                )
+              }
+              onImportLibrary={async () => {
+                const libraries = await directoryComponentLibraries().catch(
+                  () => [],
+                );
+                setLibraryDialog(libraries);
+              }}
+              document={{
+                ...current,
+                components: current.components.filter(
+                  (c) => c.enabled !== false,
+                ),
+              }}
+              activeId={componentDialog?.id}
+              onClose={() => {
+                setComponentsOpen(false);
+                setComponentDialog(null);
+              }}
+              onEdit={editComponent}
+              onCloseEdit={() => setComponentDialog(null)}
+              onCreate={beginComponent}
+              onToggleFolder={(id) =>
+                update((d) => {
+                  const collapsed = d.collapsedComponentFolders || [];
+                  return {
+                    ...d,
+                    collapsedComponentFolders: collapsed.includes(id)
+                      ? collapsed.filter((value) => value !== id)
+                      : [...collapsed, id],
+                  };
+                })
+              }
+              onAddFolder={(name) =>
+                update((d) => ({
+                  ...d,
+                  componentFolders: [
+                    ...(d.componentFolders || []),
+                    {
+                      id: uid(),
+                      name,
+                    },
+                  ],
+                }))
+              }
+              onDeleteFolder={(folder) => setFolderToDelete(folder)}
+              renderEditor={(component) => (
+                <>
+                  <ComponentForm
+                    key={component.id}
+                    inline
+                    value={entityFormValue(component)}
+                    components={current.components}
+                    folders={current.componentFolders}
+                    onDraftChange={(draft) =>
+                      rememberEntityDraft(component, draft)
+                    }
+                    onOpenComponent={editComponent}
+                    onSubmit={saveComponent}
+                    onDelete={deleteComponent}
+                    onClose={() => {
+                      clearEntityDraft(component);
+                      setComponentDialog(null);
+                    }}
+                  />
+                </>
+              )}
+            />
+          )}
+          {annotations && IS_PRO && (
+            <AnnotationsPanel
+              component={current.components.find(
+                (item) => item.id === annotations.componentId,
+              )}
+              prop={current.props.find(
+                (item) => item.id === annotations.propId,
+              )}
+              onComponent={editComponent}
+              onProp={editProp}
+              onClose={() => setAnnotations(null)}
+              renderComponent={(component) => (
+                <ComponentForm
+                  key={`${component.id}:${component.name}`}
+                  inline
+                  value={entityFormValue(component)}
+                  components={current.components}
+                  folders={current.componentFolders}
+                  onDraftChange={(draft) =>
+                    rememberEntityDraft(component, draft)
+                  }
+                  onOpenComponent={editComponent}
+                  onSubmit={saveComponent}
+                  onDelete={(id) => {
+                    deleteComponent(id);
+                    setAnnotations(null);
+                    showSidebar("props");
+                  }}
+                  onClose={() => {
+                    clearEntityDraft(component);
+                    setAnnotations(null);
+                  }}
+                />
+              )}
+              renderProp={(prop) => (
+                <ComponentForm
+                  key={`${prop.id}:${prop.name}`}
+                  inline
+                  prop
+                  value={entityFormValue(prop, true)}
+                  components={current.props}
+                  folders={current.propFolders}
+                  onDraftChange={(draft) =>
+                    rememberEntityDraft(prop, draft, true)
+                  }
+                  onSubmit={saveProp}
+                  onDelete={(id) => {
+                    deleteProp(id);
+                    setAnnotations(null);
+                    showSidebar("components");
+                  }}
+                  onClose={() => {
+                    clearEntityDraft(prop, true);
+                    setAnnotations(null);
+                  }}
+                />
+              )}
+            />
+          )}
+        </MobileSheet>
+      </div>
+      <input
+        ref={importRef}
+        type="file"
+        accept={
+          IS_PRO
+            ? ".tyt,.fdx,.docx,.pdf"
+            : ".fdx,.docx,.pdf,application/xml,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+        hidden
+        onChange={openFile}
+      />
+      {componentDialog && !componentDialog.id && (
+        <ComponentForm
+          value={entityFormValue(componentDialog)}
+          components={current.components}
+          folders={current.componentFolders}
+          onDraftChange={(draft) => rememberEntityDraft(componentDialog, draft)}
+          onOpenComponent={editComponent}
+          onSubmit={saveComponent}
+          onDelete={deleteComponent}
+          onClose={() => {
+            clearEntityDraft(componentDialog);
+            setComponentDialog(null);
+          }}
+        />
+      )}
+      {propDialog && !propDialog.id && IS_PRO && (
+        <ComponentForm
+          prop
+          value={entityFormValue(propDialog, true)}
+          components={current.props}
+          folders={current.propFolders}
+          onDraftChange={(draft) =>
+            rememberEntityDraft(propDialog, draft, true)
+          }
+          onSubmit={saveProp}
+          onDelete={deleteProp}
+          onClose={() => {
+            clearEntityDraft(propDialog, true);
+            setPropDialog(null);
+          }}
+        />
+      )}
+      {rename !== null && (
+        <Dialog title={t("Название сценария")} onClose={() => setRename(null)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (rename.title.trim()) {
+                setDocuments((list) =>
+                  list.map((doc) =>
+                    doc.id === rename.id
+                      ? {
+                          ...doc,
+                          title: rename.title.trim(),
+                          updatedAt: new Date().toISOString(),
+                        }
+                      : doc,
+                  ),
+                );
+                setRename(null);
+              }
+            }}
+          >
+            <label>
+              {t("Название")}
+              <input
+                autoFocus
+                required
+                maxLength={160}
+                value={rename.title}
+                onChange={(e) =>
+                  setRename({
+                    ...rename,
+                    title: e.target.value,
+                  })
+                }
+              />
+            </label>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => setRename(null)}
+              >
+                {t("Отмена")}
+              </button>
+              <button
+                className="primary-button"
+                disabled={!rename.title.trim()}
+              >
+                {t("Сохранить")}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      {menu === "export" &&
+        createPortal(
+          <div
+            ref={exportMenuRef}
+            className="minimal-popover export-menu rail-export-menu"
+            style={{
+              left: exportPosition?.left ?? 72,
+              top: exportPosition?.top ?? 8,
+              visibility: exportPosition ? "visible" : "hidden",
+            }}
+          >
+            <div className="popover-heading">{t("Сохранить файл")}</div>
+            {view !== "storyboard" && (
+              <ExportSettings
+                settings={current.settings}
+                onChange={changeExportSettings}
+              />
+            )}
+            {(view === "storyboard"
+              ? STORYBOARD_EXPORT_FORMATS.filter(
+                  ([format]) => format !== "tyt" || IS_PRO,
+                )
+              : [
+                  ["pdf", "PDF", t("Для чтения и печати")],
+                  ["docx", "Word · DOCX", t("Для работы в Word")],
+                  ["fdx", "Final Draft · FDX", t("Для сценарных редакторов")],
+                  [
+                    "json",
+                    t("JSON · Сценарий"),
+                    t("Текст, сцены и параметры кадров"),
+                  ],
+                  ...STORYBOARD_EXPORT_FORMATS.filter(
+                    ([format]) => format === "html",
+                  ),
+                  ...STORYBOARD_EXPORT_FORMATS.filter(([format]) =>
+                    ["png", "webp"].includes(format),
+                  ),
+                  ...(IS_PRO
+                    ? [
+                        [
+                          "tyt",
+                          t("Проект Tyter · TYT"),
+                          t("Сценарий, раскадровка, комментарии и все детали"),
+                        ],
+                      ]
+                    : []),
+                ]
+            ).map(([format, label, hint]) => (
+              <button
+                className="export-item"
+                key={format}
+                onClick={() =>
+                  view === "storyboard" || ["png", "webp"].includes(format)
+                    ? downloadStoryboard(format)
+                    : download(format)
+                }
+              >
+                <FileText size={18} />
+                <span>
+                  <strong>{t(label)}</strong>
+                  <small>{t(hint)}</small>
+                </span>
+                <span className="file-extension">
+                  .{["png", "webp"].includes(format) ? "zip" : format}
+                </span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+      {libraryDialog && (
+        <ComponentLibraryDialog
+          mobile={mobile}
+          screenplay={current}
+          discovered={libraryDialog}
+          onClear={clearComponents}
+          onUndoClear={undoClearComponents}
+          canUndoClear={
+            !current.components.length &&
+            componentHistory.current.undo.at(-1)?.kind === "components-clear" &&
+            componentHistory.current.undo.at(-1)?.documentId === current.id &&
+            !!componentHistory.current.undo.at(-1)?.notes === notesOpen &&
+            JSON.stringify(componentClearState(current)) ===
+              JSON.stringify(componentHistory.current.undo.at(-1)?.afterState)
+          }
+          onDetach={(id) =>
+            update((doc) => ({
+              ...doc,
+              components: doc.components.map((component) => {
+                if (component.librarySource?.libraryId !== id) return component;
+                const { librarySource, ...local } = component;
+                return { ...local, enabled: true };
+              }),
+            }))
+          }
+          onClose={() => setLibraryDialog(null)}
+          onEmbed={embedLibrary}
+        />
+      )}
+      {writingTimer.hasDoctor && preferences.doctorFlies && (
+        <DoctorFlies
+          count={doctorFindings.length}
+          suppressed={!!burningPage}
+          resetToken={burnSequence}
+        />
+      )}
+      {burningPage && (
+        <BurningPaper burn={burningPage} onDone={finishPageBurn} />
+      )}
+      {dildaOpen && (
+        <DildaMode
+          content={current.content}
+          onClose={() => {
+            setDildaOpen(false);
+            requestAnimationFrame(() => editorRef.current?.focus());
+          }}
+        />
+      )}
+      {tourOpen && <Onboarding onClose={closeTour} />}
+      {questOverlay && IS_PRO && (
+        <QuestOverlay
+          key={`${writingScope}:${dailyQuests.record.day}`}
+          scope={writingScope}
+          document={current}
+          quests={dailyQuests}
+          timer={writingTimer}
+          onAccepted={() => {
+            showSidebar("quests");
+            requestAnimationFrame(() => editorRef.current?.focus());
+          }}
+          onClose={() => setQuestOverlay(false)}
+        />
+      )}
+      {subscriptionOpen && (
+        <SubscriptionDialog onClose={() => setSubscriptionOpen(false)} />
+      )}
+      {deleteTarget && (
+        <Dialog
+          title={t("Удалить документ?")}
+          onClose={() => !deleting && setDeleteTarget(null)}
+        >
+          <p className="delete-document-copy">
+            «{deleteTarget.title}
+            {t("» будет удалён из списка документов.")}
+          </p>
+          <div className="dialog-actions">
+            <button
+              className="quiet-button"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+            >
+              {t("Отмена")}
+            </button>
+            <button
+              className="primary-button"
+              disabled={deleting}
+              onClick={deleteDocument}
+            >
+              {deleting ? t("Удаление…") : t("Удалить")}
+            </button>
+          </div>
+        </Dialog>
+      )}
+      {folderToDelete && (
+        <DeleteComponentFolderDialog
+          key={folderToDelete.id}
+          folder={folderToDelete}
+          onClose={() => setFolderToDelete(null)}
+          onConfirm={deleteComponentFolder}
+        />
+      )}
+    </div>
+  );
+}

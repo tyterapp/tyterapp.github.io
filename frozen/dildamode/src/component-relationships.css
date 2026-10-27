@@ -1,0 +1,154 @@
+.component-relationships {
+  border-top: 1px solid var(--ui-border);
+  margin-top: 22px;
+  padding-top: 12px;
+  color: var(--ui-text);
+}
+.relationship-section-heading,
+.relationship-editor-heading,
+.relationship-card-heading,
+.relationship-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.relationship-section-heading {
+  justify-content: space-between;
+  min-height: 40px;
+  margin-bottom: 8px;
+}
+.relationship-section-heading h3,
+.relationship-editor-heading h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.relationship-editor-heading {
+  margin: 0 0 12px -8px;
+}
+.relationship-section-heading .icon-button,
+.relationship-editor-heading .icon-button,
+.relationship-card-heading .icon-button {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+}
+.relationship-card {
+  padding: 6px 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 7px;
+  background: var(--ui-soft);
+}
+.relationship-character-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text);
+  text-align: left;
+  font-size: 12px;
+}
+.relationship-character-link strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.relationship-character-link:not(:disabled):hover {
+  color: var(--ui-accent);
+}
+.relationship-character-link:disabled {
+  opacity: 1;
+}
+.relationship-summary {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 0;
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.relationship-summary small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.relationship-summary p {
+  margin: 6px 0 0;
+  color: var(--ui-muted);
+  white-space: pre-wrap;
+}
+.relationship-form label {
+  display: block;
+  margin: 0 0 14px;
+  font-size: 12px;
+}
+.relationship-form :is(input, select, textarea) {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-field);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 13px;
+}
+.relationship-form textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+.relationship-form input::placeholder {
+  color: var(--ui-muted);
+}
+.relationship-empty,
+.relationship-hint {
+  color: var(--ui-muted);
+  margin: 8px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.relationship-feedback {
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--ui-muted);
+  flex-wrap: wrap;
+}
+.relationship-actions {
+  flex-wrap: wrap;
+}
+.relationship-actions .delete-component {
+  margin-right: auto;
+}
+.relationship-feedback .quiet-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+}
+@media screen and (max-width: 831px) {
+  .component-relationships :is(button, input, select) {
+    min-height: 44px;
+  }
+  .component-relationships .icon-button {
+    width: 44px;
+    min-width: 44px;
+    flex-basis: 44px;
+  }
+}

@@ -1,0 +1,261 @@
+.component-detail-drawer .component-detail-heading {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin: -4px -4px 16px;
+}
+.component-detail-drawer .component-detail-heading .icon-button {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  margin: 0;
+}
+.component-detail-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.component-detail-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  margin-right: -16px;
+  margin-left: -6px;
+  padding-top: 4px;
+  padding-left: 6px;
+  padding-right: 8px;
+  padding-bottom: 16px;
+}
+.components-drawer .component-report-export {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.component-report-export > svg {
+  flex: 0 0 auto;
+}
+.component-report-export > small {
+  margin-left: auto;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.components-drawer .component-report-export:not(:disabled):hover {
+  background: var(--ui-hover);
+}
+.components-drawer .component-report-export:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.component-detail-drawer .component-editor.minimal-dialog {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.component-detail-drawer .component-editor > .dialog-heading {
+  display: none;
+}
+.component-alias-conflicts p {
+  margin: 0 0 2px;
+}
+.component-alias-conflicts ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.component-alias-conflict-link {
+  min-height: 32px;
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+@media screen and (max-width: 831px) {
+  .component-alias-conflict-link {
+    min-height: 44px;
+  }
+  .component-detail-drawer .component-detail-heading {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+  .component-detail-drawer .component-detail-heading .icon-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.component-url-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.component-url-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.component-link-hover {
+  position: fixed;
+  z-index: 110;
+  width: 44px;
+  height: 44px;
+}
+.component-hover-link {
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ui-accent);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  box-shadow:
+    0 0 0 1px var(--ui-border),
+    0 4px 14px #0002;
+}
+.component-hover-link:hover {
+  background: var(--ui-accent-soft);
+}
+.component-hover-link:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+.component-url-actions .component-url-toggle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.component-url-settings .component-url-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+.component-url-settings .component-url-toggle input {
+  width: 16px;
+  min-height: 16px;
+  flex: 0 0 16px;
+  accent-color: var(--ui-accent);
+}
+.component-url-settings a {
+  color: var(--ui-accent);
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+@media (max-width: 831px) {
+  .component-url-settings .component-url-toggle {
+    min-height: 44px;
+  }
+  .component-url-settings input[type="url"] {
+    font-size: 16px;
+  }
+  .component-url-settings a {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.component-link-hover::before {
+  content: "";
+  position: absolute;
+  inset: -8px -8px;
+  pointer-events: none;
+}
+.text-link-address {
+  position: fixed;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow:
+    0 0 0 1px var(--ui-border),
+    0 4px 16px #0002;
+  font:
+    13px/1.5 system-ui,
+    sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms;
+}
+.text-link-address::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 -10px;
+}
+.component-link-hover:hover .text-link-address,
+.component-link-hover:focus-within .text-link-address {
+  opacity: 1;
+  visibility: visible;
+}
+.component-hints-setting {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 16px;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--ui-text);
+}
+.component-hints-setting input {
+  accent-color: var(--ui-accent);
+  width: 16px;
+  height: 16px;
+}
+.component-hints-setting kbd {
+  margin-inline-start: auto;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+.component-hints-hidden .script-entity:not(.script-entity-disabled) {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.component-hints-hidden a.script-text-link:has(.script-entity),
+.component-hints-hidden .script-entity a.script-text-link,
+a.script-text-link:has(.script-entity-disabled) {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.component-hints-hidden :is(.character-thumbnail, .character-thumbnail-anchor) {
+  display: none;
+}
+.component-picker button {
+  min-height: 40px;
+  gap: 8px;
+}

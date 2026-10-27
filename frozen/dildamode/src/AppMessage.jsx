@@ -1,0 +1,96 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ExternalLink, X } from "lucide-react";
+import { t, useLanguage } from "./i18n.js";
+
+const DISPLAY_MS = 5000;
+const EXIT_MS = 200;
+
+export function useAppMessage(initialValue = "") {
+  const sequence = useRef(0);
+  const [notice, setNotice] = useState(() =>
+    initialValue ? { id: 0, value: initialValue } : null,
+  );
+  const setMessage = useCallback((value) => {
+    setNotice(value ? { id: ++sequence.current, value } : null);
+  }, []);
+  const dismissMessage = useCallback((id) => {
+    setNotice((current) => (current?.id === id ? null : current));
+  }, []);
+  return { notice, setMessage, dismissMessage };
+}
+
+export default function AppMessage({ notice, onDismiss }) {
+  useLanguage();
+  const [closing, setClosing] = useState(false);
+  const duration =
+    Number.isFinite(notice.value?.duration) && notice.value.duration > 0
+      ? notice.value.duration
+      : DISPLAY_MS;
+  useEffect(() => {
+    const timer = setTimeout(() => setClosing(true), duration);
+    return () => clearTimeout(timer);
+  }, [duration]);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = setTimeout(() => onDismiss(notice.id), EXIT_MS);
+    return () => clearTimeout(timer);
+  }, [closing, notice.id, onDismiss]);
+  const value = notice.value;
+  const action = typeof value === "object" ? value.action : null;
+  const hasAction =
+    typeof action?.onClick === "function" ||
+    (typeof action?.href === "string" &&
+      action.href.trim().length > 0 &&
+      action.href.trim() !== "#");
+  return (
+    <div
+      className={`app-message${value.kind === "script-version-deletion" ? " version-deletion-message" : value.kind === "progress-reset" ? " progress-reset-message" : ""}${closing ? " is-closing" : ""}`}
+      role="alert"
+    >
+      <span>
+        {typeof value === "object"
+          ? t(value.key, ...(value.values || []))
+          : t(value)}
+      </span>
+      {hasAction &&
+        (typeof action.onClick === "function" ? (
+          <button
+            type="button"
+            className="app-message-action"
+            disabled={closing}
+            onClick={action.onClick}
+          >
+            {action.icon}
+            {t(action.label)}
+          </button>
+        ) : (
+          <a
+            className="app-message-action"
+            href={action.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              if (action.desktopSupport && window.tyterDesktop?.openSupport) {
+                event.preventDefault();
+                window.tyterDesktop.openSupport(action.desktopSupport);
+              }
+            }}
+          >
+            {t(action.label)}
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+        ))}
+      <button
+        className="icon-button"
+        aria-label={t(value.closeLabel || "Закрыть уведомление")}
+        disabled={closing}
+        onClick={() => {
+          value.onClose?.();
+          setClosing(true);
+        }}
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}

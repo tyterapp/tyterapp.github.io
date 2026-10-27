@@ -1,0 +1,101 @@
+.shot-location-picker {
+  min-width: 0;
+}
+.shot-location-map-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--ui-border);
+}
+.shot-location-picker .shot-location-map {
+  width: 100%;
+  height: 240px;
+  background: var(--ui-soft);
+  font: inherit;
+}
+.shot-location-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 500;
+  transform: translate(-50%, -50%);
+  color: #65597d;
+  font:
+    400 24px/1 Arial,
+    sans-serif;
+  text-shadow:
+    0 1px 1px #ffffff,
+    1px 0 1px #ffffff,
+    -1px 0 1px #ffffff;
+  pointer-events: none;
+}
+.shot-location-picker .shot-location-map .leaflet-control-zoom a {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+}
+.shot-location-picker .shot-location-map .leaflet-control-zoom a:hover {
+  color: var(--ui-text);
+  background: var(--ui-accent-soft);
+}
+.shot-location-picker .shot-location-map .leaflet-control-attribution {
+  padding: 3px 6px;
+  font:
+    400 10px/1.4 Inter,
+    Arial,
+    sans-serif;
+  color: #333;
+  background: rgb(255 255 255 / 0.9);
+}
+.shot-location-picker .shot-location-map .leaflet-control-attribution a {
+  color: #244a7c;
+}
+.shot-location-picker .shot-location-map :focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+.shot-location-center {
+  width: 100%;
+  margin-top: 10px;
+}
+.shot-location-picker button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.shot-location-label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 12px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.shot-location-coordinates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.shot-location-coordinates input,
+.shot-location-value {
+  font-variant-numeric: tabular-nums;
+}
+.shot-location-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.shot-location-value {
+  overflow-wrap: anywhere;
+}
+@media screen and (min-width: 320px) and (max-width: 831px) {
+  .shot-location-picker .shot-location-map .leaflet-control-zoom a {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+  }
+}
