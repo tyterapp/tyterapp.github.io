@@ -12,7 +12,7 @@ async function open(page){
   doc.comments=[{id:'comment1',blockId:'a',anchor:12,quote:'Hello world',text:'Test comment',resolved:false}];
   const image=createCanvas(16,9).toDataURL('image/png');
   doc.sceneShots={one:{A:{frames:[{id:'f1',image,durationMs:1000}]}},two:{A:{frames:[{id:'f2',image,durationMs:1000}]}}};
-  await page.addInitScript(doc=>{localStorage.setItem('tyter.projects.v1',JSON.stringify([doc]));localStorage.setItem('tyter.active',doc.id);localStorage.setItem('tyter.onboarding.v1','done');localStorage.setItem('tyter.editor-intro.v1','seen');localStorage.setItem('tyter.language.v1','ru')},doc);
+  await page.addInitScript(doc=>{if(sessionStorage.getItem('story-actions-seeded'))return;sessionStorage.setItem('story-actions-seeded','1');localStorage.setItem('tyter.projects.v1',JSON.stringify([doc]));localStorage.setItem('tyter.active',doc.id);localStorage.setItem('tyter.onboarding.v1','done');localStorage.setItem('tyter.editor-intro.v1','seen');localStorage.setItem('tyter.language.v1','ru')},doc);
   await page.goto('/beta', { waitUntil: 'domcontentloaded' }); await expect(page.locator('.screenplay-editor')).toBeVisible();
 }
 test('Ctrl+K adds a link to selected screenplay text',async({page})=>{
@@ -28,11 +28,18 @@ test('storyboard scene actions can be cancelled and undone',async({page})=>{
  const card=page.locator('.story-card[data-scene="one"]');
  await card.click({button:'right'});await page.getByRole('menuitem',{name:'Дублировать'}).click();
  await expect(page.locator('.story-card')).toHaveCount(3);
- await page.getByRole('button',{name:'Отменить изменение'}).click();await expect(page.locator('.story-card')).toHaveCount(2);
+ await page.keyboard.press('Control+z');await expect(page.locator('.story-card')).toHaveCount(2);
  await card.click({button:'right'});await page.getByRole('menuitem',{name:'Кадры сцены'}).click();await expect(page.locator('.story-inspector')).toBeVisible();
  await card.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить',exact:true}).click();await page.getByRole('button',{name:'Отменить',exact:true}).click();await expect(page.locator('.story-card')).toHaveCount(2);
  await card.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить',exact:true}).click();await expect(page.locator('.story-card')).toHaveCount(1,{timeout:8000});
  await page.keyboard.press('Control+z');await expect(page.locator('.story-card')).toHaveCount(2);
+});
+test('shots list shows every scene frame and switches back to frames',async({page})=>{
+ await open(page);await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
+ await page.getByRole('button',{name:'Shots list'}).click();
+ await expect(page.getByRole('table',{name:'Список кадров'}).locator('tbody tr')).toHaveCount(2);
+ await page.getByRole('button',{name:'Frames',exact:true}).click();
+ await expect(page.locator('.story-card')).toHaveCount(2);
 });
 test('storyboard exposes screenplay tools',async({page})=>{
  await open(page);await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
@@ -71,8 +78,71 @@ test('scene rows show frames and open their editor; aspect control changes frame
  await page.getByLabel('Формат просмотра').selectOption('1:1');
  await expect(card.locator('.story-card-slide')).toHaveCSS('aspect-ratio','1 / 1');
  await card.getByRole('button',{name:'Открыть слайд 1'}).click();
- await expect(page.locator('.story-frame-workspace__canvas img')).toBeVisible();
+ await expect(page.locator('.story-canvas-editor__surface img')).toBeVisible();
  await expect(page.locator('.story-inspector')).toBeVisible();
  await page.getByRole('button',{name:'Закрыть редактор кадра'}).click();
  await expect(card).toBeVisible();
+});
+test('drawing on a frame creates a named layer and survives undo and redo',async({page})=>{
+ await open(page);await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
+ await page.locator('.story-card[data-scene="one"]').getByRole('button',{name:'Открыть слайд 1'}).click();
+ await page.getByRole('button',{name:'Карандаш'}).click();
+ const surface=page.locator('.story-canvas-editor__surface'), box=await surface.boundingBox();
+ await page.mouse.move(box.x+30,box.y+30);await page.mouse.down();await page.mouse.move(box.x+120,box.y+100,{steps:5});await page.mouse.up();
+ await expect(page.getByLabel('Название слоя')).toHaveCount(1);
+ await page.getByLabel('Название слоя').fill('Sketch');
+ await expect(surface.locator('polyline')).toHaveCount(1);
+ await page.getByRole('button',{name:'Карандаш'}).click();
+ await page.keyboard.press('Control+z');
+ await page.keyboard.press('Control+z');
+ await expect(surface.locator('polyline')).toHaveCount(0);
+ await page.keyboard.press('Control+Shift+z');
+ await expect(surface.locator('polyline')).toHaveCount(1);
+});
+test('frame AI opens settings and uses available character components',async({page})=>{
+ await open(page);await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
+ await page.locator('.story-card[data-scene="one"]').getByRole('button',{name:'Открыть слайд 1'}).click();
+ await page.getByRole('button',{name:'AI',exact:true}).click();
+ await expect(page.getByLabel('Крупность плана')).toBeVisible();
+ await expect(page.locator('.story-canvas-editor__side').getByRole('combobox',{name:'Персонаж'})).toBeVisible();
+ await expect(page.locator('.story-canvas-editor__side').getByRole('button',{name:'Создать кадры по описанию'})).toBeVisible();
+ await page.getByRole('button',{name:'Вернуться к раскадровке'}).click();
+ await expect(page.locator('.story-card[data-scene="one"]')).toBeVisible();
+});
+test('frame comments support placement, cancellation, replies, search and reopening',async({page})=>{
+ await open(page); await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
+ await page.locator('.story-card[data-scene="one"]').getByRole('button',{name:'Открыть слайд 1'}).click();
+ await page.getByRole('button',{name:'Комментарий',exact:true}).click();
+ const surface=page.locator('.story-canvas-editor__surface');
+ await surface.click({position:{x:70,y:60}});
+ await page.getByLabel('Текст комментария').fill('Отменённое замечание');
+ await page.getByRole('button',{name:'Отменить комментарий'}).click();
+ await expect(surface.locator('.story-canvas-editor__marker')).toHaveCount(0);
+ await surface.click({position:{x:120,y:90}});
+ await page.getByLabel('Текст комментария').fill('Изменить свет');
+ await page.getByRole('button',{name:'Добавить комментарий',exact:true}).click();
+ await expect(surface.getByRole('button',{name:'Открыть комментарий 1'})).toBeVisible();
+ await page.getByLabel('Ответ').fill('Исправлю');
+ await page.getByRole('button',{name:'Отправить ответ'}).click();
+ await expect(page.locator('.story-canvas-editor__side')).toContainText('Исправлю');
+ await page.getByRole('button',{name:'Нарисовать замечание'}).click();
+ const bounds=await surface.boundingBox();
+ await page.mouse.move(bounds.x+150,bounds.y+150); await page.mouse.down(); await page.mouse.move(bounds.x+200,bounds.y+180,{steps:5}); await page.mouse.up();
+ await expect(surface.locator('polyline')).toHaveCount(1);
+ await page.getByRole('button',{name:'Завершить рисование'}).click();
+ await page.getByRole('button',{name:'Все комментарии'}).click();
+ await page.getByLabel('Поиск комментариев кадра').fill('свет');
+ await page.getByRole('button',{name:'Изменить свет'}).click();
+ await expect(page.locator('.story-canvas-editor__side')).toContainText('Исправлю');
+ await page.getByRole('button',{name:'Закрыть редактор кадра'}).click();
+ await page.locator('.story-card[data-scene="one"]').getByRole('button',{name:'Открыть слайд 1'}).click();
+ await surface.getByRole('button',{name:'Открыть комментарий 1'}).click();
+ await expect(page.locator('.story-canvas-editor__side')).toContainText('Исправлю');
+ await expect.poll(()=>page.evaluate(()=>new Promise((resolve,reject)=>{const request=indexedDB.open('tyter.local-files.v1',1);request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result;const read=db.transaction('files').objectStore('files').get('documents');read.onerror=()=>reject(read.error);read.onsuccess=()=>{resolve(read.result?.find(doc=>doc.id==='story-actions')?.sceneShots?.one?.A?.frames?.[0]?.comments?.[0]?.text);db.close();};};}))).toBe('Изменить свет');
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.locator('.document-view-toggle').getByRole('button',{name:'Раскадровка',exact:true}).click();
+ await page.locator('.story-card[data-scene="one"]').getByRole('button',{name:'Открыть слайд 1'}).click();
+ await surface.getByRole('button',{name:'Открыть комментарий 1'}).click();
+ await expect(page.locator('.story-canvas-editor__side')).toContainText('Исправлю');
+ await expect(surface.locator('polyline')).toHaveCount(1);
 });

@@ -1243,3 +1243,44 @@
   .story-card-add-frame { display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; }
   .story-add-scene { width: auto; min-height: 36px; aspect-ratio: auto; flex-direction: row; padding: 6px 12px; }
 }
+.story-shot-list { flex: 1; overflow: auto; padding: 24px; }
+.story-shot-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.story-shot-list th, .story-shot-list td { padding: 12px; text-align: left; border-bottom: 1px solid var(--ui-border); white-space: nowrap; }
+.story-shot-list th { color: var(--ui-muted); font-weight: 500; }
+.story-shot-list td button { border: 0; color: var(--ui-accent); background: transparent; }
+.story-canvas-editor { display:flex; flex:1; min-height:0; gap:14px; }
+.story-canvas-editor__main { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; align-items:center; gap:18px; }
+.story-canvas-editor__surface { position:relative; width:100%; flex:1; min-height:220px; background:white; border:1px solid var(--ui-border); border-radius:6px; overflow:hidden; }
+.story-canvas-editor__surface > img,.story-canvas-editor__surface > svg { position:absolute; inset:0; width:100%; height:100%; }
+.story-canvas-editor__surface > img { object-fit:fill; pointer-events:none; }
+.story-canvas-editor__surface > svg { overflow:visible; }
+.story-canvas-editor__tools { display:flex; gap:4px; padding:5px; border-radius:9px; background:var(--ui-hover); }
+.story-canvas-editor__tools button { width:38px; height:38px; border:0; border-radius:6px; background:transparent; }
+.story-canvas-editor__tools button[aria-pressed="true"] { background:var(--ui-surface); }
+.story-canvas-editor__tools img { width:22px; height:22px; }
+.story-canvas-editor__side { width:240px; overflow:auto; padding:12px; background:var(--ui-surface); border-radius:8px; }
+.story-canvas-editor__layer { display:flex; gap:6px; margin-bottom:8px; }
+.story-canvas-editor__layer input { min-width:0; width:100%; }
+.story-canvas-editor__marker { position:absolute; transform:translate(-50%,-50%); z-index:2; border:0; border-radius:50%; width:28px; height:28px; background:#7957a6; color:white; }
+.story-card-slide__drawing { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.story-canvas-editor__marker { display:grid; place-items:center; font:600 12px/1 Inter, sans-serif; box-shadow:0 2px 7px #0003; transition:transform 140ms ease, box-shadow 140ms ease; }
+.story-canvas-editor__marker:hover, .story-canvas-editor__marker--active { transform:translate(-50%,-50%) scale(1.12); box-shadow:0 0 0 3px #9272bd55, 0 3px 9px #0003; }
+.story-canvas-editor__marker--draft { pointer-events:none; background:var(--ui-accent); }
+.story-comments h3 { display:flex; align-items:center; gap:8px; }
+.story-comments__count { font-size:11px; color:var(--ui-muted); }
+.story-comments__hint { color:var(--ui-muted); font-size:12px; line-height:1.5; }
+.story-comments textarea, .story-comments__reply textarea, .story-comments input[type="search"] { box-sizing:border-box; display:block; width:100%; padding:10px; border:1px solid var(--ui-border); border-radius:7px; background:var(--ui-canvas); color:var(--ui-text); font:inherit; }
+.story-comments textarea, .story-comments__reply textarea { resize:vertical; min-height:84px; }
+.story-comments__actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.story-comments__actions button, .story-comments__reply button { min-height:36px; padding:8px 10px; }
+.story-comments__back { display:flex; align-items:center; gap:5px; border:0; padding:0; background:transparent; color:var(--ui-muted); }
+.story-comments__message { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; border-radius:8px; padding:10px; background:var(--ui-hover); }
+.story-comments__message--reply { margin-left:16px; }
+.story-comments__reply { display:grid; gap:8px; }
+.story-comments__reply button { justify-self:end; display:flex; align-items:center; gap:5px; }
+.story-comments__item { display:flex; align-items:flex-start; gap:8px; width:100%; padding:10px; margin-top:8px; text-align:left; border:1px solid var(--ui-border); border-radius:8px; color:var(--ui-text); background:var(--ui-canvas); }
+.story-comments__item span { min-width:0; overflow-wrap:anywhere; }
+@media (min-width: 832px) {
+  .minimal-app:has(.story-canvas-editor__side[data-comments-open="true"]) .story-inspector { display:none; }
+  .story-canvas-editor__side[data-comments-open="true"] { width:300px; flex:0 0 300px; }
+}

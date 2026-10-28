@@ -23,6 +23,25 @@ export const newFrame = (image = "") => ({
   durationMs: 5000,
   transition: "cut",
 });
+const coordinate = (value) => Math.max(0, Math.min(1, Number(value) || 0));
+function cleanFrameLayers(value) {
+  if (!Array.isArray(value)) return undefined;
+  return value.slice(0, 500).filter((item) => item && typeof item.id === "string" && ["path", "rectangle", "ellipse"].includes(item.type)).map((item) => ({
+    id: item.id.slice(0, 100), name: String(item.name || "Layer").slice(0, 120), type: item.type,
+    points: (Array.isArray(item.points) ? item.points : []).slice(0, 5000).filter((point) => Array.isArray(point) && point.length >= 2).map(([x,y]) => [coordinate(x),coordinate(y)]),
+    color: /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : "#222222",
+    width: Math.max(1, Math.min(40, Number(item.width) || 3)),
+    visible: item.visible !== false,
+  }));
+}
+function cleanFrameComments(value) {
+  if (!Array.isArray(value)) return undefined;
+  return value.slice(0, 500).filter((item) => item && typeof item.id === "string").map((item) => ({
+    id: item.id.slice(0, 100), x: coordinate(item.x), y: coordinate(item.y), text: String(item.text || "").slice(0, 10000),
+    replies: (Array.isArray(item.replies) ? item.replies : []).slice(0, 200).filter((reply) => reply && typeof reply.id === "string").map((reply) => ({ id: reply.id.slice(0, 100), text: String(reply.text || "").slice(0, 10000) })),
+    ...(Array.isArray(item.strokes) ? { strokes: cleanFrameLayers(item.strokes) } : {}),
+  }));
+}
 export function cleanFrames(source) {
   if (!Array.isArray(source)) return undefined;
   const used = new Set();
@@ -41,6 +60,8 @@ export function cleanFrames(source) {
       image: validFrameImage(frame.image) ? frame.image : "",
       durationMs: frameDuration(frame.durationMs),
       transition: frame.transition === "fade" ? "fade" : "cut",
+      ...(Array.isArray(frame.layers) ? { layers: cleanFrameLayers(frame.layers) } : {}),
+      ...(Array.isArray(frame.comments) ? { comments: cleanFrameComments(frame.comments) } : {}),
     }));
 }
 // Legacy shot images remain a real slide, without generating IDs on every render.

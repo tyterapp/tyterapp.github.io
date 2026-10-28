@@ -1636,10 +1636,10 @@ export default function MinimalApp({ onLogout }) {
     setDramaTarget(id);
     setStoryFrameTarget(null);
   };
-  const moveFrameToScene = (sourceId, letter, frameId, targetId) => {
+  const moveFrameToScene = (sourceId, letter, frameId, targetId, targetFrameId) => {
     try {
       applyStoryboardEdit((doc) =>
-        moveStoryboardFrame(doc, sourceId, letter, frameId, targetId),
+        moveStoryboardFrame(doc, sourceId, letter, frameId, targetId, targetFrameId),
       );
     } catch (error) {
       setMessage(error.message);
@@ -3763,6 +3763,24 @@ export default function MinimalApp({ onLogout }) {
               });
             }}
             onMoveFrame={moveFrameToScene}
+            onAspectChange={(value) => {
+              const aspectRatio = value === "16:9" ? "1.78" : value === "2.39:1" ? "2.39" : value;
+              applyStoryboardEdit((doc) => storyboardScenes(doc).reduce((next, scene) => updateShotSettings(next, scene.id, scene.letter, { aspectRatio }), doc));
+            }}
+            characters={current.components.filter((component) => component.type === "character")}
+            onGenerateFrames={(id, letter, images) => {
+              try {
+                applyStoryboardEdit((doc) => pasteStoryboardImages(doc, images, id, letter).document);
+                return true;
+              } catch (error) { setMessage(error.message); return false; }
+            }}
+            onFrameChange={(id, frame) => {
+              applyStoryboardEdit((doc) => {
+                const letter = sceneLetter(sceneRange(doc.content, id)?.nodes[0]);
+                const frames = storyboardFrames(doc.sceneShots?.[id]?.[letter]);
+                return updateShotSettings(doc, id, letter, { frames: frames.map((item) => item.id === frame.id ? frame : item) });
+              });
+            }}
             onUndo={() => editorRef.current?.undo(false)}
             onAddFrame={(id) => {
               const frame = newFrame();

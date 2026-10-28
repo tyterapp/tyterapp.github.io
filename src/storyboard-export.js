@@ -118,6 +118,19 @@ async function frameCanvas(scene, frame) {
     );
     bitmap.close();
   }
+  for (const layer of frame.layers || []) {
+    if (layer.visible === false || !layer.points?.length) continue;
+    const points = layer.points.map(([x, y]) => [x * canvas.width, y * canvas.height]);
+    const first = points[0], last = points.at(-1);
+    context.beginPath();
+    context.strokeStyle = layer.color;
+    context.lineWidth = layer.width;
+    context.lineCap = context.lineJoin = "round";
+    if (layer.type === "rectangle") context.rect(first[0], first[1], last[0] - first[0], last[1] - first[1]);
+    else if (layer.type === "ellipse") context.ellipse((first[0] + last[0]) / 2, (first[1] + last[1]) / 2, Math.abs(last[0] - first[0]) / 2, Math.abs(last[1] - first[1]) / 2, 0, 0, 2 * Math.PI);
+    else { context.moveTo(...first); for (const point of points.slice(1)) context.lineTo(...point); }
+    context.stroke();
+  }
   return canvas;
 }
 export function storyboardExportScenes(document, { sceneId, page } = {}) {

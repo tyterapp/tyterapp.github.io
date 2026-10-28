@@ -187,8 +187,18 @@ export function moveStoryboardFrame(
   sourceLetter,
   frameId,
   targetId,
+  targetFrameId,
 ) {
-  if (sourceId === targetId) return document;
+  if (sourceId === targetId) {
+    const range = sceneRange(document.content, sourceId);
+    if (!targetFrameId || !range || sceneLetter(range.nodes[0]) !== sourceLetter) return document;
+    const frames = [...storyboardFrames(document.sceneShots?.[sourceId]?.[sourceLetter])];
+    const from = frames.findIndex((frame) => frame.id === frameId);
+    const to = frames.findIndex((frame) => frame.id === targetFrameId);
+    if (from < 0 || to < 0 || from === to) return document;
+    frames.splice(to, 0, ...frames.splice(from, 1));
+    return updateShotSettings(document, sourceId, sourceLetter, { frames });
+  }
   const source = sceneRange(document.content, sourceId),
     target = sceneRange(document.content, targetId);
   if (!source || !target || sceneLetter(source.nodes[0]) !== sourceLetter)

@@ -13,7 +13,6 @@ import {
   Download,
   Play,
   Copy,
-  Undo2,
   LoaderCircle,
   Sparkles,
 } from "lucide-react";
@@ -24,7 +23,7 @@ import {
   playSlides,
   STORY_STATUSES,
 } from "./storyboard-data.js";
-import { shotText, FORMAT_NAMES } from "./shot-info.js";
+import { shotText, FORMAT_NAMES, SHOT_FIELDS } from "./shot-info.js";
 import { transferFiles } from "./image-thumbnail.js";
 import { storyboardImage } from "./storyboard-image.js";
 import { shotAspectRatio } from "./shot-image.js";
@@ -33,6 +32,7 @@ import ScriptVersionIcon from "./ScriptVersionIcon.jsx";
 import ShotInfoDrawer from "./ShotInfoDrawer.jsx";
 import StoryboardFrameGenerator from "./StoryboardFrameGenerator.jsx";
 import StoryboardPlayer from "./StoryboardPlayer.jsx";
+import StoryboardCanvas, { Shape } from "./StoryboardCanvas.jsx";
 import { scriptVersionExportStyle } from "./script-version-colors.js";
 import { SCRIPT_VERSIONS } from "./script-version-colors.js";
 import { STORYBOARD_EXPORT_FORMATS } from "./storyboard-export.js";
@@ -117,9 +117,12 @@ export function StoryboardBoard({
   onExport,
   onDuplicate,
   onDelete,
-  onUndo,
   onExportSelection,
   onAddFrame,
+  onFrameChange,
+  characters = [],
+  onGenerateFrames,
+  onAspectChange,
   readonly = false,
   dramaPanel,
   onOpenDrama,
@@ -136,9 +139,15 @@ export function StoryboardBoard({
   const [fullscreen, setFullscreen] = useState(false);
   const [context, setContext] = useState(null);
   const [openFrame, setOpenFrame] = useState(null);
+  const [boardView, setBoardView] = useState("frames");
   const [pendingDelete, setPendingDelete] = useState(null);
   const deleteTimer = useRef(null);
   useEffect(() => () => clearTimeout(deleteTimer.current), []);
+  useEffect(() => {
+    const closeFrame = () => setOpenFrame(null);
+    window.addEventListener("tyter-close-frame", closeFrame);
+    return () => window.removeEventListener("tyter-close-frame", closeFrame);
+  }, []);
   const viewport = useRef(null);
   useStoryboardZoom(viewport, zoom, setZoom);
   const reorder = useLongPressReorder(
@@ -155,11 +164,12 @@ export function StoryboardBoard({
     (source, target) => {
       if (readonly) return;
       const [sceneId, letter, frameId] = JSON.parse(source);
-      onMoveFrame(sceneId, letter, frameId, target);
+      const [kind, targetId, targetFrame] = JSON.parse(target);
+      onMoveFrame(sceneId, letter, frameId, targetId, kind === "frame" ? targetFrame : null);
     },
     null,
-    ".story-card[data-scene]",
-    "data-scene",
+    "[data-frame-drop]",
+    "data-frame-drop",
   );
   const visible = scenes;
   const pages = [...new Set(visible.map((scene) => scene.page))];
@@ -209,7 +219,7 @@ export function StoryboardBoard({
         </button>
       )}
       {dramaPanel}
-      {openFrame && (() => {
+      {openFrame && boardView === "frames" && (() => {
         const scene = scenes.find((item) => item.id === openFrame.sceneId);
         const frames = scene ? storyboardFrames(scene.settings) : [];
         const index = frames.findIndex((frame) => frame.id === openFrame.frameId);
@@ -221,13 +231,13 @@ export function StoryboardBoard({
             <strong>{label(scene)} · {index + 1}</strong>
             <button className="quiet-button story-frame-workspace__close" aria-label={tr("Закрыть редактор кадра", "Close frame editor")} onClick={() => setOpenFrame(null)}><X size={18}/></button>
           </header>
-          <div className="story-frame-workspace__canvas">{frames[index].image && <img src={frames[index].image} alt={tr("Выбранный кадр", "Selected frame")} />}</div>
+          <StoryboardCanvas key={`${scene.id}:${frames[index].id}`} scene={scene} frame={frames[index]} characters={characters} onChange={(frame) => onFrameChange(scene.id, frame)} onGenerate={(images) => onGenerateFrames(scene.id, scene.letter, images)} />
         </div>;
       })()}
       <div
         className="story-board-scroll"
         ref={viewport}
-        hidden={!!openFrame}
+        hidden={!!openFrame || boardView !== "frames"}
         onClick={(event) => {
           if (!event.target.closest("button, input, select, .story-card"))
             onSelect(null);
@@ -344,6 +354,7 @@ export function StoryboardBoard({
                                     scene.letter,
                                     frame.id,
                                   ])}
+                                  data-frame-drop={JSON.stringify(["frame", scene.id, frame.id])}
                                   {...(readonly ? {} : slideReorder)}
                                   draggable={false}
                                   aria-label={`${tr("Открыть слайд", "Open slide")} ${index + 1}`}
@@ -359,6 +370,7 @@ export function StoryboardBoard({
                                     alt=""
                                     draggable={false}
                                   />}
+                                  {!!frame.layers?.length && <svg className="story-card-slide__drawing" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">{frame.layers.filter(layer => layer.visible !== false).map(layer => <Shape key={layer.id} layer={layer} />)}</svg>}
                                   <small>{index + 1}</small>
                                 </button>
                               ),
@@ -387,6 +399,7 @@ export function StoryboardBoard({
           </button>
         )}
       </div>
+      {boardView === "shots" && <div className="story-shot-list"><table aria-label={tr("Список кадров", "Shots list")}><thead><tr>{[tr("Страница", "Page"), tr("Сцена", "Scene"), tr("Кадр", "Shot"), tr("Формат кадра", "Aspect ratio"), tr("Объектив", "Lens"), tr("Дата съёмок", "Shooting date"), tr("Длительность", "Duration"), tr("Статус", "Status")].map((name) => <th key={name}>{name}</th>)}</tr></thead><tbody>{scenes.flatMap((scene) => storyboardFrames(scene.settings).map((frame, index) => <tr key={`${scene.id}:${frame.id}`}><td>{scene.page}</td><td>{label(scene)} · {scene.title}</td><td><button onClick={() => { setBoardView("frames"); setOpenFrame({sceneId:scene.id,frameId:frame.id}); onFrameSelect(scene.id,frame.id); }}>{index + 1}</button></td><td>{scene.settings.aspectRatio || "—"}</td><td>{SHOT_FIELDS.find((f) => f.key === "lens")?.options.find(([value]) => value === scene.settings.lens)?.[getLanguage() === "en" ? 2 : 1] || "—"}</td><td>{scene.settings.shootingDate || "—"}</td><td>{frame.durationMs / 1000} s</td><td>{STORY_STATUSES.find(([value]) => value === scene.settings.status)?.[getLanguage() === "en" ? 2 : 1] || "—"}</td></tr>))}</tbody></table></div>}
       {context && !readonly && (
         <div className="story-context-menu" role="menu" style={{ left: context.x, top: context.y }}>
           {context.page ? <button role="menuitem" onClick={() => { onExportSelection({ page: context.page }); setContext(null); }}><Download size={16} />{tr("Экспорт кадров страницы", "Export page frames")}</button> : <>
@@ -404,7 +417,8 @@ export function StoryboardBoard({
       )}
       {pendingDelete && <div className="story-delete-pending" role="status"><LoaderCircle className="story-delete-pending__spinner" size={16} /><span>{tr("Удаление сцены…", "Deleting scene…")}</span><button onClick={() => { clearTimeout(deleteTimer.current); setPendingDelete(null); }}>{tr("Отменить", "Cancel")}</button></div>}
       <footer className="story-viewport-tools">
-        {!readonly && <button className="quiet-button" onClick={onUndo} aria-label={tr("Отменить изменение", "Undo change")} data-tooltip={tr("Отменить · Ctrl+Z", "Undo · Ctrl+Z")}><Undo2 size={18} /></button>}
+        <button className="quiet-button" aria-pressed={boardView === "frames"} onClick={() => setBoardView("frames")}>Frames</button>
+        <button className="quiet-button" aria-pressed={boardView === "shots"} onClick={() => { setOpenFrame(null); setBoardView("shots"); }}>Shots list</button>
         <div className="story-export-menu">
           <button
             className="quiet-button"
@@ -456,7 +470,7 @@ export function StoryboardBoard({
           <select
             aria-label={tr("Формат просмотра", "Viewport aspect ratio")}
             value={aspect}
-            onChange={(e) => setAspect(e.target.value)}
+            onChange={(e) => { setAspect(e.target.value); if (!readonly && e.target.value !== "scene") onAspectChange(e.target.value); }}
           >
             {["16:9", "9:16", "1:1", "2.39:1", "scene"].map((value) => (
               <option key={value} value={value}>
@@ -874,13 +888,16 @@ export function StoryboardInspector({
       <header className="story-inspector-top">
         <button
           className="quiet-button"
-          onClick={() =>
-            onView(view === "storyboard" ? "screenplay" : "storyboard")
-          }
+          onClick={() => {
+            if (view === "storyboard" && frameTarget?.frameId) {
+              window.dispatchEvent(new Event("tyter-close-frame"));
+              onSelect(scene.id);
+            } else onView(view === "storyboard" ? "screenplay" : "storyboard");
+          }}
         >
           <ArrowLeft size={17} />
           {view === "storyboard"
-            ? tr("Вернуться к сценарию", "Return to screenplay")
+            ? frameTarget?.frameId ? tr("Вернуться к раскадровке", "Return to storyboard") : tr("Вернуться к сценарию", "Return to screenplay")
             : tr("Посмотреть раскадровку", "View storyboard")}
         </button>
         <button

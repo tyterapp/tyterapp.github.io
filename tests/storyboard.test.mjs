@@ -20,6 +20,12 @@ import {
 } from "../src/storyboard-model.js";
 import { storyboardManifest } from "../src/storyboard-export.js";
 const image = "data:image/png;base64,aGVsbG8=";
+test("slides can be reordered within a scene without changing their contents", () => {
+  const doc = updateShotSettings(fixture(), "one", "A", { frames: [{id:"a",image,durationMs:1000},{id:"b",image,durationMs:2000}] });
+  const next = moveStoryboardFrame(doc, "one", "A", "a", "one", "b");
+  assert.deepEqual(next.sceneShots.one.A.frames.map((frame) => [frame.id, frame.durationMs]), [["b",2000],["a",1000]]);
+  assert.deepEqual(doc.sceneShots.one.A.frames.map((frame) => frame.id), ["a","b"]);
+});
 test("clipboard starts in an empty scene's first slot, appends to illustrated scenes and creates scenes at the document end", () => {
   let doc = updateShotSettings(fixture(), "one", "A", {
     frames: [{ id: "empty", image: "", durationMs: 1700, transition: "fade" }],
