@@ -108,6 +108,46 @@ export function addStoryboardScene(document) {
     id: heading.attrs.blockId,
   };
 }
+export function duplicateStoryboardScene(document, id) {
+  const range = sceneRange(document.content, id);
+  if (!range) return { document, id: null };
+  const newId = crypto.randomUUID();
+  const ids = new Map([[id, newId]]);
+  const copyBlocks = (blocks) => structuredClone(blocks).map((block, index) => {
+    const old = block.attrs?.blockId;
+    if (index && !ids.has(old)) ids.set(old, crypto.randomUUID());
+    block.attrs = { ...block.attrs, blockId: index ? ids.get(old) : newId };
+    for (const part of block.content || [])
+      if (part.marks) part.marks = part.marks.filter((mark) => mark.type !== "comment");
+    return block;
+  });
+  const blocks = copyBlocks(range.nodes);
+  const variants = document.sceneVariants?.[id];
+  const copiedVariants = variants && Object.fromEntries(
+    Object.entries(variants).map(([letter, nodes]) => [letter, copyBlocks(nodes)]),
+  );
+  const nodes = [...document.content.content];
+  nodes.splice(range.end, 0, ...blocks);
+  let next = withContent(document, nodes);
+  if (copiedVariants) next = { ...next, sceneVariants: { ...next.sceneVariants, [newId]: copiedVariants } };
+  if (document.sceneShots?.[id]) next = { ...next, sceneShots: { ...next.sceneShots, [newId]: structuredClone(document.sceneShots[id]) } };
+  return { document: next, id: newId };
+}
+export function deleteStoryboardScene(document, id) {
+  const range = sceneRange(document.content, id);
+  if (!range) return document;
+  const ids = new Set(range.nodes.map((node) => node.attrs?.blockId));
+  for (const blocks of Object.values(document.sceneVariants?.[id] || {}))
+    for (const block of blocks) ids.add(block.attrs?.blockId);
+  const nodes = document.content.content.filter((_, index) => index < range.start || index >= range.end);
+  if (!nodes.length) nodes.push(paragraph("scene"));
+  const sceneShots = { ...document.sceneShots }, sceneVariants = { ...document.sceneVariants };
+  delete sceneShots[id];
+  delete sceneVariants[id];
+  return { ...withContent(document, nodes), sceneShots, sceneVariants,
+    comments: (document.comments || []).filter((comment) => !ids.has(comment.blockId) && comment.sceneId !== id),
+  };
+}
 // Empty scenes start in their first slot; illustrated scenes append new slides.
 export function pasteStoryboardImages(document, images, sceneId, letter) {
   if (!images.length) return { document, id: sceneId };

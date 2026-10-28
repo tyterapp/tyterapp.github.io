@@ -120,10 +120,18 @@ async function frameCanvas(scene, frame) {
   }
   return canvas;
 }
-async function sequence(document, format) {
+export function storyboardExportScenes(document, { sceneId, page } = {}) {
+  return storyboardScenes(document).filter((scene) =>
+    (!sceneId || scene.id === sceneId) && (!page || scene.page === page),
+  );
+}
+async function sequence(document, format, scope = {}) {
   const files = {},
     manifest = storyboardManifest(document, { images: false });
-  for (const [sceneIndex, scene] of storyboardScenes(document).entries()) {
+  const scenes = storyboardExportScenes(document, scope);
+  const selectedIds = new Set(scenes.map((scene) => scene.id));
+  manifest.scenes = manifest.scenes.filter((scene) => selectedIds.has(scene.id));
+  for (const [sceneIndex, scene] of scenes.entries()) {
     for (const [index, frame] of storyboardFrames(scene.settings).entries()) {
       const canvas = await frameCanvas(scene, frame);
       const blob = await new Promise((resolve) =>
@@ -260,7 +268,7 @@ async function pdfStoryboard(document) {
   }
   return pdf.output("blob");
 }
-export async function exportStoryboard(document, format) {
+export async function exportStoryboard(document, format, scope = {}) {
   if (format === "html") {
     const { exportInstantHTML } = await import("./instant-html.js");
     return exportInstantHTML(document, { view: "storyboard" });
@@ -269,7 +277,7 @@ export async function exportStoryboard(document, format) {
     return new Blob([JSON.stringify(storyboardManifest(document), null, 2)], {
       type: "application/json",
     });
-  if (format === "png" || format === "webp") return sequence(document, format);
+  if (format === "png" || format === "webp") return sequence(document, format, scope);
   if (format === "pdf") return pdfStoryboard(document);
   throw new Error("Unknown storyboard format");
 }

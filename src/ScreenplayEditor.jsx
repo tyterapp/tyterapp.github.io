@@ -616,6 +616,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     components = [],
     comments = [],
     activeComment = null,
+    showCommentHighlights = true,
     onPageCount,
     revision = null,
     pageVersions = null,
@@ -721,6 +722,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
     comments,
     activeComment,
+    showCommentHighlights,
     revision,
     pageVersions,
     onRevisionPages,
@@ -976,7 +978,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                 class: "script-entity-disabled",
               }),
             );
-          if (minimal && node.isText) {
+          if (minimal && node.isText && propsRef.current.showCommentHighlights) {
             const marks = node.marks.filter(
               (mark) => mark.type.name === "comment",
             );
@@ -1538,6 +1540,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     searchCardIndex,
     comments,
     activeComment,
+    showCommentHighlights,
     props,
     activeProp,
     outlineCards,
@@ -2145,11 +2148,11 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           }) || ""
         );
       },
-      undo() {
-        return editor?.chain().focus().undo().run();
+      undo(focus = true) {
+        return focus ? editor?.chain().focus().undo().run() : editor?.commands.undo();
       },
-      redo() {
-        return editor?.chain().focus().redo().run();
+      redo(focus = true) {
+        return focus ? editor?.chain().focus().redo().run() : editor?.commands.redo();
       },
     }),
     [editor, fontSize, documentZoom],

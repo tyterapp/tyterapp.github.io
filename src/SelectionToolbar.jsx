@@ -250,9 +250,11 @@ export default function SelectionToolbar({
         (event.code === "KeyB" || key === "b") && event.shiftKey;
       const createComment =
         (event.code === "KeyQ" || key === "q") && !event.shiftKey;
+      const createLink =
+        (event.code === "KeyK" || key === "k") && !event.shiftKey && !plainOnly && !!onPasteComponentUrl;
       if (
         !minimal ||
-        (!createComponent && !createComment && !boldAlias) ||
+        (!createComponent && !createComment && !boldAlias && !createLink) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         (!editor.isFocused &&
@@ -265,6 +267,13 @@ export default function SelectionToolbar({
       event.preventDefault();
       event.stopPropagation();
       if (event.repeat) return;
+      if (createLink) {
+        dismissedRef.current = null;
+        setLinkSource({ ...source, hasLink: editor.isActive("link") });
+        setUrl(editor.getAttributes("link").href || "");
+        scheduleUpdate();
+        return;
+      }
       if (boldAlias) {
         if (!plainOnly) editor.chain().focus().toggleBold().run();
         return;
@@ -300,7 +309,7 @@ export default function SelectionToolbar({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keydown", onComponentShortcut, true);
     };
-  }, [editor, disabled, minimal, plainOnly]);
+  }, [editor, disabled, minimal, plainOnly, onPasteComponentUrl]);
   const createFromSelection = (callback) => {
     const source = selectedSource(editor);
     if (!source) return;
@@ -410,6 +419,7 @@ export default function SelectionToolbar({
         <button
           type="button"
           aria-label={t("Добавить ссылку")}
+          aria-keyshortcuts="Control+K Meta+K"
           data-tooltip={t("Добавить ссылку")}
           onClick={() => {
             setLinkSource({

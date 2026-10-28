@@ -51,6 +51,8 @@ import {
   storyboardScenes,
   moveStoryboardScene,
   addStoryboardScene,
+  duplicateStoryboardScene,
+  deleteStoryboardScene,
   changeSceneBlock,
   addSceneBlock,
   removeSceneBlock,
@@ -893,6 +895,7 @@ export default function MinimalApp({ onLogout }) {
   const [annotations, setAnnotations] = useState(null);
   const [propDialog, setPropDialog] = useState(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentHighlights, setCommentHighlights] = useState(true);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [doctorOpen, setDoctorOpen] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
@@ -1931,8 +1934,8 @@ export default function MinimalApp({ onLogout }) {
           !event.target.closest(".tiptap")
         ) {
           event.preventDefault();
-          if (undo) editor?.undo();
-          else editor?.redo();
+          if (undo) editor?.undo(view !== "storyboard");
+          else editor?.redo(view !== "storyboard");
         }
         return;
       }
@@ -1978,7 +1981,7 @@ export default function MinimalApp({ onLogout }) {
     };
     document.addEventListener("keydown", onUndoRedo, true);
     return () => document.removeEventListener("keydown", onUndoRedo, true);
-  }, [activeId, writingScope, notesOpen]);
+  }, [activeId, writingScope, notesOpen, view]);
   const switchDocument = (doc, { keepSearch = false } = {}) => {
     setLearningOpen(false);
     setNotesOpen(false);
@@ -2249,6 +2252,16 @@ export default function MinimalApp({ onLogout }) {
     const keyboard = (event) => {
       if (event.isComposing) return;
       if (document.querySelector("dialog.daily-quest-overlay[open]")) return;
+      if (event.shiftKey && (event.ctrlKey || event.metaKey) && !event.altKey &&
+          event.code === "KeyC" && !event.repeat &&
+          !(event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not(.tiptap):not(.screenplay-editor):not([contenteditable="false"])')) &&
+          !document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommentHighlights(!commentHighlights);
+        setMessage(commentHighlights ? "Подсветка комментариев скрыта" : "Подсветка комментариев включена");
+        return;
+      }
       if (
         (event.ctrlKey || event.metaKey) &&
         !event.altKey &&
@@ -2316,7 +2329,7 @@ export default function MinimalApp({ onLogout }) {
     };
     document.addEventListener("keydown", keyboard, true);
     return () => document.removeEventListener("keydown", keyboard, true);
-  }, [showSidebar, closeTour, changeView, view, tourOpen, deleting]);
+  }, [showSidebar, closeTour, changeView, view, tourOpen, deleting, commentHighlights]);
   const openLocalFolder = async () => {
     if (usesBrowserLibrary()) {
       try {
@@ -3541,19 +3554,7 @@ export default function MinimalApp({ onLogout }) {
               </div>
             )}
             <div className="workspace-tools-scroll">
-              {mobile && view === "storyboard" && !!documents.length && (
-                <button
-                  className={`icon-button components-toggle${componentsOpen ? " active" : ""}`}
-                  aria-label={t("Компоненты")}
-                  aria-expanded={componentsOpen}
-                  onClick={() =>
-                    showSidebar(componentsOpen ? null : "components")
-                  }
-                >
-                  <Shapes size={17} />
-                </button>
-              )}
-              {view === "screenplay" && !!documents.length && (
+              {!!documents.length && (
                 <div className="workspace-tools-primary">
                   <button
                     className={`icon-button${searchOpen ? " active" : ""}`}
@@ -3575,7 +3576,7 @@ export default function MinimalApp({ onLogout }) {
                   >
                     <ChartNoAxesColumn size={17} />
                   </button>
-                  {writingTimer.hasDoctor && (
+                  {view === "screenplay" && writingTimer.hasDoctor && (
                     <button
                       className={`icon-button script-doctor-toggle${doctorOpen ? " active" : ""}`}
                       aria-label={t("Доктор сценария")}
@@ -3762,6 +3763,38 @@ export default function MinimalApp({ onLogout }) {
               });
             }}
             onMoveFrame={moveFrameToScene}
+            onUndo={() => editorRef.current?.undo(false)}
+            onAddFrame={(id) => {
+              const frame = newFrame();
+              applyStoryboardEdit((doc) => {
+                const letter = sceneLetter(sceneRange(doc.content, id)?.nodes[0]);
+                const frames = storyboardFrames(doc.sceneShots?.[id]?.[letter]);
+                if (frames.length >= 200) return doc;
+                return updateShotSettings(doc, id, letter, { frames: [...frames, frame] });
+              });
+              return frame.id;
+            }}
+            onExportSelection={async (scope) => {
+              try {
+                const blob = await exportStoryboard(current, "png", scope);
+                saveBlob(blob, `${current.title} — ${scope.page ? `${t("Страница")} ${scope.page}` : t("Кадры сцены")}`, "zip");
+              } catch {
+                setMessage("Не удалось сохранить файл. Попробуйте ещё раз.");
+              }
+            }}
+            onDuplicate={(id) => {
+              let copiedId;
+              applyStoryboardEdit((doc) => {
+                const result = duplicateStoryboardScene(doc, id);
+                copiedId = result.id;
+                return result.document;
+              });
+              if (copiedId) selectStoryboardScene(copiedId);
+            }}
+            onDelete={(id) => {
+              applyStoryboardEdit((doc) => deleteStoryboardScene(doc, id));
+              if (shotTarget === id) showSidebar(null);
+            }}
             onMove={(id, target) =>
               applyStoryboardEdit((doc) => moveStoryboardScene(doc, id, target))
             }
@@ -4128,6 +4161,7 @@ export default function MinimalApp({ onLogout }) {
                       ) === reference.variant
                     );
                   })}
+                  showCommentHighlights={commentHighlights}
                   activeComment={commentsOpen ? activeComment : null}
                   onPageCount={setPageCount}
                   onRevisionPages={changeRevisionPages}

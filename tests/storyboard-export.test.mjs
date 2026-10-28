@@ -7,6 +7,7 @@ import {
   storyboardManifest,
   exportStoryboard,
   exportScreenplayJSON,
+  storyboardExportScenes,
 } from "../src/storyboard-export.js";
 
 const p = (id, text, sceneVariant = "A") => ({
@@ -15,6 +16,12 @@ const p = (id, text, sceneVariant = "A") => ({
   ...(text ? { content: [{ type: "text", text }] } : {}),
 });
 const image = "data:image/png;base64,aGVsbG8=";
+test("scene and page exports retain the original scene numbers and only include the requested scenes", () => {
+  const doc = fixture();
+  assert.deepEqual(storyboardExportScenes(doc, { sceneId: "two" }).map((s) => [s.id, s.number, s.page]), [["two", 2, 2]]);
+  assert.deepEqual(storyboardExportScenes(doc, { page: 1 }).map((s) => s.id), ["one"]);
+  assert.deepEqual(storyboardExportScenes(doc, { page: 2 }).map((s) => s.id), ["two", "three"]);
+});
 function fixture() {
   const doc = createProject("All scenes");
   doc.content.content = [

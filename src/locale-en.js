@@ -441,6 +441,10 @@ export default {
   "Ctrl+Alt+1 — сценарий · Ctrl+Alt+2 — аутлайн · TYT сохраняет оба режима.":
     "Ctrl+Alt+1 — screenplay · Ctrl+Alt+2 — outline · TYT saves both views.",
   "Ctrl + клик": "Ctrl + click",
+  "Добавить ссылку к выделенному тексту": "Add a link to selected text",
+  "Показать или скрыть подсветку комментариев": "Show or hide comment highlights",
+  "Подсветка комментариев скрыта": "Comment highlights hidden",
+  "Подсветка комментариев включена": "Comment highlights shown",
   "Ctrl + колесо мыши": "Ctrl + mouse wheel",
   "Ctrl + колесо мыши на листе": "Ctrl + mouse wheel over the page",
   "Ctrl+B — жирный · Ctrl+I — курсив · Ctrl+U — подчёркивание":

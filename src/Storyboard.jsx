@@ -12,6 +12,10 @@ import {
   MessageSquare,
   Download,
   Play,
+  Copy,
+  Undo2,
+  LoaderCircle,
+  Sparkles,
 } from "lucide-react";
 import { getLanguage, t, useLanguage } from "./i18n.js";
 import {
@@ -111,6 +115,11 @@ export function StoryboardBoard({
   onMove,
   onAdd,
   onExport,
+  onDuplicate,
+  onDelete,
+  onUndo,
+  onExportSelection,
+  onAddFrame,
   readonly = false,
   dramaPanel,
   onOpenDrama,
@@ -125,6 +134,11 @@ export function StoryboardBoard({
   const [comments, setComments] = useState(false);
   const [exports, setExports] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [context, setContext] = useState(null);
+  const [openFrame, setOpenFrame] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const deleteTimer = useRef(null);
+  useEffect(() => () => clearTimeout(deleteTimer.current), []);
   const viewport = useRef(null);
   useStoryboardZoom(viewport, zoom, setZoom);
   const reorder = useLongPressReorder(
@@ -162,11 +176,13 @@ export function StoryboardBoard({
   useEffect(() => {
     const close = (event) => {
       if (!event.target.closest(".story-export-menu")) setExports(false);
+      if (!event.target.closest(".story-context-menu")) setContext(null);
     };
     const escape = (event) => {
       if (event.key === "Escape") {
         setFullscreen(false);
         setExports(false);
+        setContext(null);
       }
     };
     document.addEventListener("pointerdown", close);
@@ -193,9 +209,25 @@ export function StoryboardBoard({
         </button>
       )}
       {dramaPanel}
+      {openFrame && (() => {
+        const scene = scenes.find((item) => item.id === openFrame.sceneId);
+        const frames = scene ? storyboardFrames(scene.settings) : [];
+        const index = frames.findIndex((frame) => frame.id === openFrame.frameId);
+        if (!scene || index < 0) return null;
+        return <div className="story-frame-workspace">
+          <header className="story-frame-workspace__header">
+            <button className="quiet-button" aria-label={tr("Предыдущий кадр", "Previous frame")} disabled={index === 0} onClick={() => { const frame = frames[index - 1]; setOpenFrame({sceneId: scene.id, frameId: frame.id}); onFrameSelect(scene.id, frame.id); }}><ArrowLeft size={18}/></button>
+            <button className="quiet-button" aria-label={tr("Следующий кадр", "Next frame")} disabled={index === frames.length - 1} onClick={() => { const frame = frames[index + 1]; setOpenFrame({sceneId: scene.id, frameId: frame.id}); onFrameSelect(scene.id, frame.id); }}><ArrowRight size={18}/></button>
+            <strong>{label(scene)} · {index + 1}</strong>
+            <button className="quiet-button story-frame-workspace__close" aria-label={tr("Закрыть редактор кадра", "Close frame editor")} onClick={() => setOpenFrame(null)}><X size={18}/></button>
+          </header>
+          <div className="story-frame-workspace__canvas">{frames[index].image && <img src={frames[index].image} alt={tr("Выбранный кадр", "Selected frame")} />}</div>
+        </div>;
+      })()}
       <div
         className="story-board-scroll"
         ref={viewport}
+        hidden={!!openFrame}
         onClick={(event) => {
           if (!event.target.closest("button, input, select, .story-card"))
             onSelect(null);
@@ -222,6 +254,11 @@ export function StoryboardBoard({
             className="story-page-group"
             key={page}
             aria-label={t("Страница {0}", page)}
+            onContextMenu={(event) => {
+              if (readonly || event.target.closest('.story-card')) return;
+              event.preventDefault();
+              setContext({ page, x: Math.max(8, Math.min(event.clientX, window.innerWidth - 220)), y: Math.max(8, Math.min(event.clientY, window.innerHeight - 200)) });
+            }}
           >
             <div className="story-page-label">
               <button
@@ -265,6 +302,12 @@ export function StoryboardBoard({
                     data-scene={scene.id}
                     data-frame-drop={JSON.stringify(["scene", scene.id])}
                     {...(readonly ? {} : reorder)}
+                    onContextMenu={(event) => {
+                      if (readonly) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setContext({ id: scene.id, x: Math.max(8, Math.min(event.clientX, window.innerWidth - 220)), y: Math.max(8, Math.min(event.clientY, window.innerHeight - 200)) });
+                    }}
                     draggable={false}
                   >
                     <button
@@ -277,25 +320,22 @@ export function StoryboardBoard({
                         onSelect(scene.id);
                       }}
                     >
-                      <StoryboardImage scene={scene} ratio={ratio} />
                       <span className="story-card-caption">
                         <strong>{label(scene)}</strong>
                         <span title={scene.title}>
                           {scene.title || t("Без названия")}
                         </span>
+                        <small>{storyboardFrames(scene.settings).length} {tr("кадров", "shots")}</small>
                       </span>
                     </button>
-                    {selectedId === scene.id &&
-                      storyboardFrames(scene.settings).some(
-                        (frame) => frame.image,
-                      ) && (
+                    {(
                         <div
                           className="story-card-slides"
                           aria-label={tr("Слайды сцены", "Scene slides")}
                         >
                           {storyboardFrames(scene.settings).map(
                             (frame, index) =>
-                              frame.image && (
+                              (
                                 <button
                                   key={frame.id}
                                   className="story-card-slide"
@@ -311,19 +351,19 @@ export function StoryboardBoard({
                                     "Перетащите на другую сцену",
                                     "Drag onto another scene",
                                   )}
-                                  onClick={() =>
-                                    onFrameSelect(scene.id, frame.id)
-                                  }
+                                  onClick={() => { onFrameSelect(scene.id, frame.id); setOpenFrame({ sceneId: scene.id, frameId: frame.id }); }}
+                                  style={{ aspectRatio: ratio || shotAspectRatio(scene.settings.aspectRatio) || 16 / 9 }}
                                 >
-                                  <img
+                                  {frame.image && <img
                                     src={frame.image}
                                     alt=""
                                     draggable={false}
-                                  />
+                                  />}
                                   <small>{index + 1}</small>
                                 </button>
                               ),
                           )}
+                          {!readonly && <button className="story-card-add-frame" style={{ aspectRatio: ratio || 16 / 9 }} onClick={() => { const frameId = onAddFrame(scene.id); if (frameId) { onFrameSelect(scene.id, frameId); setOpenFrame({ sceneId: scene.id, frameId }); } }}><Plus size={22}/><span>{tr("Добавить кадр", "Add shot")}</span></button>}
                         </div>
                       )}
                     {comments && scene.settings.frameComment && (
@@ -347,7 +387,24 @@ export function StoryboardBoard({
           </button>
         )}
       </div>
+      {context && !readonly && (
+        <div className="story-context-menu" role="menu" style={{ left: context.x, top: context.y }}>
+          {context.page ? <button role="menuitem" onClick={() => { onExportSelection({ page: context.page }); setContext(null); }}><Download size={16} />{tr("Экспорт кадров страницы", "Export page frames")}</button> : <>
+          <button role="menuitem" onClick={() => { onDuplicate(context.id); setContext(null); }}><Copy size={16} />{tr("Дублировать", "Duplicate")}</button>
+          <button role="menuitem" onClick={() => { onFrameSelect(context.id, null); setContext(null); }}><ImagePlus size={16} />{tr("Кадры сцены", "Scene frames")}</button>
+          <button role="menuitem" onClick={() => { onExportSelection({ sceneId: context.id }); setContext(null); }}><Download size={16} />{tr("Экспорт кадров сцены", "Export scene frames")}</button>
+          <button role="menuitem" className="story-context-menu__delete" onClick={() => {
+            const id = context.id;
+            clearTimeout(deleteTimer.current);
+            setPendingDelete(id);
+            setContext(null);
+            deleteTimer.current = setTimeout(() => { onDelete(id); setPendingDelete(null); }, 5000);
+          }}><Trash2 size={16} />{tr("Удалить", "Delete")}</button></>}
+        </div>
+      )}
+      {pendingDelete && <div className="story-delete-pending" role="status"><LoaderCircle className="story-delete-pending__spinner" size={16} /><span>{tr("Удаление сцены…", "Deleting scene…")}</span><button onClick={() => { clearTimeout(deleteTimer.current); setPendingDelete(null); }}>{tr("Отменить", "Cancel")}</button></div>}
       <footer className="story-viewport-tools">
+        {!readonly && <button className="quiet-button" onClick={onUndo} aria-label={tr("Отменить изменение", "Undo change")} data-tooltip={tr("Отменить · Ctrl+Z", "Undo · Ctrl+Z")}><Undo2 size={18} /></button>}
         <div className="story-export-menu">
           <button
             className="quiet-button"
@@ -378,6 +435,7 @@ export function StoryboardBoard({
                   </small>
                 </button>
               ))}
+              <button disabled aria-label={tr("Генерация аниматика — в разработке", "Animatic generation — coming soon")}><Sparkles size={18} /><span><strong>{tr("Генерация аниматика", "Generate animatic")}</strong><small>{tr("В разработке", "Coming soon")}</small></span><small>AI</small></button>
             </div>
           )}
         </div>
@@ -390,7 +448,8 @@ export function StoryboardBoard({
           <MessageSquare size={18} />
           {t("Комментарии")}
         </button>
-        <label>
+        <label className="story-aspect-control">
+          <Crop size={16} aria-hidden="true" /> Aspect ratio
           <span className="sr-only">
             {tr("Формат просмотра", "Viewport aspect ratio")}
           </span>
