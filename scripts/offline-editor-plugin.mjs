@@ -35,6 +35,7 @@ export function offlineEditorPlugin() {
         "oiia",
         "tikitok",
         "telegraph",
+        "typewriter",
       ]) {
         try {
           await collect(directory);

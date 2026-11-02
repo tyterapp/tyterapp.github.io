@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Play, Pause, X } from "lucide-react";
 import { getLanguage, useLanguage } from "./i18n.js";
-import { storyboardFrames, frameDuration } from "./storyboard-data.js";
+import { storyboardFrames, frameDuration, frameHasContent } from "./storyboard-data.js";
 import { shotAspectRatio } from "./shot-image.js";
+import { Shape } from "./StoryboardCanvas.jsx";
 const tr = (ru, en) => (getLanguage() === "en" ? en : ru);
 export default function StoryboardPlayer({ scenes, page, onClose }) {
   useLanguage();
@@ -18,7 +19,7 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
     .filter((scene) => scene.page === activePage)
     .flatMap((scene) =>
       storyboardFrames(scene.settings)
-        .filter((frame) => frame.image)
+        .filter(frameHasContent)
         .map((frame) => ({ scene, frame })),
     );
   const current = frames[index];
@@ -139,7 +140,7 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
             shotAspectRatio(current?.scene.settings.aspectRatio) || 16 / 9,
         }}
       >
-        {current && (
+        {current?.frame.image && (
           <img
             key={`${current.scene.id}:${current.frame.id}`}
             src={current.frame.image}
@@ -149,6 +150,9 @@ export default function StoryboardPlayer({ scenes, page, onClose }) {
             alt={`${tr("Сцена", "Scene")} ${current.scene.number} ${current.scene.letter}`}
           />
         )}
+        {current && <svg className={current.frame.transition === "fade" ? "story-image-fade" : ""} key={`${current.scene.id}:${current.frame.id}:layers`} viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={tr("Рисунок кадра", "Frame drawing")}>
+          {(current.frame.layers || []).filter((layer) => layer.visible !== false).map((layer) => <Shape key={layer.id} layer={layer} />)}
+        </svg>}
         {!current && (
           <p>
             {tr(

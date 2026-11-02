@@ -15,6 +15,7 @@ export default function DocumentSearch({
   index,
   onSelect,
   onClose,
+  scopeControl,
 }) {
   const language = useLanguage();
   const input = useRef(null),
@@ -42,6 +43,7 @@ export default function DocumentSearch({
           <X size={18} />
         </button>
       </div>
+      {scopeControl}
       <label className="sidebar-search">
         <Search size={15} />
         <input

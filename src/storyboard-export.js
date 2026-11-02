@@ -68,6 +68,8 @@ export function storyboardManifest(document, { images = true } = {}) {
         durationMs: frame.durationMs,
         transition: frame.transition,
         ...(images ? { image: frame.image || null } : {}),
+        ...(frame.layers ? { layers: structuredClone(frame.layers).map((layer) => images || layer.type !== "image" ? layer : { ...layer, image: undefined }) } : {}),
+        ...(frame.comments ? { comments: structuredClone(frame.comments) } : {}),
       })),
     })),
   };
@@ -122,6 +124,13 @@ async function frameCanvas(scene, frame) {
     if (layer.visible === false || !layer.points?.length) continue;
     const points = layer.points.map(([x, y]) => [x * canvas.width, y * canvas.height]);
     const first = points[0], last = points.at(-1);
+    if (layer.type === "image") {
+      const image = await createImageBitmap(await (await fetch(layer.image)).blob());
+      try {
+        context.drawImage(image, Math.min(first[0], last[0]), Math.min(first[1], last[1]), Math.abs(last[0] - first[0]), Math.abs(last[1] - first[1]));
+      } finally { image.close(); }
+      continue;
+    }
     context.beginPath();
     context.strokeStyle = layer.color;
     context.lineWidth = layer.width;

@@ -1,7 +1,7 @@
 import { shotScenes, shotText, updateShotSettings } from "./shot-info.js";
 import { sceneRange, sceneLetter } from "./scene-variants.js";
 import { rebasePageVersionContent } from "./page-versions.js";
-import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { storyboardFrames, newFrame, frameHasContent } from "./storyboard-data.js";
 
 const paragraph = (format, text = "") => ({
   type: "paragraph",
@@ -169,7 +169,7 @@ export function pasteStoryboardImages(document, images, sceneId, letter) {
     ...storyboardFrames(document.sceneShots?.[sceneId]?.[letter]),
   ];
   const remaining = [...images];
-  if (!frames.some((frame) => frame.image))
+  if (!frames.some(frameHasContent))
     for (let index = 0; index < frames.length && remaining.length; index++)
       frames[index] = { ...frames[index], image: remaining.shift() };
   if (frames.length + remaining.length > 200)

@@ -60,3 +60,21 @@ test("offline cache does not hide the original build error when no output was wr
     assert.equal(existsSync(path.join(root, "dist/editor-sw.js")), false);
   } finally { await clean(root); }
 });
+
+test("offline resource list includes typewriter art and changes version when its bytes change", async () => {
+  const root = await temp();
+  try {
+    await mkdir(path.join(root, "public/typewriter"), { recursive: true });
+    await writeFile(path.join(root, "index.html"), "<html><body>fixture</body></html>");
+    const asset = path.join(root, "public/typewriter/lamp.svg");
+    await writeFile(asset, '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const config = { configFile: false, root, logLevel: "silent", plugins: [offlineEditorPlugin()] };
+    await build(config);
+    const first = await readFile(path.join(root, "dist/editor-sw.js"), "utf8");
+    assert.match(first, /\/typewriter\/lamp\.svg/);
+    await writeFile(asset, '<svg xmlns="http://www.w3.org/2000/svg"><title>Lamp</title></svg>');
+    await build(config);
+    const second = await readFile(path.join(root, "dist/editor-sw.js"), "utf8");
+    assert.notEqual(first.split("\n")[0], second.split("\n")[0]);
+  } finally { await clean(root); }
+});

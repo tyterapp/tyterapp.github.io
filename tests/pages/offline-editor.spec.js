@@ -44,6 +44,7 @@ test("the installed editor reloads offline, keeps document changes and loads the
   });
   expect(cachedUrls.some((url) => url.includes("codes-for-pro"))).toBe(false);
   expect(cachedUrls.some((url) => url.includes("/oiia/house.png"))).toBe(true);
+  expect(cachedUrls.some((url) => url.includes("/typewriter/"))).toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator(".screenplay-editor")).toBeVisible();

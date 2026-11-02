@@ -1,5 +1,22 @@
 import { isHistoryTransaction } from "@tiptap/pm/history";
 import { ReplaceStep } from "@tiptap/pm/transform";
+import { getWordCount } from "./data.js";
+
+const screenplayWordTotals = new WeakMap();
+
+// Immutable ProseMirror nodes survive edits elsewhere in the screenplay. Reuse
+// their totals instead of converting both complete documents to JSON per key.
+export function screenplayWordCount(doc) {
+  if (screenplayWordTotals.has(doc)) return screenplayWordTotals.get(doc);
+  let total = 0;
+  doc.forEach((node) => {
+    if (!screenplayWordTotals.has(node))
+      screenplayWordTotals.set(node, getWordCount({ content: [node.toJSON()] }));
+    total += screenplayWordTotals.get(node);
+  });
+  screenplayWordTotals.set(doc, total);
+  return total;
+}
 
 export const committedCharacters = (text) => {
   let count = 0;

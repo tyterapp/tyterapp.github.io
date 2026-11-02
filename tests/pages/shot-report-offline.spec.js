@@ -51,6 +51,7 @@ test("XLSX shot report can load its exporter for the first time offline", async 
   ).toBe(false);
   await context.setOffline(true);
   await page.locator(".scene-shot-button").first().click();
+  await page.locator(".story-inspector").getByRole("tab", { name: "Инфо", exact: true }).click();
   const drawer = page.locator(".shot-info-drawer");
   await selectAppOption(
     page,

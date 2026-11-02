@@ -23,8 +23,11 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import SelectionToolbar from "./SelectionToolbar.jsx";
 import Suggestions from "./Suggestions.jsx";
 import { quoteDiff } from "./comment-review.js";
-import { getWordCount } from "./data.js";
-import { committedCharacters, writtenCharacters } from "./writing-activity.js";
+import {
+  committedCharacters,
+  writtenCharacters,
+  screenplayWordCount,
+} from "./writing-activity.js";
 import { useScreenplayPagination } from "./pagination.js";
 import { canonicalScreenplayPages } from "./canonical-pages.js";
 import { preparePageBurn } from "./burning-page.js";
@@ -55,7 +58,8 @@ import {
 import { SCENE_VARIANTS, sceneLetter } from "./scene-variants.js";
 import { hasShotSettings, shotSettings } from "./shot-info.js";
 import { shotAspectRatio } from "./shot-image.js";
-import { storyboardFrames, playSlides } from "./storyboard-data.js";
+import { storyboardFrames, playSlides, frameHasContent } from "./storyboard-data.js";
+import { renderStoryboardThumbnail } from "./storyboard-thumbnail.js";
 import { SelectMenu } from "./AppSelect.jsx";
 import { commentColor, commentStyle } from "./comment-options.js";
 import {
@@ -729,7 +733,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   };
   const lastEmitted = useRef(null);
   const writingComposition = useRef({});
-  const lastReceived = useRef(JSON.stringify(content));
+  const lastReceived = useRef(content);
   const searchScrollFrame = useRef(null);
   const navigationFlash = useRef(null);
   const navigationFlashTimer = useRef(null);
@@ -826,6 +830,45 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           }
         }
         return pasteIntoScreenplayScene(view, slice);
+      },
+      handleDrop: (view, event) => {
+        if (
+          plainOnly ||
+          !event.dataTransfer?.types.includes("application/x-tyter-component")
+        )
+          return false;
+        event.preventDefault();
+        let payload;
+        try {
+          payload = JSON.parse(
+            event.dataTransfer.getData("application/x-tyter-component"),
+          );
+        } catch {
+          return true;
+        }
+        const component = propsRef.current.components.find(
+          (item) => item.id === payload?.id && item.enabled !== false,
+        );
+        const position = view.posAtCoords({
+          left: event.clientX,
+          top: event.clientY,
+        });
+        if (!component?.name?.trim() || !position) return true;
+        const mark = view.state.schema.marks.entity.create({
+          id: component.id,
+          color: component.color || "#8a799a",
+        });
+        const text = view.state.schema.text(component.name.trim(), [mark]);
+        const transaction = closeHistory(view.state.tr).insert(position.pos, text);
+        transaction.setSelection(
+          TextSelection.create(transaction.doc, position.pos + text.nodeSize),
+        );
+        transaction.removeStoredMark(view.state.schema.marks.entity);
+        transaction.setMeta("uiEvent", "drop").scrollIntoView();
+        view.dispatch(transaction);
+        view.dispatch(closeHistory(view.state.tr));
+        view.focus();
+        return true;
       },
       attributes: {
         class: "screenplay-editor",
@@ -1064,8 +1107,9 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                     pos + 1,
                     () => {
                       const button = document.createElement("button");
+                      const firstFrame = storyboardFrames(shot).find(frameHasContent);
                       button.type = "button";
-                      button.className = `scene-shot-button${shot.image ? " has-thumbnail" : ""}`;
+                      button.className = `scene-shot-button${firstFrame ? " has-thumbnail" : ""}`;
                       button.contentEditable = "false";
                       const configured = hasShotSettings(shot);
                       button.dataset.configured = String(configured);
@@ -1083,7 +1127,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                           propsRef.current.activeShot === node.attrs.blockId,
                         ),
                       );
-                      if (shot.image) {
+                      if (firstFrame) {
                         const frame = document.createElement("span");
                         frame.className = "scene-shot-thumbnail";
                         const ratio = shotAspectRatio(shot.aspectRatio);
@@ -1094,10 +1138,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                             ratio,
                           );
                         }
-                        const image = document.createElement("img");
-                        image.src = shot.image;
-                        image.alt = "";
-                        image.draggable = false;
+                        renderStoryboardThumbnail(frame, firstFrame);
                         frame.setAttribute("aria-hidden", "true");
                         let stop;
                         button.addEventListener("mouseenter", () => {
@@ -1105,7 +1146,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                           stop = playSlides(
                             shot,
                             (slide) => {
-                              image.src = slide.image;
+                              renderStoryboardThumbnail(frame, slide);
                             },
                             () => button.isConnected,
                           );
@@ -1113,13 +1154,12 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
                         button.stopStorySlides = () => {
                           stop?.();
                           stop = null;
-                          image.src = shot.image;
+                          renderStoryboardThumbnail(frame, firstFrame);
                         };
                         button.addEventListener(
                           "mouseleave",
                           button.stopStorySlides,
                         );
-                        frame.append(image);
                         button.append(frame);
                       } else {
                         const icon = document.createElement("span");
@@ -1357,7 +1397,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
     onUpdate({ editor: updatedEditor, transaction }) {
       rememberCaret(updatedEditor);
       const json = updatedEditor.getJSON();
-      lastEmitted.current = JSON.stringify(json);
+      lastEmitted.current = json;
       const anchors = {};
       for (const comment of propsRef.current.comments || []) {
         let anchor = comment.anchor;
@@ -1388,7 +1428,8 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           )
           ? {
               wordDelta:
-                getWordCount(json) - getWordCount(transaction.before.toJSON()),
+                screenplayWordCount(updatedEditor.state.doc) -
+                screenplayWordCount(transaction.before),
             }
           : undefined,
         transaction.mapping,
@@ -1502,19 +1543,19 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
   }, [editor, components, componentScenes]);
   useEffect(() => {
     if (!editor || !content) return;
-    const serialized = JSON.stringify(content);
-    if (serialized === lastReceived.current) return;
-    lastReceived.current = serialized;
+    if (content === lastReceived.current) return;
+    lastReceived.current = content;
+    if (content === lastEmitted.current) return;
+    const normalized = normalizeContent(content);
     if (
-      serialized === lastEmitted.current ||
-      serialized === JSON.stringify(editor.getJSON())
+      editor.schema.nodeFromJSON(normalized).eq(editor.state.doc)
     )
       return;
     const caret = captureCaret(editor.state);
     const storedMarks = editor.state.storedMarks;
     editor
       .chain()
-      .setContent(normalizeContent(content), {
+      .setContent(normalized, {
         emitUpdate: false,
       })
       .command(({ tr }) => {
@@ -2052,7 +2093,7 @@ const ScreenplayEditor = forwardRef(function ScreenplayEditor(
           })
           .run();
         rememberCaret(editor);
-        lastReceived.current = JSON.stringify(editor.getJSON());
+        lastReceived.current = content;
         lastEmitted.current = lastReceived.current;
         propsRef.current.onSelection?.(selectionInfo(editor));
       },

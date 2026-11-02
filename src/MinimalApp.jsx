@@ -1,6 +1,6 @@
 import { t, useLanguage, languageLocale } from "./i18n.js";
 import LanguageSwitch from "./LanguageSwitch.jsx";
-import StoryDramaPanel from "./StoryDramaPanel.jsx";
+import StoryDramaPanel, { StoryDramaIcon } from "./StoryDramaPanel.jsx";
 import AppSelect from "./AppSelect.jsx";
 import {
   useCallback,
@@ -61,7 +61,7 @@ import {
   pasteStoryboardImages,
   moveStoryboardFrame,
 } from "./storyboard-model.js";
-import { storyboardFrames, newFrame } from "./storyboard-data.js";
+import { storyboardFrames, newFrame, frameHasContent } from "./storyboard-data.js";
 import { useScreenplaySceneDrag } from "./useScreenplaySceneDrag.js";
 import { componentUrl } from "./component-url.js";
 import {
@@ -84,6 +84,9 @@ import AnnotationsPanel from "./AnnotationsPanel.jsx";
 import { documentFont, documentFontStyles } from "./document-fonts.js";
 import { CommentsPanel, Onboarding } from "./EditorPanels.jsx";
 import DocumentSearch from "./DocumentSearch.jsx";
+import StoryboardSearch from "./StoryboardSearch.jsx";
+import { storyboardSearchScenes } from "./storyboard-search.js";
+import { historySnapshotChanged } from "./history-change-detection.js";
 import DocumentSettings, { ExportSettings } from "./DocumentSettings.jsx";
 import SubscriptionDialog from "./SubscriptionDialog.jsx";
 import { IS_PRO as BUILD_IS_PRO, useEdition } from "./edition.js";
@@ -875,11 +878,10 @@ export default function MinimalApp({ onLogout }) {
   const [storyFrameTarget, setStoryFrameTarget] = useState(null);
   const shots = useMemo(
     () =>
-      mobile && view !== "storyboard" && !dramaOpen && !shotTarget
+      view !== "storyboard" && !dramaOpen && !shotTarget
         ? []
         : storyboardScenes(current),
     [
-      mobile,
       view,
       dramaOpen,
       shotTarget,
@@ -916,6 +918,7 @@ export default function MinimalApp({ onLogout }) {
   const commentPreview = useRef(null);
   const pendingCommentFocus = useRef(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchScope, setSearchScope] = useState("screenplay");
   const [searchText, setSearchText] = useState("");
   const [searchFormat, setSearchFormat] = useState("all");
   const [searchIndex, setSearchIndex] = useState(0);
@@ -950,6 +953,7 @@ export default function MinimalApp({ onLogout }) {
       if (notesOpen && ["doctor", "quests"].includes(kind)) setNotesOpen(false);
       notesRef.current?.openTool(noteTool ? kind : null);
       setSearchOpen(kind === "search" && !noteTool);
+      if (kind === "search") setSearchScope(view === "storyboard" ? "storyboard" : "screenplay");
       if (kind !== "search") setSearchCardSelection(null);
       setComponentsOpen(kind === "components");
       setPropsOpen(kind === "props");
@@ -963,7 +967,7 @@ export default function MinimalApp({ onLogout }) {
       if (kind !== "history") setHistoryRevision(null);
       if (kind !== "components") setComponentDialog(null);
     },
-    [notesOpen],
+    [notesOpen, view],
   );
   const [tourOpen, setTourOpen] = useState(false);
   const [filesReady, setFilesReady] = useState(false);
@@ -1055,11 +1059,10 @@ export default function MinimalApp({ onLogout }) {
             // Initial migration changes storage representation, not the user's
             // work. Preserve an outstanding edit by advancing only an exact
             // baseline that already matches the document before migration.
-            if (tracked?.signature === JSON.stringify(snapshotOf(doc))) {
+            if (tracked && !historySnapshotChanged(tracked.snapshot, snapshotOf(doc))) {
               const snapshot = snapshotOf(next);
               historyTracked.current.set(doc.id, {
                 snapshot,
-                signature: JSON.stringify(snapshot),
               });
             }
           }
@@ -1322,14 +1325,12 @@ export default function MinimalApp({ onLogout }) {
   useEffect(() => {
     if (!filesReady || !documents.length) return;
     const snapshot = snapshotOf(current);
-    const signature = JSON.stringify(snapshot);
     const previous = historyTracked.current.get(writingScope);
-    if (previous && previous.signature !== signature) {
+    if (previous && historySnapshotChanged(previous.snapshot, snapshot)) {
       const now = Date.now();
       const screenplayKey = `${writingScope}:screenplay`;
       if (
-        JSON.stringify(snapshotForArea(previous.snapshot, "screenplay")) !==
-          JSON.stringify(snapshotForArea(snapshot, "screenplay")) &&
+        historySnapshotChanged(previous.snapshot, snapshot) &&
         now - (historyWritten.current.get(screenplayKey) || 0) > 30000
       ) {
         historyWritten.current.set(screenplayKey, now);
@@ -1347,8 +1348,7 @@ export default function MinimalApp({ onLogout }) {
           .catch(() => {});
       }
       if (
-        JSON.stringify(previous.snapshot.sceneShots) !==
-        JSON.stringify(snapshot.sceneShots)
+        previous.snapshot.sceneShots !== snapshot.sceneShots
       ) {
         const pending = pendingOutlineHistory.current.get(writingScope) || {
           snapshot: previous.snapshot,
@@ -1365,18 +1365,16 @@ export default function MinimalApp({ onLogout }) {
     }
     historyTracked.current.set(writingScope, {
       snapshot,
-      signature,
     });
   }, [current, filesReady, historyDays, flushOutlineHistory, documents.length]);
   useEffect(() => {
     if (!filesReady || !documents.length) return;
     const notes = current.notes || null;
-    const signature = JSON.stringify(notes);
     const previous = notesHistoryTracked.current.get(current.id);
     const key = `${current.id}:notes`;
     if (
       previous &&
-      previous.signature !== signature &&
+      previous.notes !== notes &&
       Date.now() - (historyWritten.current.get(key) || 0) > 30000
     ) {
       historyWritten.current.set(key, Date.now());
@@ -1390,7 +1388,7 @@ export default function MinimalApp({ onLogout }) {
         .then(() => setHistoryVersion((version) => version + 1))
         .catch(() => {});
     }
-    notesHistoryTracked.current.set(current.id, { notes, signature });
+    notesHistoryTracked.current.set(current.id, { notes });
   }, [current, filesReady, documents.length, historyDays]);
   const restoreHistory = async (entry) => {
     const area = notesOpen ? "notes" : revisionArea(entry);
@@ -1412,11 +1410,9 @@ export default function MinimalApp({ onLogout }) {
         const snapshot = snapshotOf(restored);
         notesHistoryTracked.current.set(document.id, {
           notes: restored.notes || null,
-          signature: JSON.stringify(restored.notes || null),
         });
         historyTracked.current.set(document.id, {
           snapshot,
-          signature: JSON.stringify(snapshot),
         });
         return restored;
       });
@@ -1446,6 +1442,8 @@ export default function MinimalApp({ onLogout }) {
       setNotesOpen(false);
       componentHistory.current = { undo: [], redo: [] };
       setView(next);
+      setStoryFrameTarget(null);
+      if (next === "storyboard") setDramaOpen(false);
       setFocusMode(false);
       setCharacterView(null);
       setMenu(null);
@@ -1749,13 +1747,11 @@ export default function MinimalApp({ onLogout }) {
     update(() => next);
     editorRef.current?.focusBlock(id, { highlight: false });
   };
-  const resolveCommentScene = commentSceneIndex(current);
-  const commentScenes = new Map(
-    current.comments.map((comment) => [
-      comment.id,
-      resolveCommentScene(comment),
-    ]),
-  );
+  const commentScenes = useMemo(() => {
+    if (!current.comments.length) return new Map();
+    const resolve = commentSceneIndex(current);
+    return new Map(current.comments.map((comment) => [comment.id, resolve(comment)]));
+  }, [current.comments, current.content, current.sceneVariants]);
   const showCommentVariant = (document, reference) => {
     const range = reference && sceneRange(document.content, reference.sceneId);
     const original = range && sceneLetter(range.nodes[0]);
@@ -2123,8 +2119,10 @@ export default function MinimalApp({ onLogout }) {
     setActiveComment(comment.id);
   };
   const searchMatches = useMemo(
-    () => scriptSearchMatches(current, searchText, searchFormat),
+    () => searchOpen && searchScope === "screenplay" ? scriptSearchMatches(current, searchText, searchFormat) : [],
     [
+      searchOpen,
+      searchScope,
       current.content,
       current.sceneVariants,
       current.scriptVersion,
@@ -2134,9 +2132,19 @@ export default function MinimalApp({ onLogout }) {
       searchFormat,
     ],
   );
+  const searchableStoryboardScenes = useMemo(
+    () => searchOpen && searchScope === "storyboard" ? storyboardSearchScenes(current) : [],
+    [searchOpen, searchScope, current.content, current.sceneShots, current.sceneVariants, current.pageVersions, current.metadata?.fontSize],
+  );
+  const openStoryboardSearchResult = (sceneId, frameId, variant) => {
+    if (variant) applyStoryboardEdit((doc) => switchSceneVariant(doc, sceneId, variant), "search-variant");
+    setView("storyboard");
+    selectStoryboardScene(sceneId);
+    if (frameId) setStoryFrameTarget({ scope: writingScope, sceneId, frameId, request: ++searchCardRequest.current });
+  };
   const doctorFindings = useMemo(
-    () => (writingTimer.hasDoctor ? inspectDocumentScript(current) : []),
-    [writingTimer.hasDoctor, current.content, current.sceneVariants],
+    () => (writingTimer.hasDoctor && (doctorOpen || preferences.doctorFlies) ? inspectDocumentScript(current) : []),
+    [writingTimer.hasDoctor, doctorOpen, preferences.doctorFlies, current.content, current.sceneVariants],
   );
   const locateDoctorFinding = (finding) => {
     const latest =
@@ -2155,7 +2163,7 @@ export default function MinimalApp({ onLogout }) {
     setSceneTarget(finding.blockId);
   };
   const activeSearchMatch = searchMatches[searchIndex];
-  const visibleSearchIndex = documentSearchMatches(
+  const visibleSearchIndex = useMemo(() => !searchOpen || searchScope !== "screenplay" || !activeSearchMatch ? -1 : documentSearchMatches(
     { ...current, sceneVariants: {} },
     searchText,
     searchFormat,
@@ -2169,7 +2177,7 @@ export default function MinimalApp({ onLogout }) {
       match.variant === activeSearchMatch?.variant &&
       match.blockId === activeSearchMatch?.blockId &&
       match.at === activeSearchMatch?.at,
-  );
+  ), [searchOpen, searchScope, current.content, current.pageVersions, searchText, searchFormat, activeSearchMatch]);
   useEffect(() => {
     setSearchCount(searchOpen ? searchMatches.length : 0);
     if (!searchOpen || !searchMatches.length) return;
@@ -3137,6 +3145,16 @@ export default function MinimalApp({ onLogout }) {
     [update],
   );
   useEffect(() => {
+    const reset = (event) => {
+      if (view !== "screenplay" || notesOpen || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey)) return;
+      if (event.code !== "Digit0" && event.code !== "Numpad0" && event.key !== "0") return;
+      event.preventDefault();
+      setDocumentZoom(100);
+    };
+    document.addEventListener("keydown", reset);
+    return () => document.removeEventListener("keydown", reset);
+  }, [view, notesOpen, setDocumentZoom]);
+  useEffect(() => {
     const column = columnRef.current;
     const wheel = (event) => {
       if (event.defaultPrevented) return;
@@ -3171,6 +3189,13 @@ export default function MinimalApp({ onLogout }) {
     });
     return () => column?.removeEventListener("wheel", wheel);
   }, [update]);
+  const searchScopeControl = (
+    <div className="workspace-search__scopes" role="group" aria-label={t("Область поиска")}>
+      {[["screenplay", "Сценарий"], ["storyboard", "Раскадровка"]].filter(([value]) => IS_PRO || value === "screenplay").map(([value, name]) => (
+        <button key={value} type="button" aria-pressed={searchScope === value} onClick={() => { setSearchScope(value); setSearchIndex(0); setSearchCardSelection(null); }}>{t(name)}</button>
+      ))}
+    </div>
+  );
   return (
     <div
       className={`minimal-app${propsOpen || annotations ? " show-props" : ""}${focusMode ? " focus-mode" : ""}${characterView ? " character-reading" : ""}${notesOpen ? " notes-mode" : ""}`}
@@ -3752,6 +3777,9 @@ export default function MinimalApp({ onLogout }) {
                 : shots
             }
             selectedId={shotTarget}
+            frameTarget={storyFrameTarget?.scope === writingScope ? storyFrameTarget : null}
+            onFrameClose={() => setStoryFrameTarget(null)}
+            showCommentHighlights={commentHighlights}
             readonly={!!historyRevision}
             onSelect={selectStoryboardScene}
             onFrameSelect={(id, frameId) => {
@@ -3768,6 +3796,7 @@ export default function MinimalApp({ onLogout }) {
               applyStoryboardEdit((doc) => storyboardScenes(doc).reduce((next, scene) => updateShotSettings(next, scene.id, scene.letter, { aspectRatio }), doc));
             }}
             characters={current.components.filter((component) => component.type === "character")}
+            locations={current.components.filter((component) => component.type === "place" || component.type === "location")}
             onGenerateFrames={(id, letter, images) => {
               try {
                 applyStoryboardEdit((doc) => pasteStoryboardImages(doc, images, id, letter).document);
@@ -3879,7 +3908,7 @@ export default function MinimalApp({ onLogout }) {
               ];
               let remaining = [...images];
               const at = frames.findIndex(
-                (frame) => frame.id === frameId && !frame.image,
+                (frame) => frame.id === frameId && !frameHasContent(frame),
               );
               if (at >= 0)
                 frames[at] = { ...frames[at], image: remaining.shift() };
@@ -3949,6 +3978,11 @@ export default function MinimalApp({ onLogout }) {
                 setSceneTarget(id);
               }}
             />
+          )}
+          {view === "screenplay" && !notesOpen && !learningOpen && !historyRevision && !focusMode && !characterView && (
+            <button type="button" className="quiet-button screenplay-drama-launch" aria-expanded={dramaOpen} onClick={() => setDramaOpen((open) => !open)}>
+              <StoryDramaIcon />{t("График драматичности")}
+            </button>
           )}
           {dramaOpen &&
             view === "screenplay" &&
@@ -4517,13 +4551,13 @@ export default function MinimalApp({ onLogout }) {
               componentsOpen ||
               propsOpen ||
               annotations ||
-              !!selectedShot
+              (!!selectedShot && !historyRevision && !(view === "storyboard" && storyFrameTarget?.scope === writingScope && storyFrameTarget?.frameId))
             )
           }
           label={t("Панель сценария")}
           onClose={() => showSidebar(null)}
         >
-          {selectedShot && !historyRevision && (
+          {selectedShot && !historyRevision && !(view === "storyboard" && storyFrameTarget?.scope === writingScope && storyFrameTarget?.frameId) && (
             <StoryboardInspector
               key={writingScope}
               scope={writingScope}
@@ -4587,8 +4621,22 @@ export default function MinimalApp({ onLogout }) {
               busy={!!busy}
             />
           )}
-          {searchOpen && (
+          {searchOpen && searchScope === "storyboard" && (
+            <StoryboardSearch
+              scenes={searchableStoryboardScenes}
+              query={searchText}
+              onQuery={setSearchText}
+              selectedSceneId={shotTarget}
+              selectedFrameId={storyFrameTarget?.frameId}
+              onOpenFrame={openStoryboardSearchResult}
+              onSelectScene={(id, variant) => openStoryboardSearchResult(id, null, variant)}
+              scopeControl={searchScopeControl}
+              onClose={() => setSearchOpen(false)}
+            />
+          )}
+          {searchOpen && searchScope === "screenplay" && (
             <DocumentSearch
+              scopeControl={searchScopeControl}
               matches={searchMatches}
               query={searchText}
               format={searchFormat}
@@ -4746,6 +4794,7 @@ export default function MinimalApp({ onLogout }) {
           {componentsOpen && (
             <ComponentsPanel
               key={writingScope}
+              allowDrag={view === "screenplay" && !notesOpen && !historyRevision}
               componentHints={preferences.componentHints}
               onToggleHints={toggleComponentHints}
               exporting={busy === "props-pdf"}

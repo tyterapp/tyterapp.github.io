@@ -117,3 +117,20 @@ test("HTML keeps selected page colors, label options, English and unillustrated 
   assert.doesNotMatch(html, /class="scene-label"/);
   assert.doesNotMatch(html, /href="javascript:/);
 });
+
+test("reader renders drawing and image layers and keeps their geometry available without private frame comments", () => {
+  const doc = createProject("Layered reader");
+  doc.content.content = [{ type: "paragraph", attrs: { format: "scene", blockId: "one" }, content: [{ type: "text", text: "INT. ROOM" }] }];
+  const layers = [{ id: "drawing", type: "rectangle", name: "Rectangle", points: [[.1,.2],[.8,.9]], color: "#123456", width: 4, visible: true }, { id: "photo", type: "image", image: "data:image/png;base64,aGVsbG8=", name: "Photo", points: [[.3,.4],[.6,.7]], visible: true }];
+  doc.sceneShots = { one: { A: { frames: [{ id: "f", durationMs: 5000, layers, comments: [{ id: "review", text: "PRIVATE_FRAME_COMMENT", replies: [] }] }] } } };
+  const html = instantHTML(doc);
+  assert.match(html, /<svg class="frame-layers"/);
+  assert.match(html, /<rect[^>]+x="100"[^>]+y="200"/);
+  assert.match(html, /<image[^>]+href="data:image\/png;base64,aGVsbG8="/);
+  assert.doesNotMatch(html, /PRIVATE_FRAME_COMMENT/);
+  const data = JSON.parse(html.match(/<script type="application\/json" id="reader-data">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(data.sceneShots.one.A.frames[0].layers[0].type, "rectangle");
+  assert.equal(data.sceneShots.one.A.frames[0].layers[1].type, "image");
+  assert.equal(data.sceneShots.one.A.frames[0].layers[1].image, undefined);
+  assert.equal(data.sceneShots.one.A.frames[0].comments, undefined);
+});

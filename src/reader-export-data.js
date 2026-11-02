@@ -46,6 +46,7 @@ export function readerExportData(document) {
               durationMs: frame.durationMs,
               transition: frame.transition,
               image: "",
+              ...(frame.layers ? { layers: structuredClone(frame.layers) } : {}),
             })),
           },
         },

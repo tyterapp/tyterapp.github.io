@@ -20,6 +20,18 @@ import {
 } from "../src/storyboard-model.js";
 import { storyboardManifest } from "../src/storyboard-export.js";
 const image = "data:image/png;base64,aGVsbG8=";
+
+test("board paste appends after layer-only frames without changing their backgrounds", () => {
+  const layers = [{ id: "ink", type: "path", points: [[.1,.1],[.8,.8]], visible: true }];
+  const doc = updateShotSettings(fixture(), "one", "A", {
+    frames: [{ id: "drawn", image: "", layers, durationMs: 1000 }],
+  });
+  const next = pasteStoryboardImages(doc, [image], "one", "A").document;
+  assert.equal(next.sceneShots.one.A.frames.length, 2);
+  assert.equal(next.sceneShots.one.A.frames[0].image, "");
+  assert.deepEqual(next.sceneShots.one.A.frames[0].layers, doc.sceneShots.one.A.frames[0].layers);
+  assert.equal(next.sceneShots.one.A.frames[1].image, image);
+});
 test("slides can be reordered within a scene without changing their contents", () => {
   const doc = updateShotSettings(fixture(), "one", "A", { frames: [{id:"a",image,durationMs:1000},{id:"b",image,durationMs:2000}] });
   const next = moveStoryboardFrame(doc, "one", "A", "a", "one", "b");

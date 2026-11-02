@@ -70,12 +70,14 @@
   height: auto;
   aspect-ratio: var(--shot-thumbnail-ratio);
 }
-.scene-shot-thumbnail img {
+.scene-shot-thumbnail img,
+.scene-shot-thumbnail svg {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
+  background: white;
 }
 :root[data-theme="dark"] .scene-shot-thumbnail {
   outline-color: oklch(1 0 0 / 0.1);

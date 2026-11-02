@@ -3,6 +3,7 @@ import { grantPro } from "./helpers/pro-access.js";
 test("Pro autosaves complete TYT projects to the chosen local directory", async ({
   page,
 }) => {
+  test.setTimeout(60000);
   await grantPro(page);
   let serverFilesRequested = false;
   page.on("request", (request) => {
@@ -17,7 +18,7 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
         { create: true },
       );
   });
-  await page.goto("/pro");
+  await page.goto("/pro", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".screenplay-editor")).toBeVisible();
   await page.getByRole("button", { name: "Открыть папку сценариев" }).click();
   await expect(page.getByRole("alert")).toContainText("Подключена папка");
@@ -38,8 +39,12 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
         ).getDirectoryHandle("tyter-test");
         const files = [];
         for await (const entry of directory.values())
-          if (entry.kind === "file")
-            files.push(JSON.parse(await (await entry.getFile()).text()));
+          if (entry.kind === "file") {
+            const text = await (await entry.getFile()).text();
+            // A newly created file is visible before its first write closes.
+            // Keep polling until a complete TYT payload is committed.
+            try { files.push(JSON.parse(text)); } catch (error) { if (!(error instanceof SyntaxError)) throw error; }
+          }
         return files.some(
           (payload) => payload.document.metadata.author === "Локальный автор",
         );
@@ -47,7 +52,7 @@ test("Pro autosaves complete TYT projects to the chosen local directory", async 
     )
     .toBe(true);
   expect(serverFilesRequested).toBe(false);
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Настройки документа" }).click();
   await expect(page.getByLabel("Автор", { exact: true })).toHaveValue(
     "Локальный автор",

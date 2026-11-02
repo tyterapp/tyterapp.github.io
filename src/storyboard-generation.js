@@ -1,3 +1,5 @@
+import { SHOT_FIELDS } from "./shot-info.js";
+
 const BASE = "https://aihorde.net/api/v2";
 const HEADERS = {
   apikey: "0000000000",
@@ -27,6 +29,30 @@ export function generationDescription(scene) {
       .filter(Boolean)
       .join("\n")
   ).slice(0, 4000);
+}
+// Provider-neutral context keeps selection IDs and shot values available for a
+// future image API. The existing provider receives its reviewed text description.
+export function frameGenerationContext(scene, { frameId, character, location, frameSize } = {}) {
+  const settings = scene.settings || {};
+  const reference = (item) => item ? {
+    ...(item.id ? { id: String(item.id) } : {}),
+    name: String(item.name || item.address || "").slice(0, 500),
+    description: String(item.description || "").slice(0, 1000),
+  } : null;
+  const shotSettings = Object.fromEntries(SHOT_FIELDS
+    .map(({ key }) => [key, key === "frameSize" && frameSize !== undefined ? frameSize : settings[key]])
+    .filter(([, value]) => value !== undefined && value !== ""));
+  const selectedCharacter = reference(character), selectedLocation = reference(location || settings.location);
+  const description = [
+    generationDescription(scene),
+    selectedCharacter && ["Character:", selectedCharacter.name, selectedCharacter.description].filter(Boolean).join(" "),
+    selectedLocation && ["Location:", selectedLocation.name, selectedLocation.description].filter(Boolean).join(" "),
+    ...Object.entries(shotSettings).map(([key, value]) => {
+      const field = SHOT_FIELDS.find((item) => item.key === key);
+      return `${field.label[1]}: ${field.options?.find(([id]) => id === value)?.[2] || value}`;
+    }),
+  ].filter(Boolean).join(". ").slice(0, 4000);
+  return { sceneId: scene.id, frameId, character: selectedCharacter, location: selectedLocation, shotSettings, description };
 }
 export function hordeStoryboardRequest({
   description,

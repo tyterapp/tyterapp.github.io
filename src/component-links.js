@@ -18,12 +18,17 @@ function mergeRanges(ranges) {
 }
 
 // Automatic links are derived from whole names; explicit links retain their ownership.
-export function componentLinkTransaction(state, components) {
+export function componentLinkTransaction(state, components, cache) {
   const type = state.schema.marks.entity;
   if (!type) return null;
   const actual = [],
     desired = [];
-  const names = componentNameCandidates(components)
+  if (cache && cache.components !== components) {
+    cache.components = components;
+    cache.paragraphs = new WeakSet();
+    cache.names = null;
+  }
+  const names = cache?.names || componentNameCandidates(components)
     .sort(
       (a, b) =>
         b.text.length - a.text.length || Number(a.alias) - Number(b.alias),
@@ -32,8 +37,14 @@ export function componentLinkTransaction(state, components) {
       component,
       pattern: textMatchPattern(text),
     }));
+  if (cache) cache.names = names;
+  const scanned = [];
   state.doc.descendants((paragraph, position) => {
     if (paragraph.type.name !== "paragraph") return;
+    // ProseMirror preserves untouched nodes by identity. A mark-only result is
+    // cached too, so typing elsewhere does not re-match every name in the script.
+    if (cache?.paragraphs.has(paragraph)) return false;
+    scanned.push(position);
     const explicit = [],
       occupied = [];
     paragraph.descendants((node, offset) => {
@@ -93,6 +104,9 @@ export function componentLinkTransaction(state, components) {
   for (const range of expected)
     if (!existingKeys.has(key(range)))
       transaction.addMark(range.from, range.to, range.mark);
+  if (cache)
+    for (const position of scanned)
+      cache.paragraphs.add(transaction.doc.nodeAt(position));
   return transaction.docChanged
     ? transaction
         .setMeta("addToHistory", false)
@@ -101,6 +115,7 @@ export function componentLinkTransaction(state, components) {
 }
 
 export function componentLinksPlugin(getComponents) {
+  const cache = { components: null, paragraphs: new WeakSet(), names: null };
   return new Plugin({
     key: componentLinksKey,
     appendTransaction(transactions, _previous, state) {
@@ -130,7 +145,7 @@ export function componentLinksPlugin(getComponents) {
         )
       )
         return null;
-      return componentLinkTransaction(state, getComponents());
+      return componentLinkTransaction(state, getComponents(), cache);
     },
   });
 }

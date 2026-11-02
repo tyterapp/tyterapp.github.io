@@ -1250,7 +1250,7 @@
 .story-shot-list td button { border: 0; color: var(--ui-accent); background: transparent; }
 .story-canvas-editor { display:flex; flex:1; min-height:0; gap:14px; }
 .story-canvas-editor__main { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; align-items:center; gap:18px; }
-.story-canvas-editor__surface { position:relative; width:100%; flex:1; min-height:220px; background:white; border:1px solid var(--ui-border); border-radius:6px; overflow:hidden; }
+.story-canvas-editor__surface { position:relative; width:100%; flex:none; min-height:0; background:white; border:1px solid var(--ui-border); border-radius:6px; overflow:hidden; }
 .story-canvas-editor__surface > img,.story-canvas-editor__surface > svg { position:absolute; inset:0; width:100%; height:100%; }
 .story-canvas-editor__surface > img { object-fit:fill; pointer-events:none; }
 .story-canvas-editor__surface > svg { overflow:visible; }
@@ -1263,6 +1263,17 @@
 .story-canvas-editor__layer input { min-width:0; width:100%; }
 .story-canvas-editor__marker { position:absolute; transform:translate(-50%,-50%); z-index:2; border:0; border-radius:50%; width:28px; height:28px; background:#7957a6; color:white; }
 .story-card-slide__drawing { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.workspace-search__scopes { display:flex; gap:3px; margin:0 12px 12px; padding:3px; border-radius:8px; background:var(--ui-hover); }
+.workspace-search__scopes button { flex:1; min-width:0; min-height:32px; padding:6px 10px; border:0; border-radius:6px; background:transparent; color:var(--ui-muted); font:inherit; font-size:12px; cursor:pointer; }
+.workspace-search__scopes button[aria-pressed="true"] { background:var(--ui-surface); color:var(--ui-text); box-shadow:0 1px 3px #0001; }
+.workspace-search__scopes button:focus-visible { outline:2px solid var(--ui-accent); outline-offset:1px; }
+.screenplay-drama-launch { display:flex; align-items:center; gap:8px; flex:none; align-self:flex-start; margin:12px 16px 0; padding:9px 12px; border:0; border-radius:7px; color:var(--ui-text); background:transparent; font:inherit; font-size:12px; cursor:pointer; }
+.screenplay-drama-launch:hover { background:var(--ui-hover); }
+.screenplay-drama-launch svg { width:18px; height:18px; }
+.story-frame-workspace__return { margin-left:auto; display:flex; align-items:center; gap:6px; font:inherit; font-size:12px; }
+.story-frame-workspace__return + .story-frame-workspace__close { margin-left:0; }
+.component-item[draggable="true"] { cursor:grab; }
+.component-item[draggable="true"]:active { cursor:grabbing; }
 .story-canvas-editor__marker { display:grid; place-items:center; font:600 12px/1 Inter, sans-serif; box-shadow:0 2px 7px #0003; transition:transform 140ms ease, box-shadow 140ms ease; }
 .story-canvas-editor__marker:hover, .story-canvas-editor__marker--active { transform:translate(-50%,-50%) scale(1.12); box-shadow:0 0 0 3px #9272bd55, 0 3px 9px #0003; }
 .story-canvas-editor__marker--draft { pointer-events:none; background:var(--ui-accent); }
@@ -1283,4 +1294,15 @@
 @media (min-width: 832px) {
   .minimal-app:has(.story-canvas-editor__side[data-comments-open="true"]) .story-inspector { display:none; }
   .story-canvas-editor__side[data-comments-open="true"] { width:300px; flex:0 0 300px; }
+}
+@media (max-width: 831px) {
+  .story-frame-workspace { padding: 10px; gap: 12px; min-width: 0; }
+  .story-frame-workspace__header { flex-wrap: wrap; }
+  .story-canvas-editor { flex-direction: column; overflow-y: auto; min-width: 0; }
+  .story-canvas-editor__main { flex: none; width: 100%; gap: 10px; }
+  .story-canvas-editor__stage { flex: none; height: clamp(180px, 52vw, 360px); }
+  .story-canvas-editor__side { box-sizing: border-box; width: 100%; flex: none; overflow: visible; }
+  .story-canvas-editor__tools { box-sizing: border-box; max-width: 100%; overflow-x: auto; flex-shrink: 0; }
+  .story-canvas-editor__tools button { flex: 0 0 44px; width: 44px; height: 44px; }
+  .story-canvas-editor button.story-canvas-editor__marker { width: 44px; height: 44px; min-height: 44px; }
 }

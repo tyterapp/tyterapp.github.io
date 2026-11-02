@@ -22,6 +22,7 @@ import {
   newFrame,
   playSlides,
   STORY_STATUSES,
+  frameHasContent,
 } from "./storyboard-data.js";
 import { shotText, FORMAT_NAMES, SHOT_FIELDS } from "./shot-info.js";
 import { transferFiles } from "./image-thumbnail.js";
@@ -49,7 +50,7 @@ const label = (scene) => `${scene.number} ${scene.letter}`;
 
 export function StoryboardImage({ scene, ratio, className = "" }) {
   const frames = storyboardFrames(scene.settings).filter(
-    (frame) => frame.image,
+    frameHasContent,
   );
   const [playing, setPlaying] = useState(null);
   const stop = useRef(null);
@@ -86,13 +87,10 @@ export function StoryboardImage({ scene, ratio, className = "" }) {
       onBlur={end}
     >
       {frame ? (
-        <img
-          key={frame.id}
-          className={frame.transition === "fade" ? "story-image-fade" : ""}
-          src={frame.image}
-          alt=""
-          draggable="false"
-        />
+        <svg key={frame.id} className={frame.transition === "fade" ? "story-image-fade" : ""} viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ width: "100%", height: "100%", background: "white" }}>
+          {frame.image && <image href={frame.image} width="1000" height="1000" preserveAspectRatio="xMidYMid slice" />}
+          {(frame.layers || []).filter((layer) => layer.visible !== false).map((layer) => <Shape key={layer.id} layer={layer} />)}
+        </svg>
       ) : (
         <span className="scene-format-icon" aria-hidden="true" />
       )}
@@ -127,18 +125,36 @@ export function StoryboardBoard({
   dramaPanel,
   onOpenDrama,
   dramaOpen = false,
+  frameTarget,
+  onFrameClose,
+  showCommentHighlights = true,
+  locations = [],
 }) {
   useLanguage();
   const [playingPage, setPlayingPage] = useState(null);
   const [zoom, setZoom] = useState(() =>
     window.matchMedia("(max-width: 831px)").matches ? 40 : 50,
   );
+  useEffect(() => {
+    const reset = (event) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.code === "Digit0" || event.code === "Numpad0" || event.key === "0")) {
+        event.preventDefault();
+        setZoom(window.matchMedia("(max-width: 831px)").matches ? 40 : 50);
+        viewport.current?.scrollTo({ left: 0 });
+      }
+    };
+    document.addEventListener("keydown", reset);
+    return () => document.removeEventListener("keydown", reset);
+  }, []);
   const [aspect, setAspect] = useState("16:9");
   const [comments, setComments] = useState(false);
   const [exports, setExports] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [context, setContext] = useState(null);
   const [openFrame, setOpenFrame] = useState(null);
+  useEffect(() => {
+    setOpenFrame(frameTarget?.frameId ? { sceneId: frameTarget.sceneId, frameId: frameTarget.frameId } : null);
+  }, [frameTarget?.sceneId, frameTarget?.frameId, frameTarget?.request]);
   const [boardView, setBoardView] = useState("frames");
   const [pendingDelete, setPendingDelete] = useState(null);
   const deleteTimer = useRef(null);
@@ -207,18 +223,6 @@ export function StoryboardBoard({
       className={`storyboard-workspace${fullscreen ? " story-fullscreen" : ""}`}
       aria-label={t("Раскадровка")}
     >
-      {!readonly && (
-        <button
-          type="button"
-          className="quiet-button story-drama-launch"
-          aria-expanded={dramaOpen}
-          onClick={onOpenDrama}
-        >
-          <StoryDramaIcon />
-          {tr("График драматичности", "Drama chart")}
-        </button>
-      )}
-      {dramaPanel}
       {openFrame && boardView === "frames" && (() => {
         const scene = scenes.find((item) => item.id === openFrame.sceneId);
         const frames = scene ? storyboardFrames(scene.settings) : [];
@@ -229,9 +233,10 @@ export function StoryboardBoard({
             <button className="quiet-button" aria-label={tr("Предыдущий кадр", "Previous frame")} disabled={index === 0} onClick={() => { const frame = frames[index - 1]; setOpenFrame({sceneId: scene.id, frameId: frame.id}); onFrameSelect(scene.id, frame.id); }}><ArrowLeft size={18}/></button>
             <button className="quiet-button" aria-label={tr("Следующий кадр", "Next frame")} disabled={index === frames.length - 1} onClick={() => { const frame = frames[index + 1]; setOpenFrame({sceneId: scene.id, frameId: frame.id}); onFrameSelect(scene.id, frame.id); }}><ArrowRight size={18}/></button>
             <strong>{label(scene)} · {index + 1}</strong>
-            <button className="quiet-button story-frame-workspace__close" aria-label={tr("Закрыть редактор кадра", "Close frame editor")} onClick={() => setOpenFrame(null)}><X size={18}/></button>
+            <button className="quiet-button story-frame-workspace__return" onClick={() => { setOpenFrame(null); onFrameClose?.(); }}><ArrowLeft size={18}/>{tr("Вернуться к раскадровке", "Return to storyboard")}</button>
+            <button className="quiet-button story-frame-workspace__close" aria-label={tr("Закрыть редактор кадра", "Close frame editor")} onClick={() => { setOpenFrame(null); onFrameClose?.(); }}><X size={18}/></button>
           </header>
-          <StoryboardCanvas key={`${scene.id}:${frames[index].id}`} scene={scene} frame={frames[index]} characters={characters} onChange={(frame) => onFrameChange(scene.id, frame)} onGenerate={(images) => onGenerateFrames(scene.id, scene.letter, images)} />
+          <StoryboardCanvas key={`${scene.id}:${frames[index].id}`} scene={scene} frame={frames[index]} characters={characters} locations={locations} showCommentHighlights={showCommentHighlights} onChange={(frame) => onFrameChange(scene.id, frame)} onGenerate={(images) => onGenerateFrames(scene.id, scene.letter, images)} />
         </div>;
       })()}
       <div
@@ -281,9 +286,7 @@ export function StoryboardBoard({
                   !visible.some(
                     (scene) =>
                       scene.page === page &&
-                      storyboardFrames(scene.settings).some(
-                        (frame) => frame.image,
-                      ),
+                      storyboardFrames(scene.settings).some(frameHasContent),
                   )
                 }
                 onClick={() => setPlayingPage(page)}
@@ -606,14 +609,14 @@ function FrameEditor({
       <StoryboardFrameGenerator
         scene={scene}
         capacity={
-          200 - frames.length + frames.filter((frame) => !frame.image).length
+          200 - frames.length + frames.filter((frame) => !frameHasContent(frame)).length
         }
         onInsert={(images) => {
           const next = [...liveFrames.current],
             remaining = [...images];
           if (
             images.length >
-            200 - next.length + next.filter((frame) => !frame.image).length
+            200 - next.length + next.filter((frame) => !frameHasContent(frame)).length
           )
             return false;
           let firstId;
@@ -908,7 +911,7 @@ export function StoryboardInspector({
           <X size={17} />
         </button>
       </header>
-      <div
+      {view !== "storyboard" && <div
         className="story-tabs"
         role="tablist"
         aria-label={tr("Панель сцены", "Scene panel")}
@@ -926,43 +929,8 @@ export function StoryboardInspector({
             {name}
           </button>
         ))}
-      </div>
+      </div>}
       <div className="story-inspector-scroll">
-        <button
-          className="story-filmstrip"
-          aria-label={tr("Открыть слайды", "Open slides")}
-          onClick={() => {
-            setTab("info");
-            setInfo("frames");
-          }}
-        >
-          <span>
-            {frames.length ? (
-              frames
-                .slice(0, 4)
-                .map((frame) => (
-                  <span key={frame.id}>
-                    {frame.image ? (
-                      <img src={frame.image} alt="" />
-                    ) : (
-                      <ImagePlus size={18} />
-                    )}
-                  </span>
-                ))
-            ) : (
-              <ImagePlus size={24} />
-            )}
-          </span>
-          <small>
-            {frames.length} {tr("слайдов", "slides")}
-            <span>
-              {frames
-                .reduce((sum, frame) => sum + frame.durationMs, 0)
-                .toLocaleString()}{" "}
-              ms
-            </span>
-          </small>
-        </button>
         <div className="story-scene-nav">
           <button
             className="quiet-button"
@@ -1004,7 +972,7 @@ export function StoryboardInspector({
             ))}
           </select>
         </div>
-        {tab === "structure" ? (
+        {view === "storyboard" || tab === "structure" ? (
           <section
             className="story-structure"
             role="tabpanel"
@@ -1177,45 +1145,6 @@ export function StoryboardInspector({
           </section>
         ) : (
           <section role="tabpanel" aria-label={tr("Инфо", "Info")}>
-            <div
-              className="story-tabs story-info-tabs"
-              role="tablist"
-              aria-label={tr("Сведения о сцене", "Scene info")}
-            >
-              {[
-                ["frames", "FRAMES"],
-                ["details", "DETAILS"],
-              ].map(([id, name]) => (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={info === id}
-                  onClick={() => setInfo(id)}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-            <button
-              className="quiet-button story-chart-toggle"
-              aria-expanded={dramaOpen}
-              onClick={onOpenDrama}
-            >
-              <StoryDramaIcon />
-              {tr("График драматичности", "Drama chart")}
-            </button>
-            {info === "frames" ? (
-              <FrameEditor
-                key={`${scope}:${scene.id}:${scene.letter}`}
-                scope={`${scope}:${scene.id}:${scene.letter}`}
-                scene={scene}
-                scenes={scenes}
-                frameTarget={frameTarget}
-                onMoveFrame={onMoveFrame}
-                onChange={(patch) => onChange(scene.id, patch)}
-              />
-            ) : (
-              <>
                 <div className="story-scene-details">
                   <label>
                     {tr("Акт", "Act")}
@@ -1298,8 +1227,6 @@ export function StoryboardInspector({
                   onExport={onExport}
                   busy={busy}
                 />
-              </>
-            )}
           </section>
         )}
       </div>
@@ -1347,6 +1274,7 @@ export function StoryboardPaste({
     const paste = async (event) => {
       const state = latest.current;
       if (
+        document.querySelector(".story-frame-workspace") ||
         !state.enabled ||
         event.target.closest(
           "dialog, .component-form, .prop-form, input, textarea, select",
@@ -1400,7 +1328,7 @@ export function StoryboardPaste({
         }
         const available = latest.current.scenes.flatMap((scene) =>
           storyboardFrames(scene.settings)
-            .filter((frame) => !frame.image)
+            .filter((frame) => !frameHasContent(frame))
             .map((frame) => ({ scene, frame })),
         );
         const first =
@@ -1431,7 +1359,7 @@ export function StoryboardPaste({
   if (!pending) return null;
   const options = scenes.flatMap((scene) => [
     ...storyboardFrames(scene.settings).flatMap((frame, index) =>
-      frame.image
+      frameHasContent(frame)
         ? []
         : [
             {

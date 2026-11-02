@@ -70,11 +70,13 @@ export default function StoryboardFrameGenerator({
   scene,
   capacity,
   onInsert,
+  generationContext,
+  generateFrames = generateStoryboardFrames,
 }) {
   useLanguage();
   const [open, setOpen] = useState(false),
     [description, setDescription] = useState(() =>
-      generationDescription(scene),
+      generationContext?.description || generationDescription(scene),
     );
   const [count, setCount] = useState(3),
     [style, setStyle] = useState("sketch"),
@@ -107,12 +109,13 @@ export default function StoryboardFrameGenerator({
     setSelected([]);
     setError("");
     try {
-      const images = await generateStoryboardFrames(
+      const images = await generateFrames(
         {
           description,
           count,
           style,
           aspectRatio: shotAspectRatio(scene.settings.aspectRatio),
+          ...(generationContext ? { context: generationContext } : {}),
         },
         {
           signal: task.controller.signal,
@@ -208,7 +211,7 @@ export default function StoryboardFrameGenerator({
             type="button"
             className="quiet-button"
             disabled={!!progress}
-            onClick={() => setDescription(generationDescription(scene))}
+            onClick={() => setDescription(generationContext?.description || generationDescription(scene))}
           >
             <RotateCcw size={14} />
             {tr("Взять описание сцены", "Use scene description")}

@@ -24,16 +24,39 @@ export const newFrame = (image = "") => ({
   transition: "cut",
 });
 const coordinate = (value) => Math.max(0, Math.min(1, Number(value) || 0));
+export function frameLayerBounds(layer) {
+  const points = layer.points || [];
+  if (!points.length) return null;
+  const xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
+  const left = Math.min(...xs), top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+}
+export function moveFrameLayer(layer, dx, dy) {
+  const bounds = frameLayerBounds(layer);
+  if (!bounds) return layer;
+  const x = Math.max(-bounds.left, Math.min(1 - bounds.left - bounds.width, dx));
+  const y = Math.max(-bounds.top, Math.min(1 - bounds.top - bounds.height, dy));
+  return { ...layer, points: layer.points.map(([px, py]) => [Math.round((px + x) * 1e8) / 1e8, Math.round((py + y) * 1e8) / 1e8]) };
+}
 function cleanFrameLayers(value) {
   if (!Array.isArray(value)) return undefined;
-  return value.slice(0, 500).filter((item) => item && typeof item.id === "string" && ["path", "rectangle", "ellipse"].includes(item.type)).map((item) => ({
+  return value.slice(0, 500).filter((item) => item && typeof item.id === "string" && ["path", "rectangle", "ellipse", "image"].includes(item.type) && (item.type !== "image" || validFrameImage(item.image))).map((item) => ({
     id: item.id.slice(0, 100), name: String(item.name || "Layer").slice(0, 120), type: item.type,
     points: (Array.isArray(item.points) ? item.points : []).slice(0, 5000).filter((point) => Array.isArray(point) && point.length >= 2).map(([x,y]) => [coordinate(x),coordinate(y)]),
     color: /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : "#222222",
     width: Math.max(1, Math.min(40, Number(item.width) || 3)),
     visible: item.visible !== false,
+    ...(item.type === "image" ? { image: item.image } : {}),
   }));
 }
+// A frame is illustrated by its background or visible content layers. Pins alone
+// are review metadata; hidden layers should not enable an empty presentation.
+export const frameHasContent = (frame) => Boolean(frame && (
+  validFrameImage(frame.image) || (frame.layers || []).some((layer) =>
+    layer.visible !== false && (layer.points?.length || 0) >= 2 &&
+    (layer.type === "image" ? validFrameImage(layer.image) : ["path", "rectangle", "ellipse"].includes(layer.type)),
+  )
+));
 function cleanFrameComments(value) {
   if (!Array.isArray(value)) return undefined;
   return value.slice(0, 500).filter((item) => item && typeof item.id === "string").map((item) => ({
@@ -101,7 +124,7 @@ export function cleanStoryboardSettings(source) {
 
 // Used by both React cards and editor decorations. Each slide owns its hold time.
 export function playSlides(settings, show, connected = () => true) {
-  const frames = storyboardFrames(settings).filter((frame) => frame.image);
+  const frames = storyboardFrames(settings).filter(frameHasContent);
   if (frames.length < 2) return () => {};
   let index = 0,
     timer,

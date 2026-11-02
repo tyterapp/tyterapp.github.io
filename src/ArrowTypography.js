@@ -1,7 +1,6 @@
 import { Extension, textInputRule, textPasteRule } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { isArrowOnly } from "./arrow-text.js";
+import { createArrowDecorations } from "./arrow-decorations.js";
 import "./arrow-typography.css";
 
 export const ArrowTypography = Extension.create({
@@ -19,33 +18,13 @@ export const ArrowTypography = Extension.create({
     ];
   },
   addProseMirrorPlugins() {
+    const decorate = createArrowDecorations();
     return [
       new Plugin({
         key: new PluginKey("arrow-typography"),
         props: {
           decorations(state) {
-            const decorations = [];
-            state.doc.descendants((node, pos) => {
-              if (node.isTextblock && isArrowOnly(node.textContent))
-                decorations.push(
-                  Decoration.node(pos, pos + node.nodeSize, {
-                    class: "script-arrow-row",
-                    style: "text-align:center",
-                  }),
-                );
-              if (node.isText)
-                for (const match of node.text.matchAll(/[\u2190-\u21ff]+/gu))
-                  decorations.push(
-                    Decoration.inline(
-                      pos + match.index,
-                      pos + match.index + match[0].length,
-                      {
-                        class: "script-arrow",
-                      },
-                    ),
-                  );
-            });
-            return DecorationSet.create(state.doc, decorations);
+            return decorate(state.doc);
           },
         },
       }),

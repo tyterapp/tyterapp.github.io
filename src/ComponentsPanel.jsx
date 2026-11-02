@@ -36,6 +36,7 @@ export default function ComponentsPanel({
   onImportLibrary,
   componentHints = true,
   onToggleHints,
+  allowDrag = false,
 }) {
   const language = useLanguage();
   const { isPro: IS_PRO } = useEdition();
@@ -301,6 +302,13 @@ export default function ComponentsPanel({
                         <button
                           type="button"
                           className="component-item"
+                          draggable={allowDrag}
+                          onDragStart={(event) => {
+                            if (!allowDrag) { event.preventDefault(); return; }
+                            event.dataTransfer.effectAllowed = "copy";
+                            event.dataTransfer.setData("application/x-tyter-component", JSON.stringify({ id: component.id, name: component.name, type: component.type }));
+                            event.dataTransfer.setData("text/plain", component.name);
+                          }}
                           ref={(button) => {
                             if (button)
                               rowButtons.current.set(component.id, button);

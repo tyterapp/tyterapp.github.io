@@ -79,7 +79,8 @@ test('scene rows show frames and open their editor; aspect control changes frame
  await expect(card.locator('.story-card-slide')).toHaveCSS('aspect-ratio','1 / 1');
  await card.getByRole('button',{name:'Открыть слайд 1'}).click();
  await expect(page.locator('.story-canvas-editor__surface img')).toBeVisible();
- await expect(page.locator('.story-inspector')).toBeVisible();
+ await expect(page.locator('.story-inspector')).toHaveCount(0);
+ await expect(page.locator('.story-canvas-editor__side')).toBeVisible();
  await page.getByRole('button',{name:'Закрыть редактор кадра'}).click();
  await expect(card).toBeVisible();
 });

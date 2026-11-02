@@ -1,0 +1,22 @@
+.story-canvas-editor__surface:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.story-canvas-editor__stage { display: grid; place-items: center; flex: 1; width: 100%; min-height: 0; }
+.story-canvas-editor__surface { cursor: crosshair; min-height: 0; flex: none; }
+.story-canvas-editor__surface:has(.story-canvas-editor__selection) { cursor: move; }
+.story-canvas-editor__selection { fill: none; stroke: #7957a6; stroke-width: 1.5px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.story-canvas-editor__side { width: 280px; flex-shrink: 0; }
+.story-canvas-editor__hint { color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.story-canvas-editor__brush-settings { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: end; gap: 12px; margin-bottom: 14px; }
+.story-canvas-editor__brush-settings label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.story-canvas-editor__brush-settings input { width: 100%; min-width: 0; height: 30px; }
+.story-canvas-editor__layer { align-items: center; gap: 2px; padding: 3px; border-radius: 6px; }
+.story-canvas-editor__layer--selected { background: var(--ui-hover); box-shadow: 0 0 0 1px var(--ui-accent); }
+.story-canvas-editor__layer button, .story-canvas-editor__layer-actions button { display: grid; place-items: center; width: 30px; height: 36px; flex: 0 0 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; }
+.story-canvas-editor__layer button:hover, .story-canvas-editor__layer-actions button:hover { background: var(--ui-hover); }
+.story-canvas-editor__layer-number { font-size: 11px; font-variant-numeric: tabular-nums; }
+.story-canvas-editor__layer-actions { display: flex; gap: 4px; margin-bottom: 10px; }
+.story-canvas-editor__feedback { margin: 0; font-size: 12px; }
+.story-player-image > svg { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; pointer-events: none; }
+@media (pointer: coarse) {
+  .story-canvas-editor__tools button { width: 44px; height: 44px; }
+  .story-canvas-editor__layer button, .story-canvas-editor__layer-actions button { height: 44px; }
+}

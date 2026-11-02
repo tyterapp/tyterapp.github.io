@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:4181",
+  "measuredAt": "2026-11-01T23:34:44.519Z",
+  "paragraphs": 451,
+  "components": 80,
+  "cpuSlowdown": 4,
+  "typedCharacters": 24,
+  "typingWallMs": 5009,
+  "typingTaskMs": 5006,
+  "typingScriptMs": 3549,
+  "typingLayoutMs": 235,
+  "zoomChanges": 10,
+  "zoomWallMs": 2114,
+  "initialHeapMB": 9.92,
+  "finalHeapMB": 29.59,
+  "initialNodes": 6621,
+  "finalNodes": 6861,
+  "repeatedZoomHeapMB": 29.75,
+  "repeatedZoomNodes": 6861,
+  "undoRedo": "passed",
+  "saveReload": "passed"
+}
