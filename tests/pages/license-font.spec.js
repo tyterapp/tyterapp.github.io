@@ -16,10 +16,10 @@ test("license has a static page, canonical metadata and a sitemap entry; origina
   const html = await page.text();
   expect(html).toContain("Лицензия и пользовательское соглашение — Tyter");
   expect(html).toContain(
-    'rel="canonical" href="https://tyterapp.github.io/license"',
+    'rel="canonical" href="https://tyter.app/license"',
   );
   expect(await (await request.get("/sitemap.xml")).text()).toContain(
-    "https://tyterapp.github.io/license",
+    "https://tyter.app/license",
   );
   for (const name of ["Regular", "Bold"]) {
     const font = await request.get(

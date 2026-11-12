@@ -91,10 +91,10 @@ test("standalone telegraph has static metadata and the exact supplied 1200×630 
     const html = await response.text();
     expect(html).toContain("Tytergraph — написать телеграмму");
     expect(html).toMatch(
-      /property="og:image"\s+content="https:\/\/tyterapp.github.io\/telegraph\/cover-white-v1.png"/,
+      /property="og:image"\s+content="https:\/\/tyter\.app\/telegraph\/cover-white-v1.png"/,
     );
     expect(html).toContain(
-      'rel="canonical" href="https://tyterapp.github.io/tytergraph/"',
+      'rel="canonical" href="https://tyter.app/tytergraph/"',
     );
   }
   const response = await request.get("/telegraph/cover.png");
@@ -110,7 +110,7 @@ test("standalone telegraph has static metadata and the exact supplied 1200×630 
   expect((await versioned.body()).equals(supplied)).toBe(true);
   expect((await request.get("/telegraph/normal.png")).status()).toBe(200);
   expect(await (await request.get("/sitemap.xml")).text()).toContain(
-    "<loc>https://tyterapp.github.io/tytergraph</loc>",
+    "<loc>https://tyter.app/tytergraph</loc>",
   );
 });
 
@@ -666,9 +666,9 @@ test("standalone X crawler receives static card tags and a fresh JPEG while Open
     const html = await response.text();
     for (const [name, value] of [
       ["twitter:card", "summary_large_image"],
-      ["twitter:image", "https://tyterapp.github.io/telegraph/cover-x-v2.jpg"],
-      ["og:image", "https://tyterapp.github.io/telegraph/cover-white-v1.png"],
-      ["og:url", "https://tyterapp.github.io/tytergraph/"],
+      ["twitter:image", "https://tyter.app/telegraph/cover-x-v2.jpg"],
+      ["og:image", "https://tyter.app/telegraph/cover-white-v1.png"],
+      ["og:url", "https://tyter.app/tytergraph/"],
     ]) {
       const tags = html.match(
         new RegExp(
@@ -947,7 +947,7 @@ test("standalone legacy address redirects to Tytergraph without losing the draft
   const html = await response.text();
   expect(html).toContain('http-equiv="refresh" content="0;url=/tytergraph/"');
   expect(html).toContain(
-    'rel="canonical" href="https://tyterapp.github.io/tytergraph/"',
+    'rel="canonical" href="https://tyter.app/tytergraph/"',
   );
   await page.goto("/telegraph?from=legacy#draft");
   await expect(page).toHaveURL(/\/tytergraph\/\?from=legacy#draft$/);

@@ -173,7 +173,7 @@ for (const theme of ["light", "dark"]) {
       notice.getByRole("button", { name: "Закрыть уведомление" }),
     ).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 1000 });
-    const url = "https://tyterapp.github.io/blog/standarty-v-kino";
+    const url = "https://tyter.app/blog/standarty-v-kino";
     await expect(link).toHaveAttribute("href", url);
     await link.hover();
     await expect(link).toHaveCSS("color", BLACK);

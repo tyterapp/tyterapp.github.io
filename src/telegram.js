@@ -1,3 +1,5 @@
+import { SITE_ORIGIN } from "./site-origin.js";
+
 export const TELEGRAM_MAX_TEXT = 20000;
 
 // Only marked text in the current screenplay is shared. History and other
@@ -54,7 +56,7 @@ export function telegramLink(
 ) {
   const value = telegramDescriptor({ version: 1, text, language, title });
   if (!value) throw new Error("Invalid telegram");
-  let origin = "https://tyterapp.github.io";
+  let origin = SITE_ORIGIN;
   try {
     const address = new URL(base);
     if (["http:", "https:"].includes(address.protocol)) origin = address.origin;

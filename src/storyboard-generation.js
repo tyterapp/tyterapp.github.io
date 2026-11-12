@@ -1,9 +1,10 @@
 import { SHOT_FIELDS } from "./shot-info.js";
+import { SITE_ORIGIN } from "./site-origin.js";
 
 const BASE = "https://aihorde.net/api/v2";
 const HEADERS = {
   apikey: "0000000000",
-  "Client-Agent": "Tyter:1.0:https://tyterapp.github.io",
+  "Client-Agent": `Tyter:1.0:${SITE_ORIGIN}`,
 };
 const abortError = () => new DOMException("Generation cancelled", "AbortError");
 export class StoryboardGenerationError extends Error {

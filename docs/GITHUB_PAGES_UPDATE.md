@@ -2,7 +2,7 @@
 
 Инструкция для уже существующего репозитория **tyterapp/tyterapp.github.io** и вашей распакованной папки **D:/Tyter/publication/tyterapp.github.io**.
 
-Сайт приложения: https://tyterapp.github.io/. Список ключей хранится в уже созданном repository secret **TYTER_PRO_CODES** репозитория **tyterapp/tyterapp.github.io**, как на вашем скриншоте. GitHub Actions получает его при сборке и создаёт файл проверки https://tyterapp.github.io/codes-for-pro.txt. Браузер проверяет доступ по этому файлу; прежний адрес sergeybukharev.github.io не используется.
+Сайт приложения: https://tyter.app/. Список ключей хранится в уже созданном repository secret **TYTER_PRO_CODES** репозитория **tyterapp/tyterapp.github.io**, как на вашем скриншоте. GitHub Actions получает его при сборке и создаёт файл проверки https://tyter.app/codes-for-pro.txt. Браузер проверяет доступ по этому файлу; прежний адрес sergeybukharev.github.io не используется.
 
 Сборка публикует только хеши пар «ключ + email», без самих кодов и адресов. В секрете остаётся обычный формат `[ABC123][person@example.com]`. Не создавайте открытый файл с исходным списком в репозитории.
 
@@ -20,7 +20,7 @@
 cd /d/Tyter/publication/tyterapp.github.io
 pwd
 ls -a
-head -n 2 src/pro-access.js
+cat src/site-origin.js
 ```
 
 `pwd` должен показать `/d/Tyter/publication/tyterapp.github.io`. В списке должны быть `package.json`, `src`, `public`, `scripts` и `.github`.
@@ -28,7 +28,7 @@ head -n 2 src/pro-access.js
 Последняя команда должна показать:
 
 ```js
-export const PRO_CODES_URL = "https://tyterapp.github.io/codes-for-pro.txt";
+export const SITE_ORIGIN = "https://tyter.app";
 ```
 
 Если указан другой адрес, используйте обновлённые файлы из текущей папки D:/Tyter или свежий архив `D:/Tyter/publication/tyter-github-pages-source.zip`. Для распаковки свежего архива в эту папку:
@@ -82,12 +82,12 @@ node scripts/verify-frozen-dildamode.mjs
 Проверьте результат:
 
 ```bash
-head -n 2 src/pro-access.js
+cat src/site-origin.js
 git status --short
 git diff --stat
 ```
 
-Адрес в выводе снова должен быть `https://tyterapp.github.io/codes-for-pro.txt`.
+Адрес в выводе снова должен быть `https://tyter.app/codes-for-pro.txt`.
 
 ## Шаг 4. Проверьте сборку
 
@@ -186,11 +186,11 @@ git push origin main
 
 | Что проверить       | Адрес / ожидаемый результат                  |
 | ------------------- | -------------------------------------------- |
-| Лендинг             | https://tyterapp.github.io/                  |
-| Бесплатный редактор | https://tyterapp.github.io/free/             |
-| PRO                 | https://tyterapp.github.io/beta/             |
-| Страница ошибки     | https://tyterapp.github.io/404/              |
-| Список доступа      | https://tyterapp.github.io/codes-for-pro.txt |
+| Лендинг             | https://tyter.app/                  |
+| Бесплатный редактор | https://tyter.app/free/             |
+| PRO                 | https://tyter.app/beta/             |
+| Страница ошибки     | https://tyter.app/404/              |
+| Список доступа      | https://tyter.app/codes-for-pro.txt |
 
 1. Откройте лендинг и бесплатную версию. Обновление страницы на `/free/` должно снова открыть редактор.
 2. В PRO введите **email и ключ из одной строки списка в TYTER_PRO_CODES**. Формат строки: `[ABC123][person@example.com]`. Это пример, а не действующий ключ.
@@ -210,7 +210,7 @@ git push origin main
 
 Коммит для изменения секрета не нужен, но запуск workflow обязателен. Открытый PRO проверяет опубликованный список раз в минуту и при возвращении во вкладку. До новой публикации действует предыдущий список.
 
-По адресу https://tyterapp.github.io/codes-for-pro.txt должен открываться текст с полями `version`, `pairs` и `unassigned` и длинными хешами. Кодов и email там быть не должно. Не редактируйте этот опубликованный файл вручную — он создаётся сборкой из секрета.
+По адресу https://tyter.app/codes-for-pro.txt должен открываться текст с полями `version`, `pairs` и `unassigned` и длинными хешами. Кодов и email там быть не должно. Не редактируйте этот опубликованный файл вручную — он создаётся сборкой из секрета.
 
 ## Последующие обновления приложения
 

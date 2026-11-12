@@ -7,7 +7,7 @@ test("GitHub's common telegram preview has no QR pointing to an empty reader", a
 }) => {
   const html = await (await request.get("/telegram/")).text();
   expect(html).toMatch(
-    /property="og:image"\s+content="https:\/\/tyterapp\.github\.io\/telegram\/cover-generic-v2\.png"/,
+    /property="og:image"\s+content="https:\/\/tyter\.app\/telegram\/cover-generic-v2\.png"/,
   );
   for (const path of [
     "/telegram/cover-generic-v2.png",

@@ -4,6 +4,7 @@ import {
   HOUSE_SKINS,
   HOUSE_SKIN_PLACEMENT,
 } from "./house-skins.js";
+import { SITE_ORIGIN } from "./site-origin.js";
 export const HOUSE_ROOM = Object.freeze({
   version: 1,
   image: "/oiia/house-snapshot-v1.png",
@@ -67,7 +68,7 @@ export function houseSnapshotScene(pathname) {
 export function houseSnapshotLink(snapshot, base = globalThis.location?.href) {
   const descriptor = snapshotDescriptor(snapshot);
   if (!descriptor) throw new Error("Invalid house snapshot");
-  let origin = "https://tyterapp.github.io";
+  let origin = SITE_ORIGIN;
   try {
     const address = new URL(base);
     if (["http:", "https:"].includes(address.protocol)) origin = address.origin;

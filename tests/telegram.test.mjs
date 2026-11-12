@@ -12,7 +12,7 @@ import { encodeMorse } from "../src/morse.js";
 test("telegram links round-trip Unicode and use the public viewer on desktop", () => {
   const text = "МИР & HELLO\n123, ёж 🐈 <script>alert(1)</script>";
   const url = new URL(telegramLink(text, "ru", "tyter://app/free"));
-  assert.equal(url.origin, "https://tyterapp.github.io");
+  assert.equal(url.origin, "https://tyter.app");
   assert.equal(url.pathname, "/telegram/");
   assert.equal(url.search, "");
   assert.deepEqual(readTelegram(url.hash), {

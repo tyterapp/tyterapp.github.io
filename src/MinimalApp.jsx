@@ -3071,7 +3071,7 @@ export default function MinimalApp({ onLogout }) {
         key: "Для сценария лучше всего использовать Courier — это стандарт индустрии.",
         action: {
           label: "Подробнее",
-          href: "https://tyterapp.github.io/blog/standarty-v-kino",
+          href: "https://tyter.app/blog/standarty-v-kino",
           desktopSupport: "screenplay-standards",
         },
       });
@@ -3429,7 +3429,7 @@ export default function MinimalApp({ onLogout }) {
               <div className="menu-divider" />
               <a
                 className="menu-item"
-                href={window.tyterDesktop ? "https://tyterapp.github.io/" : "/"}
+                href={window.tyterDesktop ? "https://tyter.app/" : "/"}
                 onClick={async (event) => {
                   if (
                     !window.tyterDesktop &&

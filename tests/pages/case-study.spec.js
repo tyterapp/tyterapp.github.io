@@ -38,7 +38,7 @@ test("case has its own static route, social metadata and sitemap entry", async (
       "<title>Tyter — продуктовый кейс: от текста к кадру</title>",
     );
     expect(html).toContain(
-      'rel="canonical" href="https://tyterapp.github.io/case"',
+      'rel="canonical" href="https://tyter.app/case"',
     );
     expect(html).toContain(
       'property="og:title" content="Tyter — продуктовый кейс: от текста к кадру"',
@@ -46,7 +46,7 @@ test("case has its own static route, social metadata and sitemap entry", async (
     expect(html).not.toContain('content="noindex"');
   }
   expect(await (await request.get("/sitemap.xml")).text()).toContain(
-    "<loc>https://tyterapp.github.io/case</loc>",
+    "<loc>https://tyter.app/case</loc>",
   );
 });
 

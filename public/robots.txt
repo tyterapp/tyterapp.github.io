@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tyterapp.github.io/sitemap.xml
+Sitemap: https://tyter.app/sitemap.xml

@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import {
-  PRO_CODES_URL,
   PRO_SESSION_STORAGE,
   PRO_VERIFIED_STORAGE,
 } from "../src/pro-access.js";
@@ -17,7 +16,6 @@ test("beta requires email and key; a successful login persists across beta and p
   page,
   context,
 }) => {
-  expect(PRO_CODES_URL).toBe("https://tyterapp.github.io/codes-for-pro.txt");
   await page.route("**/__tyter_local/**", (route) =>
     route.fulfill({ status: 404 }),
   );
@@ -53,7 +51,7 @@ test("beta requires email and key; a successful login persists across beta and p
   expect(checks.length).toBeGreaterThanOrEqual(2);
   for (const check of checks) {
     const url = new URL(check.url);
-    expect(url.origin + url.pathname).toBe(PRO_CODES_URL);
+    expect(url.origin + url.pathname).toBe("https://tyter.app/codes-for-pro.txt");
     expect(check.method).toBe("GET");
     expect(url.searchParams.has("check")).toBe(true);
     expect(url.href).not.toContain(login.email);
@@ -73,7 +71,7 @@ test("beta requires email and key; a successful login persists across beta and p
   await reopened.goto("/pro");
   await expect(reopened.locator(".screenplay-editor")).toBeVisible();
   await expect(
-    reopened.getByRole("button", { name: "Аутлайн", exact: true }),
+    reopened.getByRole("button", { name: "Раскадровка", exact: true }),
   ).toBeVisible();
 });
 
@@ -113,11 +111,11 @@ test("free browser trial cannot be upgraded by a saved Pro session", async ({
     route.fulfill({ json: { documents: [] } }),
   );
   await page.goto("/free");
-  await page.getByRole("button", { name: "Аутлайн", exact: true }).click();
+  await page.getByRole("button", { name: "Раскадровка", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Полная версия Tyter" }),
   ).toBeVisible();
-  await expect(page.locator(".outline-layout")).toHaveCount(0);
+  await expect(page.locator(".storyboard-workspace")).toHaveCount(0);
 });
 
 test("minute recheck locks a removed pair and keeps local documents", async ({

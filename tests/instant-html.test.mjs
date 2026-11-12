@@ -58,7 +58,7 @@ test("read-only HTML contains both views, current frames, safe rich text and the
   assert.match(html, /data-view="storyboard"/);
   assert.match(html, /role="tabpanel"/);
   assert.match(html, /id="screenplay"[^>]* hidden/);
-  assert.match(html, /href="https:\/\/tyterapp.github.io\/free"/);
+  assert.match(html, /href="https:\/\/tyter\.app\/free"/);
   assert.match(html, /data:font\/ttf;base64,AAAA/);
   assert.match(html, /data:image\/png;base64,aGVsbG8=/);
   assert.match(html, /<strong>HELLO/);

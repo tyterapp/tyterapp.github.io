@@ -1,4 +1,6 @@
-export const PRO_CODES_URL = "https://tyterapp.github.io/codes-for-pro.txt";
+import { SITE_ORIGIN } from "./site-origin.js";
+
+export const PRO_CODES_URL = `${SITE_ORIGIN}/codes-for-pro.txt`;
 export const PRO_SESSION_STORAGE = "tyter.webPro.session.v2";
 export const PRO_VERIFIED_STORAGE = "tyter.webPro.verified.v1";
 const MAX_FILE_SIZE = 1024 * 1024;

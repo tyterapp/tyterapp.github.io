@@ -32,7 +32,7 @@ test("house social covers are in the first HTML response for crawlers, with one 
           ),
         )?.[1];
       expect(meta("og:image")).toBe(
-        `https://tyterapp.github.io${route}cover.png`,
+        `https://tyter.app${route}cover.png`,
       );
       expect(meta("og:image:secure_url")).toBe(meta("og:image"));
       expect(meta("twitter:image")).toBe(meta("og:image"));
@@ -41,8 +41,8 @@ test("house social covers are in the first HTML response for crawlers, with one 
       expect(meta("og:image:width")).toBe("1200");
       expect(meta("og:image:height")).toBe("630");
       expect(meta("og:image:alt")).toBeTruthy();
-      expect(meta("og:url")).toBe(`https://tyterapp.github.io${route}`);
-      expect(html).toContain(`href="https://tyterapp.github.io${route}"`);
+      expect(meta("og:url")).toBe(`https://tyter.app${route}`);
+      expect(html).toContain(`href="https://tyter.app${route}"`);
       expect(meta("og:image")).not.toContain("blob:");
     }
     const png = await request.get(`${route}cover.png`);
@@ -61,7 +61,7 @@ test("house social covers are in the first HTML response for crawlers, with one 
   expect(hashes.size).toBe(HOUSE_SNAPSHOT_SCENES.length);
   const legacy = await (await request.get("/house/")).text();
   expect(legacy).toMatch(
-    /property="og:image"\s+content="https:\/\/tyterapp.github.io\/house\/v1\/empty\/cover.png"/,
+    /property="og:image"\s+content="https:\/\/tyter\.app\/house\/v1\/empty\/cover.png"/,
   );
 });
 

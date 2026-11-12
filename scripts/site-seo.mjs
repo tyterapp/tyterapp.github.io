@@ -1,13 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { BLOG_ARTICLES } from "../src/site-content.js";
+import { SITE_ORIGIN as origin } from "../src/site-origin.js";
 import {
   HOUSE_SNAPSHOT_SCENES,
   houseSnapshotScene,
   houseSnapshotRoute,
 } from "../src/house-snapshot.js";
 
-const origin = "https://tyterapp.github.io";
 const escape = (value) =>
   value
     .replaceAll("&", "&amp;")

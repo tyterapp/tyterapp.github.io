@@ -19,7 +19,7 @@ test("personal covers contain a decodable unique QR and long offline links never
   const link = telegramLink(
     telegram.text,
     "ru",
-    "https://tyterapp.github.io",
+    "https://tyter.app",
     telegram.title,
   );
   assert.equal(readTelegram(new URL(link).hash).title, telegram.title);
@@ -39,7 +39,7 @@ test("personal covers contain a decodable unique QR and long offline links never
   const secondLink = telegramLink(
     second.text,
     "ru",
-    "https://tyterapp.github.io",
+    "https://tyter.app",
     second.title,
   );
   assert.notEqual(secondLink, link);
@@ -51,7 +51,7 @@ test("personal covers contain a decodable unique QR and long offline links never
   assert.equal(jsQR(secondPixels.data, 320, 320)?.data, secondLink);
   assert.equal(paintTelegramCover(canvas, second, link).qrAvailable, false);
   assert.equal(
-    paintTelegramCover(canvas, telegram, "https://tyterapp.github.io/telegram/")
+    paintTelegramCover(canvas, telegram, "https://tyter.app/telegram/")
       .qrAvailable,
     false,
   );
@@ -102,7 +102,7 @@ test("sharing service publishes only chosen text/title and serves immutable HTML
         method: "POST",
         headers: {
           "content-type": "application/json",
-          origin: "https://tyterapp.github.io",
+          origin: "https://tyter.app",
         },
         body: JSON.stringify(body),
       });

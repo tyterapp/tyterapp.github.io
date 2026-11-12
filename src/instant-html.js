@@ -262,7 +262,7 @@ export function instantHTML(
     fonts = [],
     view = "screenplay",
     language = "ru",
-    editorURL = "https://tyterapp.github.io/free",
+    editorURL = "https://tyter.app/free",
   } = {},
 ) {
   const en = language === "en",
@@ -350,10 +350,10 @@ export function instantHTML(
   const initial = view === "storyboard" ? "storyboard" : "screenplay";
   const edit = /^https?:\/\//.test(editorURL)
     ? editorURL
-    : "https://tyterapp.github.io/free";
+    : "https://tyter.app/free";
   return `<!doctype html>
 <html lang="${en ? "en" : "ru"}" data-view="${initial}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escape(title)} — Tyter</title><meta name="description" content="${escape(tr("Сценарий и раскадровка · Только чтение", "Screenplay and storyboard · Read only"))}"><style>${fontCSS}${readerCSS}</style></head>
-<body><header class="reader-header"><a class="reader-brand" href="https://tyterapp.github.io/">Tyter</a><h1>${escape(title)}</h1><nav role="tablist" aria-label="${tr("Режим просмотра", "Reading mode")}"><button id="tab-screenplay" role="tab" data-view="screenplay" aria-controls="screenplay" aria-selected="${initial === "screenplay"}" tabindex="${initial === "screenplay" ? 0 : -1}">${tr("Сценарий", "Screenplay")}</button><button id="tab-storyboard" role="tab" data-view="storyboard" aria-controls="storyboard" aria-selected="${initial === "storyboard"}" tabindex="${initial === "storyboard" ? 0 : -1}">${tr("Раскадровка", "Storyboard")}</button></nav><a class="edit-link" href="${escape(edit)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m15 5 4 4M4 20l5-1L20 8a3 3 0 0 0-4-4L5 15z"/></svg><span>${tr("Редактировать", "Edit")}</span></a></header>
+<body><header class="reader-header"><a class="reader-brand" href="https://tyter.app/">Tyter</a><h1>${escape(title)}</h1><nav role="tablist" aria-label="${tr("Режим просмотра", "Reading mode")}"><button id="tab-screenplay" role="tab" data-view="screenplay" aria-controls="screenplay" aria-selected="${initial === "screenplay"}" tabindex="${initial === "screenplay" ? 0 : -1}">${tr("Сценарий", "Screenplay")}</button><button id="tab-storyboard" role="tab" data-view="storyboard" aria-controls="storyboard" aria-selected="${initial === "storyboard"}" tabindex="${initial === "storyboard" ? 0 : -1}">${tr("Раскадровка", "Storyboard")}</button></nav><a class="edit-link" href="${escape(edit)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m15 5 4 4M4 20l5-1L20 8a3 3 0 0 0-4-4L5 15z"/></svg><span>${tr("Редактировать", "Edit")}</span></a></header>
 <main><div class="reader-intro"><h2>${escape(title)}</h2><p>${[document.metadata?.author, document.metadata?.year, document.metadata?.email].filter(Boolean).map(escape).join(" · ")}</p>${validFrameImage(document.metadata?.poster) ? `<img class="poster" src="${document.metadata.poster}" alt="${escape(title)}">` : ""}</div><section id="screenplay" role="tabpanel" aria-labelledby="tab-screenplay"${initial !== "screenplay" ? " hidden" : ""}>${screenplay}</section><section id="storyboard" class="reader-board" role="tabpanel" aria-labelledby="tab-storyboard"${initial !== "storyboard" ? " hidden" : ""}>${storyboard || `<p class="reader-empty">${tr("В документе пока нет сцен", "No scenes in this document yet")}</p>`}</section></main>${readerFooter(tr, initial)}<script type="application/json" id="reader-data">${readerJSON(readerExportData(document))}</script><script>${readerScript}</script></body></html>`;
 }
 
@@ -374,7 +374,7 @@ export async function exportInstantHTML(
   };
   const origin = ["http:", "https:"].includes(globalThis.location?.protocol)
     ? location.origin
-    : "https://tyterapp.github.io";
+    : "https://tyter.app";
   return new Blob(
     [
       instantHTML(document, {

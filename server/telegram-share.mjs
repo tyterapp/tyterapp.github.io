@@ -66,7 +66,7 @@ export function createTelegramHandler({
   site,
   store,
   origin,
-  allowedOrigins = ["https://tyterapp.github.io"],
+  allowedOrigins = ["https://tyter.app"],
 }) {
   const base = new URL(origin).origin,
     allowed = new Set([base, ...allowedOrigins]);

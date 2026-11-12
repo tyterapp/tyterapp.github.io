@@ -21,11 +21,11 @@ test("social previews and route-specific SEO exist in the static HTML without Ja
     );
     expect(html).toMatch(
       new RegExp(
-        `<link\\s+rel="canonical"\\s+href="https://tyterapp.github.io${route}"`,
+        `<link\\s+rel="canonical"\\s+href="https://tyter.app${route}"`,
       ),
     );
     expect(html).toMatch(
-      /property="og:image"\s+content="https:\/\/tyterapp.github.io\/brand\/tyter-social-cover.png"/,
+      /property="og:image"\s+content="https:\/\/tyter\.app\/brand\/tyter-social-cover.png"/,
     );
     expect(html).toMatch(/name="twitter:card"\s+content="summary_large_image"/);
     const description = html.match(/name="description"\s+content="([^"]+)"/)[1];
@@ -47,10 +47,10 @@ test("social previews and route-specific SEO exist in the static HTML without Ja
     2400, 1260,
   ]);
   expect(await (await request.get("/robots.txt")).text()).toContain(
-    "Sitemap: https://tyterapp.github.io/sitemap.xml",
+    "Sitemap: https://tyter.app/sitemap.xml",
   );
   expect(await (await request.get("/sitemap.xml")).text()).toContain(
-    "<loc>https://tyterapp.github.io/b</loc>",
+    "<loc>https://tyter.app/b</loc>",
   );
 });
 
